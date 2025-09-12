@@ -1,0 +1,108 @@
+Issue Type,Issue Id,Summary,Description,Acceptance Criteria (BDD),Labels,Components,Priority,Story Points,Epic Name,Epic Link,Parent Id
+Epic,EP-MVP-2W,EP: 2-week MVP — Profile Service (Spring Boot + Spring Cloud),"Пет-проект: запустить за 2 недели профиль-сервис на Spring Boot 3 с простым CRUD, Discovery (возраст+пагинация), упрощённой аутентификацией, Actuator/Micrometer, CI и Spring Cloud (Eureka/Config/Gateway).",,"mvp-2w,spring-boot,spring-cloud,tdd","profile-service,platform",High,,EP: 2-week MVP — Profile Service (Spring Boot + Spring Cloud),,
+Story,S-MVP-01,Bootstrap: Spring Boot skeleton + Flyway + OpenAPI,"Инициализация проекта: контроллер/сервис/репозиторий, springdoc-openapi, Flyway миграции, профили env (dev,test).","Given новый проект
+When приложение стартует
+Then /actuator/health=UP и Swagger UI на /swagger-ui доступен","spring-boot,bootstrap,openapi,flyway",profile-service,High,3,,EP-MVP-2W,
+Sub-task,T-S-MVP-01-1,TDD: Red tests,"Написать падающие unit/api тесты (JUnit5, Spring MVC Test/RestAssured, Testcontainers где уместно).",,"spring-boot,bootstrap,openapi,flyway,tdd",profile-service,High,,,,S-MVP-01
+Sub-task,T-S-MVP-01-2,TDD: Green impl,Минимальная реализация для прохождения тестов.,,"spring-boot,bootstrap,openapi,flyway,tdd",profile-service,High,,,,S-MVP-01
+Sub-task,T-S-MVP-01-3,TDD: Refactor,Рефакторинг/очистка кода без изменения поведения.,,"spring-boot,bootstrap,openapi,flyway,tdd",profile-service,Medium,,,,S-MVP-01
+Sub-task,T-S-MVP-01-4,TDD: Negative & edge,"Негативные/пограничные сценарии (валидация, 4xx/5xx, пустые/большие входы).",,"spring-boot,bootstrap,openapi,flyway,tdd",profile-service,Medium,,,,S-MVP-01
+Sub-task,T-S-MVP-01-5,TDD: Docs & OpenAPI,"Обновить springdoc-openapi и README/ADR, примеры запросов/ответов.",,"spring-boot,bootstrap,openapi,flyway,tdd",profile-service,Medium,,,,S-MVP-01
+Story,S-MVP-02,docker-compose: Postgres + Eureka + Config + Gateway + Profile,Единый compose для локального запуска стека.,"Given docker compose up
+When обращаемся к gateway
+Then маршруты работают; все сервисы в статусе UP","docker,compose,local",platform,High,3,,EP-MVP-2W,
+Sub-task,T-S-MVP-02-1,TDD: Red tests,"Написать падающие unit/api тесты (JUnit5, Spring MVC Test/RestAssured, Testcontainers где уместно).",,"docker,compose,local,tdd",profile-service,High,,,,S-MVP-02
+Sub-task,T-S-MVP-02-2,TDD: Green impl,Минимальная реализация для прохождения тестов.,,"docker,compose,local,tdd",profile-service,High,,,,S-MVP-02
+Sub-task,T-S-MVP-02-3,TDD: Refactor,Рефакторинг/очистка кода без изменения поведения.,,"docker,compose,local,tdd",profile-service,Medium,,,,S-MVP-02
+Sub-task,T-S-MVP-02-4,TDD: Negative & edge,"Негативные/пограничные сценарии (валидация, 4xx/5xx, пустые/большие входы).",,"docker,compose,local,tdd",profile-service,Medium,,,,S-MVP-02
+Sub-task,T-S-MVP-02-5,TDD: Docs & OpenAPI,"Обновить springdoc-openapi и README/ADR, примеры запросов/ответов.",,"docker,compose,local,tdd",profile-service,Medium,,,,S-MVP-02
+Story,S-MVP-03,Config Server (git backend) + Profile как Config Client,"Запуск Config Server (git-бэкенд); подключить профиль-сервис как config client (fail-fast, /actuator/refresh).","Given config-server запущен и есть git-репо конфигов
+When GET /{app}/{profile}
+Then возвращается YAML
+And профиль-сервис читает настройки при старте","spring-cloud,config-server,config-client","platform,profile-service",High,3,,EP-MVP-2W,
+Sub-task,T-S-MVP-03-1,TDD: Red tests,"Написать падающие unit/api тесты (JUnit5, Spring MVC Test/RestAssured, Testcontainers где уместно).",,"spring-cloud,config-server,config-client,tdd",profile-service,High,,,,S-MVP-03
+Sub-task,T-S-MVP-03-2,TDD: Green impl,Минимальная реализация для прохождения тестов.,,"spring-cloud,config-server,config-client,tdd",profile-service,High,,,,S-MVP-03
+Sub-task,T-S-MVP-03-3,TDD: Refactor,Рефакторинг/очистка кода без изменения поведения.,,"spring-cloud,config-server,config-client,tdd",profile-service,Medium,,,,S-MVP-03
+Sub-task,T-S-MVP-03-4,TDD: Negative & edge,"Негативные/пограничные сценарии (валидация, 4xx/5xx, пустые/большие входы).",,"spring-cloud,config-server,config-client,tdd",profile-service,Medium,,,,S-MVP-03
+Sub-task,T-S-MVP-03-5,TDD: Docs & OpenAPI,"Обновить springdoc-openapi и README/ADR, примеры запросов/ответов.",,"spring-cloud,config-server,config-client,tdd",profile-service,Medium,,,,S-MVP-03
+Story,S-MVP-04,Eureka Server + регистрация Profile Service,Запуск Eureka Server; регистрация profile-service как клиента (healthcheck метаданные).,"Given eureka запущен
+When открываем дашборд
+Then profile-service зарегистрирован со статусом UP","spring-cloud,eureka","platform,profile-service",High,3,,EP-MVP-2W,
+Sub-task,T-S-MVP-04-1,TDD: Red tests,"Написать падающие unit/api тесты (JUnit5, Spring MVC Test/RestAssured, Testcontainers где уместно).",,"spring-cloud,eureka,tdd",profile-service,High,,,,S-MVP-04
+Sub-task,T-S-MVP-04-2,TDD: Green impl,Минимальная реализация для прохождения тестов.,,"spring-cloud,eureka,tdd",profile-service,High,,,,S-MVP-04
+Sub-task,T-S-MVP-04-3,TDD: Refactor,Рефакторинг/очистка кода без изменения поведения.,,"spring-cloud,eureka,tdd",profile-service,Medium,,,,S-MVP-04
+Sub-task,T-S-MVP-04-4,TDD: Negative & edge,"Негативные/пограничные сценарии (валидация, 4xx/5xx, пустые/большие входы).",,"spring-cloud,eureka,tdd",profile-service,Medium,,,,S-MVP-04
+Sub-task,T-S-MVP-04-5,TDD: Docs & OpenAPI,"Обновить springdoc-openapi и README/ADR, примеры запросов/ответов.",,"spring-cloud,eureka,tdd",profile-service,Medium,,,,S-MVP-04
+Story,S-MVP-05,Gateway маршрут /api/profiles/** через serviceId,Spring Cloud Gateway проксирует запросы к profile-service по serviceId через Eureka.,"Given gateway+eureka+profile-service запущены
+When вызываем /api/profiles/**
+Then запрос уходит в profile-service и возвращает ответ","spring-cloud,gateway,routing",platform,High,3,,EP-MVP-2W,
+Sub-task,T-S-MVP-05-1,TDD: Red tests,"Написать падающие unit/api тесты (JUnit5, Spring MVC Test/RestAssured, Testcontainers где уместно).",,"spring-cloud,gateway,routing,tdd",profile-service,High,,,,S-MVP-05
+Sub-task,T-S-MVP-05-2,TDD: Green impl,Минимальная реализация для прохождения тестов.,,"spring-cloud,gateway,routing,tdd",profile-service,High,,,,S-MVP-05
+Sub-task,T-S-MVP-05-3,TDD: Refactor,Рефакторинг/очистка кода без изменения поведения.,,"spring-cloud,gateway,routing,tdd",profile-service,Medium,,,,S-MVP-05
+Sub-task,T-S-MVP-05-4,TDD: Negative & edge,"Негативные/пограничные сценарии (валидация, 4xx/5xx, пустые/большие входы).",,"spring-cloud,gateway,routing,tdd",profile-service,Medium,,,,S-MVP-05
+Sub-task,T-S-MVP-05-5,TDD: Docs & OpenAPI,"Обновить springdoc-openapi и README/ADR, примеры запросов/ответов.",,"spring-cloud,gateway,routing,tdd",profile-service,Medium,,,,S-MVP-05
+Story,S-MVP-06,Simple auth: X-User-Id header,SecurityFilterChain; извлекать X-User-Id в SecurityContext; открыть /actuator/** и /swagger-ui/**.,"Given нет X-User-Id
+When защищённый запрос
+Then 401; при корректном заголовке — 200","security,lean",profile-service,High,2,,EP-MVP-2W,
+Sub-task,T-S-MVP-06-1,TDD: Red tests,"Написать падающие unit/api тесты (JUnit5, Spring MVC Test/RestAssured, Testcontainers где уместно).",,"security,lean,tdd",profile-service,High,,,,S-MVP-06
+Sub-task,T-S-MVP-06-2,TDD: Green impl,Минимальная реализация для прохождения тестов.,,"security,lean,tdd",profile-service,High,,,,S-MVP-06
+Sub-task,T-S-MVP-06-3,TDD: Refactor,Рефакторинг/очистка кода без изменения поведения.,,"security,lean,tdd",profile-service,Medium,,,,S-MVP-06
+Sub-task,T-S-MVP-06-4,TDD: Negative & edge,"Негативные/пограничные сценарии (валидация, 4xx/5xx, пустые/большие входы).",,"security,lean,tdd",profile-service,Medium,,,,S-MVP-06
+Sub-task,T-S-MVP-06-5,TDD: Docs & OpenAPI,"Обновить springdoc-openapi и README/ADR, примеры запросов/ответов.",,"security,lean,tdd",profile-service,Medium,,,,S-MVP-06
+Story,S-MVP-07,Create profile (POST /api/v1/profiles),"Поля: name, age>=18, bio<=500, location; валидация; сохранение в Postgres (JPA).","Given валидный X-User-Id и тело запроса
+When POST /api/v1/profiles
+Then 201 + JSON с profileId; запись создана в БД","profiles,api",profile-service,High,5,,EP-MVP-2W,
+Sub-task,T-S-MVP-07-1,TDD: Red tests,"Написать падающие unit/api тесты (JUnit5, Spring MVC Test/RestAssured, Testcontainers где уместно).",,"profiles,api,tdd",profile-service,High,,,,S-MVP-07
+Sub-task,T-S-MVP-07-2,TDD: Green impl,Минимальная реализация для прохождения тестов.,,"profiles,api,tdd",profile-service,High,,,,S-MVP-07
+Sub-task,T-S-MVP-07-3,TDD: Refactor,Рефакторинг/очистка кода без изменения поведения.,,"profiles,api,tdd",profile-service,Medium,,,,S-MVP-07
+Sub-task,T-S-MVP-07-4,TDD: Negative & edge,"Негативные/пограничные сценарии (валидация, 4xx/5xx, пустые/большие входы).",,"profiles,api,tdd",profile-service,Medium,,,,S-MVP-07
+Sub-task,T-S-MVP-07-5,TDD: Docs & OpenAPI,"Обновить springdoc-openapi и README/ADR, примеры запросов/ответов.",,"profiles,api,tdd",profile-service,Medium,,,,S-MVP-07
+Story,S-MVP-08,Get profile by ID (GET /api/v1/profiles/{id}),"Возврат профиля по id, DTO/mapper.","Given существующий profileId
+When GET /api/v1/profiles/{id}
+Then 200; JSON соответствует схеме","profiles,api",profile-service,High,3,,EP-MVP-2W,
+Sub-task,T-S-MVP-08-1,TDD: Red tests,"Написать падающие unit/api тесты (JUnit5, Spring MVC Test/RestAssured, Testcontainers где уместно).",,"profiles,api,tdd",profile-service,High,,,,S-MVP-08
+Sub-task,T-S-MVP-08-2,TDD: Green impl,Минимальная реализация для прохождения тестов.,,"profiles,api,tdd",profile-service,High,,,,S-MVP-08
+Sub-task,T-S-MVP-08-3,TDD: Refactor,Рефакторинг/очистка кода без изменения поведения.,,"profiles,api,tdd",profile-service,Medium,,,,S-MVP-08
+Sub-task,T-S-MVP-08-4,TDD: Negative & edge,"Негативные/пограничные сценарии (валидация, 4xx/5xx, пустые/большие входы).",,"profiles,api,tdd",profile-service,Medium,,,,S-MVP-08
+Sub-task,T-S-MVP-08-5,TDD: Docs & OpenAPI,"Обновить springdoc-openapi и README/ADR, примеры запросов/ответов.",,"profiles,api,tdd",profile-service,Medium,,,,S-MVP-08
+Story,S-MVP-09,Update profile (PUT /api/v1/profiles/{id}),Редактирование полей; проверка владения по X-User-Id.,"Given профиль принадлежит пользователю
+When PUT /api/v1/profiles/{id}
+Then 200; поля обновлены в БД","profiles,api",profile-service,High,5,,EP-MVP-2W,
+Sub-task,T-S-MVP-09-1,TDD: Red tests,"Написать падающие unit/api тесты (JUnit5, Spring MVC Test/RestAssured, Testcontainers где уместно).",,"profiles,api,tdd",profile-service,High,,,,S-MVP-09
+Sub-task,T-S-MVP-09-2,TDD: Green impl,Минимальная реализация для прохождения тестов.,,"profiles,api,tdd",profile-service,High,,,,S-MVP-09
+Sub-task,T-S-MVP-09-3,TDD: Refactor,Рефакторинг/очистка кода без изменения поведения.,,"profiles,api,tdd",profile-service,Medium,,,,S-MVP-09
+Sub-task,T-S-MVP-09-4,TDD: Negative & edge,"Негативные/пограничные сценарии (валидация, 4xx/5xx, пустые/большие входы).",,"profiles,api,tdd",profile-service,Medium,,,,S-MVP-09
+Sub-task,T-S-MVP-09-5,TDD: Docs & OpenAPI,"Обновить springdoc-openapi и README/ADR, примеры запросов/ответов.",,"profiles,api,tdd",profile-service,Medium,,,,S-MVP-09
+Story,S-MVP-10,Soft delete (DELETE /api/v1/profiles/{id}),Пометка isDeleted=true; скрывать удалённые из выборок.,"Given профиль существует и принадлежит пользователю
+When DELETE /api/v1/profiles/{id}
+Then 204; isDeleted=true; повторные GET не возвращают запись","profiles,api",profile-service,High,3,,EP-MVP-2W,
+Sub-task,T-S-MVP-10-1,TDD: Red tests,"Написать падающие unit/api тесты (JUnit5, Spring MVC Test/RestAssured, Testcontainers где уместно).",,"profiles,api,tdd",profile-service,High,,,,S-MVP-10
+Sub-task,T-S-MVP-10-2,TDD: Green impl,Минимальная реализация для прохождения тестов.,,"profiles,api,tdd",profile-service,High,,,,S-MVP-10
+Sub-task,T-S-MVP-10-3,TDD: Refactor,Рефакторинг/очистка кода без изменения поведения.,,"profiles,api,tdd",profile-service,Medium,,,,S-MVP-10
+Sub-task,T-S-MVP-10-4,TDD: Negative & edge,"Негативные/пограничные сценарии (валидация, 4xx/5xx, пустые/большие входы).",,"profiles,api,tdd",profile-service,Medium,,,,S-MVP-10
+Sub-task,T-S-MVP-10-5,TDD: Docs & OpenAPI,"Обновить springdoc-openapi и README/ADR, примеры запросов/ответов.",,"profiles,api,tdd",profile-service,Medium,,,,S-MVP-10
+Story,S-MVP-11,Discover by age + pagination (GET /api/v1/profiles?ageMin&ageMax&page&size),"Фильтрация по возрастному диапазону, Pageable; исключать isDeleted.","Given анкеты разных возрастов
+When GET /profiles?ageMin=25&ageMax=35&page=0&size=20
+Then 200; профили соответствуют диапазону; пагинация корректна","discovery,api",profile-service,High,5,,EP-MVP-2W,
+Sub-task,T-S-MVP-11-1,TDD: Red tests,"Написать падающие unit/api тесты (JUnit5, Spring MVC Test/RestAssured, Testcontainers где уместно).",,"discovery,api,tdd",profile-service,High,,,,S-MVP-11
+Sub-task,T-S-MVP-11-2,TDD: Green impl,Минимальная реализация для прохождения тестов.,,"discovery,api,tdd",profile-service,High,,,,S-MVP-11
+Sub-task,T-S-MVP-11-3,TDD: Refactor,Рефакторинг/очистка кода без изменения поведения.,,"discovery,api,tdd",profile-service,Medium,,,,S-MVP-11
+Sub-task,T-S-MVP-11-4,TDD: Negative & edge,"Негативные/пограничные сценарии (валидация, 4xx/5xx, пустые/большие входы).",,"discovery,api,tdd",profile-service,Medium,,,,S-MVP-11
+Sub-task,T-S-MVP-11-5,TDD: Docs & OpenAPI,"Обновить springdoc-openapi и README/ADR, примеры запросов/ответов.",,"discovery,api,tdd",profile-service,Medium,,,,S-MVP-11
+Story,S-MVP-12,Actuator + Micrometer: метрики таймингов по ключевым ручкам,Включить таймеры и счётчики для CRUD и discover; endpoint /actuator/prometheus при необходимости.,"Given приложение запущено
+When GET /actuator/health
+Then статус UP
+And метрики по CRUD/discover доступны","observability,actuator,micrometer",profile-service,High,2,,EP-MVP-2W,
+Sub-task,T-S-MVP-12-1,TDD: Red tests,"Написать падающие unit/api тесты (JUnit5, Spring MVC Test/RestAssured, Testcontainers где уместно).",,"observability,actuator,micrometer,tdd",profile-service,High,,,,S-MVP-12
+Sub-task,T-S-MVP-12-2,TDD: Green impl,Минимальная реализация для прохождения тестов.,,"observability,actuator,micrometer,tdd",profile-service,High,,,,S-MVP-12
+Sub-task,T-S-MVP-12-3,TDD: Refactor,Рефакторинг/очистка кода без изменения поведения.,,"observability,actuator,micrometer,tdd",profile-service,Medium,,,,S-MVP-12
+Sub-task,T-S-MVP-12-4,TDD: Negative & edge,"Негативные/пограничные сценарии (валидация, 4xx/5xx, пустые/большие входы).",,"observability,actuator,micrometer,tdd",profile-service,Medium,,,,S-MVP-12
+Sub-task,T-S-MVP-12-5,TDD: Docs & OpenAPI,"Обновить springdoc-openapi и README/ADR, примеры запросов/ответов.",,"observability,actuator,micrometer,tdd",profile-service,Medium,,,,S-MVP-12
+Story,S-MVP-13,CI (GitHub Actions): build + tests + Jacoco ≥70% + Testcontainers,"Workflow с сборкой, юнит/интеграционными тестами (Postgres Testcontainers), порог покрытия 70%.","Given открыт PR
+When запускается workflow
+Then все шаги зелёные; покрытие ≥70%; PR блокируется при провале","ci-cd,jacoco,testcontainers",platform,High,3,,EP-MVP-2W,
+Sub-task,T-S-MVP-13-1,TDD: Red tests,"Написать падающие unit/api тесты (JUnit5, Spring MVC Test/RestAssured, Testcontainers где уместно).",,"ci-cd,jacoco,testcontainers,tdd",profile-service,High,,,,S-MVP-13
+Sub-task,T-S-MVP-13-2,TDD: Green impl,Минимальная реализация для прохождения тестов.,,"ci-cd,jacoco,testcontainers,tdd",profile-service,High,,,,S-MVP-13
+Sub-task,T-S-MVP-13-3,TDD: Refactor,Рефакторинг/очистка кода без изменения поведения.,,"ci-cd,jacoco,testcontainers,tdd",profile-service,Medium,,,,S-MVP-13
+Sub-task,T-S-MVP-13-4,TDD: Negative & edge,"Негативные/пограничные сценарии (валидация, 4xx/5xx, пустые/большие входы).",,"ci-cd,jacoco,testcontainers,tdd",profile-service,Medium,,,,S-MVP-13
+Sub-task,T-S-MVP-13-5,TDD: Docs & OpenAPI,"Обновить springdoc-openapi и README/ADR, примеры запросов/ответов.",,"ci-cd,jacoco,testcontainers,tdd",profile-service,Medium,,,,S-MVP-13
