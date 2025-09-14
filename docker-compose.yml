@@ -1,1 +1,8 @@
 services:
+  profile_service:
+    networks:
+      - supabase_network_michael
+
+networks:
+  supabase_network_michael:
+    external: true

@@ -1,0 +1,15 @@
+server:
+  port: 8010
+spring:
+  datasource:
+    url: jdbc:postgresql://127.0.0.1:54322/postgres
+    username: postgres
+    password: postgres
+  jpa:
+    hibernate:
+      ddl-auto: create
+    show-sql: true
+logging:
+  level:
+    org.hibernate.SQL: DEBUG
+    org.hibernate.type.descriptor.sql.BasicBinder: TRACE
