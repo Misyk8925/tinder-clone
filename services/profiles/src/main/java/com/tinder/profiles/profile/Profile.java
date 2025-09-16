@@ -1,6 +1,7 @@
 package com.tinder.profiles.profile;
 
 import com.tinder.profiles.location.Location;
+import com.tinder.profiles.preferences.Preferences;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.NotNull;
 import lombok.*;
@@ -39,6 +40,10 @@ public class Profile {
     @OneToOne(fetch = FetchType.LAZY, cascade = CascadeType.ALL, optional = false, orphanRemoval = true)
     @JoinColumn(name = "location_id", nullable = false)
     private Location location;
+
+    @ManyToOne(fetch = FetchType.LAZY, cascade = CascadeType.ALL, optional = false)
+    @JoinColumn(name = "preferences_id", nullable = false)
+    private Preferences preferences;
 
     @Column(name = "created_at")
     private LocalDateTime createdAt;
