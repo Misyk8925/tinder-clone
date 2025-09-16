@@ -22,8 +22,8 @@ public class Profile {
     @Column(name = "id", nullable = false)
     private UUID profileId;
 
-    @Column(name = "first_name", nullable = false)
-    private String firstName;
+    @Column(name = "name", nullable = false)
+    private String name;
 
     @Column(name = "age", nullable = false)
     private Integer age;

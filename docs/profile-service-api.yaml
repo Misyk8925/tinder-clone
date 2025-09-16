@@ -1,0 +1,1037 @@
+openapi: 3.0.3
+info:
+  title: Profile Service API
+  description: |
+    # Profile Service MVP - Dating App Backend
+    
+    This service manages user profiles for a Tinder-like dating application.
+    
+    ## Core Features
+    - ✅ Create and manage user profiles
+    - ✅ Upload and manage profile photos via AWS S3
+    - ✅ Discover profiles for matching based on location and preferences
+    - ✅ Basic preference settings (age range, distance)
+    
+    ## Authentication
+    All endpoints require a valid JWT token in the Authorization header.
+    
+    ## Rate Limits
+    - Profile operations: 100 requests per minute per user
+    - Photo uploads: 10 uploads per 15 minutes per user
+    - Discovery: 200 requests per hour per user
+    
+    ## Error Handling
+    All errors follow RFC 7807 Problem Details format.
+
+  version: 1.0.0
+  contact:
+    name: Dating App Backend Team
+    email: backend@datingapp.com
+  license:
+    name: MIT
+    url: https://opensource.org/licenses/MIT
+
+servers:
+  - url: https://api.datingapp.com/v1
+    description: Production server
+  - url: https://staging-api.datingapp.com/v1
+    description: Staging server
+  - url: http://localhost:8080/v1
+    description: Local development server
+
+security:
+  - bearerAuth: []
+
+paths:
+  /profiles:
+    post:
+      summary: Create a new profile
+      description: |
+        Creates a new user profile. Each user can only have one profile.
+        The user ID is extracted from the JWT token.
+      operationId: createProfile
+      tags:
+        - Profiles
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateProfileRequest'
+            examples:
+              basic_profile:
+                summary: Basic profile creation
+                value:
+                  firstName: "Sarah"
+                  age: 28
+                  bio: "Love hiking, coffee, and good conversations. Looking for someone genuine!"
+                  city: "San Francisco"
+                  location:
+                    latitude: 37.7749
+                    longitude: -122.4194
+                  preferences:
+                    minAge: 25
+                    maxAge: 35
+                    maxDistance: 25
+      responses:
+        '201':
+          description: Profile created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CreateProfileResponse'
+              example:
+                profileId: "123e4567-e89b-12d3-a456-426614174000"
+                status: "created"
+                message: "Profile created successfully"
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '409':
+          description: Profile already exists for this user
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error:
+                  code: "PROFILE_ALREADY_EXISTS"
+                  message: "User already has a profile"
+                  timestamp: "2024-01-15T10:30:00Z"
+        '422':
+          $ref: '#/components/responses/ValidationError'
+
+  /profiles/{profileId}:
+    get:
+      summary: Get profile by ID
+      description: |
+        Retrieves a profile by its ID. Users can only access their own profile
+        unless they have admin privileges.
+      operationId: getProfile
+      tags:
+        - Profiles
+      parameters:
+        - name: profileId
+          in: path
+          required: true
+          description: The profile ID
+          schema:
+            type: string
+            format: uuid
+          example: "123e4567-e89b-12d3-a456-426614174000"
+      responses:
+        '200':
+          description: Profile retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Profile'
+              example:
+                profileId: "123e4567-e89b-12d3-a456-426614174000"
+                userId: "456e7890-e89b-12d3-a456-426614174000"
+                firstName: "Sarah"
+                age: 28
+                bio: "Love hiking, coffee, and good conversations."
+                city: "San Francisco"
+                photos:
+                  - photoId: "789e0123-e89b-12d3-a456-426614174000"
+                    url: "https://s3.amazonaws.com/dating-app-photos/signed-url-here"
+                    isPrimary: true
+                location:
+                  latitude: 37.7749
+                  longitude: -122.4194
+                preferences:
+                  minAge: 25
+                  maxAge: 35
+                  maxDistance: 25
+                isActive: true
+                createdAt: "2024-01-15T10:30:00Z"
+                updatedAt: "2024-01-15T10:30:00Z"
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+    put:
+      summary: Update profile
+      description: |
+        Updates an existing profile. Users can only update their own profile.
+        Partial updates are supported - only include fields you want to change.
+      operationId: updateProfile
+      tags:
+        - Profiles
+      parameters:
+        - name: profileId
+          in: path
+          required: true
+          description: The profile ID
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateProfileRequest'
+            examples:
+              update_bio:
+                summary: Update bio only
+                value:
+                  bio: "Updated bio with new interests!"
+              update_preferences:
+                summary: Update preferences
+                value:
+                  preferences:
+                    minAge: 30
+                    maxAge: 40
+                    maxDistance: 50
+              update_location:
+                summary: Update location
+                value:
+                  city: "Los Angeles"
+                  location:
+                    latitude: 34.0522
+                    longitude: -118.2437
+      responses:
+        '200':
+          description: Profile updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UpdateProfileResponse'
+              example:
+                message: "Profile updated successfully"
+                updatedFields: ["bio", "preferences"]
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+
+    delete:
+      summary: Delete profile (soft delete)
+      description: |
+        Soft deletes a profile. The profile data is retained for analytics
+        and referential integrity but marked as inactive.
+      operationId: deleteProfile
+      tags:
+        - Profiles
+      parameters:
+        - name: profileId
+          in: path
+          required: true
+          description: The profile ID
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: Profile deleted successfully
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /profiles/{profileId}/photos:
+    post:
+      summary: Upload a profile photo
+      description: |
+        Uploads a photo for the specified profile. 
+        
+        **Limits:**
+        - Maximum 5 photos per profile
+        - File size limit: 10MB
+        - Supported formats: JPEG, PNG
+        - Minimum dimensions: 400x400px
+        
+        The first uploaded photo automatically becomes the primary photo.
+      operationId: uploadPhoto
+      tags:
+        - Photos
+      parameters:
+        - name: profileId
+          in: path
+          required: true
+          description: The profile ID
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                photo:
+                  type: string
+                  format: binary
+                  description: The photo file to upload
+                isPrimary:
+                  type: boolean
+                  default: false
+                  description: Set this photo as the primary profile photo
+              required:
+                - photo
+            encoding:
+              photo:
+                contentType: image/jpeg, image/png
+      responses:
+        '201':
+          description: Photo uploaded successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PhotoResponse'
+              example:
+                photoId: "789e0123-e89b-12d3-a456-426614174000"
+                url: "https://s3.amazonaws.com/dating-app-photos/signed-url-here"
+                isPrimary: true
+                uploadedAt: "2024-01-15T10:30:00Z"
+        '400':
+          description: Invalid file or parameters
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                invalid_file_type:
+                  value:
+                    error:
+                      code: "INVALID_FILE_TYPE"
+                      message: "Only JPEG and PNG files are supported"
+                      timestamp: "2024-01-15T10:30:00Z"
+                file_too_large:
+                  value:
+                    error:
+                      code: "FILE_TOO_LARGE"
+                      message: "File size cannot exceed 10MB"
+                      timestamp: "2024-01-15T10:30:00Z"
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '413':
+          description: File too large
+        '422':
+          description: Photo limit exceeded or validation failed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error:
+                  code: "PHOTO_LIMIT_EXCEEDED"
+                  message: "Maximum 5 photos allowed per profile"
+                  timestamp: "2024-01-15T10:30:00Z"
+
+  /profiles/{profileId}/photos/{photoId}:
+    delete:
+      summary: Delete a profile photo
+      description: |
+        Deletes a photo from the profile and removes it from S3 storage.
+        If the deleted photo was the primary photo, the first remaining photo
+        becomes the new primary photo.
+      operationId: deletePhoto
+      tags:
+        - Photos
+      parameters:
+        - name: profileId
+          in: path
+          required: true
+          description: The profile ID
+          schema:
+            type: string
+            format: uuid
+        - name: photoId
+          in: path
+          required: true
+          description: The photo ID
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: Photo deleted successfully
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /profiles/{profileId}/photos/{photoId}/primary:
+    put:
+      summary: Set photo as primary
+      description: |
+        Sets the specified photo as the primary profile photo.
+        The previous primary photo becomes a regular photo.
+      operationId: setPrimaryPhoto
+      tags:
+        - Photos
+      parameters:
+        - name: profileId
+          in: path
+          required: true
+          description: The profile ID
+          schema:
+            type: string
+            format: uuid
+        - name: photoId
+          in: path
+          required: true
+          description: The photo ID
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Primary photo updated successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "Primary photo updated successfully"
+                  photoId:
+                    type: string
+                    format: uuid
+                    example: "789e0123-e89b-12d3-a456-426614174000"
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /profiles/discover:
+    get:
+      summary: Discover profiles for matching
+      description: |
+        Returns a list of profiles for the matching algorithm based on the
+        current user's preferences and location.
+        
+        **Filtering Logic:**
+        - Age range based on user preferences
+        - Distance from user's current location
+        - Excludes inactive profiles
+        - Excludes profiles already seen (if excludeUserIds provided)
+        - Results are randomized to prevent predictable ordering
+        
+        **Performance:**
+        - Results are cached for 5 minutes
+        - Maximum 50 profiles per request
+        - Geographic search optimized with spatial indexing
+      operationId: discoverProfiles
+      tags:
+        - Discovery
+      parameters:
+        - name: limit
+          in: query
+          description: Number of profiles to return (max 50)
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 50
+            default: 20
+          example: 20
+        - name: minAge
+          in: query
+          description: Minimum age filter (overrides user preference)
+          schema:
+            type: integer
+            minimum: 18
+            maximum: 100
+          example: 25
+        - name: maxAge
+          in: query
+          description: Maximum age filter (overrides user preference)
+          schema:
+            type: integer
+            minimum: 18
+            maximum: 100
+          example: 35
+        - name: maxDistance
+          in: query
+          description: Maximum distance in kilometers (overrides user preference)
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 500
+          example: 50
+        - name: excludeUserIds
+          in: query
+          description: Comma-separated list of user IDs to exclude from results
+          schema:
+            type: string
+          example: "123e4567-e89b-12d3-a456-426614174000,456e7890-e89b-12d3-a456-426614174001"
+      responses:
+        '200':
+          description: Profiles retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DiscoveryResponse'
+              example:
+                profiles:
+                  - profileId: "123e4567-e89b-12d3-a456-426614174000"
+                    firstName: "Emma"
+                    age: 26
+                    bio: "Yoga instructor who loves travel and good food"
+                    distance: 2.3
+                    photos:
+                      - url: "https://s3.amazonaws.com/dating-app-photos/signed-url-1"
+                        isPrimary: true
+                      - url: "https://s3.amazonaws.com/dating-app-photos/signed-url-2"
+                        isPrimary: false
+                  - profileId: "456e7890-e89b-12d3-a456-426614174001"
+                    firstName: "Alex"
+                    age: 29
+                    bio: "Software engineer, rock climber, coffee enthusiast"
+                    distance: 5.7
+                    photos:
+                      - url: "https://s3.amazonaws.com/dating-app-photos/signed-url-3"
+                        isPrimary: true
+                hasMore: true
+                totalFound: 45
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /health:
+    get:
+      summary: Health check
+      description: Basic health check endpoint for load balancers and monitoring
+      operationId: healthCheck
+      tags:
+        - Health
+      security: []
+      responses:
+        '200':
+          description: Service is healthy
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: "healthy"
+                  timestamp:
+                    type: string
+                    format: date-time
+                    example: "2024-01-15T10:30:00Z"
+                  uptime:
+                    type: number
+                    description: Service uptime in seconds
+                    example: 3600
+                  version:
+                    type: string
+                    example: "1.0.0"
+
+  /health/ready:
+    get:
+      summary: Readiness check
+      description: |
+        Readiness check that verifies all dependencies are available:
+        - Database connectivity
+        - AWS S3 connectivity
+        
+        Used by Kubernetes readiness probes.
+      operationId: readinessCheck
+      tags:
+        - Health
+      security: []
+      responses:
+        '200':
+          description: Service is ready to receive traffic
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: "ready"
+                  checks:
+                    type: object
+                    properties:
+                      database:
+                        type: string
+                        example: "healthy"
+                      s3:
+                        type: string
+                        example: "healthy"
+        '503':
+          description: Service not ready
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: "not ready"
+                  checks:
+                    type: object
+                    properties:
+                      database:
+                        type: string
+                        example: "unhealthy"
+                      s3:
+                        type: string
+                        example: "healthy"
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: |
+        JWT token obtained from the authentication service.
+        Include in the Authorization header as: `Bearer <token>`
+
+  schemas:
+    CreateProfileRequest:
+      type: object
+      required:
+        - firstName
+        - age
+        - bio
+        - city
+        - location
+      properties:
+        firstName:
+          type: string
+          minLength: 1
+          maxLength: 50
+          pattern: '^[a-zA-Z\s]+$'
+          description: User's first name
+          example: "Sarah"
+        age:
+          type: integer
+          minimum: 18
+          maximum: 100
+          description: User's age
+          example: 28
+        bio:
+          type: string
+          minLength: 10
+          maxLength: 500
+          description: User's bio/description
+          example: "Love hiking, coffee, and good conversations. Looking for someone genuine!"
+        city:
+          type: string
+          minLength: 1
+          maxLength: 100
+          description: User's city
+          example: "San Francisco"
+        location:
+          $ref: '#/components/schemas/Location'
+        preferences:
+          $ref: '#/components/schemas/Preferences'
+
+    UpdateProfileRequest:
+      type: object
+      properties:
+        firstName:
+          type: string
+          minLength: 1
+          maxLength: 50
+          pattern: '^[a-zA-Z\s]+$'
+        age:
+          type: integer
+          minimum: 18
+          maximum: 100
+        bio:
+          type: string
+          minLength: 10
+          maxLength: 500
+        city:
+          type: string
+          minLength: 1
+          maxLength: 100
+        location:
+          $ref: '#/components/schemas/Location'
+        preferences:
+          $ref: '#/components/schemas/Preferences'
+
+    Location:
+      type: object
+      required:
+        - latitude
+        - longitude
+      properties:
+        latitude:
+          type: number
+          format: double
+          minimum: -90
+          maximum: 90
+          description: Latitude coordinate
+          example: 37.7749
+        longitude:
+          type: number
+          format: double
+          minimum: -180
+          maximum: 180
+          description: Longitude coordinate
+          example: -122.4194
+
+    Preferences:
+      type: object
+      properties:
+        minAge:
+          type: integer
+          minimum: 18
+          maximum: 100
+          default: 18
+          description: Minimum age preference
+          example: 25
+        maxAge:
+          type: integer
+          minimum: 18
+          maximum: 100
+          default: 100
+          description: Maximum age preference
+          example: 35
+        maxDistance:
+          type: integer
+          minimum: 1
+          maximum: 500
+          default: 50
+          description: Maximum distance in kilometers
+          example: 25
+
+    Photo:
+      type: object
+      properties:
+        photoId:
+          type: string
+          format: uuid
+          description: Unique photo identifier
+          example: "789e0123-e89b-12d3-a456-426614174000"
+        url:
+          type: string
+          format: uri
+          description: Signed S3 URL for photo access (expires in 1 hour)
+          example: "https://s3.amazonaws.com/dating-app-photos/signed-url-here"
+        isPrimary:
+          type: boolean
+          description: Whether this is the primary profile photo
+          example: true
+
+    Profile:
+      type: object
+      properties:
+        profileId:
+          type: string
+          format: uuid
+          description: Unique profile identifier
+          example: "123e4567-e89b-12d3-a456-426614174000"
+        userId:
+          type: string
+          format: uuid
+          description: Associated user ID
+          example: "456e7890-e89b-12d3-a456-426614174000"
+        firstName:
+          type: string
+          description: User's first name
+          example: "Sarah"
+        age:
+          type: integer
+          description: User's age
+          example: 28
+        bio:
+          type: string
+          description: User's bio
+          example: "Love hiking, coffee, and good conversations."
+        city:
+          type: string
+          description: User's city
+          example: "San Francisco"
+        photos:
+          type: array
+          items:
+            $ref: '#/components/schemas/Photo'
+          description: Array of profile photos
+        location:
+          $ref: '#/components/schemas/Location'
+        preferences:
+          $ref: '#/components/schemas/Preferences'
+        isActive:
+          type: boolean
+          description: Whether the profile is active
+          example: true
+        createdAt:
+          type: string
+          format: date-time
+          description: Profile creation timestamp
+          example: "2024-01-15T10:30:00Z"
+        updatedAt:
+          type: string
+          format: date-time
+          description: Profile last update timestamp
+          example: "2024-01-15T10:30:00Z"
+
+    DiscoveryProfile:
+      type: object
+      properties:
+        profileId:
+          type: string
+          format: uuid
+          example: "123e4567-e89b-12d3-a456-426614174000"
+        firstName:
+          type: string
+          example: "Emma"
+        age:
+          type: integer
+          example: 26
+        bio:
+          type: string
+          example: "Yoga instructor who loves travel and good food"
+        distance:
+          type: number
+          format: double
+          description: Distance from current user in kilometers
+          example: 2.3
+        photos:
+          type: array
+          items:
+            type: object
+            properties:
+              url:
+                type: string
+                format: uri
+              isPrimary:
+                type: boolean
+
+    CreateProfileResponse:
+      type: object
+      properties:
+        profileId:
+          type: string
+          format: uuid
+          example: "123e4567-e89b-12d3-a456-426614174000"
+        status:
+          type: string
+          example: "created"
+        message:
+          type: string
+          example: "Profile created successfully"
+
+    UpdateProfileResponse:
+      type: object
+      properties:
+        message:
+          type: string
+          example: "Profile updated successfully"
+        updatedFields:
+          type: array
+          items:
+            type: string
+          example: ["bio", "preferences"]
+
+    PhotoResponse:
+      type: object
+      properties:
+        photoId:
+          type: string
+          format: uuid
+          example: "789e0123-e89b-12d3-a456-426614174000"
+        url:
+          type: string
+          format: uri
+          example: "https://s3.amazonaws.com/dating-app-photos/signed-url-here"
+        isPrimary:
+          type: boolean
+          example: true
+        uploadedAt:
+          type: string
+          format: date-time
+          example: "2024-01-15T10:30:00Z"
+
+    DiscoveryResponse:
+      type: object
+      properties:
+        profiles:
+          type: array
+          items:
+            $ref: '#/components/schemas/DiscoveryProfile'
+        hasMore:
+          type: boolean
+          description: Whether more profiles are available
+          example: true
+        totalFound:
+          type: integer
+          description: Total number of profiles matching criteria
+          example: 45
+
+    ErrorResponse:
+      type: object
+      required:
+        - error
+      properties:
+        error:
+          type: object
+          required:
+            - code
+            - message
+            - timestamp
+          properties:
+            code:
+              type: string
+              description: Error code for programmatic handling
+              example: "PROFILE_NOT_FOUND"
+            message:
+              type: string
+              description: Human-readable error message
+              example: "Profile not found"
+            details:
+              type: object
+              description: Additional error details
+              example:
+                profileId: "123e4567-e89b-12d3-a456-426614174000"
+            timestamp:
+              type: string
+              format: date-time
+              description: Error timestamp
+              example: "2024-01-15T10:30:00Z"
+            traceId:
+              type: string
+              description: Request trace ID for debugging
+              example: "abc123def456"
+
+    ValidationErrorResponse:
+      type: object
+      properties:
+        error:
+          type: object
+          properties:
+            code:
+              type: string
+              example: "VALIDATION_ERROR"
+            message:
+              type: string
+              example: "Request validation failed"
+            details:
+              type: object
+              properties:
+                violations:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      field:
+                        type: string
+                        example: "age"
+                      message:
+                        type: string
+                        example: "Age must be between 18 and 100"
+                      value:
+                        example: 17
+            timestamp:
+              type: string
+              format: date-time
+              example: "2024-01-15T10:30:00Z"
+
+  responses:
+    BadRequest:
+      description: Bad request - invalid parameters
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            error:
+              code: "BAD_REQUEST"
+              message: "Invalid request parameters"
+              timestamp: "2024-01-15T10:30:00Z"
+
+    Unauthorized:
+      description: Unauthorized - invalid or missing JWT token
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            error:
+              code: "UNAUTHORIZED"
+              message: "Invalid or missing authentication token"
+              timestamp: "2024-01-15T10:30:00Z"
+
+    Forbidden:
+      description: Forbidden - insufficient permissions
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            error:
+              code: "FORBIDDEN"
+              message: "Insufficient permissions to access this resource"
+              timestamp: "2024-01-15T10:30:00Z"
+
+    NotFound:
+      description: Resource not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            error:
+              code: "PROFILE_NOT_FOUND"
+              message: "Profile not found"
+              timestamp: "2024-01-15T10:30:00Z"
+
+    ValidationError:
+      description: Validation error - invalid input data
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ValidationErrorResponse'
+
+  parameters:
+    ProfileId:
+      name: profileId
+      in: path
+      required: true
+      description: The profile ID
+      schema:
+        type: string
+        format: uuid
+      example: "123e4567-e89b-12d3-a456-426614174000"
+
+    PhotoId:
+      name: photoId
+      in: path
+      required: true
+      description: The photo ID
+      schema:
+        type: string
+        format: uuid
+      example: "789e0123-e89b-12d3-a456-426614174000"
+
+tags:
+  - name: Profiles
+    description: Profile management operations
+  - name: Photos
+    description: Profile photo management
+  - name: Discovery
+    description: Profile discovery for matching
+  - name: Health
+    description: Service health and monitoring endpoints

@@ -1,12 +1,10 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
+  <component name="AmplicodeJpaPluginProjectSettings">
+    <option name="lastSelectedLanguage" value="Java" />
+  </component>
   <component name="AmplicodePersistenceUnitSettings">
     <persistence-units>
-      <persistence-unit moduleName="discovery" name="Default">
-        <packages>
-          <package value="com.tinder.discovery" />
-        </packages>
-      </persistence-unit>
       <persistence-unit moduleName="profiles" name="Default">
         <packages>
           <package value="com.tinder.profiles" />

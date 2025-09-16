@@ -1,14 +1,16 @@
 package com.tinder.profiles.preferences;
 
 import jakarta.persistence.*;
-import lombok.Getter;
-import lombok.Setter;
+import lombok.*;
 
 import java.util.UUID;
 
 @Getter
 @Setter
 @Entity
+@Builder
+@AllArgsConstructor
+@NoArgsConstructor
 @Table(name = "preferences", schema = "public")
 public class Preferences {
     @Id
@@ -27,6 +29,9 @@ public class Preferences {
 
     @Column(name = "max_range", nullable = false)
     private Integer maxRange;
+
+    @Column(name = "composite_key")
+    private String compositeKey;
 
 
 
