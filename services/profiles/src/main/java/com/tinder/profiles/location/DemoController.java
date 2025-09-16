@@ -14,9 +14,9 @@ public class DemoController {
     }
 
     @PostMapping()
-    public ResponseEntity<Location> demo(@RequestBody LocationDto locationDto) {
+    public ResponseEntity<Location> demo() {
 
-        Location nLoc = locationService.create("demo", locationDto.getGeo().getX(), locationDto.getGeo().getY());
+        Location nLoc = locationService.create("Vienna");
         return new ResponseEntity<>(nLoc, HttpStatus.CREATED);
     }
 }

@@ -24,6 +24,9 @@ public class Location {
     @Column(name = "geo", columnDefinition = "geography(Point,4326)")
     private Point geo;
 
+    @Column(name = "city", nullable = false)
+    private String city;
+
     @Column(name = "created_at")
     private LocalDateTime createdAt;
 

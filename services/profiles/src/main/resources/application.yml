@@ -3,3 +3,9 @@ spring:
     import: optional:configserver:http://localhost:8888
   application:
     name: profiles-service
+app:
+  geocoding:
+    user-agent: "TinderClone/1.0 (tclone@tclone.com)"
+    base-url: "https://nominatim.openstreetmap.org"
+    country-codes:  "de,at,pl"
+    timeout-ms: 3000
