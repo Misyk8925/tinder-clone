@@ -66,12 +66,10 @@ paths:
                   age: 28
                   bio: "Love hiking, coffee, and good conversations. Looking for someone genuine!"
                   city: "San Francisco"
-                  location:
-                    latitude: 37.7749
-                    longitude: -122.4194
                   preferences:
                     minAge: 25
                     maxAge: 35
+                    gender: "female"
                     maxDistance: 25
       responses:
         '201':

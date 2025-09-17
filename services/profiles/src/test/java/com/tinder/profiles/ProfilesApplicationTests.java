@@ -41,7 +41,7 @@ class ProfilesApplicationTests {
         mockMvc.perform(post("/api/v1/profiles")
                         .content(profile)
                         .contentType(MediaType.APPLICATION_JSON))
-                .andExpect(status().isOk())
+                .andExpect(status().isCreated())
                 .andDo(print());
     }
 }
