@@ -39,6 +39,10 @@ public class ProfileServiceImpl  {
                 new ResponseStatusException(HttpStatus.NOT_FOUND, "Entity with id `%s` not found".formatted(id)));
     }
 
+    public Profile getByUsername(String username) {
+        return repo.findByName(username);
+    }
+
     public List<Profile> getMany(List<UUID> ids) {
         return repo.findAllById(ids);
     }

@@ -34,16 +34,22 @@ public class ProfileController {
         return service.getOne(id);
     }
 
-    @GetMapping("/by-ids")
-    public List<Profile> getMany(@RequestParam List<UUID> ids) {
-        return service.getMany(ids);
-    }
-
     @PostMapping
-    public ResponseEntity<ApiResponse> create(@RequestBody @Valid CreateProfileDtoV1 profile) {
+    public ResponseEntity<Object> create(@RequestBody @Valid CreateProfileDtoV1 profile) {
 
-        Profile saved = service.create(profile);
+        boolean profileExists = service.getByUsername(profile.getName()) != null;
+        if (profileExists) {
+            ErrorDetails errorDetails = ErrorDetails.builder()
+                    .code("PROFILE_EXISTS")
+                    .message("User already has a profile")
+                    .build();
+            CustomErrorResponse errorResponse = new CustomErrorResponse(errorDetails);
 
+            return ResponseEntity
+                    .status(HttpStatus.CONFLICT)
+                    .body(errorResponse);
+        }
+        service.create(profile);
 
         return ResponseEntity
                 .status(HttpStatus.CREATED)

@@ -1,11 +1,22 @@
 spring:
+  servlet:
+    multipart:
+      max-file-size: 50MB      # размер одного файла
+      max-request-size: 60MB   # общий размер запроса (все поля+файлы)
   config:
     import: optional:configserver:http://localhost:8888
   application:
     name: profiles-service
 app:
+  s3:
+    bucket: "tinderclone-photobucket"
+    presign-exp-seconds: 300
   geocoding:
     user-agent: "TinderClone/1.0 (tclone@tclone.com)"
     base-url: "https://nominatim.openstreetmap.org"
     country-codes:  "de,at,pl"
     timeout-ms: 3000
+
+cloud:
+  aws:
+    region: eu-north-1
