@@ -2,9 +2,12 @@ package com.tinder.profiles.profile;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.tinder.profiles.location.Location;
 import com.tinder.profiles.location.LocationService;
 import com.tinder.profiles.preferences.PreferencesService;
+import com.tinder.profiles.profile.dto.profileData.CreateProfileDtoV1;
+import com.tinder.profiles.profile.dto.profileData.GetProfileDto;
+import com.tinder.profiles.profile.mapper.CreateProfileMapper;
+import com.tinder.profiles.profile.mapper.GetProfileMapper;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -25,7 +28,8 @@ public class ProfileServiceImpl  {
     private final ProfileRepository repo;
     private final LocationService locationService;
     private final PreferencesService preferencesService;
-    private final ProfileMapper mapper;
+    private final CreateProfileMapper mapper;
+    private final GetProfileMapper getMapper;
 
     private final ObjectMapper objectMapper;
 
@@ -33,10 +37,14 @@ public class ProfileServiceImpl  {
         return repo.findAll(pageable);
     }
 
-    public Profile getOne(UUID id) {
-        Optional<Profile> profileOptional = repo.findById(id);
-        return profileOptional.orElseThrow(() ->
-                new ResponseStatusException(HttpStatus.NOT_FOUND, "Entity with id `%s` not found".formatted(id)));
+    public GetProfileDto getOne(UUID id) {
+
+        try {
+            Optional<Profile> profileOptional = repo.findById(id);
+            return getMapper.toGetProfileDto(profileOptional.get());
+        } catch (Exception e) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, e.getMessage());
+        }
     }
 
     public Profile getByUsername(String username) {

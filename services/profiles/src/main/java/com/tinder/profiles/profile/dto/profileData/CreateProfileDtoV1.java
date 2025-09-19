@@ -1,15 +1,15 @@
-package com.tinder.profiles.profile;
+package com.tinder.profiles.profile.dto.profileData;
 
 import com.tinder.profiles.preferences.PreferencesDto;
+import com.tinder.profiles.profile.Profile;
 import jakarta.validation.constraints.*;
-import jakarta.ws.rs.container.PreMatching;
 import lombok.Value;
 
 /**
  * DTO for {@link Profile}
  */
 @Value
-public class ProfileDto {
+public class CreateProfileDtoV1 {
 
     @NotBlank(message = "name is required")
     String name;

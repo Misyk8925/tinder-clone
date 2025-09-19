@@ -1,5 +1,7 @@
 package com.tinder.profiles.profile;
 
+import com.tinder.profiles.profile.dto.errors.CustomErrorResponse;
+import com.tinder.profiles.profile.dto.errors.ErrorDetails;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.MethodArgumentNotValidException;

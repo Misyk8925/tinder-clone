@@ -1,17 +1,18 @@
-package com.tinder.profiles.profile;
+package com.tinder.profiles.profile.mapper;
 
 import com.tinder.profiles.location.LocationService;
 import com.tinder.profiles.preferences.Preferences;
 import com.tinder.profiles.preferences.PreferencesDto;
+import com.tinder.profiles.profile.Profile;
+import com.tinder.profiles.profile.dto.profileData.CreateProfileDtoV1;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Primary;
 import org.springframework.stereotype.Component;
-import org.springframework.web.bind.annotation.RequestBody;
 
 @Primary
-@Component
+@Component("CreateProfileMapperImpl")
 @RequiredArgsConstructor
-public class ProfileMapperImpl1 implements ProfileMapper {
+public class NewCreateProfileMapperImpl implements CreateProfileMapper {
 
     private final LocationService locationService;
 
@@ -22,6 +23,8 @@ public class ProfileMapperImpl1 implements ProfileMapper {
         }
 
         Profile.ProfileBuilder profile = Profile.builder();
+
+        System.out.println(createProfileDtoV1.getCity());
 
         profile.name( createProfileDtoV1.getName() );
         profile.age( createProfileDtoV1.getAge() );

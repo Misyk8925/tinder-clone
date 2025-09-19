@@ -24,6 +24,10 @@ public class LocationService {
 
     @Transactional
     public Location create(String city) {
+        System.out.println(city);
+        if (city == null || city.isBlank()) {
+            throw new IllegalArgumentException("City cannot be null or blank");
+        }
         Optional<NominatimService.GeoPoint> geocoded = null;
         try {
             geocoded = geocodingService.geocodeCity(city);

@@ -109,6 +109,10 @@
             <version>1.6.0</version>
             <optional>true</optional>
         </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-data-redis</artifactId>
+        </dependency>
         <!-- AWS SDK v2 -->
         <!-- https://mvnrepository.com/artifact/software.amazon.awssdk/s3 -->
 

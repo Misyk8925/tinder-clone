@@ -1,4 +1,4 @@
-package com.tinder.profiles.profile;
+package com.tinder.profiles.profile.dto.errors;
 
 import lombok.AllArgsConstructor;
 import lombok.Builder;

@@ -1,6 +1,11 @@
 package com.tinder.profiles.profile;
 
 import com.fasterxml.jackson.databind.JsonNode;
+import com.tinder.profiles.profile.dto.profileData.GetProfileDto;
+import com.tinder.profiles.profile.dto.success.ApiResponse;
+import com.tinder.profiles.profile.dto.profileData.CreateProfileDtoV1;
+import com.tinder.profiles.profile.dto.errors.CustomErrorResponse;
+import com.tinder.profiles.profile.dto.errors.ErrorDetails;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -8,7 +13,6 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PagedModel;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
 import java.io.IOException;
@@ -30,8 +34,10 @@ public class ProfileController {
     }
 
     @GetMapping("/{id}")
-    public Profile getOne(@PathVariable UUID id) {
-        return service.getOne(id);
+    public ResponseEntity<GetProfileDto> getOne(@PathVariable UUID id) {
+        return ResponseEntity
+                .status(HttpStatus.OK)
+                .body(service.getOne(id));
     }
 
     @PostMapping
@@ -49,11 +55,11 @@ public class ProfileController {
                     .status(HttpStatus.CONFLICT)
                     .body(errorResponse);
         }
-        service.create(profile);
+        Profile result = service.create(profile);
 
         return ResponseEntity
                 .status(HttpStatus.CREATED)
-                .body(ApiResponse.created("Profile created successfully"));
+                .body(ApiResponse.created("Profile created successfully", result.getProfileId()));
     }
 
     @PatchMapping("/{id}")

@@ -1,4 +1,4 @@
-package com.tinder.profiles.profile;
+package com.tinder.profiles.profile.dto.success;
 
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -26,6 +26,10 @@ public class ApiResponse<T> {
 
     public static <T> ApiResponse<T> created(String message){
         return new ApiResponse<T>("201", "created", message, null);
+    }
+
+    public static <T> ApiResponse<T> created(String message, T data){
+        return new ApiResponse<T>("201", "created", message, data);
     }
 
     public static <T> ApiResponse<T> badRequest(String message){
