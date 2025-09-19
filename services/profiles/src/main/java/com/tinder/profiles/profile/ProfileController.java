@@ -5,7 +5,7 @@ import com.tinder.profiles.profile.dto.profileData.GetProfileDto;
 import com.tinder.profiles.profile.dto.success.ApiResponse;
 import com.tinder.profiles.profile.dto.profileData.CreateProfileDtoV1;
 import com.tinder.profiles.profile.dto.errors.CustomErrorResponse;
-import com.tinder.profiles.profile.dto.errors.ErrorDetails;
+import com.tinder.profiles.profile.dto.errors.ErrorSummary;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -45,11 +45,11 @@ public class ProfileController {
 
         boolean profileExists = service.getByUsername(profile.getName()) != null;
         if (profileExists) {
-            ErrorDetails errorDetails = ErrorDetails.builder()
+            ErrorSummary errorSummary = ErrorSummary.builder()
                     .code("PROFILE_EXISTS")
                     .message("User already has a profile")
                     .build();
-            CustomErrorResponse errorResponse = new CustomErrorResponse(errorDetails);
+            CustomErrorResponse errorResponse = new CustomErrorResponse(errorSummary, null);
 
             return ResponseEntity
                     .status(HttpStatus.CONFLICT)

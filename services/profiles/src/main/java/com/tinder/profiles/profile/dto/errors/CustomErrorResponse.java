@@ -7,5 +7,6 @@ import lombok.Getter;
 @Getter
 @AllArgsConstructor
 public class CustomErrorResponse {
-    private ErrorDetails error;
+    private ErrorSummary error;
+    private ErrorDetails details;
 }

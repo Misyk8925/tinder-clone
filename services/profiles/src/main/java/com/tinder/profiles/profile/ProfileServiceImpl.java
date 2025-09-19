@@ -9,6 +9,10 @@ import com.tinder.profiles.profile.dto.profileData.GetProfileDto;
 import com.tinder.profiles.profile.mapper.CreateProfileMapper;
 import com.tinder.profiles.profile.mapper.GetProfileMapper;
 import lombok.RequiredArgsConstructor;
+import org.springframework.cache.CacheManager;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.CachePut;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
@@ -31,12 +35,15 @@ public class ProfileServiceImpl  {
     private final CreateProfileMapper mapper;
     private final GetProfileMapper getMapper;
 
-    private final ObjectMapper objectMapper;
+    private final ObjectMapper createMapper;
+    private final CacheManager cacheManager;
+
 
     public Page<Profile> getAll(Pageable pageable) {
         return repo.findAll(pageable);
     }
 
+    @Cacheable(value = "PROFILE_CACHE", key = "#result.profileId()")
     public GetProfileDto getOne(UUID id) {
 
         try {
@@ -55,6 +62,7 @@ public class ProfileServiceImpl  {
         return repo.findAllById(ids);
     }
 
+    @CachePut(value = "PROFILE_CACHE", key = "#profile.profileId()")
     public Profile create(CreateProfileDtoV1 profile) {
 
         try {
@@ -72,7 +80,7 @@ public class ProfileServiceImpl  {
         Profile profile = repo.findById(id).orElseThrow(() ->
                 new ResponseStatusException(HttpStatus.NOT_FOUND, "Entity with id `%s` not found".formatted(id)));
 
-        objectMapper.readerForUpdating(profile).readValue(patchNode);
+        createMapper.readerForUpdating(profile).readValue(patchNode);
 
         return repo.save(profile);
     }
@@ -81,7 +89,7 @@ public class ProfileServiceImpl  {
         Collection<Profile> profiles = repo.findAllById(ids);
 
         for (Profile profile : profiles) {
-            objectMapper.readerForUpdating(profile).readValue(patchNode);
+            createMapper.readerForUpdating(profile).readValue(patchNode);
         }
 
         List<Profile> resultProfiles = repo.saveAll(profiles);
@@ -90,6 +98,7 @@ public class ProfileServiceImpl  {
                 .toList();
     }
 
+    @CacheEvict(value = "PROFILE_CACHE", key = "#profileId()")
     public Profile delete(UUID id) {
         Profile profile = repo.findById(id).orElse(null);
         if (profile != null) {

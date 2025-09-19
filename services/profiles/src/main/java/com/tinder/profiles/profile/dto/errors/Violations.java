@@ -5,6 +5,8 @@ import lombok.Data;
 
 @Data
 @AllArgsConstructor
-public class ErrorDetails {
-    private Violations[] violations;
+public class Violations {
+    private String field;
+    private String message;
+    private String rejectedValue;
 }
