@@ -17,14 +17,13 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ResponseEntity<CustomErrorResponse> handleValidationException(MethodArgumentNotValidException ex) {
 
-        System.out.println("GLOBAL EXCEPTION HANDLER");
        List<Violations> errors = ex.getBindingResult()
                     .getFieldErrors()
                     .stream()
                     .map(fieldError -> new Violations(
                         fieldError.getField(),
-                        String.valueOf(fieldError.getRejectedValue()),
-                        fieldError.getDefaultMessage()
+                        fieldError.getDefaultMessage(),
+                        String.valueOf(fieldError.getRejectedValue())
                     ))
                     .toList();
 
