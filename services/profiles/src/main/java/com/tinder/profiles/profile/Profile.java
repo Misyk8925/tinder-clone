@@ -1,5 +1,6 @@
 package com.tinder.profiles.profile;
 
+import com.fasterxml.jackson.annotation.JsonManagedReference;
 import com.tinder.profiles.location.Location;
 import com.tinder.profiles.preferences.Preferences;
 import jakarta.persistence.*;
@@ -37,10 +38,12 @@ public class Profile {
     @Column(name = "is_active", nullable = false)
     private boolean isActive;
 
+    @JsonManagedReference("profile-location") // Предотвращает рекурсию при сериализации в JSON
     @OneToOne(fetch = FetchType.LAZY, cascade = CascadeType.ALL, optional = false, orphanRemoval = true)
     @JoinColumn(name = "location_id", nullable = false)
     private Location location;
 
+    @JsonManagedReference("profile-preferences") // Предотвращает рекурсию при сериализации в JSON
     @ManyToOne(fetch = FetchType.LAZY, cascade = CascadeType.ALL, optional = false)
     @JoinColumn(name = "preferences_id", nullable = false)
     private Preferences preferences;

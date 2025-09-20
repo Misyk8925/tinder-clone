@@ -16,12 +16,8 @@ public class PreferencesService {
                 .maxAge(preferences.getMaxAge())
                 .gender(preferences.getGender())
                 .maxRange(preferences.getMaxRange())
-                .compositeKey(compositeKey(preferences.getGender(), preferences.getMinAge(), preferences.getMaxAge(), preferences.getMaxRange()))
                 .build();
         return repo.save(preferencesEntity);
     }
 
-    private String compositeKey(String gender, int minAge, int maxAge, int maxRange) {
-        return gender + "-" + minAge + "-" + maxAge;
-    }
 }

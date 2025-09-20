@@ -1,8 +1,11 @@
 package com.tinder.profiles.preferences;
 
+import com.fasterxml.jackson.annotation.JsonBackReference;
+import com.tinder.profiles.profile.Profile;
 import jakarta.persistence.*;
 import lombok.*;
 
+import java.util.List;
 import java.util.UUID;
 
 @Getter
@@ -30,9 +33,9 @@ public class Preferences {
     @Column(name = "max_range", nullable = false)
     private Integer maxRange;
 
-    @Column(name = "composite_key")
-    private String compositeKey;
 
-
+    @JsonBackReference("profile-preferences") // Обратная ссылка для предотвращения рекурсии
+    @OneToMany(mappedBy = "preferences", fetch = FetchType.LAZY)
+    private List<Profile> profiles;
 
 }

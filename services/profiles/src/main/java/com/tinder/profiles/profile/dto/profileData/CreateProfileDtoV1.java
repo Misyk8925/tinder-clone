@@ -1,5 +1,8 @@
 package com.tinder.profiles.profile.dto.profileData;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import com.tinder.profiles.preferences.PreferencesDto;
 import com.tinder.profiles.profile.Profile;
 import jakarta.validation.constraints.*;
@@ -9,6 +12,7 @@ import lombok.Value;
  * DTO for {@link Profile}
  */
 @Value
+@JsonIgnoreProperties(ignoreUnknown = true)
 public class CreateProfileDtoV1 {
 
     @NotBlank(message = "name is required")
@@ -27,4 +31,19 @@ public class CreateProfileDtoV1 {
 
     @NotNull(message = "preferences are required")
     PreferencesDto preferences;
+
+    @JsonCreator
+    public CreateProfileDtoV1(
+        @JsonProperty("name") String name,
+        @JsonProperty("age") Integer age,
+        @JsonProperty("bio") String bio,
+        @JsonProperty("city") String city,
+        @JsonProperty("preferences") PreferencesDto preferences
+    ) {
+        this.name = name;
+        this.age = age;
+        this.bio = bio;
+        this.city = city;
+        this.preferences = preferences;
+    }
 }

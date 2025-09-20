@@ -9,6 +9,8 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Primary;
 import org.springframework.stereotype.Component;
 
+import java.util.UUID;
+
 @Primary
 @Component("CreateProfileMapperImpl")
 @RequiredArgsConstructor
@@ -89,8 +91,9 @@ public class NewCreateProfileMapperImpl implements CreateProfileMapper {
         maxAge = preferences.getMaxAge();
         gender = preferences.getGender();
         maxRange = preferences.getMaxRange();
+        UUID id = preferences.getId();
 
-        PreferencesDto preferencesDto = new PreferencesDto( minAge, maxAge, gender, maxRange );
+        PreferencesDto preferencesDto = new PreferencesDto(id, minAge, maxAge, gender, maxRange );
 
         return preferencesDto;
     }

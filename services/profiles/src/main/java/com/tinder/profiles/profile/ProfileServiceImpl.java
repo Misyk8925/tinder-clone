@@ -20,10 +20,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.io.IOException;
-import java.util.Collection;
-import java.util.List;
-import java.util.Optional;
-import java.util.UUID;
+import java.util.*;
 
 @RequiredArgsConstructor
 @Service
@@ -62,15 +59,20 @@ public class ProfileServiceImpl  {
         return repo.findAllById(ids);
     }
 
-    @CachePut(value = "PROFILE_CACHE", key = "#profile.profileId()")
     public Profile create(CreateProfileDtoV1 profile) {
 
         try {
-            new Profile();
             Profile profileEntity = mapper.toEntity(profile);
-            return repo.save(profileEntity);
+
+            Profile savedProfile = repo.save(profileEntity);
+
+
+            Objects.requireNonNull(cacheManager.getCache("PROFILE_CACHE"))
+                    .put(savedProfile.getProfileId(), savedProfile);
+
+            return savedProfile;
         } catch (Exception e) {
-            System.out.println(e.getMessage());
+
             throw new RuntimeException(e);
         }
 
