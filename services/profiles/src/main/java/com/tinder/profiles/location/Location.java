@@ -2,6 +2,7 @@ package com.tinder.profiles.location;
 
 import com.fasterxml.jackson.annotation.JsonBackReference;
 import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.tinder.profiles.profile.Profile;
 import jakarta.persistence.*;
@@ -11,6 +12,7 @@ import org.locationtech.jts.geom.Point;
 import java.time.LocalDateTime;
 import java.util.UUID;
 
+@JsonIgnoreProperties(ignoreUnknown = true) // Игнорировать неизвестные поля при десериализации
 @AllArgsConstructor
 @NoArgsConstructor
 @Getter
@@ -37,6 +39,7 @@ public class Location {
 
     @Column(name = "updated_at")
     private LocalDateTime updatedAt;
+
 
     @JsonBackReference("profile-location")
     @OneToOne(mappedBy = "location", fetch = FetchType.LAZY)

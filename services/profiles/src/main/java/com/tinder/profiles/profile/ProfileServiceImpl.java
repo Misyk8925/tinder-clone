@@ -3,6 +3,8 @@ package com.tinder.profiles.profile;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.tinder.profiles.location.LocationService;
+import com.tinder.profiles.preferences.Preferences;
+import com.tinder.profiles.preferences.PreferencesRepository;
 import com.tinder.profiles.preferences.PreferencesService;
 import com.tinder.profiles.profile.dto.profileData.CreateProfileDtoV1;
 import com.tinder.profiles.profile.dto.profileData.GetProfileDto;
@@ -30,6 +32,7 @@ public class ProfileServiceImpl  {
     private final ProfileRepository repo;
     private final LocationService locationService;
     private final PreferencesService preferencesService;
+    private final PreferencesRepository preferencesRepository;
     private final CreateProfileMapper mapper;
     private final GetProfileMapper getMapper;
 
@@ -45,7 +48,7 @@ public class ProfileServiceImpl  {
 
 
 
-        Cache.ValueWrapper profileCache = Objects.requireNonNull(cacheManager.getCache("PROFILE_CACHE")).get(id);
+        Cache.ValueWrapper profileCache = Objects.requireNonNull(cacheManager.getCache("PROFILE_ENTITY_CACHE")).get(id);
         if (profileCache != null) {
             Object cached = profileCache.get();
 
@@ -77,12 +80,17 @@ public class ProfileServiceImpl  {
         try {
             Profile profileEntity = mapper.toEntity(profile);
 
+            Preferences preferences = profileEntity.getPreferences();
+            if (preferences != null && preferences.getId() == null) {
+                preferences = preferencesRepository.save(preferences);
+                profileEntity.setPreferences(preferences);
+            }
             Profile savedProfile = repo.save(profileEntity);
 
             System.out.println(savedProfile.getProfileId());
 
             System.out.println(savedProfile.getClass().getName());
-            Objects.requireNonNull(cacheManager.getCache("PROFILE_CACHE"))
+            Objects.requireNonNull(cacheManager.getCache("PROFILE_ENTITY_CACHE"))
                     .put(savedProfile.getProfileId(), savedProfile);
 
             return savedProfile;
@@ -115,7 +123,7 @@ public class ProfileServiceImpl  {
                 .toList();
     }
 
-    @CacheEvict(value = "PROFILE_CACHE", key = "#profileId()")
+
     public Profile delete(UUID id) {
         Profile profile = repo.findById(id).orElse(null);
         if (profile != null) {

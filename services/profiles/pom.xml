@@ -129,6 +129,11 @@
             <artifactId>spring-boot-docker-compose</artifactId>
             <scope>runtime</scope>
         </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-devtools</artifactId>
+            <scope>runtime</scope>
+        </dependency>
         <!-- AWS SDK v2 -->
         <!-- https://mvnrepository.com/artifact/software.amazon.awssdk/s3 -->
 

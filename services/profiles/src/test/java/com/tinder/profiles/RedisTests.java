@@ -98,9 +98,12 @@ class RedisTests {
         Assertions.assertTrue(repo.findById(profileId).isPresent());
 
         // check cache
-        Assertions.assertTrue(cacheManager.getCacheNames().contains("PROFILE_CACHE"));
-        Assertions.assertTrue(Objects.requireNonNull(cacheManager.getCache("PROFILE_CACHE")).get(profileId) != null);
-        Assertions.assertTrue(cacheManager.getCache("PROFILE_CACHE").get(profileId).get() instanceof Profile profile1);
+        Assertions.assertTrue(cacheManager.getCacheNames().contains("PROFILE_ENTITY_CACHE"));
+        Assertions.assertTrue(Objects.requireNonNull(cacheManager.getCache("PROFILE_ENTITY_CACHE")).get(profileId) != null);
+
+        Object cached = Objects.requireNonNull(Objects.requireNonNull(cacheManager.getCache("PROFILE_ENTITY_CACHE")).get(profileId)).get();
+
+        Assertions.assertTrue(cached instanceof Profile profile1);
 
 
         mockMvc.perform(post("/api/v1/profiles")

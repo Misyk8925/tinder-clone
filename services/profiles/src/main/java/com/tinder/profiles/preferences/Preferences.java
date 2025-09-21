@@ -1,6 +1,6 @@
 package com.tinder.profiles.preferences;
 
-import com.fasterxml.jackson.annotation.JsonBackReference;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.tinder.profiles.profile.Profile;
 import jakarta.persistence.*;
 import lombok.*;
@@ -34,7 +34,7 @@ public class Preferences {
     private Integer maxRange;
 
 
-    @JsonBackReference("profile-preferences")
+    @JsonIgnore // Игнорируем поле при сериализации
     @OneToMany(mappedBy = "preferences", fetch = FetchType.LAZY)
     private List<Profile> profiles;
 

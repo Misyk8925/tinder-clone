@@ -1,5 +1,6 @@
 package com.tinder.profiles.profile;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonManagedReference;
 import com.tinder.profiles.location.Location;
 import com.tinder.profiles.preferences.Preferences;
@@ -43,8 +44,8 @@ public class Profile {
     @JoinColumn(name = "location_id", nullable = false)
     private Location location;
 
-    @JsonManagedReference("profile-preferences")
-    @ManyToOne(fetch = FetchType.LAZY, cascade = CascadeType.ALL, optional = false)
+    @JsonIgnore
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "preferences_id", nullable = false)
     private Preferences preferences;
 
