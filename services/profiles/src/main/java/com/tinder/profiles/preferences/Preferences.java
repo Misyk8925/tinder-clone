@@ -34,7 +34,7 @@ public class Preferences {
     private Integer maxRange;
 
 
-    @JsonBackReference("profile-preferences") // Обратная ссылка для предотвращения рекурсии
+    @JsonBackReference("profile-preferences")
     @OneToMany(mappedBy = "preferences", fetch = FetchType.LAZY)
     private List<Profile> profiles;
 

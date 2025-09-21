@@ -2,6 +2,7 @@ package com.tinder.profiles;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.tinder.profiles.profile.Profile;
 import com.tinder.profiles.profile.ProfileRepository;
 
 import org.junit.jupiter.api.Assertions;
@@ -99,6 +100,7 @@ class RedisTests {
         // check cache
         Assertions.assertTrue(cacheManager.getCacheNames().contains("PROFILE_CACHE"));
         Assertions.assertTrue(Objects.requireNonNull(cacheManager.getCache("PROFILE_CACHE")).get(profileId) != null);
+        Assertions.assertTrue(cacheManager.getCache("PROFILE_CACHE").get(profileId).get() instanceof Profile profile1);
 
 
         mockMvc.perform(post("/api/v1/profiles")

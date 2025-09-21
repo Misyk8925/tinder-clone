@@ -38,12 +38,12 @@ public class Profile {
     @Column(name = "is_active", nullable = false)
     private boolean isActive;
 
-    @JsonManagedReference("profile-location") // Предотвращает рекурсию при сериализации в JSON
+    @JsonManagedReference("profile-location")
     @OneToOne(fetch = FetchType.LAZY, cascade = CascadeType.ALL, optional = false, orphanRemoval = true)
     @JoinColumn(name = "location_id", nullable = false)
     private Location location;
 
-    @JsonManagedReference("profile-preferences") // Предотвращает рекурсию при сериализации в JSON
+    @JsonManagedReference("profile-preferences")
     @ManyToOne(fetch = FetchType.LAZY, cascade = CascadeType.ALL, optional = false)
     @JoinColumn(name = "preferences_id", nullable = false)
     private Preferences preferences;

@@ -9,6 +9,7 @@ import com.tinder.profiles.profile.dto.profileData.GetProfileDto;
 import com.tinder.profiles.profile.mapper.CreateProfileMapper;
 import com.tinder.profiles.profile.mapper.GetProfileMapper;
 import lombok.RequiredArgsConstructor;
+import org.springframework.cache.Cache;
 import org.springframework.cache.CacheManager;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.CachePut;
@@ -40,15 +41,27 @@ public class ProfileServiceImpl  {
         return repo.findAll(pageable);
     }
 
-    @Cacheable(value = "PROFILE_CACHE", key = "#result.profileId()")
     public GetProfileDto getOne(UUID id) {
 
-        try {
-            Optional<Profile> profileOptional = repo.findById(id);
-            return getMapper.toGetProfileDto(profileOptional.get());
-        } catch (Exception e) {
-            throw new ResponseStatusException(HttpStatus.NOT_FOUND, e.getMessage());
+
+
+        Cache.ValueWrapper profileCache = Objects.requireNonNull(cacheManager.getCache("PROFILE_CACHE")).get(id);
+        if (profileCache != null) {
+            Object cached = profileCache.get();
+
+            if (cached instanceof Profile profile) {
+                return getMapper.toGetProfileDto(profile);
+            } else {
+
+                throw new IllegalStateException("В кэше по ключу " + id + " лежит объект неверного типа: " + cached.getClass());
+            }
         }
+        Optional<Profile> profileOptional = repo.findById(id);
+        if (profileOptional.isEmpty()) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Профиль с id " + id + " не найден");
+        }
+        return getMapper.toGetProfileDto(profileOptional.get());
+
     }
 
     public Profile getByUsername(String username) {
@@ -66,7 +79,9 @@ public class ProfileServiceImpl  {
 
             Profile savedProfile = repo.save(profileEntity);
 
+            System.out.println(savedProfile.getProfileId());
 
+            System.out.println(savedProfile.getClass().getName());
             Objects.requireNonNull(cacheManager.getCache("PROFILE_CACHE"))
                     .put(savedProfile.getProfileId(), savedProfile);
 
