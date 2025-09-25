@@ -9,6 +9,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Primary;
 import org.springframework.stereotype.Component;
 
+import java.time.LocalDateTime;
 import java.util.UUID;
 
 @Primary
@@ -34,6 +35,9 @@ public class NewCreateProfileMapperImpl implements CreateProfileMapper {
         profile.city( createProfileDtoV1.getCity() );
         profile.location( locationService.create(createProfileDtoV1.getCity()) );
         profile.preferences( preferencesDtoToPreferences( createProfileDtoV1.getPreferences() ) );
+        profile.isActive( true );
+        profile.createdAt(LocalDateTime.now());
+        profile.updatedAt( LocalDateTime.now() );
 
         return profile.build();
     }

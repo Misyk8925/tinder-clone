@@ -24,29 +24,29 @@ public class LocationService {
 
     @Transactional
     public Location create(String city) {
-        System.out.println(city);
+
         if (city == null || city.isBlank()) {
-            throw new IllegalArgumentException("City cannot be null or blank");
+            throw new IllegalArgumentException("City must not be null or blank");
         }
-        Optional<NominatimService.GeoPoint> geocoded = null;
+        Optional<NominatimService.GeoPoint> geocoded = Optional.empty();
         try {
             geocoded = geocodingService.geocodeCity(city);
         } catch (Exception e) {
-            System.out.println(e.getMessage());
+            System.out.println("Geocoding error: " + e.getMessage());
+        }
+        if (geocoded.isEmpty()) {
+            throw new IllegalArgumentException("City not found" + city);
         }
         var loc = new Location();
-
-        if (geocoded.isPresent()) {
-            Point point = geometryFactory.createPoint(new Coordinate(geocoded.get().lat(), geocoded.get().lon()));
-            point.setSRID(4326);
-            loc.setGeo(point);
-            loc.setCity(city);
-        }
+        Point point = geometryFactory.createPoint(new Coordinate(geocoded.get().lat(), geocoded.get().lon()));
+        point.setSRID(4326);
+        loc.setGeo(point);
+        loc.setCity(city);
 
         try {
             return repo.save(loc);
         } catch (Exception e) {
-            System.out.println(e.getMessage());
+            System.out.println("Error saving Location: " + e.getMessage());
             return null;
         }
     }

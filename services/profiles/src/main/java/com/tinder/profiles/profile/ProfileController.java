@@ -27,11 +27,7 @@ public class ProfileController {
 
     private final ProfileServiceImpl service;
 
-    @GetMapping
-    public PagedModel<Profile> getAll(Pageable pageable) {
-        Page<Profile> profiles = service.getAll(pageable);
-        return new PagedModel<>(profiles);
-    }
+
 
     @GetMapping("/{id}")
     public ResponseEntity<GetProfileDto> getOne(@PathVariable UUID id) {
@@ -62,19 +58,35 @@ public class ProfileController {
                 .body(ApiResponse.created("Profile created successfully", result.getProfileId()));
     }
 
+    @PutMapping("/{id}")
+    public ResponseEntity<Object> update(@PathVariable UUID id, @RequestBody @Valid CreateProfileDtoV1 profile) {
+
+        if (service.getByUsername(profile.getName()) == null) {
+            ErrorSummary errorSummary = ErrorSummary.builder()
+                    .code("NO_SUCH_PROFILE")
+                    .message("There is no such profile")
+                    .build();
+            CustomErrorResponse errorResponse = new CustomErrorResponse(errorSummary, null);
+            return ResponseEntity
+                    .status(HttpStatus.CONFLICT)
+                    .body(errorResponse);
+        }
+
+        return ResponseEntity
+                .status(HttpStatus.OK)
+                .body(service.update(id, profile));
+    }
+
     @PatchMapping("/{id}")
     public Profile patch(@PathVariable UUID id, @RequestBody JsonNode patchNode) throws IOException {
         return service.patch(id, patchNode);
     }
 
-    @PatchMapping
-    public List<UUID> patchMany(@RequestParam List<UUID> ids, @RequestBody JsonNode patchNode) throws IOException {
-        return service.patchMany(ids, patchNode);
-    }
 
     @DeleteMapping("/{id}")
-    public Profile delete(@PathVariable UUID id) {
-        return service.delete(id);
+    public ResponseEntity<Void> delete(@PathVariable UUID id) {
+        service.delete(id);
+        return ResponseEntity.noContent().build();
     }
 
     @DeleteMapping

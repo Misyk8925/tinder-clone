@@ -11,7 +11,6 @@ import java.util.UUID;
  */
 @Value
 public class PreferencesDto {
-    UUID id;
     Integer minAge;
     Integer maxAge;
     String gender;
@@ -25,7 +24,6 @@ public class PreferencesDto {
         @JsonProperty("gender") String gender,
         @JsonProperty("maxRange") Integer maxRange
     ) {
-        this.id = id;
         this.minAge = minAge;
         this.maxAge = maxAge;
         this.gender = gender;
