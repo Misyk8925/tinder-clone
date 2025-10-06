@@ -1,4 +1,9 @@
 spring:
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          jwk-set-uri:  http://localhost:9080/realms/spring/protocol/openid-connect/certs
   jpa:
     properties:
       hibernate:

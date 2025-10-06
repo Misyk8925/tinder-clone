@@ -153,10 +153,4 @@ public class ProfileServiceImpl  {
         repo.deleteAllById(ids);
     }
 
-//    @Override
-//    public Profile createProfile(ProfileDto profileDto) {
-//        UUID id = UUID.randomUUID();
-//        Location location = locationService.create(profileDto.getCity());
-//
-//    }
 }

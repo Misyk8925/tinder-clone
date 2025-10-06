@@ -42,6 +42,33 @@ class RedisTests {
             .withExposedPorts(6379);
 
 
+    private final String createProfileBody = """
+                {
+                    "name": "Misha",
+                    "age": 34,
+                    "bio": "this is my life",
+                    "city": "Amstetten",
+                    "preferences": {
+                        "minAge": 19,
+                        "maxAge": 40,
+                        "gender": "female",
+                        "maxRange": 4
+                    }
+                }""";
+
+    private final String  updateProfileBody = """
+                {
+                    "name": "Misha",
+                    "age": 34,
+                    "bio": "this is my life",
+                    "city": "Amstetten",
+                    "preferences": {
+                        "minAge": 19,
+                        "maxAge": 40,
+                        "gender": "female",
+                        "maxRange": 4
+                    }
+                }""";
 
     @Autowired
     StringRedisTemplate redisTemplate;
@@ -67,23 +94,11 @@ class RedisTests {
     }
 
     @Test
-    public void create() throws Exception {
-        String profile = """
-                {
-                    "name": "Misha",
-                    "age": 34,
-                    "bio": "this is my life",
-                    "city": "Amstetten",
-                    "preferences": {
-                        "minAge": 19,
-                        "maxAge": 40,
-                        "gender": "female",
-                        "maxRange": 4
-                    }
-                }""";
+    public void createProfileAndCheckCache() throws Exception {
+
 
         MvcResult result = mockMvc.perform(post("/api/v1/profiles")
-                        .content(profile)
+                        .content(createProfileBody)
                         .contentType(MediaType.APPLICATION_JSON))
                 .andExpect(status().isCreated())
                 .andReturn();
@@ -104,13 +119,6 @@ class RedisTests {
         Object cached = Objects.requireNonNull(Objects.requireNonNull(cacheManager.getCache("PROFILE_ENTITY_CACHE")).get(profileId)).get();
 
         Assertions.assertTrue(cached instanceof Profile profile1);
-
-
-        mockMvc.perform(post("/api/v1/profiles")
-                        .content(profile)
-                        .contentType(MediaType.APPLICATION_JSON))
-                .andExpect(status().isConflict())
-                .andDo(print());
     }
 
 

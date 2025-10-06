@@ -13,6 +13,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PagedModel;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.io.IOException;
@@ -22,8 +23,13 @@ import java.util.UUID;
 @RestController
 @RequestMapping("/api/v1/profiles")
 @RequiredArgsConstructor
-
 public class ProfileController {
+
+    @GetMapping("/test-pa")
+    @PreAuthorize("hasAnyRole('AMI')")
+    private ResponseEntity<String> testPa() {
+        return ResponseEntity.ok("test pa");
+    }
 
     private final ProfileServiceImpl service;
 

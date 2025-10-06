@@ -9,6 +9,7 @@
         <outputRelativeToContentRoot value="true" />
         <module name="config-server2" />
         <module name="discovery" />
+        <module name="gateway" />
       </profile>
       <profile name="Annotation profile for profiles" enabled="true">
         <sourceOutputDir name="target/generated-sources/annotations" />
@@ -25,6 +26,7 @@
     </annotationProcessing>
     <bytecodeTargetLevel>
       <module name="config-server" target="24" />
+      <module name="gateway-service" target="21" />
     </bytecodeTargetLevel>
   </component>
   <component name="JavacSettings">
@@ -32,6 +34,8 @@
       <module name="config-server" options="-parameters" />
       <module name="config-server2" options="-parameters" />
       <module name="discovery" options="-parameters" />
+      <module name="gateway" options="-parameters" />
+      <module name="gateway-service" options="-parameters" />
       <module name="profiles" options="-parameters" />
     </option>
   </component>

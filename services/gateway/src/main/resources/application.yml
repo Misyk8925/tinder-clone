@@ -1,0 +1,36 @@
+eureka:
+  client:
+    register-with-eureka: true
+    fetch-registry: true
+    service-url:
+      defaultZone: http://localhost:8761/eureka
+  instance:
+    hostname: localhost
+
+server:
+  port: 8222 # port on which the API Gateway will work. Clients will send requests to this port.
+
+spring:
+  application:
+    name: gateway # application name that can be used for identification in logs or monitoring.
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          jwk-set-uri:  http://localhost:9080/realms/spring/protocol/openid-connect/certs
+  cloud:
+    gateway:
+      server:
+        webflux:
+          routes:
+            - id: profiles # id for the routes connected to the students service
+              uri: http://localhost:8010 # the address of the students service
+              predicates:
+                        - Path=/api/v1/profiles/** # all requests starting with /api/v1/students/ will be redirected to the service at http://localhost:8010
+
+
+
+management:
+  tracing:
+    sampling:
+    probability: 1.0 # probability of tracing (debugging requests), set to 100% here.
