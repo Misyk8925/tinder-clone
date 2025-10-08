@@ -16,8 +16,8 @@ spring:
     type: redis
   servlet:
     multipart:
-      max-file-size: 50MB      # размер одного файла
-      max-request-size: 60MB   # общий размер запроса (все поля+файлы)
+      max-file-size: 50MB
+      max-request-size: 60MB
   config:
     import: optional:configserver:http://localhost:8888
   application:
