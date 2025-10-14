@@ -6,7 +6,7 @@ import com.tinder.swipes.model.embedded.SwipeRecordId;
 import com.tinder.swipes.repository.SwipeRepository;
 import org.springframework.stereotype.Service;
 
-import java.util.UUID;
+import java.util.*;
 
 @Service
 public class SwipeService {
@@ -51,5 +51,24 @@ public class SwipeService {
                 System.out.println("decision 2 is not null");
             }
         }
+    }
+
+    /**
+     * Возвращает map: candidateId -> true/false (есть ли ЛЮБАЯ запись взаимодействия между viewer и кандидатом)
+     * true = в таблице есть запись (viewer->cand или cand->viewer), false = нет → можно показывать в колоде.
+     */
+    public Map<UUID, Boolean> existsBetweenBatch(UUID viewerId, List<UUID> candidateIds) {
+        if (candidateIds == null || candidateIds.isEmpty()) {
+            return Collections.emptyMap();
+        }
+
+        // Находим всех кандидатов, с которыми уже есть запись (в любую сторону)
+        Set<UUID> found = repo.findAnyDirection(viewerId, candidateIds);
+
+        Map<UUID, Boolean> result = new HashMap<>();
+        for (UUID cid : candidateIds) {
+            result.put(cid, found.contains(cid));
+        }
+        return result;
     }
 }

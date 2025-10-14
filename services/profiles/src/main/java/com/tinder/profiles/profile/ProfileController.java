@@ -1,7 +1,10 @@
 package com.tinder.profiles.profile;
 
 import com.fasterxml.jackson.databind.JsonNode;
+import com.tinder.profiles.deck.DeckService;
+import com.tinder.profiles.preferences.PreferencesDto;
 import com.tinder.profiles.profile.dto.profileData.GetProfileDto;
+import com.tinder.profiles.profile.dto.profileData.ProfileDto;
 import com.tinder.profiles.profile.dto.success.ApiResponse;
 import com.tinder.profiles.profile.dto.profileData.CreateProfileDtoV1;
 import com.tinder.profiles.profile.dto.errors.CustomErrorResponse;
@@ -32,6 +35,7 @@ public class ProfileController {
     }
 
     private final ProfileServiceImpl service;
+    private final DeckService deckService;
 
 
 
@@ -98,5 +102,45 @@ public class ProfileController {
     @DeleteMapping
     public void deleteMany(@RequestParam List<UUID> ids) {
         service.deleteMany(ids);
+    }
+
+    @GetMapping("/search")
+    public List<GetProfileDto> search(@RequestParam UUID viewerId,
+                                   @RequestParam(required = false) String gender,
+                                   @RequestParam(required = false) Integer minAge,
+                                   @RequestParam(required = false) Integer maxAge,
+                                   @RequestParam(required = false) Integer maxRange,
+                                   @RequestParam(defaultValue = "2000") Integer limit) {
+        PreferencesDto prefs = new PreferencesDto(viewerId, minAge, maxAge, gender, maxRange);
+        return service.searchByViewerPrefs(viewerId, prefs, limit);
+    }
+
+    // Соответствует: GET /page?page=&size=
+    @GetMapping("/page")
+    public List<ProfileDto> page(@RequestParam int page,
+                                 @RequestParam int size) {
+        return service.fetchPage(page, size);
+    }
+
+    @GetMapping("/by-ids")
+    public ResponseEntity<List<GetProfileDto>> getMany(@RequestParam List<UUID> ids) {
+        if ( ids.isEmpty())
+            return ResponseEntity.badRequest().build();
+        return ResponseEntity.ok(service.getMany(ids));
+    }
+
+    /**
+     * Get deck for a user
+     * Reads from Redis cache (populated by Deck Service)
+     * Falls back to on-the-fly building for new users
+     */
+    @GetMapping("/deck")
+    public ResponseEntity<List<GetProfileDto>> getDeck(
+            @RequestParam UUID viewerId,
+            @RequestParam(defaultValue = "0") int offset,
+            @RequestParam(defaultValue = "20") int limit) {
+
+        List<GetProfileDto> deck = deckService.listWithProfiles(viewerId, offset, limit);
+        return ResponseEntity.ok(deck);
     }
 }

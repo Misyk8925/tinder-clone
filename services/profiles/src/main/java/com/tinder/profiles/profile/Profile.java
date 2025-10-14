@@ -7,7 +7,6 @@ import com.tinder.profiles.location.Location;
 import com.tinder.profiles.photos.Photo;
 import com.tinder.profiles.preferences.Preferences;
 import jakarta.persistence.*;
-import jakarta.validation.constraints.NotNull;
 import lombok.*;
 
 import java.time.LocalDateTime;
@@ -56,6 +55,9 @@ public class Profile {
     @Column(name = "is_deleted", nullable = false)
     private boolean isDeleted;
 
+
+    @OneToMany(mappedBy = "profileId", fetch = FetchType.LAZY, cascade = CascadeType.ALL)
+    private List<Photo> photos;
 
     @Column(name = "created_at")
     private LocalDateTime createdAt;

@@ -3,11 +3,13 @@ package com.tinder.swipes.controller;
 import com.tinder.swipes.model.dto.SwipeRecordDto;
 import com.tinder.swipes.service.SwipeService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
+import java.util.Map;
+import java.util.UUID;
 
 @RestController
 @RequestMapping("/swipe")
@@ -22,5 +24,11 @@ public class SwipeController {
         return ResponseEntity
                 .status(200)
                 .body(swipeRecord);
+    }
+
+    @PostMapping(value = "/between/batch", consumes = MediaType.APPLICATION_JSON_VALUE)
+    public Map<UUID, Boolean> betweenBatch(@RequestParam("viewerId") UUID viewerId,
+                                           @RequestBody List<UUID> candidateIds) {
+        return service.existsBetweenBatch(viewerId, candidateIds);
     }
 }

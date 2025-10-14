@@ -2,23 +2,23 @@ package com.tinder.profiles.profile;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.tinder.profiles.location.LocationService;
 import com.tinder.profiles.preferences.Preferences;
+import com.tinder.profiles.preferences.PreferencesDto;
 import com.tinder.profiles.preferences.PreferencesRepository;
-import com.tinder.profiles.preferences.PreferencesService;
 import com.tinder.profiles.profile.dto.profileData.CreateProfileDtoV1;
 import com.tinder.profiles.profile.dto.profileData.GetProfileDto;
+import com.tinder.profiles.profile.dto.profileData.ProfileDto;
 import com.tinder.profiles.profile.mapper.CreateProfileMapper;
 import com.tinder.profiles.profile.mapper.GetProfileMapper;
+import com.tinder.profiles.profile.mapper.ProfileMapper;
 import lombok.RequiredArgsConstructor;
 import org.springframework.cache.Cache;
 import org.springframework.cache.CacheManager;
-import org.springframework.cache.annotation.CacheEvict;
-import org.springframework.cache.annotation.CachePut;
-import org.springframework.cache.annotation.Cacheable;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
 
@@ -30,11 +30,10 @@ import java.util.*;
 public class ProfileServiceImpl  {
 
     private final ProfileRepository repo;
-    private final LocationService locationService;
-    private final PreferencesService preferencesService;
     private final PreferencesRepository preferencesRepository;
     private final CreateProfileMapper mapper;
     private final GetProfileMapper getMapper;
+    private final ProfileMapper profileMapper;
 
     private final ObjectMapper createMapper;
     private final CacheManager cacheManager;
@@ -54,8 +53,9 @@ public class ProfileServiceImpl  {
             if (cached instanceof Profile profile) {
                 return getMapper.toGetProfileDto(profile);
             } else {
-
-                throw new IllegalStateException("В кэше по ключу " + id + " лежит объект неверного типа: " + cached.getClass());
+                // Исправление NPE - проверяем на null перед вызовом getClass()
+                String cachedType = (cached != null) ? cached.getClass().getName() : "null";
+                throw new IllegalStateException("В кэше по ключу " + id + " лежит объект неверного типа: " + cachedType);
             }
         }
         Optional<Profile> profileOptional = repo.findById(id);
@@ -140,7 +140,7 @@ public class ProfileServiceImpl  {
     public Profile delete(UUID id) {
         Profile profile = repo.findById(id).orElse(null);
         if (profile != null) {
-            // for soft delete
+
             profile.setDeleted(true);
             repo.save(profile);
             Objects.requireNonNull(cacheManager.getCache("PROFILE_ENTITY_CACHE"))
@@ -153,4 +153,38 @@ public class ProfileServiceImpl  {
         repo.deleteAllById(ids);
     }
 
+    public List<ProfileDto> fetchPage(int page, int size) {
+        Pageable pageable = PageRequest.of(page, size);
+
+        return repo.findAll(pageable).stream()
+                .map(profileMapper::toDto)
+                .toList();
+    }
+
+    public List<GetProfileDto> searchByViewerPrefs(UUID viewerId, PreferencesDto p, int limit) {
+
+        Profile viewer = repo.findById(viewerId)
+                .orElseThrow(() -> new NoSuchElementException("viewer not found"));
+
+         List<Profile> base = repo.findAll(PageRequest.of(0, Math.max(limit, 1))).stream()
+
+                .filter(profile -> !profile.isDeleted())
+                .filter(profile -> {
+                    Integer age = profile.getAge();
+                    return age >= p.getMinAge() && age <= p.getMaxAge();
+                })
+                .filter(profile -> p.getGender() == null || p.getGender().isEmpty() ||
+                        p.getGender().equalsIgnoreCase("any"))
+                .limit(limit)
+                .toList();
+
+        return base.stream().map(getMapper::toGetProfileDto).toList();
+    }
+
+
+    public List<GetProfileDto> getMany(List<UUID> ids) {
+        return repo.findAllById(ids).stream()
+                .map(getMapper::toGetProfileDto)
+                .toList();
+    }
 }

@@ -40,4 +40,8 @@ public class Photo {
     @Column(name = "created_at")
     private LocalDateTime createdAt;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "profile_id", nullable = false)
+    private Profile profile;
+
 }
