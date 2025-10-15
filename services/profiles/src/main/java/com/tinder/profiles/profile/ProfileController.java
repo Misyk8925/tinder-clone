@@ -17,10 +17,15 @@ import org.springframework.data.web.PagedModel;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.*;
 
 import java.io.IOException;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 @RestController
@@ -47,9 +52,10 @@ public class ProfileController {
     }
 
     @PostMapping
-    public ResponseEntity<Object> create(@RequestBody @Valid CreateProfileDtoV1 profile) {
+    public ResponseEntity<Object> create(@RequestBody @Valid CreateProfileDtoV1 profile, @AuthenticationPrincipal Jwt jwt) {
 
-        boolean profileExists = service.getByUsername(profile.getName()) != null;
+        String sub = jwt.getSubject();
+        boolean profileExists = service.getByProfileIdString(sub) != null;
         if (profileExists) {
             ErrorSummary errorSummary = ErrorSummary.builder()
                     .code("PROFILE_EXISTS")
@@ -61,7 +67,7 @@ public class ProfileController {
                     .status(HttpStatus.CONFLICT)
                     .body(errorResponse);
         }
-        Profile result = service.create(profile);
+        Profile result = service.create(profile, sub);
 
         return ResponseEntity
                 .status(HttpStatus.CREATED)

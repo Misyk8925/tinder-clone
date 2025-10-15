@@ -74,9 +74,15 @@ public class ProfileServiceImpl  {
         return repo.findByName(username);
     }
 
-    public Profile create(CreateProfileDtoV1 profile) {
+    public Profile getByProfileIdString(String profileIdString) {
+        return repo.findByProfileIdString(profileIdString);
+    }
+
+    public Profile create(CreateProfileDtoV1 profile, String profileIdString) {
         try {
             Profile profileEntity = mapper.toEntity(profile);
+
+            profileEntity.setProfileIdString(profileIdString);
 
             Preferences preferences = profileEntity.getPreferences();
             if (preferences != null && preferences.getId() == null) {
@@ -85,9 +91,6 @@ public class ProfileServiceImpl  {
             }
             Profile savedProfile = repo.save(profileEntity);
 
-            System.out.println(savedProfile.getProfileId());
-
-            System.out.println(savedProfile.getClass().getName());
             Objects.requireNonNull(cacheManager.getCache("PROFILE_ENTITY_CACHE"))
                     .put(savedProfile.getProfileId(), savedProfile);
 

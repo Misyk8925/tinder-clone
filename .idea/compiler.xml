@@ -10,7 +10,6 @@
         <module name="config-server2" />
         <module name="discovery" />
         <module name="gateway" />
-        <module name="deck" />
       </profile>
       <profile name="Annotation profile for profiles" enabled="true">
         <sourceOutputDir name="target/generated-sources/annotations" />
@@ -32,6 +31,7 @@
           <entry name="$MAVEN_REPOSITORY$/org/projectlombok/lombok/1.18.40/lombok-1.18.40.jar" />
         </processorPath>
         <module name="swipes" />
+        <module name="deck" />
       </profile>
     </annotationProcessing>
     <bytecodeTargetLevel>

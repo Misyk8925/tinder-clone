@@ -15,6 +15,7 @@ import software.amazon.awssdk.services.s3.presigner.model.PutObjectPresignReques
 import java.net.URL;
 import java.time.Duration;
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
@@ -43,7 +44,6 @@ public class S3PhotoService {
         photo.setSize(data.length);
         photo.setUrl("https://" + bucket + ".s3.amazonaws.com/" + key);
         photo.setPrimary(false);
-        photo.setProfileId(uuid); // Uncomment and set userId if Photo entity has userId field
         photo.setCreatedAt(LocalDateTime.now());
 
         photoRepository.save(photo);
@@ -51,7 +51,7 @@ public class S3PhotoService {
 
     public int getPhotoCountForUser(String userId) {
         UUID uuid = UUID.fromString(userId);
-        return photoRepository.countByProfileId(uuid);
+        return photoRepository.countByProfile_ProfileId(uuid);
     }
 
     public String getPhotoUrl(String key) {

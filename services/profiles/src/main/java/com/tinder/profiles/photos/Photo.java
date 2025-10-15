@@ -25,8 +25,6 @@ public class Photo {
     @Column(name = "is_primary", nullable = false)
     private boolean isPrimary;
 
-    @Column
-    private UUID profileId;
 
     @Column(name = "url", nullable = false)
     private String url;

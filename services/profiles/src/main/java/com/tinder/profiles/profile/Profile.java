@@ -27,6 +27,9 @@ public class Profile {
     @Column(name = "id", nullable = false)
     private UUID profileId;
 
+    @Column(name = "profile_id", unique = true)
+    private String profileIdString;
+
     @Column(name = "name", nullable = false)
     private String name;
 
@@ -56,7 +59,7 @@ public class Profile {
     private boolean isDeleted;
 
 
-    @OneToMany(mappedBy = "profileId", fetch = FetchType.LAZY, cascade = CascadeType.ALL)
+    @OneToMany(mappedBy = "profile", fetch = FetchType.LAZY, cascade = CascadeType.ALL, orphanRemoval = true)
     private List<Photo> photos;
 
     @Column(name = "created_at")

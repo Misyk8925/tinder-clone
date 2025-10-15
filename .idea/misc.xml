@@ -24,11 +24,16 @@
         <option value="$PROJECT_DIR$/services/config-server2/pom.xml" />
         <option value="$PROJECT_DIR$/services/discovery/pom.xml" />
         <option value="$PROJECT_DIR$/services/profiles/pom.xml" />
+        <option value="$PROJECT_DIR$/services/gateway-service/pom.xml" />
+        <option value="$PROJECT_DIR$/services/gateway/pom.xml" />
+        <option value="$PROJECT_DIR$/services/swipes/pom.xml" />
+        <option value="$PROJECT_DIR$/services/deck/pom.xml" />
       </list>
     </option>
     <option name="ignoredFiles">
       <set>
         <option value="$PROJECT_DIR$/services/config-server/pom.xml" />
+        <option value="$PROJECT_DIR$/services/gateway-service/pom.xml" />
       </set>
     </option>
   </component>

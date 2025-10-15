@@ -3,13 +3,4 @@
   <component name="AmplicodeJpaPluginProjectSettings">
     <option name="lastSelectedLanguage" value="Java" />
   </component>
-  <component name="AmplicodePersistenceUnitSettings">
-    <persistence-units>
-      <persistence-unit moduleName="profiles" name="Default">
-        <packages>
-          <package value="com.tinder.profiles" />
-        </packages>
-      </persistence-unit>
-    </persistence-units>
-  </component>
 </project>
