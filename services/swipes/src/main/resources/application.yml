@@ -6,6 +6,12 @@ spring:
       ddl-auto: create
     show-sql: true
 
+
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          jwk-set-uri:  http://localhost:9080/realms/spring/protocol/openid-connect/certs
   datasource:
     url: jdbc:postgresql://127.0.0.1:54322/postgres
     username: postgres

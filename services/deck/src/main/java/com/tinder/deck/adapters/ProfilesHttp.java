@@ -34,4 +34,17 @@ public class ProfilesHttp {
                         .build())
                  .retrieve().bodyToFlux(SharedProfileDto.class) ;
      }
+
+    /**
+     * Получить всех активных пользователей
+     * Можно заменить endpoint на реальный, если потребуется
+     */
+    public Flux<SharedProfileDto> getActiveUsers() {
+        // Временная реализация: получаем первую страницу с большим лимитом
+        return profilesWebClient.get()
+                .uri(uri -> uri.path("/active")
+                        .build())
+                .retrieve()
+                .bodyToFlux(SharedProfileDto.class);
+    }
 }

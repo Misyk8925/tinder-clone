@@ -12,6 +12,7 @@ import com.tinder.profiles.profile.mapper.CreateProfileMapper;
 import com.tinder.profiles.profile.mapper.GetProfileMapper;
 import com.tinder.profiles.profile.mapper.ProfileMapper;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.cache.Cache;
 import org.springframework.cache.CacheManager;
 import org.springframework.data.domain.Page;
@@ -27,6 +28,7 @@ import java.util.*;
 
 @RequiredArgsConstructor
 @Service
+@Slf4j
 public class ProfileServiceImpl  {
 
     private final ProfileRepository repo;
@@ -96,7 +98,7 @@ public class ProfileServiceImpl  {
 
             return savedProfile;
         } catch (Exception e) {
-
+            log.error("Error creating profile: " + e.getMessage());
             throw new RuntimeException(e);
         }
 
@@ -187,6 +189,12 @@ public class ProfileServiceImpl  {
 
     public List<GetProfileDto> getMany(List<UUID> ids) {
         return repo.findAllById(ids).stream()
+                .map(getMapper::toGetProfileDto)
+                .toList();
+    }
+
+    public List<GetProfileDto> getActiveUsers() {
+        return repo.findAllByIsDeletedFalse().stream()
                 .map(getMapper::toGetProfileDto)
                 .toList();
     }

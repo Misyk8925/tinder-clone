@@ -36,6 +36,9 @@ public class Profile {
     @Column(name = "age", nullable = false)
     private Integer age;
 
+    @Column(name = "gender", nullable = false)
+    private String gender;
+
     @Column(name = "bio", length = 1023)
     private String bio;
 

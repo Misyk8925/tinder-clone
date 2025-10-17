@@ -149,4 +149,9 @@ public class ProfileController {
         List<GetProfileDto> deck = deckService.listWithProfiles(viewerId, offset, limit);
         return ResponseEntity.ok(deck);
     }
+
+    @GetMapping("/active")
+    public ResponseEntity<List<GetProfileDto>> getActiveUsers() {
+        return ResponseEntity.ok(service.getActiveUsers());
+    }
 }

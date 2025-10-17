@@ -1,6 +1,7 @@
-package com.tinder.deck;
+package com.tinder.deck.controlller;
 
 import com.tinder.deck.service.DeckCache;
+import com.tinder.deck.service.DeckScheduler;
 import com.tinder.deck.service.DeckService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -21,10 +22,16 @@ public class DeckController {
 
     private final DeckCache cache;
     private final DeckService deckService;
+    private final DeckScheduler deckScheduler;
 
     /**
      * Check if deck exists for a user
      */
+
+    @GetMapping("/manual-rebuild")
+    public void manualRebuild() {
+        deckScheduler.rebuildAllDecks();
+    }
     @GetMapping("/exists")
     public Mono<ResponseEntity<Boolean>> exists(@RequestParam UUID viewerId) {
         return cache.size(viewerId)

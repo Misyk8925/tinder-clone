@@ -37,6 +37,7 @@ class ProfilesApplicationTests {
     private final String profile = """
                 {
                     "name": "Misha",
+                    "gender": "male",
                     "age": 34,
                     "bio": "this is my life",
                     "city": "Amstetten",
@@ -53,6 +54,7 @@ class ProfilesApplicationTests {
                     "name": "Misha",
                     "age": 35,
                     "bio": "test",
+                    "gender": "male",
                     "city": "Vienna",
                     "preferences": {
                         "minAge": 25,
@@ -65,6 +67,7 @@ class ProfilesApplicationTests {
     private final String invalidatedProfile = """
                 {
                     "name": "Misha",
+                    "gender": "male",
                     "age": 3,
                     "bio": "this is my life",
                     "city": "Amstetten",
