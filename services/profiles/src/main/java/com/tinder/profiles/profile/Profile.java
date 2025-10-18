@@ -27,8 +27,8 @@ public class Profile {
     @Column(name = "id", nullable = false)
     private UUID profileId;
 
-    @Column(name = "profile_id", unique = true)
-    private String profileIdString;
+    @Column(name = "user_id", unique = true)
+    private String userId;
 
     @Column(name = "name", nullable = false)
     private String name;

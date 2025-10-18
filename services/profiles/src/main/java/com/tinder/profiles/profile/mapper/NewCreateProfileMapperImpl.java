@@ -32,6 +32,7 @@ public class NewCreateProfileMapperImpl implements CreateProfileMapper {
         profile.name( createProfileDtoV1.getName() );
         profile.age( createProfileDtoV1.getAge() );
         profile.bio( createProfileDtoV1.getBio() );
+        profile.gender( createProfileDtoV1.getGender() );
         profile.city( createProfileDtoV1.getCity() );
         profile.location( locationService.create(createProfileDtoV1.getCity()) );
         profile.preferences( preferencesDtoToPreferences( createProfileDtoV1.getPreferences() ) );
@@ -54,13 +55,15 @@ public class NewCreateProfileMapperImpl implements CreateProfileMapper {
         String city = null;
         PreferencesDto preferences = null;
 
+
         name = profile.getName();
         age = profile.getAge();
+        String gender = profile.getGender();
         bio = profile.getBio();
         city = profile.getCity();
         preferences = preferencesToPreferencesDto( profile.getPreferences() );
 
-        CreateProfileDtoV1 createProfileDtoV1 = new CreateProfileDtoV1( name, age, bio, city, preferences );
+        CreateProfileDtoV1 createProfileDtoV1 = new CreateProfileDtoV1( name, age, gender, bio, city, preferences );
 
         return createProfileDtoV1;
     }

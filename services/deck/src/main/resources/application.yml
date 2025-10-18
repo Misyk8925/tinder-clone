@@ -6,9 +6,11 @@ spring:
       host: localhost
       port: 6379
 profiles:
-  base-url: http://localhost:8222/api/v1/profiles
+  # Prefer calling profiles service directly during local/test runs
+  base-url: http://localhost:8010/api/v1/profiles
 swipes:
-  base-url: http://localhost:8222/api/v1/swipes
+  # Prefer calling swipes service directly during local/test runs
+  base-url: http://localhost:8020/api/v1/swipes
 
 server.port: 8030
 deck:

@@ -1,5 +1,6 @@
 package com.tinder.deck.controlller;
 
+import com.tinder.deck.adapters.ProfilesHttp;
 import com.tinder.deck.service.DeckCache;
 import com.tinder.deck.service.DeckScheduler;
 import com.tinder.deck.service.DeckService;
@@ -23,6 +24,7 @@ public class DeckController {
     private final DeckCache cache;
     private final DeckService deckService;
     private final DeckScheduler deckScheduler;
+    private final ProfilesHttp profilesHttp;
 
     /**
      * Check if deck exists for a user
@@ -48,14 +50,14 @@ public class DeckController {
     }
 
     /**
-     * Manually trigger deck rebuild for a user (admin only)
+     * Manually trigger deck rebuild for a user
      */
     @PostMapping("/rebuild")
     public Mono<ResponseEntity<String>> rebuild(@RequestParam UUID viewerId) {
-        // TODO: Fetch viewer profile from Profiles Service
-        // For now, return not implemented
-        return Mono.just(ResponseEntity.status(501)
-                .body("Manual rebuild not yet implemented. Use scheduled rebuilds."));
+        return profilesHttp.getProfile(viewerId)
+                .flatMap(viewer -> deckService.rebuildOneDeck(viewer)
+                        .thenReturn(ResponseEntity.ok("Rebuild started for " + viewerId)))
+                .switchIfEmpty(Mono.just(ResponseEntity.status(404).body("Viewer not found")));
     }
 
     /**

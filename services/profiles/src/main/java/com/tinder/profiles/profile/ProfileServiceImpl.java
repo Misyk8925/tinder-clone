@@ -19,7 +19,6 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
-import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
 
@@ -76,15 +75,15 @@ public class ProfileServiceImpl  {
         return repo.findByName(username);
     }
 
-    public Profile getByProfileIdString(String profileIdString) {
-        return repo.findByProfileIdString(profileIdString);
+    public Profile getByUserId(String userId) {
+        return repo.findByUserId(userId);
     }
 
-    public Profile create(CreateProfileDtoV1 profile, String profileIdString) {
+    public Profile create(CreateProfileDtoV1 profile, String userId) {
         try {
             Profile profileEntity = mapper.toEntity(profile);
 
-            profileEntity.setProfileIdString(profileIdString);
+            profileEntity.setUserId(userId);
 
             Preferences preferences = profileEntity.getPreferences();
             if (preferences != null && preferences.getId() == null) {
@@ -171,17 +170,31 @@ public class ProfileServiceImpl  {
         Profile viewer = repo.findById(viewerId)
                 .orElseThrow(() -> new NoSuchElementException("viewer not found"));
 
-         List<Profile> base = repo.findAll(PageRequest.of(0, Math.max(limit, 1))).stream()
+         List<Profile> allProfiles = repo.findAll(PageRequest.of(0, Math.max(limit, 1))).stream()
+                 .filter(profile -> !profile.isDeleted())
+                 .toList();
 
-                .filter(profile -> !profile.isDeleted())
+         log.debug("searchByViewerPrefs: viewer {} fetched {} profiles from repo", viewerId, allProfiles.size());
+
+         PreferencesDto prefs = p;
+
+         List<Profile> base = allProfiles.stream()
+
                 .filter(profile -> {
                     Integer age = profile.getAge();
-                    return age >= p.getMinAge() && age <= p.getMaxAge();
+                    return age != null && age >= prefs.getMinAge() && age <= prefs.getMaxAge();
                 })
-                .filter(profile -> p.getGender() == null || p.getGender().isEmpty() ||
-                        p.getGender().equalsIgnoreCase("any"))
+                .filter(profile -> {
+                    String prefGender = prefs.getGender();
+                    if (prefGender == null || prefGender.isEmpty() || prefGender.equalsIgnoreCase("any")) {
+                        return true;
+                    }
+                    return profile.getGender() != null && profile.getGender().equalsIgnoreCase(prefGender);
+                })
                 .limit(limit)
                 .toList();
+
+         log.debug("searchByViewerPrefs: viewer {} filtered to {} candidates by prefs", viewerId, base.size());
 
         return base.stream().map(getMapper::toGetProfileDto).toList();
     }

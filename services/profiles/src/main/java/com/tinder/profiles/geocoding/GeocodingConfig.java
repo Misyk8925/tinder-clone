@@ -8,7 +8,7 @@ import org.springframework.web.reactive.function.client.WebClient;
 @Configuration
 public class GeocodingConfig {
 
-    @Bean
+    @Bean("nominatimWebClient")
     WebClient nominatimWebClient(
             @Value("${app.geocoding.base-url}") String baseUrl,
             @Value("${app.geocoding.user-agent}") String userAgent

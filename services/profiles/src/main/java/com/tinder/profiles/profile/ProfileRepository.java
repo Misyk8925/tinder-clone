@@ -7,7 +7,7 @@ import java.util.UUID;
 
 public interface ProfileRepository extends JpaRepository<Profile, UUID> {
     Profile findByName(String username);
-    Profile findByProfileIdString(String profileIdString);
+    Profile findByUserId(String userId);
 
     List<Profile> findAllByIsDeletedFalse();
 }

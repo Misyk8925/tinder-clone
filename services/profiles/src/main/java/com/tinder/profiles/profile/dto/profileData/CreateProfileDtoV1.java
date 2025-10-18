@@ -23,6 +23,9 @@ public class CreateProfileDtoV1 {
     @Max(message = "you must be younger than 130 y.o,", value = 130)
     Integer age;
 
+    @NotBlank(message = "gender is required")
+    String gender;
+
     @Size(max = 1023, message = "bio must be less than 1000 characters")
     String bio;
 
@@ -34,14 +37,16 @@ public class CreateProfileDtoV1 {
 
     @JsonCreator
     public CreateProfileDtoV1(
-        @JsonProperty("name") String name,
-        @JsonProperty("age") Integer age,
-        @JsonProperty("bio") String bio,
-        @JsonProperty("city") String city,
-        @JsonProperty("preferences") PreferencesDto preferences
+            @JsonProperty("name") String name,
+            @JsonProperty("age") Integer age,
+            @JsonProperty("gender") String gender,
+            @JsonProperty("bio") String bio,
+            @JsonProperty("city") String city,
+            @JsonProperty("preferences") PreferencesDto preferences
     ) {
         this.name = name;
         this.age = age;
+        this.gender = gender;
         this.bio = bio;
         this.city = city;
         this.preferences = preferences;

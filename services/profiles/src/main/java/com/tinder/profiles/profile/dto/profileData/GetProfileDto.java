@@ -10,6 +10,7 @@ import java.util.UUID;
  */
 public record GetProfileDto(
         UUID profileId,
+        String userId,
         String name,
         Integer age,
         String bio,

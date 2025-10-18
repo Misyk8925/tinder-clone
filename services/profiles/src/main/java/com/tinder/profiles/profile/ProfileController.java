@@ -11,21 +11,15 @@ import com.tinder.profiles.profile.dto.errors.CustomErrorResponse;
 import com.tinder.profiles.profile.dto.errors.ErrorSummary;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.Pageable;
-import org.springframework.data.web.PagedModel;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
-import org.springframework.security.core.Authentication;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.*;
 
 import java.io.IOException;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.UUID;
 
 @RestController
@@ -55,7 +49,7 @@ public class ProfileController {
     public ResponseEntity<Object> create(@RequestBody @Valid CreateProfileDtoV1 profile, @AuthenticationPrincipal Jwt jwt) {
 
         String sub = jwt.getSubject();
-        boolean profileExists = service.getByProfileIdString(sub) != null;
+        boolean profileExists = service.getByUserId(sub) != null;
         if (profileExists) {
             ErrorSummary errorSummary = ErrorSummary.builder()
                     .code("PROFILE_EXISTS")
