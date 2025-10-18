@@ -2,7 +2,9 @@ package com.tinder.deck.config;
 
 import io.netty.channel.ChannelOption;
 import java.time.Duration;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.client.reactive.ReactorClientHttpConnector;
@@ -20,6 +22,7 @@ import reactor.netty.http.client.HttpClient;
 public class HttpClientConfig {
 
     @Bean
+    @ConditionalOnBean(ReactiveClientRegistrationRepository.class)
     public ReactiveOAuth2AuthorizedClientManager authorizedClientManager(
             ReactiveClientRegistrationRepository clientRegistrationRepository,
             ServerOAuth2AuthorizedClientRepository authorizedClientRepository) {
@@ -42,42 +45,50 @@ public class HttpClientConfig {
     @Bean
     WebClient profilesWebClient(
             @Value("${profiles.base-url}") String profilesUrl,
-            ReactiveOAuth2AuthorizedClientManager authorizedClientManager) {
-        
-        ServerOAuth2AuthorizedClientExchangeFilterFunction oauth2 =
-                new ServerOAuth2AuthorizedClientExchangeFilterFunction(authorizedClientManager);
-        oauth2.setDefaultClientRegistrationId("keycloak-client");
+            @Autowired(required = false) ReactiveOAuth2AuthorizedClientManager authorizedClientManager) {
         
         HttpClient client = HttpClient.create()
                 .option(ChannelOption.CONNECT_TIMEOUT_MILLIS, 2_000)
                 .responseTimeout(Duration.ofMillis(3_000))
                 .compress(true);
 
-        return WebClient.builder()
+        WebClient.Builder builder = WebClient.builder()
                 .baseUrl(profilesUrl)
-                .clientConnector(new ReactorClientHttpConnector(client))
-                .filter(oauth2)
-                .build();
+                .clientConnector(new ReactorClientHttpConnector(client));
+
+        // Only add OAuth2 filter if authorizedClientManager is available
+        if (authorizedClientManager != null) {
+            ServerOAuth2AuthorizedClientExchangeFilterFunction oauth2 =
+                    new ServerOAuth2AuthorizedClientExchangeFilterFunction(authorizedClientManager);
+            oauth2.setDefaultClientRegistrationId("keycloak-client");
+            builder.filter(oauth2);
+        }
+
+        return builder.build();
     }
 
     @Bean
     WebClient swipesWebClient(
             @Value("${swipes.base-url}") String swipesUrl,
-            ReactiveOAuth2AuthorizedClientManager authorizedClientManager) {
-        
-        ServerOAuth2AuthorizedClientExchangeFilterFunction oauth2 =
-                new ServerOAuth2AuthorizedClientExchangeFilterFunction(authorizedClientManager);
-        oauth2.setDefaultClientRegistrationId("keycloak-client");
+            @Autowired(required = false) ReactiveOAuth2AuthorizedClientManager authorizedClientManager) {
         
         HttpClient client = HttpClient.create()
                 .option(ChannelOption.CONNECT_TIMEOUT_MILLIS, 2_000)
                 .responseTimeout(Duration.ofMillis(3_000))
                 .compress(true);
 
-        return WebClient.builder()
+        WebClient.Builder builder = WebClient.builder()
                 .baseUrl(swipesUrl)
-                .clientConnector(new ReactorClientHttpConnector(client))
-                .filter(oauth2)
-                .build();
+                .clientConnector(new ReactorClientHttpConnector(client));
+
+        // Only add OAuth2 filter if authorizedClientManager is available
+        if (authorizedClientManager != null) {
+            ServerOAuth2AuthorizedClientExchangeFilterFunction oauth2 =
+                    new ServerOAuth2AuthorizedClientExchangeFilterFunction(authorizedClientManager);
+            oauth2.setDefaultClientRegistrationId("keycloak-client");
+            builder.filter(oauth2);
+        }
+
+        return builder.build();
     }
 }

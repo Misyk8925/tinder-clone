@@ -12,7 +12,7 @@ import java.util.Map;
 import java.util.UUID;
 
 @RestController
-@RequestMapping("/swipe")
+@RequestMapping("/api/v1/swipes")
 @RequiredArgsConstructor
 public class SwipeController {
 
