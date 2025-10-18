@@ -2,12 +2,12 @@ package com.tinder.deck.config;
 
 import io.netty.channel.ChannelOption;
 import java.time.Duration;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.client.reactive.ReactorClientHttpConnector;
+import org.springframework.lang.Nullable;
 import org.springframework.security.oauth2.client.ReactiveOAuth2AuthorizedClientManager;
 import org.springframework.security.oauth2.client.ReactiveOAuth2AuthorizedClientProvider;
 import org.springframework.security.oauth2.client.ReactiveOAuth2AuthorizedClientProviderBuilder;
@@ -20,6 +20,8 @@ import reactor.netty.http.client.HttpClient;
 
 @Configuration
 public class HttpClientConfig {
+
+    private static final String OAUTH2_CLIENT_REGISTRATION_ID = "keycloak-client";
 
     @Bean
     @ConditionalOnBean(ReactiveClientRegistrationRepository.class)
@@ -45,7 +47,7 @@ public class HttpClientConfig {
     @Bean
     WebClient profilesWebClient(
             @Value("${profiles.base-url}") String profilesUrl,
-            @Autowired(required = false) ReactiveOAuth2AuthorizedClientManager authorizedClientManager) {
+            @Nullable ReactiveOAuth2AuthorizedClientManager authorizedClientManager) {
         
         HttpClient client = HttpClient.create()
                 .option(ChannelOption.CONNECT_TIMEOUT_MILLIS, 2_000)
@@ -60,7 +62,7 @@ public class HttpClientConfig {
         if (authorizedClientManager != null) {
             ServerOAuth2AuthorizedClientExchangeFilterFunction oauth2 =
                     new ServerOAuth2AuthorizedClientExchangeFilterFunction(authorizedClientManager);
-            oauth2.setDefaultClientRegistrationId("keycloak-client");
+            oauth2.setDefaultClientRegistrationId(OAUTH2_CLIENT_REGISTRATION_ID);
             builder.filter(oauth2);
         }
 
@@ -70,7 +72,7 @@ public class HttpClientConfig {
     @Bean
     WebClient swipesWebClient(
             @Value("${swipes.base-url}") String swipesUrl,
-            @Autowired(required = false) ReactiveOAuth2AuthorizedClientManager authorizedClientManager) {
+            @Nullable ReactiveOAuth2AuthorizedClientManager authorizedClientManager) {
         
         HttpClient client = HttpClient.create()
                 .option(ChannelOption.CONNECT_TIMEOUT_MILLIS, 2_000)
@@ -85,7 +87,7 @@ public class HttpClientConfig {
         if (authorizedClientManager != null) {
             ServerOAuth2AuthorizedClientExchangeFilterFunction oauth2 =
                     new ServerOAuth2AuthorizedClientExchangeFilterFunction(authorizedClientManager);
-            oauth2.setDefaultClientRegistrationId("keycloak-client");
+            oauth2.setDefaultClientRegistrationId(OAUTH2_CLIENT_REGISTRATION_ID);
             builder.filter(oauth2);
         }
 
