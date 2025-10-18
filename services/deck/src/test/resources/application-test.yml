@@ -1,0 +1,28 @@
+spring:
+  application:
+    name: deck-test
+  data:
+    redis:
+      host: localhost
+      port: 6379
+  main:
+    allow-bean-definition-overriding: true
+  autoconfigure:
+    exclude:
+      - org.springframework.boot.autoconfigure.security.oauth2.client.reactive.ReactiveOAuth2ClientAutoConfiguration
+      - org.springframework.boot.autoconfigure.security.oauth2.client.servlet.OAuth2ClientAutoConfiguration
+
+profiles:
+  base-url: http://localhost:8010/api/v1/profiles
+
+swipes:
+  base-url: http://localhost:8020/api/v1/swipes
+
+server.port: 8030
+deck:
+  parallelism: 32
+  request-timeout-ms: 1500
+  retries: 1
+  ttl-minutes: 60
+  per-user-limit: 500
+  search-limit: 2000

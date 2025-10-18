@@ -5,6 +5,20 @@ spring:
     redis:
       host: localhost
       port: 6379
+  security:
+    oauth2:
+      client:
+        provider:
+          keycloak:
+            issuer-uri: http://localhost:9080/realms/spring
+            token-uri: http://localhost:9080/realms/spring/protocol/openid-connect/token
+        registration:
+          keycloak-client:
+            provider: keycloak
+            client-id: deck-service
+            client-secret: ${KEYCLOAK_CLIENT_SECRET:your-deck-service-secret}
+            authorization-grant-type: client_credentials
+            scope: openid,profile
 profiles:
   # Prefer calling profiles service directly during local/test runs
   base-url: http://localhost:8010/api/v1/profiles
