@@ -12,7 +12,7 @@ import java.util.UUID;
  */
 @Value
 public class LocationDto {
-    UUID id; // Добавляем поле id для корректной десериализации из Redis
+    UUID id;
 
     @NotNull
     Double latitude;
@@ -20,9 +20,9 @@ public class LocationDto {
     @NotNull
     Double longitude;
 
-    @JsonCreator // Указывает Jackson, как создавать экземпляр класса
+    @JsonCreator
     public LocationDto(
-        @JsonProperty("id") UUID id, // Добавляем id в конструктор
+        @JsonProperty("id") UUID id,
         @JsonProperty("latitude") Double latitude,
         @JsonProperty("longitude") Double longitude
     ) {

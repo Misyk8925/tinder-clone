@@ -22,19 +22,16 @@ public class UserService {
     }
 
     private void setup() {
-        // Список для хранения тестовых пользователей
         this.users = new ArrayList<>();
 
-        // Массивы тестовых данных для генерации реалистичных имён
         String[] firstNames = {"Alexander", "Maria", "Dmitry", "Anna", "Ivan", "Catherine", "Sergey", "Olga", "Andrew", "Natalie", "Michael", "Elena", "Alex", "Tatiana", "Vladimir", "Irina", "Nicholas", "Svetlana", "Paul", "Julia"};
         String[] lastNames = {"Ivanov", "Petrova", "Sidorov", "Kozlova", "Smirnov", "Novikova", "Popov", "Morozova", "Vasiliev", "Volkova", "Sokolov", "Zaitseva", "Lebedev", "Semenova", "Egorov", "Pavlova", "Kozlov", "Golubeva", "Stepanov", "Vinogradova"};
 
-        // Генерируем 20 тестовых пользователей
         for (int i = 0; i < 20; i++) {
-            String username = "user" + (i + 1) + "@test.com"; // Уникальный username в формате email
-            String password = "Password" + (i + 1) + "!"; // Уникальный пароль
-            String firstName = firstNames[i]; // Имя из массива
-            String lastName = lastNames[i]; // Фамилия из массива
+            String username = "user" + (i + 1) + "@test.com";
+            String password = "Password" + (i + 1) + "!";
+            String firstName = firstNames[i];
+            String lastName = lastNames[i];
 
             users.add(new NewUserRecord(username, password, firstName, lastName));
         }

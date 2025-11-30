@@ -33,7 +33,7 @@ public class ProfileController {
         return ResponseEntity.ok("test pa");
     }
 
-    private final ProfileServiceImpl service;
+    private final ProfileService service;
     private final DeckService deckService;
 
 
@@ -115,7 +115,6 @@ public class ProfileController {
         return service.searchByViewerPrefs(viewerId, prefs, limit);
     }
 
-    // Соответствует: GET /page?page=&size=
     @GetMapping("/page")
     public List<ProfileDto> page(@RequestParam int page,
                                  @RequestParam int size) {

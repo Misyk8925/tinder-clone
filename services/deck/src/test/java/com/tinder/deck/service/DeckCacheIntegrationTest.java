@@ -32,9 +32,13 @@ class DeckCacheIntegrationTest {
         redisContainer = new GenericContainer<>(DockerImageName.parse("redis:8.2.1-alpine"))
                 .withExposedPorts(6379);
         redisContainer.start();
+    }
 
-        System.setProperty("spring.data.redis.host", redisContainer.getHost());
-        System.setProperty("spring.data.redis.port", String.valueOf(redisContainer.getFirstMappedPort()));
+    @DynamicPropertySource
+    static void registerRedisProperties(DynamicPropertyRegistry registry) {
+        // Register properties Spring Boot expects for Redis auto-configuration
+        registry.add("spring.redis.host", redisContainer::getHost);
+        registry.add("spring.redis.port", redisContainer::getFirstMappedPort);
     }
 
     @Autowired
@@ -45,12 +49,12 @@ class DeckCacheIntegrationTest {
 
     private UUID testViewerId;
 
-    @AfterAll
-    static void tearDown() {
-        if (redisContainer != null) {
-            redisContainer.stop();
-        }
-    }
+//    @AfterAll
+//    static void tearDown() {
+//        if (redisContainer != null) {
+//            redisContainer.stop();
+//        }
+//    }
 
     @BeforeEach
     void setUp() {

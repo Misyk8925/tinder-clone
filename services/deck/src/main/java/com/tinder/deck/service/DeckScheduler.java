@@ -25,25 +25,21 @@ public class DeckScheduler {
     /**
      * Rebuild decks for all active users
      * Runs every 10 minutes
-     *
-     * TODO: Implement proper active user tracking
      * For now, this is a placeholder
      */
     @Scheduled(cron = "0 */1 * * * *")
     public void rebuildAllDecks() {
         log.info("Starting scheduled deck rebuild...");
 
-        // TODO: Get list of active users from Profiles Service
-        // For now, this is disabled until we have an endpoint to get active users
 
         Flux<SharedProfileDto> activeUsers = profilesHttp.getActiveUsers();
+        log.info("Active users: {}", activeUsers.collectList().block());
 
-        // Перебираем всех пользователей и пересобираем их колоды
         activeUsers
             .timeout(Duration.ofSeconds(60))
-            .doOnError(e -> log.error("Ошибка при получении активных пользователей", e))
-            .doOnNext(this::rebuildDeckForUser)
-            .doOnComplete(() -> log.info("Пересборка колод завершена"))
+            .doOnError(e -> log.error("Error getting active users", e))
+            .doOnNext(viewer -> this.rebuildDeckForUser(viewer))
+            .doOnComplete(() -> log.info("Deck rebuilding completed"))
             .subscribe();
     }
 

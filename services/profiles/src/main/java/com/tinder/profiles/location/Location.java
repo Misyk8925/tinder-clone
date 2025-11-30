@@ -12,7 +12,7 @@ import org.locationtech.jts.geom.Point;
 import java.time.LocalDateTime;
 import java.util.UUID;
 
-@JsonIgnoreProperties(ignoreUnknown = true) // Игнорировать неизвестные поля при десериализации
+@JsonIgnoreProperties(ignoreUnknown = true)
 @AllArgsConstructor
 @NoArgsConstructor
 @Getter

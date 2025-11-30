@@ -163,6 +163,7 @@ public class DemoIntegrationTest {
         WebClient deckClient = WebClient.builder().baseUrl(deckBaseUrl).build();
 
         for (String profileId : profileIds) {
+            System.out.println("Rebuilding deck for user " + profileId.substring(0, 8));
             try {
                 // Trigger remote rebuild
                 deckClient.post()

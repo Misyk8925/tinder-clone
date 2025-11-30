@@ -25,7 +25,6 @@ public class GlobalExceptionHandler {
                     ))
                     .toList();
 
-        // Создаем детали ошибки
         ErrorDetails details = new ErrorDetails(errors.toArray(new Violations[0]));
 
         ErrorSummary summary = new ErrorSummary(

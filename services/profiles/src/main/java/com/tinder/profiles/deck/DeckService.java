@@ -4,9 +4,8 @@ import com.tinder.profiles.preferences.Preferences;
 import com.tinder.profiles.preferences.PreferencesDto;
 import com.tinder.profiles.profile.Profile;
 import com.tinder.profiles.profile.ProfileRepository;
-import com.tinder.profiles.profile.ProfileServiceImpl;
+import com.tinder.profiles.profile.ProfileService;
 import com.tinder.profiles.profile.dto.profileData.GetProfileDto;
-import com.tinder.profiles.profile.dto.profileData.ProfileDto;
 import com.tinder.profiles.profile.mapper.GetProfileMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -23,7 +22,7 @@ public class DeckService {
     private final DeckCacheReader cacheReader;
     private final ProfileRepository repo;
     private final GetProfileMapper getMapper;
-    private final ProfileServiceImpl profileService;
+    private final ProfileService profileService;
 
     public List<GetProfileDto> listWithProfiles(UUID viewerId, int offset, int limit) {
 
@@ -40,14 +39,12 @@ public class DeckService {
     }
 
     private List<GetProfileDto> getProfilesByIds(List<UUID> candidateIds) {
-        // Получить профили из БД
+
         List<Profile> profiles = repo.findAllById(candidateIds);
 
-        // Создать мапу для быстрого поиска
         Map<UUID, Profile> profileMap = profiles.stream()
                 .collect(Collectors.toMap(Profile::getProfileId, p -> p));
 
-        // Вернуть в том же порядке, что и candidateIds
         return candidateIds.stream()
                 .map(profileMap::get)
                 .filter(Objects::nonNull)

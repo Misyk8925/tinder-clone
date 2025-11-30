@@ -36,16 +36,26 @@ public class DeckService {
 
     public Mono<Void> rebuildOneDeck(SharedProfileDto viewer) {
         SharedPreferencesDto prefs = viewer.preferences();
+        
+        // Use default preferences if null
+        if (prefs == null) {
+            log.warn("Viewer {} has null preferences, using defaults", viewer.id());
+            prefs = new SharedPreferencesDto(18, 50, "ANY", 100);
+        }
+        
+        final SharedPreferencesDto finalPrefs = prefs;
         final long start = System.currentTimeMillis();
-        log.info("Rebuild deck started for viewer {}", viewer.id());
+        log.info("Rebuild deck started for viewer {} with preferences: gender={}, age={}-{}", 
+                viewer.id(), finalPrefs.gender(), finalPrefs.minAge(), finalPrefs.maxAge());
 
         // 1) Candidates from Profiles by filters
         Flux<SharedProfileDto> candidates = profilesHttp
                 .searchProfiles(
                         viewer.id(),
-                        prefs, searchLimit
+                        finalPrefs, searchLimit
                 )
                 .doOnSubscribe(s -> log.debug("Search profiles subscribed for viewer {}", viewer.id()))
+                .doOnNext(c -> log.debug("Received candidate {} for viewer {}", c.id(), viewer.id()))
                 .timeout(Duration.ofMillis(timeoutMs))
                 .doOnError(e -> log.warn("Profiles search failed for viewer {}: {}", viewer.id(), e.toString()))
                 .retry(retries)
@@ -62,12 +72,16 @@ public class DeckService {
                             .retry(retries)
                             .doOnError(e -> log.warn("Swipes batch failed for viewer {} batchSize {}: {}", viewer.id(), ids.size(), e.toString()))
                             .onErrorReturn(Collections.emptyMap())
-                            .flatMapMany(map -> Flux.fromIterable(batch)
-                                    .filter(c -> !map.getOrDefault(c.id(), false))); // false => no record — candidate is good
+                            .flatMapMany(map -> {
+                                log.debug("Swipe map returned {} entries for viewer {}", map.size(), viewer.id());
+                                return Flux.fromIterable(batch)
+                                        .filter(c -> !map.getOrDefault(c.id(), false));
+                            }); // false => no record — candidate is good
                 }, 1); // sequential processing of batches (so as not to blow up Swipes)
 
         // 3) Scoring + sorting + limiting
         return filtered
+                .doOnNext(c -> log.debug("Filtered candidate {} for viewer {}", c.id(), viewer.id()))
                 .parallel(parallelism).runOn(Schedulers.parallel())
                 .map(c -> Map.entry(c.id(), scoring.score(viewer, c)))
                 .sequential()
@@ -77,6 +91,9 @@ public class DeckService {
                 // 4) Write to Redis ZSET
                 .flatMap(deck -> {
                     log.info("Deck prepared for viewer {} with size {}. Writing to cache...", viewer.id(), deck.size());
+                    if (deck.isEmpty()) {
+                        log.warn("Empty deck for viewer {} - no candidates found after filtering", viewer.id());
+                    }
                     return cache.writeDeck(viewer.id(), deck, Duration.ofMinutes(ttlMin))
                             .doOnSuccess(v -> log.info("Deck written for viewer {} in {} ms", viewer.id(), System.currentTimeMillis() - start));
                 })
