@@ -111,11 +111,7 @@
             <artifactId>bucket4j-spring-boot-starter</artifactId>
             <version>0.13.0</version>
         </dependency>
-        <dependency>
-            <groupId>com.bucket4j</groupId>
-            <artifactId>bucket4j-redis</artifactId>
-            <version>8.14.0</version>
-        </dependency>
+
         <dependency>
             <groupId>io.lettuce</groupId>
             <artifactId>lettuce-core</artifactId>
@@ -162,6 +158,12 @@
             <groupId>io.projectreactor</groupId>
             <artifactId>reactor-test</artifactId>
             <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>com.giffing.bucket4j.spring.boot.starter</groupId>
+            <artifactId>bucket4j-spring-boot-starter</artifactId>
+            <version>0.13.0</version>
         </dependency>
 
 

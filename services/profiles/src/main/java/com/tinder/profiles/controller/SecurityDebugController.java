@@ -36,52 +36,7 @@ public class SecurityDebugController {
      *
      * @return Map containing user security information
      */
-    @GetMapping("/security-info")
-    public ResponseEntity<Map<String, Object>> getSecurityInfo() {
-        Map<String, Object> info = new HashMap<>();
 
-        // Authentication status
-        info.put("isAuthenticated", securityService.isAuthenticated());
-        info.put("isAnonymous", securityService.isAnonymous());
-
-        // User identification
-        info.put("username", securityService.username());
-        info.put("userId", securityService.getUserId());
-        info.put("userIdentifier", securityService.getUserIdentifier());
-        info.put("email", securityService.getEmail());
-
-        // Role checks
-        info.put("isAdmin", securityService.isAdmin());
-        info.put("isPremium", securityService.isPremium());
-        info.put("isFree", securityService.isFree());
-        info.put("isBlocked", securityService.isBlocked());
-
-        // Common role checks
-        info.put("hasRole_ADMIN", securityService.hasRole("ADMIN"));
-        info.put("hasRole_PREMIUM", securityService.hasRole("PREMIUM"));
-        info.put("hasRole_USER", securityService.hasRole("USER"));
-
-        // JWT claims (if authenticated)
-        if (securityService.isAuthenticated()) {
-            Map<String, Object> claims = securityService.getAllClaims();
-            if (claims != null) {
-                // Only include safe claims for debugging
-                Map<String, Object> safeClaims = new HashMap<>();
-                safeClaims.put("sub", claims.get("sub"));
-                safeClaims.put("email", claims.get("email"));
-                safeClaims.put("preferred_username", claims.get("preferred_username"));
-                safeClaims.put("realm_access", claims.get("realm_access"));
-                safeClaims.put("resource_access", claims.get("resource_access"));
-                safeClaims.put("subscription_type", claims.get("subscription_type"));
-                safeClaims.put("is_blocked", claims.get("is_blocked"));
-                safeClaims.put("exp", claims.get("exp"));
-                safeClaims.put("iat", claims.get("iat"));
-                info.put("jwtClaims", safeClaims);
-            }
-        }
-
-        return ResponseEntity.ok(info);
-    }
 
     /**
      * Simple endpoint for testing rate limits.

@@ -29,12 +29,17 @@ public class DeckScheduler {
      */
     @Scheduled(cron = "0 */1 * * * *")
     public void rebuildAllDecks() {
+
         log.info("Starting scheduled deck rebuild...");
 
 
         Flux<SharedProfileDto> activeUsers = profilesHttp.getActiveUsers();
         log.info("Active users: {}", activeUsers.collectList().block());
 
+        if (activeUsers == null){
+            log.info("ERROR: users not found");
+            return;
+        }
         activeUsers
             .timeout(Duration.ofSeconds(60))
             .doOnError(e -> log.error("Error getting active users", e))

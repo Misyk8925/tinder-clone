@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.tinder.profiles.profile.ProfileRepository;
 import com.tinder.profiles.util.KeycloakTestHelper;
+import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -37,8 +38,8 @@ class ProfilesApplicationTests {
     private final String profile = """
                 {
                     "name": "Misha",
-                    "gender": "male",
                     "age": 34,
+                    "gender": "male",
                     "bio": "this is my life",
                     "city": "Amstetten",
                     "preferences": {
@@ -78,6 +79,8 @@ class ProfilesApplicationTests {
                         "maxRange": 4
                     }
                 }""";
+
+
 
     @Test
     void contextLoads() {

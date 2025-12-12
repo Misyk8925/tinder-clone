@@ -1,7 +1,7 @@
 package com.tinder.profiles.security;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.security.authentication.AnonymousAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -9,203 +9,257 @@ import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken;
 import org.springframework.stereotype.Service;
 
+import java.time.Instant;
 import java.util.Collection;
-import java.util.Map;
 import java.util.UUID;
 
 /**
- * Security service for extracting user data from JWT tokens.
- * Provides methods for Bucket4j SpEL expressions to enable role-based rate limiting.
+ * Security Service для работы с JWT токенами и проверки прав доступа.
+ * Используется в Bucket4j rate limiting и в бизнес-логике приложения.
  *
- * Usage in application.yml:
- * - execute-condition: "@securityService.isAuthenticated()"
- * - cache-key: "@securityService.getUserId().toString()"
- * - skip-condition: "@securityService.isAdmin()"
+ * Интегрируется с существующими JwtAuthConverter и SecurityConfig.
  */
-@Service("securityService")
+@Slf4j
+@Service
 public class SecurityService {
 
-    private static final Logger log = LoggerFactory.getLogger(SecurityService.class);
-
-    private static final String ROLE_PREFIX = "ROLE_";
-    private static final String ROLE_ADMIN = "ADMIN";
-    private static final String ROLE_PREMIUM = "PREMIUM";
-    private static final String CLAIM_SUBSCRIPTION_TYPE = "subscription_type";
-    private static final String CLAIM_IS_BLOCKED = "is_blocked";
-    private static final String SUBSCRIPTION_PREMIUM = "PREMIUM";
+    // ========== Базовые проверки аутентификации ==========
 
     /**
-     * Check if the current user is authenticated with a valid JWT token.
+     * Проверяет, авторизован ли текущий пользователь.
      *
-     * @return true if user is authenticated, false otherwise
+     * @return true если пользователь авторизован через JWT токен
      */
     public boolean isAuthenticated() {
-        Authentication authentication = getAuthentication();
-        boolean authenticated = authentication != null
-                && authentication.isAuthenticated()
-                && authentication instanceof JwtAuthenticationToken;
-        log.debug("isAuthenticated check: {}", authenticated);
-        return authenticated;
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        return auth != null
+                && auth.isAuthenticated()
+                && !(auth instanceof AnonymousAuthenticationToken);
     }
 
     /**
-     * Check if the current user is anonymous (not authenticated).
+     * Проверяет, является ли текущий пользователь анонимным.
      *
-     * @return true if user is anonymous, false if authenticated
+     * @return true если пользователь не авторизован
      */
     public boolean isAnonymous() {
         return !isAuthenticated();
     }
 
+    // ========== Извлечение данных из JWT ==========
+
     /**
-     * Get the username from JWT 'sub' (subject) claim.
+     * Получает username текущего пользователя из JWT токена.
+     * Использует 'sub' claim из токена (как настроено в JwtAuthConverter).
      *
-     * @return username or null if not authenticated
+     * Использование в Bucket4j:
+     * cache-key: "@securityService.username()"
+     *
+     * @return username или null если не авторизован
      */
     public String username() {
-        Jwt jwt = getJwt();
-        if (jwt == null) {
-            log.debug("username: JWT is null, returning null");
-            return null;
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+
+        if (auth instanceof JwtAuthenticationToken jwtAuth) {
+            // Ваш JwtAuthConverter использует getPrincipalClaimName который возвращает 'sub'
+            return jwtAuth.getName(); // Это будет значение из 'sub' claim
         }
-        String subject = jwt.getSubject();
-        log.debug("username: {}", subject);
-        return subject;
+
+        return auth != null && isAuthenticated() ? auth.getName() : null;
     }
 
     /**
-     * Get the user ID (UUID) from JWT 'sub' claim.
-     * Handles cases where 'sub' is not a valid UUID gracefully.
+     * Получает user ID из JWT токена.
+     * В Keycloak 'sub' claim обычно содержит UUID пользователя.
      *
-     * @return UUID of the user or null if not authenticated or 'sub' is not a valid UUID
+     * Использование в Bucket4j:
+     * cache-key: "@securityService.getUserId().toString()"
+     *
+     * @return UUID пользователя или null если не авторизован или sub не является UUID
      */
     public UUID getUserId() {
-        Jwt jwt = getJwt();
-        if (jwt == null) {
-            log.debug("getUserId: JWT is null, returning null");
-            return null;
-        }
-
-        String subject = jwt.getSubject();
-        if (subject == null || subject.isBlank()) {
-            log.debug("getUserId: subject is null or blank");
+        String sub = getSubject();
+        if (sub == null) {
             return null;
         }
 
         try {
-            UUID userId = UUID.fromString(subject);
-            log.debug("getUserId: {}", userId);
-            return userId;
+            return UUID.fromString(sub);
         } catch (IllegalArgumentException e) {
-            log.warn("getUserId: 'sub' claim '{}' is not a valid UUID", subject);
+            log.warn("JWT 'sub' claim is not a valid UUID: {}", sub);
             return null;
         }
     }
 
     /**
-     * Get a string identifier for the current user suitable for cache keys.
-     * Returns userId if available, otherwise username, otherwise "anonymous".
+     * Получает 'sub' claim из JWT токена.
      *
-     * @return user identifier string for cache keys
+     * @return subject или null
      */
-    public String getUserIdentifier() {
-        UUID userId = getUserId();
-        if (userId != null) {
-            return userId.toString();
-        }
-        String name = username();
-        if (name != null && !name.isBlank()) {
-            return name;
-        }
-        return "anonymous";
+    public String getSubject() {
+        Jwt jwt = getJwt();
+        return jwt != null ? jwt.getSubject() : null;
     }
 
     /**
-     * Check if the current user has the specified role.
-     * Handles "ROLE_" prefix automatically.
+     * Получает email из JWT токена (если присутствует в claims).
      *
-     * @param role the role to check (with or without "ROLE_" prefix)
-     * @return true if user has the role, false otherwise
+     * @return email или null
+     */
+    public String getEmail() {
+        Jwt jwt = getJwt();
+        return jwt != null ? jwt.getClaimAsString("email") : null;
+    }
+
+    /**
+     * Получает preferred_username из JWT токена (Keycloak claim).
+     * Обычно это более читаемое имя пользователя чем sub.
+     *
+     * @return preferred username или null
+     */
+    public String getPreferredUsername() {
+        Jwt jwt = getJwt();
+        return jwt != null ? jwt.getClaimAsString("preferred_username") : null;
+    }
+
+    /**
+     * Получает любой claim из JWT токена.
+     *
+     * @param claimName название claim
+     * @return значение claim или null
+     */
+    public String getClaim(String claimName) {
+        Jwt jwt = getJwt();
+        return jwt != null ? jwt.getClaimAsString(claimName) : null;
+    }
+
+    // ========== Проверка ролей и прав доступа ==========
+
+    /**
+     * Проверяет наличие конкретной роли у пользователя.
+     *
+     * Ваш JwtAuthConverter добавляет префикс "ROLE_" к ролям из Keycloak,
+     * поэтому роль "USER" в Keycloak становится "ROLE_USER" в Spring Security.
+     *
+     * Использование в Bucket4j:
+     * execute-condition: "@securityService.hasRole('ADMIN')"
+     *
+     * @param role название роли БЕЗ префикса ROLE_ (например "ADMIN", "USER")
+     * @return true если у пользователя есть эта роль
      */
     public boolean hasRole(String role) {
-        if (role == null || role.isBlank()) {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        if (auth == null || !isAuthenticated()) {
             return false;
         }
 
-        Authentication authentication = getAuthentication();
-        if (authentication == null || !authentication.isAuthenticated()) {
-            log.debug("hasRole({}): not authenticated", role);
-            return false;
-        }
+        // JwtAuthConverter добавляет префикс "ROLE_" к ролям
+        String roleWithPrefix = "ROLE_" + role.toUpperCase();
 
-        Collection<? extends GrantedAuthority> authorities = authentication.getAuthorities();
-        if (authorities == null) {
-            return false;
-        }
-
-        // Normalize the role name - add ROLE_ prefix if not present
-        String normalizedRole = role.startsWith(ROLE_PREFIX) ? role : ROLE_PREFIX + role;
-
-        boolean hasRole = authorities.stream()
-                .anyMatch(auth -> auth.getAuthority().equalsIgnoreCase(normalizedRole));
-        log.debug("hasRole({}): {}", role, hasRole);
-        return hasRole;
+        return auth.getAuthorities().stream()
+                .anyMatch(authority -> authority.getAuthority().equals(roleWithPrefix));
     }
 
     /**
-     * Check if the current user has ADMIN role.
+     * Проверяет наличие любой из указанных ролей.
      *
-     * @return true if user is admin, false otherwise
+     * @param roles список ролей
+     * @return true если есть хотя бы одна из ролей
      */
-    public boolean isAdmin() {
-        boolean admin = hasRole(ROLE_ADMIN);
-        log.debug("isAdmin: {}", admin);
-        return admin;
-    }
-
-    /**
-     * Check if the current user has Premium subscription.
-     * Checks both PREMIUM role and 'subscription_type' claim.
-     *
-     * @return true if user has premium subscription, false otherwise
-     */
-    public boolean isPremium() {
-        // Strategy 1: Check for PREMIUM role
-        if (hasRole(ROLE_PREMIUM)) {
-            log.debug("isPremium: user has PREMIUM role");
-            return true;
-        }
-
-        // Strategy 2: Check for subscription_type claim
-        Jwt jwt = getJwt();
-        if (jwt != null) {
-            Object subscriptionType = jwt.getClaim(CLAIM_SUBSCRIPTION_TYPE);
-            if (subscriptionType != null && SUBSCRIPTION_PREMIUM.equalsIgnoreCase(subscriptionType.toString())) {
-                log.debug("isPremium: user has PREMIUM subscription_type claim");
+    public boolean hasAnyRole(String... roles) {
+        for (String role : roles) {
+            if (hasRole(role)) {
                 return true;
             }
         }
-
-        log.debug("isPremium: false");
         return false;
     }
 
     /**
-     * Check if the current user is a free (non-premium) authenticated user.
+     * Проверяет наличие всех указанных ролей.
      *
-     * @return true if user is authenticated but not premium, false otherwise
+     * @param roles список ролей
+     * @return true если есть все роли
      */
-    public boolean isFree() {
-        boolean free = isAuthenticated() && !isPremium();
-        log.debug("isFree: {}", free);
-        return free;
+    public boolean hasAllRoles(String... roles) {
+        for (String role : roles) {
+            if (!hasRole(role)) {
+                return false;
+            }
+        }
+        return true;
     }
 
     /**
-     * Check if the current user is blocked.
-     * Checks the 'is_blocked' claim in JWT.
+     * Проверяет, является ли пользователь администратором.
      *
-     * @return true if user is blocked, false otherwise
+     * Использование в Bucket4j:
+     * execute-condition: "@securityService.isAdmin()"
+     *
+     * @return true если есть роль ADMIN
+     */
+    public boolean isAdmin() {
+        return hasRole("ADMIN");
+    }
+
+    /**
+     * Получает все роли текущего пользователя.
+     *
+     * @return коллекция ролей с префиксом ROLE_
+     */
+    public Collection<? extends GrantedAuthority> getAuthorities() {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        return auth != null ? auth.getAuthorities() : null;
+    }
+
+    // ========== Специфичные проверки для Dating App ==========
+
+    /**
+     * Проверяет, является ли пользователь премиум-подписчиком.
+     * Эта информация должна быть добавлена в JWT токен в Keycloak
+     * как custom claim (например "subscription_type": "PREMIUM").
+     *
+     * Использование в Bucket4j:
+     * execute-condition: "@securityService.isPremium()"
+     *
+     * @return true если в JWT есть claim указывающий на премиум
+     */
+    public boolean isPremium() {
+        Jwt jwt = getJwt();
+        if (jwt == null) {
+            return false;
+        }
+
+        // Проверяем custom claim для subscription
+        String subscriptionType = jwt.getClaimAsString("subscription_type");
+        if ("PREMIUM".equalsIgnoreCase(subscriptionType)) {
+            return true;
+        }
+
+        // Альтернатива: проверка через роль
+        return hasRole("PREMIUM");
+    }
+
+    /**
+     * Проверяет, является ли пользователь обычным (не премиум).
+     *
+     * Использование в Bucket4j:
+     * execute-condition: "@securityService.isFree()"
+     *
+     * @return true если авторизован но не премиум
+     */
+    public boolean isFree() {
+        return isAuthenticated() && !isPremium();
+    }
+
+    /**
+     * Проверяет, заблокирован ли пользователь.
+     * Информация о блокировке должна быть в JWT claim.
+     *
+     * Использование в Bucket4j:
+     * execute-condition: "@securityService.isBlocked()"
+     *
+     * @return true если пользователь заблокирован
      */
     public boolean isBlocked() {
         Jwt jwt = getJwt();
@@ -213,88 +267,119 @@ public class SecurityService {
             return false;
         }
 
-        Object isBlockedClaim = jwt.getClaim(CLAIM_IS_BLOCKED);
-        if (isBlockedClaim == null) {
+        // Проверяем custom claim для блокировки
+        Boolean blocked = jwt.getClaim("is_blocked");
+        return Boolean.TRUE.equals(blocked);
+    }
+
+    /**
+     * Проверяет, верифицирован ли email пользователя.
+     * Keycloak по умолчанию добавляет claim "email_verified".
+     *
+     * @return true если email верифицирован
+     */
+    public boolean isEmailVerified() {
+        Jwt jwt = getJwt();
+        if (jwt == null) {
             return false;
         }
 
-        boolean blocked;
-        if (isBlockedClaim instanceof Boolean) {
-            blocked = (Boolean) isBlockedClaim;
-        } else {
-            blocked = Boolean.parseBoolean(isBlockedClaim.toString());
-        }
-
-        log.debug("isBlocked: {}", blocked);
-        return blocked;
+        Boolean emailVerified = jwt.getClaim("email_verified");
+        return Boolean.TRUE.equals(emailVerified);
     }
 
+    // ========== Проверки токена ==========
+
     /**
-     * Get the user's email from JWT claims.
+     * Проверяет, не истёк ли JWT токен.
      *
-     * @return email or null if not available
+     * @return true если токен действителен
      */
-    public String getEmail() {
+    public boolean isTokenValid() {
         Jwt jwt = getJwt();
         if (jwt == null) {
-            return null;
+            return false;
         }
-        return jwt.getClaimAsString("email");
+
+        Instant expiresAt = jwt.getExpiresAt();
+        return expiresAt != null && expiresAt.isAfter(Instant.now());
     }
 
     /**
-     * Get a specific claim from JWT.
+     * Получает время истечения токена.
      *
-     * @param claimName the name of the claim
-     * @return claim value or null if not available
+     * @return Instant когда токен истекает, или null
      */
-    public Object getClaim(String claimName) {
+    public Instant getTokenExpiration() {
         Jwt jwt = getJwt();
-        if (jwt == null) {
-            return null;
-        }
-        return jwt.getClaim(claimName);
+        return jwt != null ? jwt.getExpiresAt() : null;
     }
 
     /**
-     * Get all claims from JWT as a Map.
+     * Получает время создания токена.
      *
-     * @return map of claims or null if not authenticated
+     * @return Instant когда токен был создан, или null
      */
-    public Map<String, Object> getAllClaims() {
+    public Instant getTokenIssuedAt() {
         Jwt jwt = getJwt();
-        if (jwt == null) {
-            return null;
-        }
-        return jwt.getClaims();
+        return jwt != null ? jwt.getIssuedAt() : null;
     }
 
+    // ========== Внутренние методы ==========
+
     /**
-     * Get the current Authentication from SecurityContext.
+     * Получает полный JWT токен из SecurityContext.
+     *
+     * @return Jwt токен или null если не авторизован
      */
-    private Authentication getAuthentication() {
+    private Jwt getJwt() {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        if (auth instanceof JwtAuthenticationToken jwtAuth) {
+            return jwtAuth.getToken();
+        }
+        return null;
+    }
+
+    // ========== Utility методы ==========
+
+    /**
+     * Получает текущую Authentication из SecurityContext.
+     * Полезно для передачи в другие методы Spring Security.
+     *
+     * @return Authentication или null
+     */
+    public Authentication getAuthentication() {
         return SecurityContextHolder.getContext().getAuthentication();
     }
 
     /**
-     * Get the JWT from current authentication.
+     * Выводит отладочную информацию о текущем пользователе.
+     * Полезно для debugging и логирования.
      *
-     * @return JWT or null if not authenticated with JWT
+     * @return строка с информацией о пользователе
      */
-    private Jwt getJwt() {
-        Authentication authentication = getAuthentication();
-        if (authentication == null) {
-            return null;
+    public String getDebugInfo() {
+        if (!isAuthenticated()) {
+            return "Anonymous User";
         }
 
-        try {
-            if (authentication instanceof JwtAuthenticationToken jwtAuth) {
-                return jwtAuth.getToken();
-            }
-        } catch (ClassCastException e) {
-            log.warn("Failed to cast Authentication to JwtAuthenticationToken", e);
+        StringBuilder info = new StringBuilder();
+        info.append("User: ").append(username()).append("\n");
+        info.append("Subject: ").append(getSubject()).append("\n");
+        info.append("Email: ").append(getEmail()).append("\n");
+        info.append("Preferred Username: ").append(getPreferredUsername()).append("\n");
+        info.append("Roles: ");
+
+        Collection<? extends GrantedAuthority> authorities = getAuthorities();
+        if (authorities != null) {
+            authorities.forEach(auth -> info.append(auth.getAuthority()).append(" "));
         }
 
-        return null;
+        info.append("\nToken Valid: ").append(isTokenValid());
+        info.append("\nToken Expires At: ").append(getTokenExpiration());
+        info.append("\nIs Premium: ").append(isPremium());
+        info.append("\nIs Admin: ").append(isAdmin());
+
+        return info.toString();
     }
 }

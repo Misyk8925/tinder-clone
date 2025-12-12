@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.tinder.profiles.profile.Profile;
 import com.tinder.profiles.profile.ProfileRepository;
 
+import com.tinder.profiles.util.KeycloakTestHelper;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -46,6 +47,7 @@ class RedisTests {
                 {
                     "name": "Misha",
                     "age": 34,
+                           "gender": "male",
                     "bio": "this is my life",
                     "city": "Amstetten",
                     "preferences": {
@@ -69,6 +71,10 @@ class RedisTests {
                         "maxRange": 4
                     }
                 }""";
+
+    KeycloakTestHelper keycloakTestHelper = new KeycloakTestHelper();
+
+
 
     @Autowired
     StringRedisTemplate redisTemplate;
@@ -99,7 +105,10 @@ class RedisTests {
 
         MvcResult result = mockMvc.perform(post("/api/v1/profiles")
                         .content(createProfileBody)
+                        .header("Authorization", keycloakTestHelper.createAuthorizationHeader("kovalmisha2000@gmail.com", "koval"))
+
                         .contentType(MediaType.APPLICATION_JSON))
+
                 .andExpect(status().isCreated())
                 .andReturn();
 
