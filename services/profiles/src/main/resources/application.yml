@@ -12,8 +12,17 @@ spring:
     redis:
       host: localhost
       port: 6379
+      timeout: 2000ms
   cache:
     type: redis
+    cache-names:
+      - swipes-rate-limit
+      - profile-search-limit
+      - profile-creation-limit
+      - profile-creation-email-limit
+      - photo-upload-limit
+      - messages-limit
+      - general-api-limit
   servlet:
     multipart:
       max-file-size: 50MB
@@ -40,3 +49,315 @@ keycloak:
   auth-server-url: http://localhost:6700
   realm: spring
   client-id: profiles-service
+
+# =====================================================
+# Bucket4j Rate Limiting Configuration
+# =====================================================
+# Distributed rate limiting using Redis backend
+# Differentiates between Admin, Premium, Free, and Anonymous users
+# =====================================================
+
+bucket4j:
+  enabled: true
+  filter-config-caching-enabled: true
+  filters:
+    # -----------------------------------------------
+    # Filter 1: Swipes Rate Limit
+    # Protects swipe endpoints from spam/bot attacks
+    # -----------------------------------------------
+    - id: swipes-rate-limit
+      cache-name: swipes-rate-limit
+      url: /api/v1/swipes.*
+      http-methods:
+        - POST
+      strategy: first
+      rate-limits:
+        # Admin: Very high limits (essentially unlimited for testing)
+        - execute-condition: "@securityService.isAdmin()"
+          cache-key: "'admin:' + @securityService.username()"
+          bandwidths:
+            - id: admin-swipes-hourly
+              capacity: 100000
+              time: 1
+              unit: hours
+              refill-speed: interval
+        # Blocked users: Complete ban
+        - execute-condition: "@securityService.isBlocked()"
+          cache-key: "@securityService.getUserIdentifier()"
+          bandwidths:
+            - id: blocked-swipes
+              capacity: 0
+              time: 1
+              unit: minutes
+              refill-speed: interval
+        # Premium users: 200/min, 5000/day
+        - execute-condition: "@securityService.isPremium()"
+          cache-key: "@securityService.getUserIdentifier()"
+          bandwidths:
+            - id: premium-swipes-minute
+              capacity: 200
+              time: 1
+              unit: minutes
+              refill-speed: interval
+            - id: premium-swipes-daily
+              capacity: 5000
+              time: 1
+              unit: days
+              refill-speed: interval
+        # Free authenticated users: 50/min, 500/day
+        - execute-condition: "@securityService.isFree()"
+          cache-key: "@securityService.getUserIdentifier()"
+          bandwidths:
+            - id: free-swipes-minute
+              capacity: 50
+              time: 1
+              unit: minutes
+              refill-speed: interval
+            - id: free-swipes-daily
+              capacity: 500
+              time: 1
+              unit: days
+              refill-speed: interval
+        # Anonymous users: 10/min (by IP)
+        - execute-condition: "@securityService.isAnonymous()"
+          cache-key: getRemoteAddr()
+          bandwidths:
+            - id: anonymous-swipes-minute
+              capacity: 10
+              time: 1
+              unit: minutes
+              refill-speed: interval
+
+    # -----------------------------------------------
+    # Filter 2: Profile Search Rate Limit
+    # Prevents excessive profile searching
+    # -----------------------------------------------
+    - id: profile-search-limit
+      cache-name: profile-search-limit
+      url: /api/v1/profiles/search.*
+      http-methods:
+        - GET
+      strategy: first
+      rate-limits:
+        # Admin: Very high limit
+        - execute-condition: "@securityService.isAdmin()"
+          cache-key: "'admin:' + @securityService.username()"
+          bandwidths:
+            - id: admin-search-hourly
+              capacity: 100000
+              time: 1
+              unit: hours
+              refill-speed: interval
+        # Premium users: 100/hour
+        - execute-condition: "@securityService.isPremium()"
+          cache-key: "@securityService.getUserIdentifier()"
+          bandwidths:
+            - id: premium-search-hourly
+              capacity: 100
+              time: 1
+              unit: hours
+              refill-speed: interval
+        # Free authenticated users: 20/hour
+        - execute-condition: "@securityService.isFree()"
+          cache-key: "@securityService.getUserIdentifier()"
+          bandwidths:
+            - id: free-search-hourly
+              capacity: 20
+              time: 1
+              unit: hours
+              refill-speed: interval
+        # Anonymous users: 5/hour (by IP)
+        - execute-condition: "@securityService.isAnonymous()"
+          cache-key: getRemoteAddr()
+          bandwidths:
+            - id: anonymous-search-hourly
+              capacity: 5
+              time: 1
+              unit: hours
+              refill-speed: interval
+
+    # -----------------------------------------------
+    # Filter 3: Profile Creation Rate Limit (by IP)
+    # Prevents mass account creation from single IP
+    # -----------------------------------------------
+    - id: profile-creation-limit
+      cache-name: profile-creation-limit
+      url: /api/v1/profiles
+      http-methods:
+        - POST
+      strategy: first
+      rate-limits:
+        # Admin: High limit
+        - execute-condition: "@securityService.isAdmin()"
+          cache-key: "'admin:' + @securityService.username()"
+          bandwidths:
+            - id: admin-creation-daily
+              capacity: 1000
+              time: 1
+              unit: days
+              refill-speed: interval
+        # All other users: 3 profiles per day per IP
+        - cache-key: getRemoteAddr()
+          bandwidths:
+            - id: ip-creation-daily
+              capacity: 3
+              time: 1
+              unit: days
+              refill-speed: interval
+
+    # -----------------------------------------------
+    # Filter 4: Photo Upload Rate Limit
+    # Protects S3 storage from abuse
+    # -----------------------------------------------
+    - id: photo-upload-limit
+      cache-name: photo-upload-limit
+      url: /photos/upload.*
+      http-methods:
+        - POST
+      strategy: first
+      rate-limits:
+        # Admin: Very high limit
+        - execute-condition: "@securityService.isAdmin()"
+          cache-key: "'admin:' + @securityService.username()"
+          bandwidths:
+            - id: admin-upload-hourly
+              capacity: 1000
+              time: 1
+              unit: hours
+              refill-speed: interval
+        # Premium users: 10/hour, 50/day
+        - execute-condition: "@securityService.isPremium()"
+          cache-key: "@securityService.getUserIdentifier()"
+          bandwidths:
+            - id: premium-upload-hourly
+              capacity: 10
+              time: 1
+              unit: hours
+              refill-speed: interval
+            - id: premium-upload-daily
+              capacity: 50
+              time: 1
+              unit: days
+              refill-speed: interval
+        # Free authenticated users: 5/hour, 20/day
+        - execute-condition: "@securityService.isFree()"
+          cache-key: "@securityService.getUserIdentifier()"
+          bandwidths:
+            - id: free-upload-hourly
+              capacity: 5
+              time: 1
+              unit: hours
+              refill-speed: interval
+            - id: free-upload-daily
+              capacity: 20
+              time: 1
+              unit: days
+              refill-speed: interval
+        # Anonymous users: 2/hour (by IP)
+        - execute-condition: "@securityService.isAnonymous()"
+          cache-key: getRemoteAddr()
+          bandwidths:
+            - id: anonymous-upload-hourly
+              capacity: 2
+              time: 1
+              unit: hours
+              refill-speed: interval
+
+    # -----------------------------------------------
+    # Filter 5: Messages Rate Limit
+    # Prevents spam messaging
+    # -----------------------------------------------
+    - id: messages-limit
+      cache-name: messages-limit
+      url: /api/v1/messages.*
+      http-methods:
+        - POST
+      strategy: first
+      rate-limits:
+        # Admin: Very high limit
+        - execute-condition: "@securityService.isAdmin()"
+          cache-key: "'admin:' + @securityService.username()"
+          bandwidths:
+            - id: admin-messages-minute
+              capacity: 10000
+              time: 1
+              unit: minutes
+              refill-speed: interval
+        # Blocked users: Complete ban
+        - execute-condition: "@securityService.isBlocked()"
+          cache-key: "@securityService.getUserIdentifier()"
+          bandwidths:
+            - id: blocked-messages
+              capacity: 0
+              time: 1
+              unit: minutes
+              refill-speed: interval
+        # Premium users: 500/min
+        - execute-condition: "@securityService.isPremium()"
+          cache-key: "@securityService.getUserIdentifier()"
+          bandwidths:
+            - id: premium-messages-minute
+              capacity: 500
+              time: 1
+              unit: minutes
+              refill-speed: interval
+        # Free authenticated users: 50/min, 500/day
+        - execute-condition: "@securityService.isFree()"
+          cache-key: "@securityService.getUserIdentifier()"
+          bandwidths:
+            - id: free-messages-minute
+              capacity: 50
+              time: 1
+              unit: minutes
+              refill-speed: interval
+            - id: free-messages-daily
+              capacity: 500
+              time: 1
+              unit: days
+              refill-speed: interval
+        # Anonymous users: 5/min (by IP)
+        - execute-condition: "@securityService.isAnonymous()"
+          cache-key: getRemoteAddr()
+          bandwidths:
+            - id: anonymous-messages-minute
+              capacity: 5
+              time: 1
+              unit: minutes
+              refill-speed: interval
+
+    # -----------------------------------------------
+    # Filter 6: General API Rate Limit
+    # Catch-all for all other API endpoints
+    # -----------------------------------------------
+    - id: general-api-limit
+      cache-name: general-api-limit
+      url: /api/.*
+      strategy: first
+      rate-limits:
+        # Admin: 10000/min
+        - execute-condition: "@securityService.isAdmin()"
+          cache-key: "'admin:' + @securityService.username()"
+          bandwidths:
+            - id: admin-general-minute
+              capacity: 10000
+              time: 1
+              unit: minutes
+              refill-speed: interval
+        # Authenticated users: 500/min
+        - execute-condition: "@securityService.isAuthenticated()"
+          cache-key: "@securityService.getUserIdentifier()"
+          bandwidths:
+            - id: authenticated-general-minute
+              capacity: 500
+              time: 1
+              unit: minutes
+              refill-speed: interval
+        # Anonymous users: 100/min (by IP)
+        - execute-condition: "@securityService.isAnonymous()"
+          cache-key: getRemoteAddr()
+          bandwidths:
+            - id: anonymous-general-minute
+              capacity: 100
+              time: 1
+              unit: minutes
+              refill-speed: interval
