@@ -59,6 +59,7 @@ keycloak:
 
 bucket4j:
   enabled: true
+  cache-to-use: redis-lettuce
   filter-config-caching-enabled: true
   filters:
     # -----------------------------------------------
