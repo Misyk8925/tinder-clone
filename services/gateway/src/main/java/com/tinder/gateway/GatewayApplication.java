@@ -6,6 +6,8 @@ import org.springframework.cloud.gateway.filter.ratelimit.KeyResolver;
 import org.springframework.context.annotation.Bean;
 import reactor.core.publisher.Mono;
 
+import java.util.Objects;
+
 @SpringBootApplication
 public class GatewayApplication {
 
@@ -15,9 +17,9 @@ public class GatewayApplication {
 
 	@Bean
 	public KeyResolver keyResolver() {
-		return exchange -> Mono.just(exchange
-				.getRequest()
-				.getRemoteAddress()
+		return exchange -> Mono.just(Objects.requireNonNull(exchange
+                        .getRequest()
+                        .getRemoteAddress())
 				.getHostName()
 		);
 	}

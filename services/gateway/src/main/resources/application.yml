@@ -28,16 +28,107 @@ spring:
       server:
         webflux:
           routes:
-            - id: profiles
+            ############################## PROFILES ROUTES
+            - id: profile-create
+              uri: http://localhost:8010
+              predicates:
+                - Path=/api/v1/profiles
+                - Method=POST
+              filters:
+                - name: RateLimitFilter
+                  args:
+                    capacity: 1
+                    periodInSeconds: 3600
+
+            - id: profile-update
+              uri: http://localhost:8010
+              predicates:
+                - Path=/api/v1/profiles/**
+                - Method=PUT, PATCH
+              filters:
+                - name: RateLimitFilter
+                  args:
+                    capacity: 20
+                    periodInSeconds: 3600
+            - id: profile-delete
+              uri: http://localhost:8010
+              predicates:
+                - Path=/api/v1/profiles/**
+                - Method=DELETE
+              filters:
+                - name: RateLimitFilter
+                  args:
+                    capacity: 11
+                    periodInSeconds: 3600
+
+            - id: profile-other
               uri: http://localhost:8010
               predicates:
                 - Path=/api/v1/profiles/**
               filters:
-                - name: RequestRateLimiter
+                    - name: RateLimitFilter
+                      args:
+                        capacity: 100
+                        periodInSeconds: 3600
+
+              ############################## SWIPES ROUTES
+
+            - id: swipes
+              uri: http://localhost:8020
+              predicates:
+                - Path=/api/v1/swipes/**
+              filters:
+                - name: RateLimitFilter
                   args:
-                    redis-rate-limiter.replenishRate: 2
-                    redis-rate-limiter.burstCapacity: 5
-                    redis-rate-limiter.requestedTokens: 1
+                    capacity: 100
+                    periodInSeconds: 3600
+
+#            - id: profiles-create
+#              uri: http://localhost:8010
+#              predicates:
+#                - Path=/api/v1/profiles/**
+#                - Method=POST
+#              filters:
+#                - name: RequestRateLimiter
+#                  args:
+#                    redis-rate-limiter.replenishRate: 2
+#                    redis-rate-limiter.burstCapacity: 5
+#                    redis-rate-limiter.requestedTokens: 1
+#
+#            - id: profiles-update
+#              uri: http://localhost:8010
+#              predicates:
+#                - Path=/api/v1/profiles/**
+#                - Method=PUT, PATCH
+#              filters:
+#                - name: RequestRateLimiter
+#                  args:
+#                    redis-rate-limiter.replenishRate: 2
+#                    redis-rate-limiter.burstCapacity: 5
+#                    redis-rate-limiter.requestedTokens: 1
+#
+#            - id: profiles-delete
+#              uri: http://localhost:8010
+#              predicates:
+#                - Path=/api/v1/profiles/**
+#                - Method=DELETE
+#              filters:
+#                - name: RequestRateLimiter
+#                  args:
+#                    redis-rate-limiter.replenishRate: 2
+#                    redis-rate-limiter.burstCapacity: 5
+#                    redis-rate-limiter.requestedTokens: 1
+#
+#            - id: profiles-other
+#              uri: http://localhost:8010
+#              predicates:
+#                - Path=/api/v1/profiles/**
+#              filters:
+#                - name: RequestRateLimiter
+#                  args:
+#                    redis-rate-limiter.replenishRate: 2
+#                    redis-rate-limiter.burstCapacity: 5
+#                    redis-rate-limiter.requestedTokens: 1
 
 management:
   tracing:
