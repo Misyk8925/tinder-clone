@@ -105,12 +105,9 @@
             <artifactId>spring-boot-starter-data-redis</artifactId>
         </dependency>
 
-        <!-- Bucket4j Rate Limiting -->
-        <dependency>
-            <groupId>com.giffing.bucket4j.spring.boot.starter</groupId>
-            <artifactId>bucket4j-spring-boot-starter</artifactId>
-            <version>0.13.0</version>
-        </dependency>
+
+
+
 
         <dependency>
             <groupId>io.lettuce</groupId>
@@ -159,13 +156,6 @@
             <artifactId>reactor-test</artifactId>
             <scope>test</scope>
         </dependency>
-
-        <dependency>
-            <groupId>com.giffing.bucket4j.spring.boot.starter</groupId>
-            <artifactId>bucket4j-spring-boot-starter</artifactId>
-            <version>0.13.0</version>
-        </dependency>
-
 
     </dependencies>
 

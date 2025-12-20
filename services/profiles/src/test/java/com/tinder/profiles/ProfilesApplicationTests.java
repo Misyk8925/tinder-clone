@@ -108,7 +108,7 @@ class ProfilesApplicationTests {
     public void createSameEntity() throws Exception {
         sendCorrectFirstPostRequestToMockMvc();
 
-        mockMvc.perform(post("/api/v1/profiles")
+        mockMvc.perform(post("")
                         .content(profile)
                         .header("Authorization", keycloakTestHelper.createAuthorizationHeader("kovalmisha2000@gmail.com", "koval"))
                         .contentType(MediaType.APPLICATION_JSON))
@@ -120,7 +120,7 @@ class ProfilesApplicationTests {
     public void createInvalid() throws Exception {
 
 
-        mockMvc.perform(post("/api/v1/profiles")
+        mockMvc.perform(post("")
                         .content(invalidatedProfile)
                         .header("Authorization", keycloakTestHelper.createAuthorizationHeader("kovalmisha2000@gmail.com", "koval"))
                         .contentType(MediaType.APPLICATION_JSON))
@@ -138,7 +138,7 @@ class ProfilesApplicationTests {
         UUID profileId = UUID.fromString(jsonNode.get("data").asText());
         System.out.println(profileId);
 
-        mockMvc.perform(get("/api/v1/profiles/{id}", profileId)
+        mockMvc.perform(get("/{id}", profileId)
                         .header(
                                 "Authorization",
                                 keycloakTestHelper.createAuthorizationHeader(
@@ -148,7 +148,7 @@ class ProfilesApplicationTests {
                 .andExpect(status().isOk())
                 .andDo(print());
 
-        mockMvc.perform(delete("/api/v1/profiles/{id}", profileId).header("Authorization", keycloakTestHelper.createAuthorizationHeader("kovalmisha2000@gmail.com", "koval")))
+        mockMvc.perform(delete("/{id}", profileId).header("Authorization", keycloakTestHelper.createAuthorizationHeader("kovalmisha2000@gmail.com", "koval")))
                 .andExpect(status().isNoContent())
                 .andDo(print());
 
@@ -157,7 +157,7 @@ class ProfilesApplicationTests {
     @Test
     public void checkPutProfile() throws Exception {
 
-        MvcResult result = mockMvc.perform(post("/api/v1/profiles")
+        MvcResult result = mockMvc.perform(post("")
                         .content(profile)
                         .header("Authorization", keycloakTestHelper.createAuthorizationHeader("kovalmisha2000@gmail.com", "koval"))
 
@@ -169,7 +169,7 @@ class ProfilesApplicationTests {
         JsonNode jsonNode = objectMapper.readTree(responseBody);
         UUID profileId = UUID.fromString(jsonNode.get("data").asText());
 
-        MvcResult updated = mockMvc.perform(put("/api/v1/profiles/{id}", profileId)
+        MvcResult updated = mockMvc.perform(put("/{id}", profileId)
                         .content(updatedProfile)
                         .header("Authorization", keycloakTestHelper.createAuthorizationHeader("kovalmisha2000@gmail.com", "koval"))
                         .contentType(MediaType.APPLICATION_JSON))
@@ -183,7 +183,7 @@ class ProfilesApplicationTests {
     }
 
     private MvcResult sendCorrectFirstPostRequestToMockMvc() throws Exception {
-        return mockMvc.perform(post("/api/v1/profiles")
+        return mockMvc.perform(post("")
                         .content(profile)
                         .header("Authorization", keycloakTestHelper.createAuthorizationHeader("kovalmisha2000@gmail.com", "koval"))
                         .contentType(MediaType.APPLICATION_JSON))

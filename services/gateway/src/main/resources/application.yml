@@ -11,6 +11,11 @@ server:
   port: 8222 # port on which the API Gateway will work. Clients will send requests to this port.
 
 spring:
+
+  data:
+    redis:
+      host: localhost
+      port: 6379
   application:
     name: gateway # application name that can be used for identification in logs or monitoring.
   security:
@@ -23,14 +28,18 @@ spring:
       server:
         webflux:
           routes:
-            - id: profiles # id for the routes connected to the students service
-              uri: http://localhost:8010 # the address of the students service
+            - id: profiles
+              uri: http://localhost:8010
               predicates:
-                        - Path=/api/v1/profiles/** # all requests starting with /api/v1/students/ will be redirected to the service at http://localhost:8010
-
-
+                - Path=/api/v1/profiles/**
+              filters:
+                - name: RequestRateLimiter
+                  args:
+                    redis-rate-limiter.replenishRate: 2
+                    redis-rate-limiter.burstCapacity: 5
+                    redis-rate-limiter.requestedTokens: 1
 
 management:
   tracing:
     sampling:
-    probability: 1.0 # probability of tracing (debugging requests), set to 100% here.
+      probability: 1.0

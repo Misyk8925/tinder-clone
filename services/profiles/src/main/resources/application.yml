@@ -40,3 +40,8 @@ keycloak:
   auth-server-url: http://localhost:6700
   realm: spring
   client-id: profiles-service
+
+
+server:
+  servlet:
+    context-path: /api/v1/profiles

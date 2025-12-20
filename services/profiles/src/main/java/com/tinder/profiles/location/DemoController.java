@@ -19,5 +19,10 @@ public class DemoController {
         Location nLoc = locationService.create("Vienna");
         return new ResponseEntity<>(nLoc, HttpStatus.CREATED);
     }
+
+    @GetMapping("/test")
+    public ResponseEntity<String> test() {
+        return new ResponseEntity<>("Hello World!", HttpStatus.OK);
+    }
 }
 
