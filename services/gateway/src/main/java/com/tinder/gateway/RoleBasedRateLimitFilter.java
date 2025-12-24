@@ -13,6 +13,7 @@ import org.springframework.cloud.gateway.filter.factory.AbstractGatewayFilterFac
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Component;
 import org.springframework.web.server.ServerWebExchange;
+import reactor.core.publisher.Mono;
 
 import java.net.InetSocketAddress;
 import java.time.Duration;
@@ -39,7 +40,7 @@ public class RoleBasedRateLimitFilter extends AbstractGatewayFilterFactory<RoleB
             String userId = remoteAddress != null ? remoteAddress.getHostString() : extractKeyFromHeaders(exchange);
 
             // Get user role from SecurityService reactively using RoleResolver
-            return RoleResolver.resolveRole(securityService)
+            return resolveRole(securityService)
                     .flatMap(role -> {
                         // Create unique key with role
                         String key = userId + "-" + role;
@@ -76,6 +77,23 @@ public class RoleBasedRateLimitFilter extends AbstractGatewayFilterFactory<RoleB
         }
 
         return "unknown";
+    }
+
+    public static Mono<String> resolveRole(SecurityService securityService) {
+        return securityService.isAdmin()
+                .flatMap(isAdmin -> {
+                    if (isAdmin) {
+                        return Mono.just("admin");
+                    }
+                    return securityService.isPremiumUser()
+                            .flatMap(isPremium -> {
+                                if (isPremium) {
+                                    return Mono.just("premium");
+                                }
+                                return securityService.isBasicUser()
+                                        .map(isBasic -> isBasic ? "basic" : "anon");
+                            });
+                });
     }
 
     private BucketConfiguration getBucketConfiguration(RoleLimit roleLimit) {
