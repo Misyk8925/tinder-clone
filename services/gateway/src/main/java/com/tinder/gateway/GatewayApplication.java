@@ -16,11 +16,15 @@ public class GatewayApplication {
 	}
 
 	@Bean
-	public KeyResolver keyResolver() {
-		return exchange -> Mono.just(Objects.requireNonNull(exchange
-                        .getRequest()
-                        .getRemoteAddress())
-				.getHostName()
-		);
+	public KeyResolver keyResolver(SecurityService securityService) {
+		return exchange -> {
+			String hostName = Objects.requireNonNull(exchange
+							.getRequest()
+							.getRemoteAddress())
+					.getHostName();
+
+			return RoleResolver.resolveRole(securityService)
+					.map(roleKey -> hostName + "-" + roleKey);
+		};
 	}
 }

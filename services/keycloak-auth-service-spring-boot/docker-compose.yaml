@@ -30,7 +30,7 @@ services:
       KC_DB_URL_PORT: 5432
       KC_DB_URL_DATABASE: keycloak
       KC_FEATURES: token-exchange,admin-fine-grained-authz
-      KC_HOSTNAME_URL: "https://localhost:8443"   # <- рекомендуемый способ
+      KC_HOSTNAME_URL: "https://localhost:8443"
       KC_HOSTNAME_STRICT: "false"
       KC_HTTP_ENABLED: "true"
       KC_PROXY_HEADERS: "xforwarded"

@@ -35,10 +35,16 @@ spring:
                 - Path=/api/v1/profiles
                 - Method=POST
               filters:
-                - name: RateLimitFilter
+                - name: RoleBasedRateLimitFilter
                   args:
-                    capacity: 1
-                    periodInSeconds: 3600
+                    adminCapacity:  1000000000
+                    adminPeriodInSeconds: 3600
+                    premiumCapacity: 50
+                    premiumPeriodInSeconds: 3600
+                    basicCapacity: 5
+                    basicPeriodInSeconds: 3600
+                    anonCapacity: 0
+                    anonPeriodInSeconds: 7200
 
             - id: profile-update
               uri: http://localhost:8010
@@ -46,30 +52,48 @@ spring:
                 - Path=/api/v1/profiles/**
                 - Method=PUT, PATCH
               filters:
-                - name: RateLimitFilter
+                - name: RoleBasedRateLimitFilter
                   args:
-                    capacity: 20
-                    periodInSeconds: 3600
+                    adminCapacity:  1000000000
+                    adminPeriodInSeconds: 3600
+                    premiumCapacity: 50
+                    premiumPeriodInSeconds: 3600
+                    basicCapacity: 20
+                    basicPeriodInSeconds: 3600
+                    anonCapacity: 1
+                    anonPeriodInSeconds: 3600
             - id: profile-delete
               uri: http://localhost:8010
               predicates:
                 - Path=/api/v1/profiles/**
                 - Method=DELETE
               filters:
-                - name: RateLimitFilter
+                - name: RoleBasedRateLimitFilter
                   args:
-                    capacity: 11
-                    periodInSeconds: 3600
+                    adminCapacity: 50
+                    adminPeriodInSeconds: 3600
+                    premiumCapacity: 20
+                    premiumPeriodInSeconds: 3600
+                    basicCapacity: 5
+                    basicPeriodInSeconds: 3600
+                    anonCapacity: 1
+                    anonPeriodInSeconds: 3600
 
             - id: profile-other
               uri: http://localhost:8010
               predicates:
                 - Path=/api/v1/profiles/**
               filters:
-                    - name: RateLimitFilter
-                      args:
-                        capacity: 100
-                        periodInSeconds: 3600
+                - name: RoleBasedRateLimitFilter
+                  args:
+                    adminCapacity:  1000000000
+                    adminPeriodInSeconds: 3600
+                    premiumCapacity: 300
+                    premiumPeriodInSeconds: 3600
+                    basicCapacity: 120
+                    basicPeriodInSeconds: 3600
+                    anonCapacity: 1
+                    anonPeriodInSeconds: 3600
 
               ############################## SWIPES ROUTES
 
@@ -78,58 +102,21 @@ spring:
               predicates:
                 - Path=/api/v1/swipes/**
               filters:
-                - name: RateLimitFilter
+                - name: RoleBasedRateLimitFilter
                   args:
-                    capacity: 100
-                    periodInSeconds: 3600
+                    adminCapacity:  1000000000
+                    adminPeriodInSeconds: 3600
+                    premiumCapacity: 500
+                    premiumPeriodInSeconds: 3600
+                    basicCapacity: 100
+                    basicPeriodInSeconds: 3600
+                    anonCapacity: 10
+                    anonPeriodInSeconds: 3600
 
-#            - id: profiles-create
-#              uri: http://localhost:8010
-#              predicates:
-#                - Path=/api/v1/profiles/**
-#                - Method=POST
-#              filters:
-#                - name: RequestRateLimiter
-#                  args:
-#                    redis-rate-limiter.replenishRate: 2
-#                    redis-rate-limiter.burstCapacity: 5
-#                    redis-rate-limiter.requestedTokens: 1
-#
-#            - id: profiles-update
-#              uri: http://localhost:8010
-#              predicates:
-#                - Path=/api/v1/profiles/**
-#                - Method=PUT, PATCH
-#              filters:
-#                - name: RequestRateLimiter
-#                  args:
-#                    redis-rate-limiter.replenishRate: 2
-#                    redis-rate-limiter.burstCapacity: 5
-#                    redis-rate-limiter.requestedTokens: 1
-#
-#            - id: profiles-delete
-#              uri: http://localhost:8010
-#              predicates:
-#                - Path=/api/v1/profiles/**
-#                - Method=DELETE
-#              filters:
-#                - name: RequestRateLimiter
-#                  args:
-#                    redis-rate-limiter.replenishRate: 2
-#                    redis-rate-limiter.burstCapacity: 5
-#                    redis-rate-limiter.requestedTokens: 1
-#
-#            - id: profiles-other
-#              uri: http://localhost:8010
-#              predicates:
-#                - Path=/api/v1/profiles/**
-#              filters:
-#                - name: RequestRateLimiter
-#                  args:
-#                    redis-rate-limiter.replenishRate: 2
-#                    redis-rate-limiter.burstCapacity: 5
-#                    redis-rate-limiter.requestedTokens: 1
 
+custom:
+  admin:
+    rate-limit: 1000000000
 management:
   tracing:
     sampling:
