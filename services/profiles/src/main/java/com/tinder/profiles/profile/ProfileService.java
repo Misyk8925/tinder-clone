@@ -11,8 +11,10 @@ import com.tinder.profiles.profile.dto.profileData.ProfileDto;
 import com.tinder.profiles.profile.mapper.CreateProfileMapper;
 import com.tinder.profiles.profile.mapper.GetProfileMapper;
 import com.tinder.profiles.profile.mapper.ProfileMapper;
+import com.tinder.profiles.security.InputSanitizationService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.jspecify.annotations.NonNull;
 import org.springframework.cache.Cache;
 import org.springframework.cache.CacheManager;
 import org.springframework.data.domain.Page;
@@ -38,7 +40,7 @@ public class ProfileService {
 
     private final ObjectMapper createMapper;
     private final CacheManager cacheManager;
-
+    private final InputSanitizationService sanitizationService;
 
 
     public Page<Profile> getAll(Pageable pageable) {
@@ -81,7 +83,8 @@ public class ProfileService {
 
     public Profile create(CreateProfileDtoV1 profile, String userId) {
         try {
-            Profile profileEntity = mapper.toEntity(profile);
+            CreateProfileDtoV1 sanitizedProfile = getSanitizedProfile(profile);
+            Profile profileEntity = mapper.toEntity(sanitizedProfile);
 
             profileEntity.setUserId(userId);
 
@@ -103,12 +106,14 @@ public class ProfileService {
 
     }
 
+
     public Profile update(UUID id, CreateProfileDtoV1 profile) {
         if (repo.findById(id).isEmpty()) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Entity with id `%s` not found".formatted(id));
         }
         try {
-            Profile profileEntity = mapper.toEntity(profile);
+            CreateProfileDtoV1 sanitizedProfile = getSanitizedProfile(profile);
+            Profile profileEntity = mapper.toEntity(sanitizedProfile);
 
             profileEntity.setProfileId(id);
 
@@ -210,5 +215,17 @@ public class ProfileService {
         return repo.findAllByIsDeletedFalse().stream()
                 .map(getMapper::toGetProfileDto)
                 .toList();
+    }
+
+
+    private @NonNull CreateProfileDtoV1 getSanitizedProfile(CreateProfileDtoV1 profile) {
+        return new CreateProfileDtoV1(
+                sanitizationService.sanitizePlainText(profile.getName()),
+                profile.getAge(),
+                sanitizationService.sanitizePlainText(profile.getGender()),
+                sanitizationService.sanitizePlainText(profile.getBio()),
+                sanitizationService.sanitizePlainText(profile.getCity()),
+                profile.getPreferences()
+        );
     }
 }
