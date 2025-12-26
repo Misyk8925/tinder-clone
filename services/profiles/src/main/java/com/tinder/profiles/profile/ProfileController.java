@@ -44,7 +44,7 @@ public class ProfileController {
                 .body(service.getOne(id));
     }
 
-    @PostMapping
+    @PostMapping("/")
     public ResponseEntity<Object> create(@RequestBody @Valid CreateProfileDtoV1 profile, @AuthenticationPrincipal Jwt jwt) {
 
         String sub = jwt.getSubject();
@@ -98,7 +98,7 @@ public class ProfileController {
         return ResponseEntity.noContent().build();
     }
 
-    @DeleteMapping
+    @DeleteMapping("/delete-many")
     public void deleteMany(@RequestParam List<UUID> ids) {
         service.deleteMany(ids);
     }
