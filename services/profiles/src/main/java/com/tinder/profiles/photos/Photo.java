@@ -25,6 +25,9 @@ public class Photo {
     @Column(name = "is_primary", nullable = false)
     private boolean isPrimary;
 
+    @Column(name = "position", nullable = false)
+    private int position;
+
 
     @Column(name = "url", nullable = false)
     private String url;

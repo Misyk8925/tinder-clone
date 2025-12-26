@@ -32,7 +32,9 @@ public class S3PhotoController {
     @PostMapping(value = "/upload", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<?> uploadProfilePhoto(
             @RequestPart("file") MultipartFile file,
-            @AuthenticationPrincipal Jwt jwt) {
+            @AuthenticationPrincipal Jwt jwt,
+            @RequestParam String position
+            ) {
 
         try {
             // Get user ID from JWT
@@ -54,7 +56,7 @@ public class S3PhotoController {
             }
 
             // Process and upload photo
-            S3PhotoService.PhotoUrls urls = photoService.uploadProfilePhoto(file, profile);
+            S3PhotoService.PhotoUrls urls = photoService.uploadProfilePhoto(file, profile, position);
 
             return ResponseEntity
                     .status(HttpStatus.CREATED)

@@ -20,6 +20,8 @@ import java.io.IOException;
 import java.net.URL;
 import java.time.Duration;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
@@ -40,9 +42,32 @@ public class S3PhotoService {
     @Value("${app.s3.presign-exp-seconds:3000}")
     private int presignExpSeconds;
 
+    @Value("5")
+    private int maxPhotosPerProfile;
 
 
-    public PhotoUrls uploadProfilePhoto(MultipartFile file, Profile profile) throws IOException {
+
+    public PhotoUrls uploadProfilePhoto(MultipartFile file, Profile profile, String position) throws IOException {
+
+        int iPosition = Integer.parseInt(position);
+        List<Photo> existingPhotos = photoRepository.findAllByProfile_ProfileId(profile.getProfileId());
+        if (existingPhotos.isEmpty()) {
+            if (iPosition != 0) {
+                throw new IllegalArgumentException("Invalid position: " + position);
+            }
+        }
+
+        if (iPosition < existingPhotos.size()) {
+            // Replace existing photo at this position
+            Photo toReplace = existingPhotos.get(iPosition);
+            String[] parts = toReplace.getS3Key().split("/");
+            delete(parts[parts.length-1], UUID.fromString(profile.getUserId()));
+            photoRepository.delete(toReplace);
+        } else if (iPosition > existingPhotos.size()) {
+            if (iPosition> maxPhotosPerProfile - 1) {
+                throw new IllegalArgumentException("Maximum of " + maxPhotosPerProfile + " photos allowed per profile");
+            }
+        }
         String profileId = profile.getProfileId().toString();
         log.info("Processing photo upload for user: {}", profileId);
 
@@ -71,8 +96,9 @@ public class S3PhotoService {
         photo.setContentType("image/jpeg");
         photo.setSize(processed.medium().length);
         photo.setUrl(getPublicUrl(mediumKey));
-        photo.setPrimary(false);
+        photo.setPrimary(iPosition==0);
         photo.setCreatedAt(LocalDateTime.now());
+        photo.setPosition(iPosition);
         // Note: You need to set the profile relationship here
         photo.setProfile(profile);
 
