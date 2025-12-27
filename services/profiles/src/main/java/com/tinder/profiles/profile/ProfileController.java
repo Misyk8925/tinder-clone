@@ -26,16 +26,8 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class ProfileController {
 
-    @GetMapping("/test-pa")
-    @PreAuthorize("hasAnyRole('AMI')")
-    private ResponseEntity<String> testPa() {
-        return ResponseEntity.ok("test pa");
-    }
-
     private final ProfileService service;
     private final DeckService deckService;
-
-
 
     @GetMapping("/{id}")
     public ResponseEntity<GetProfileDto> getOne(@PathVariable UUID id) {
@@ -68,17 +60,18 @@ public class ProfileController {
     }
 
     @PutMapping("/{id}")
-    public ResponseEntity<Object> update(@PathVariable UUID id, @RequestBody @Valid CreateProfileDtoV1 profile) {
+    public ResponseEntity<Object> update(@PathVariable UUID id, @RequestBody @Valid CreateProfileDtoV1 profile, @AuthenticationPrincipal Jwt jwt)  {
 
-        if (service.getByUsername(profile.getName()) == null) {
+        String sub = jwt.getSubject();
+        Profile existingProfile = service.getByUserId(sub);
+        if (existingProfile == null || !existingProfile.getProfileId().equals(id)) {
             ErrorSummary errorSummary = ErrorSummary.builder()
-                    .code("NO_SUCH_PROFILE")
-                    .message("There is no such profile")
+                    .code("UNAUTHORIZED_UPDATE")
+                    .message("You are not authorized to update this profile")
                     .build();
-            CustomErrorResponse errorResponse = new CustomErrorResponse(errorSummary, null);
             return ResponseEntity
-                    .status(HttpStatus.CONFLICT)
-                    .body(errorResponse);
+                    .status(HttpStatus.FORBIDDEN)
+                    .body(new CustomErrorResponse(errorSummary, null));
         }
 
         return ResponseEntity
