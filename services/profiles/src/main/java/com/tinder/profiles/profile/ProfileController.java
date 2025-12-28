@@ -82,10 +82,11 @@ public class ProfileController {
         }
     }
 
-    @PatchMapping("/{id}")
-    public Profile patch(@PathVariable UUID id, @RequestBody JsonNode patchNode) throws IOException {
+    @PatchMapping("/")
+    public Profile patch(@AuthenticationPrincipal Jwt jwt, @RequestBody JsonNode patchNode) throws IOException {
         try {
-            return service.patch(id, patchNode);
+            String userId = jwt.getSubject();
+            return service.patch(userId, patchNode);
         } catch (IOException e) {
             throw new RuntimeException(e);
         }

@@ -166,13 +166,95 @@ public class ProfileService {
         }
     }
 
-    public Profile patch(UUID id, JsonNode patchNode) throws IOException {
-        Profile profile = repo.findById(id).orElseThrow(() ->
-                new ResponseStatusException(HttpStatus.NOT_FOUND, "Entity with id `%s` not found".formatted(id)));
+    public Profile patch(String id, JsonNode patchNode) throws IOException {
+        try {
+            Profile existingProfile = repo.findByUserId(id);
+            if (existingProfile == null) {
+                throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Profile for userId `%s` not found".formatted(id));
+            }
 
-        objectMapper.readerForUpdating(profile).readValue(patchNode);
+            // Define allowed fields for patching (whitelist approach)
+            Set<String> allowedFields = Set.of("name", "age", "gender", "bio", "city");
 
-        return repo.save(profile);
+            // Validate that only allowed fields are being patched
+            Iterator<String> fieldNames = patchNode.fieldNames();
+            while (fieldNames.hasNext()) {
+                String fieldName = fieldNames.next();
+                if (!allowedFields.contains(fieldName)) {
+                    throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                        "Field '%s' cannot be modified via PATCH. Allowed fields: %s"
+                            .formatted(fieldName, allowedFields));
+                }
+            }
+
+            // Apply patches to existing profile with sanitization
+            if (patchNode.has("name")) {
+                String name = patchNode.get("name").asText();
+                if (name.length() < 2 || name.length() > 50) {
+                    throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                        "name must be between 2-50 characters");
+                }
+                existingProfile.setName(sanitizationService.sanitizePlainText(name));
+            }
+
+            if (patchNode.has("age")) {
+                Integer age = patchNode.get("age").asInt();
+                if (age < 18 || age > 130) {
+                    throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                        "age must be between 18-130");
+                }
+                existingProfile.setAge(age);
+            }
+
+            if (patchNode.has("gender")) {
+                String gender = patchNode.get("gender").asText();
+                if (!gender.matches("(?i)^(male|female|other)$")) {
+                    throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                        "gender must be male, female, or other");
+                }
+                existingProfile.setGender(sanitizationService.sanitizePlainText(gender));
+            }
+
+            if (patchNode.has("bio")) {
+                String bio = patchNode.get("bio").asText();
+                if (bio.length() > 1023) {
+                    throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                        "bio must be less than 1000 characters");
+                }
+                existingProfile.setBio(sanitizationService.sanitizePlainText(bio));
+            }
+
+            if (patchNode.has("city")) {
+                String city = patchNode.get("city").asText();
+                if (city.length() > 100) {
+                    throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                        "city name too long (max 100 characters)");
+                }
+                if (!city.matches("^[a-zA-ZÀ-ÿ\\s-]+$")) {
+                    throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                        "city can only contain letters, spaces, and hyphens");
+                }
+                existingProfile.setCity(sanitizationService.sanitizePlainText(city));
+            }
+
+            // Save updated profile
+            Profile savedProfile = repo.save(existingProfile);
+
+            // Update cache
+            Objects.requireNonNull(cacheManager.getCache("PROFILE_ENTITY_CACHE"))
+                    .put(savedProfile.getProfileId(), savedProfile);
+
+            log.info("Profile patched successfully for userId: {}", id);
+            return savedProfile;
+
+        } catch (ResponseStatusException e) {
+            log.error("Patch validation error: {}", e.getMessage());
+            throw e;
+        } catch (Exception e) {
+            log.error("Error patching profile for userId {}: {}", id, e.getMessage());
+            throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR,
+                "Failed to patch profile", e);
+        }
     }
 
 

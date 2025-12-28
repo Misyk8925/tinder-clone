@@ -4,7 +4,6 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.tinder.profiles.profile.ProfileRepository;
 import com.tinder.profiles.util.KeycloakTestHelper;
-import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -35,7 +34,7 @@ class ProfilesApplicationTests {
 
     private final KeycloakTestHelper keycloakTestHelper = new KeycloakTestHelper();
 
-    private final String profile = """
+    private final String PROFILE_CORRECT = """
                 {
                     "name": "Misha",
                     "age": 34,
@@ -50,7 +49,7 @@ class ProfilesApplicationTests {
                     }
                 }""";
 
-    private final String updatedProfile = """
+    private final String PROFILE_UPDATED = """
                 {
                     "name": "Misha",
                     "age": 35,
@@ -65,7 +64,7 @@ class ProfilesApplicationTests {
                         }
                 }""";
 
-    private final String invalidatedProfile = """
+    private final String PROFILE_INVALID = """
                 {
                     "name": "Misha",
                     "gender": "male",
@@ -81,10 +80,37 @@ class ProfilesApplicationTests {
                 }""";
 
 
+    private final String PROFILE_PATCHED_CORRECT = """
+                {
+                    "age": 36,
+                    "city": "Linz"
+                }""";
 
-    @Test
-    void contextLoads() {
-    }
+    private final String PROFILE_PATCHED_WRONG_AGE = """
+                {
+                    "age": 17,
+                    "city": "Linz"
+                }""";
+
+    private final String PROFILE_PATCHED_WRONG_NAME_LENGTH= """
+                {
+                    "name": "M",
+                    "age": 36,
+                    "city": "Linz"
+                }""";
+    private final String PROFILE_PATCHED_WRONG_GENDER= """
+                {
+                    "gender": "unknown",
+                    "age": 36,
+                    "city": "Linz"
+                }""";
+
+    private final String PROFILE_PATCHED_WRONG_CITY= """
+                {
+                    "gender": "unknown",
+                    "age": 36,
+                    "city": "город"
+                }""";
 
     @BeforeEach
     void setUp() {
@@ -109,7 +135,7 @@ class ProfilesApplicationTests {
         sendCorrectFirstPostRequestToMockMvc();
 
         mockMvc.perform(post("")
-                        .content(profile)
+                        .content(PROFILE_CORRECT)
                         .header("Authorization", keycloakTestHelper.createAuthorizationHeader("kovalmisha2000@gmail.com", "koval"))
                         .contentType(MediaType.APPLICATION_JSON))
                 .andExpect(status().isConflict())
@@ -121,7 +147,7 @@ class ProfilesApplicationTests {
 
 
         mockMvc.perform(post("")
-                        .content(invalidatedProfile)
+                        .content(PROFILE_INVALID)
                         .header("Authorization", keycloakTestHelper.createAuthorizationHeader("kovalmisha2000@gmail.com", "koval"))
                         .contentType(MediaType.APPLICATION_JSON))
                 .andExpect(status().isBadRequest())
@@ -158,7 +184,7 @@ class ProfilesApplicationTests {
     public void checkPutProfile() throws Exception {
 
         MvcResult result = mockMvc.perform(post("")
-                        .content(profile)
+                        .content(PROFILE_CORRECT)
                         .header("Authorization", keycloakTestHelper.createAuthorizationHeader("kovalmisha2000@gmail.com", "koval"))
 
                         .contentType(MediaType.APPLICATION_JSON))
@@ -170,7 +196,7 @@ class ProfilesApplicationTests {
         UUID profileId = UUID.fromString(jsonNode.get("data").asText());
 
         MvcResult updated = mockMvc.perform(put("")
-                        .content(updatedProfile)
+                        .content(PROFILE_UPDATED)
                         .header("Authorization", keycloakTestHelper.createAuthorizationHeader("kovalmisha2000@gmail.com", "koval"))
                         .contentType(MediaType.APPLICATION_JSON))
                 .andExpect(status().isOk())
@@ -178,13 +204,62 @@ class ProfilesApplicationTests {
 
         String updatedResponseBody = updated.getResponse().getContentAsString();
         JsonNode updatedJsonNode = objectMapper.readTree(updatedResponseBody);
+    }
+
+    @Test
+    public void checkPatchProfileCorrect() throws  Exception {
+
+        MvcResult result = sendCorrectFirstPostRequestToMockMvc();
+
+        MvcResult patched = mockMvc.perform(patch("")
+                        .content(PROFILE_PATCHED_CORRECT)
+                        .header("Authorization", keycloakTestHelper.createAuthorizationHeader("kovalmisha2000@gmail.com", "koval"))
+                        .contentType(MediaType.APPLICATION_JSON))
+                .andExpect(status().isOk())
+                .andReturn();
+
+    }
+
+    @Test
+    public void checkPatchProfileWrong() throws  Exception {
+        MvcResult result = sendCorrectFirstPostRequestToMockMvc();
+
+        mockMvc.perform(patch("")
+                        .content(PROFILE_PATCHED_WRONG_AGE)
+                        .header("Authorization", keycloakTestHelper.createAuthorizationHeader("kovalmisha2000@gmail.com", "koval"))
+                        .contentType(MediaType.APPLICATION_JSON))
+                .andExpect(status().isBadRequest())
+                .andDo(print())
+                .andReturn();
+        mockMvc.perform(patch("")
+                        .content(PROFILE_PATCHED_WRONG_CITY)
+                        .header("Authorization", keycloakTestHelper.createAuthorizationHeader("kovalmisha2000@gmail.com", "koval"))
+                        .contentType(MediaType.APPLICATION_JSON))
+                .andExpect(status().isBadRequest())
+                .andDo(print())
+                .andReturn();
+        mockMvc.perform(patch("")
+                        .content(PROFILE_PATCHED_WRONG_GENDER)
+                        .header("Authorization", keycloakTestHelper.createAuthorizationHeader("kovalmisha2000@gmail.com", "koval"))
+                        .contentType(MediaType.APPLICATION_JSON))
+                .andExpect(status().isBadRequest())
+                .andDo(print())
+                .andReturn();
+
+        mockMvc.perform(patch("")
+                        .content(PROFILE_PATCHED_WRONG_NAME_LENGTH)
+                        .header("Authorization", keycloakTestHelper.createAuthorizationHeader("kovalmisha2000@gmail.com", "koval"))
+                        .contentType(MediaType.APPLICATION_JSON))
+                .andExpect(status().isBadRequest())
+                .andDo(print())
+                .andReturn();
 
 
     }
 
     private MvcResult sendCorrectFirstPostRequestToMockMvc() throws Exception {
         return mockMvc.perform(post("")
-                        .content(profile)
+                        .content(PROFILE_CORRECT)
                         .header("Authorization", keycloakTestHelper.createAuthorizationHeader("kovalmisha2000@gmail.com", "koval"))
                         .contentType(MediaType.APPLICATION_JSON))
                 .andExpect(status().isCreated())
