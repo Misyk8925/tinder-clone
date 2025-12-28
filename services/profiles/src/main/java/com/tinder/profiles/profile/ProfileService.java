@@ -7,10 +7,8 @@ import com.tinder.profiles.preferences.PreferencesDto;
 import com.tinder.profiles.preferences.PreferencesRepository;
 import com.tinder.profiles.profile.dto.profileData.CreateProfileDtoV1;
 import com.tinder.profiles.profile.dto.profileData.GetProfileDto;
-import com.tinder.profiles.profile.dto.profileData.ProfileDto;
 import com.tinder.profiles.profile.mapper.CreateProfileMapper;
 import com.tinder.profiles.profile.mapper.GetProfileMapper;
-import com.tinder.profiles.profile.mapper.ProfileMapper;
 import com.tinder.profiles.security.InputSanitizationService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -36,7 +34,6 @@ public class ProfileService {
     private final PreferencesRepository preferencesRepository;
     private final CreateProfileMapper createMapper;
     private final GetProfileMapper getMapper;
-    private final ProfileMapper profileMapper;
 
     private final ObjectMapper objectMapper;
     private final CacheManager cacheManager;
@@ -196,11 +193,11 @@ public class ProfileService {
         repo.deleteAllById(ids);
     }
 
-    public List<ProfileDto> fetchPage(int page, int size) {
+    public List<GetProfileDto> fetchPage(int page, int size) {
         Pageable pageable = PageRequest.of(page, size);
 
         return repo.findAll(pageable).stream()
-                .map(profileMapper::toDto)
+                .map(getMapper::toGetProfileDto)
                 .toList();
     }
 

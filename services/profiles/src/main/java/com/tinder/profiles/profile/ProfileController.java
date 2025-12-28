@@ -4,7 +4,6 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.tinder.profiles.deck.DeckService;
 import com.tinder.profiles.preferences.PreferencesDto;
 import com.tinder.profiles.profile.dto.profileData.GetProfileDto;
-import com.tinder.profiles.profile.dto.profileData.ProfileDto;
 import com.tinder.profiles.profile.dto.success.ApiResponse;
 import com.tinder.profiles.profile.dto.profileData.CreateProfileDtoV1;
 import com.tinder.profiles.profile.dto.errors.CustomErrorResponse;
@@ -85,7 +84,11 @@ public class ProfileController {
 
     @PatchMapping("/{id}")
     public Profile patch(@PathVariable UUID id, @RequestBody JsonNode patchNode) throws IOException {
-        return service.patch(id, patchNode);
+        try {
+            return service.patch(id, patchNode);
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
     }
 
 
@@ -112,7 +115,7 @@ public class ProfileController {
     }
 
     @GetMapping("/page")
-    public List<ProfileDto> page(@RequestParam int page,
+    public List<GetProfileDto> page(@RequestParam int page,
                                  @RequestParam int size) {
         return service.fetchPage(page, size);
     }
