@@ -3,13 +3,12 @@ package com.tinder.profiles.profile;
 import com.tinder.profiles.preferences.Preferences;
 import com.tinder.profiles.preferences.PreferencesDto;
 import com.tinder.profiles.profile.dto.profileData.CreateProfileDtoV1;
+import com.tinder.profiles.profile.exception.ProfileValidationException;
 import com.tinder.profiles.security.InputSanitizationService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.jspecify.annotations.NonNull;
-import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
-import org.springframework.web.server.ResponseStatusException;
 
 /**
  * Domain service containing core business logic for Profile entity.
@@ -33,8 +32,7 @@ public class ProfileDomainService {
         // Cross-field validation: minAge must not be greater than maxAge
         if (preferences.getMinAge() != null && preferences.getMaxAge() != null) {
             if (preferences.getMinAge() > preferences.getMaxAge()) {
-                throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
-                    "Minimum age cannot be greater than maximum age");
+                throw new ProfileValidationException("Minimum age cannot be greater than maximum age");
             }
         }
     }

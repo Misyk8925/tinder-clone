@@ -37,50 +37,27 @@ public class ProfileController {
     }
 
     @PostMapping("/")
-    public ResponseEntity<Object> create(@RequestBody @Valid CreateProfileDtoV1 profile, @AuthenticationPrincipal Jwt jwt) {
-
-        try {
-            Profile newProfile = applicationService.create(profile, jwt.getSubject());
-            return ResponseEntity
-                    .status(HttpStatus.CREATED)
-                    .body(ApiResponse.created("Profile created successfully", newProfile.getProfileId()));
-        } catch (ResponseStatusException e) {
-            ErrorSummary errorSummary = ErrorSummary.builder()
-                    .code("PROFILE_EXISTS")
-                    .message("User already has a profile")
-                    .build();
-            return ResponseEntity.status(HttpStatus.CONFLICT).body(errorSummary);
-        } catch (Exception e){
-            return ResponseEntity.internalServerError().build();
-        }
+    public ResponseEntity<Object> create(@RequestBody @Valid CreateProfileDtoV1 profile,
+                                         @AuthenticationPrincipal Jwt jwt) {
+        Profile newProfile = applicationService.create(profile, jwt.getSubject());
+        return ResponseEntity
+                .status(HttpStatus.CREATED)
+                .body(ApiResponse.created("Profile created successfully", newProfile.getProfileId()));
     }
 
     @PutMapping("/")
-    public ResponseEntity<Object> update(@RequestBody @Valid CreateProfileDtoV1 profile, @AuthenticationPrincipal Jwt jwt)  {
-
-        try {
-            Profile updatedProfile = applicationService.update(profile, jwt.getSubject());
-            return ResponseEntity
-                    .status(HttpStatus.OK)
-                    .body(ApiResponse.success("Profile updated successfully", updatedProfile.getProfileId()));
-        } catch (ResponseStatusException e) {
-            ErrorSummary errorSummary = ErrorSummary.builder()
-                    .code("PROFILE_NOT_FOUND")
-                    .message("Profile not found")
-                    .build();
-            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(errorSummary);
-        } catch (Exception e){
-            return ResponseEntity.internalServerError().build();
-        }
+    public ResponseEntity<Object> update(@RequestBody @Valid CreateProfileDtoV1 profile,
+                                         @AuthenticationPrincipal Jwt jwt) {
+        Profile updatedProfile = applicationService.update(profile, jwt.getSubject());
+        return ResponseEntity
+                .status(HttpStatus.OK)
+                .body(ApiResponse.success("Profile updated successfully", updatedProfile.getProfileId()));
     }
 
     @PatchMapping("/")
-    public Profile patch(@AuthenticationPrincipal Jwt jwt, @RequestBody @Valid PatchProfileDto patchDto) {
-        try {
-            return applicationService.patch(jwt.getSubject(), patchDto);
-        } catch (ResponseStatusException e) {
-            throw new ResponseStatusException(e.getStatusCode(), e.getReason());
-        }
+    public Profile patch(@AuthenticationPrincipal Jwt jwt,
+                        @RequestBody @Valid PatchProfileDto patchDto) {
+        return applicationService.patch(jwt.getSubject(), patchDto);
     }
 
 
