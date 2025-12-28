@@ -17,6 +17,7 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.io.IOException;
 import java.util.List;
@@ -39,44 +40,47 @@ public class ProfileController {
     @PostMapping("/")
     public ResponseEntity<Object> create(@RequestBody @Valid CreateProfileDtoV1 profile, @AuthenticationPrincipal Jwt jwt) {
 
-        String sub = jwt.getSubject();
-        boolean profileExists = service.getByUserId(sub) != null;
-        if (profileExists) {
+        try {
+            Profile newProfile = service.create(profile, jwt.getSubject());
+            return ResponseEntity
+                    .status(HttpStatus.CREATED)
+                    .body(ApiResponse.created("Profile created successfully", newProfile.getProfileId()));
+        } catch (ResponseStatusException e) {
             ErrorSummary errorSummary = ErrorSummary.builder()
                     .code("PROFILE_EXISTS")
                     .message("User already has a profile")
                     .build();
-            CustomErrorResponse errorResponse = new CustomErrorResponse(errorSummary, null);
-
-            return ResponseEntity
-                    .status(HttpStatus.CONFLICT)
-                    .body(errorResponse);
+            return ResponseEntity.status(HttpStatus.CONFLICT).body(errorSummary);
+        } catch (Exception e){
+            ErrorSummary errorSummary = ErrorSummary.builder()
+                    .code("INTERNAL_ERROR")
+                    .message("An unexpected error occurred")
+                    .build();
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorSummary);
         }
-        Profile result = service.create(profile, sub);
-
-        return ResponseEntity
-                .status(HttpStatus.CREATED)
-                .body(ApiResponse.created("Profile created successfully", result.getProfileId()));
     }
 
-    @PutMapping("/{id}")
-    public ResponseEntity<Object> update(@PathVariable UUID id, @RequestBody @Valid CreateProfileDtoV1 profile, @AuthenticationPrincipal Jwt jwt)  {
+    @PutMapping("/")
+    public ResponseEntity<Object> update(@RequestBody @Valid CreateProfileDtoV1 profile, @AuthenticationPrincipal Jwt jwt)  {
 
-        String sub = jwt.getSubject();
-        Profile existingProfile = service.getByUserId(sub);
-        if (existingProfile == null || !existingProfile.getProfileId().equals(id)) {
-            ErrorSummary errorSummary = ErrorSummary.builder()
-                    .code("UNAUTHORIZED_UPDATE")
-                    .message("You are not authorized to update this profile")
-                    .build();
+        try {
+            Profile updatedProfile = service.update(profile, jwt.getSubject());
             return ResponseEntity
-                    .status(HttpStatus.FORBIDDEN)
-                    .body(new CustomErrorResponse(errorSummary, null));
+                    .status(HttpStatus.OK)
+                    .body(ApiResponse.success("Profile updated successfully", updatedProfile.getProfileId()));
+        } catch (ResponseStatusException e) {
+            ErrorSummary errorSummary = ErrorSummary.builder()
+                    .code("PROFILE_NOT_FOUND")
+                    .message("Profile not found")
+                    .build();
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(errorSummary);
+        } catch (Exception e){
+            ErrorSummary errorSummary = ErrorSummary.builder()
+                    .code("INTERNAL_ERROR")
+                    .message(e.getMessage())
+                    .build();
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorSummary);
         }
-
-        return ResponseEntity
-                .status(HttpStatus.OK)
-                .body(service.update(id, profile));
     }
 
     @PatchMapping("/{id}")

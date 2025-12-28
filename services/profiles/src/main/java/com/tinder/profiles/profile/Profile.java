@@ -20,7 +20,7 @@ import java.util.UUID;
 @Setter
 @Entity
 @Table(name = "profiles")
-@JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
+@JsonIgnoreProperties(value = {"hibernateLazyInitializer", "handler"}, ignoreUnknown = true)
 public class Profile {
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
@@ -49,12 +49,12 @@ public class Profile {
     private boolean isActive;
 
     @JsonManagedReference("profile-location")
-    @OneToOne(fetch = FetchType.LAZY, cascade = CascadeType.ALL, optional = false, orphanRemoval = true)
+    @OneToOne(fetch = FetchType.EAGER, cascade = CascadeType.ALL, optional = false, orphanRemoval = true)
     @JoinColumn(name = "location_id", nullable = false)
     private Location location;
 
     @JsonIgnore
-    @ManyToOne(fetch = FetchType.LAZY)
+    @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "preferences_id", nullable = false)
     private Preferences preferences;
 

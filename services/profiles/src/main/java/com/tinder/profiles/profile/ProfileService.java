@@ -34,11 +34,11 @@ public class ProfileService {
 
     private final ProfileRepository repo;
     private final PreferencesRepository preferencesRepository;
-    private final CreateProfileMapper mapper;
+    private final CreateProfileMapper createMapper;
     private final GetProfileMapper getMapper;
     private final ProfileMapper profileMapper;
 
-    private final ObjectMapper createMapper;
+    private final ObjectMapper objectMapper;
     private final CacheManager cacheManager;
     private final InputSanitizationService sanitizationService;
 
@@ -49,27 +49,29 @@ public class ProfileService {
 
     public GetProfileDto getOne(UUID id) {
 
-      Cache.ValueWrapper profileCache = Objects.requireNonNull(cacheManager.getCache("PROFILE_ENTITY_CACHE")).get(id);
+        Cache.ValueWrapper profileCache = Objects.requireNonNull(cacheManager.getCache("PROFILE_ENTITY_CACHE")).get(id);
         if (profileCache != null) {
             Object cached = profileCache.get();
 
             if (cached instanceof Profile profile) {
                 return getMapper.toGetProfileDto(profile);
             } else {
-                // Исправление NPE - проверяем на null перед вызовом getClass()
                 String cachedType = (cached != null) ? cached.getClass().getName() : "null";
-                throw new IllegalStateException("В кэше по ключу " + id + " лежит объект неверного типа: " + cachedType);
+                throw new IllegalStateException("Invalid object type in cache for key " + id + ": " + cachedType);
             }
         }
         Optional<Profile> profileOptional = repo.findById(id);
         if (profileOptional.isEmpty()) {
-            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Профиль с id " + id + " не найден");
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Profile with id " + id + " not found");
         }
 
         Profile profile = profileOptional.get();
         if (profile.isDeleted())
             return null;
-        return getMapper.toGetProfileDto(profileOptional.get());
+
+        Objects.requireNonNull(cacheManager.getCache("PROFILE_ENTITY_CACHE"))
+                .put(id, profile);
+        return getMapper.toGetProfileDto(profile);
 
     }
 
@@ -83,8 +85,12 @@ public class ProfileService {
 
     public Profile create(CreateProfileDtoV1 profile, String userId) {
         try {
+            Profile existing = repo.findByUserId(userId);
+            if (existing != null) {
+                throw new ResponseStatusException(HttpStatus.CONFLICT, "Profile for userId `%s` already exists".formatted(userId));
+            }
             CreateProfileDtoV1 sanitizedProfile = getSanitizedProfile(profile);
-            Profile profileEntity = mapper.toEntity(sanitizedProfile);
+            Profile profileEntity = createMapper.toEntity(sanitizedProfile);
 
             profileEntity.setUserId(userId);
 
@@ -93,13 +99,19 @@ public class ProfileService {
                 preferences = preferencesRepository.save(preferences);
                 profileEntity.setPreferences(preferences);
             }
+
             Profile savedProfile = repo.save(profileEntity);
 
             Objects.requireNonNull(cacheManager.getCache("PROFILE_ENTITY_CACHE"))
                     .put(savedProfile.getProfileId(), savedProfile);
 
             return savedProfile;
-        } catch (Exception e) {
+        } catch (ResponseStatusException e) {
+            log.error(e.getMessage());
+            throw e;
+        }
+
+        catch (Exception e) {
             log.error("Error creating profile: " + e.getMessage());
             throw new RuntimeException(e);
         }
@@ -107,30 +119,52 @@ public class ProfileService {
     }
 
 
-    public Profile update(UUID id, CreateProfileDtoV1 profile) {
-        if (repo.findById(id).isEmpty()) {
-            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Entity with id `%s` not found".formatted(id));
-        }
+    public Profile update(CreateProfileDtoV1 profile, String userId) {
         try {
-            CreateProfileDtoV1 sanitizedProfile = getSanitizedProfile(profile);
-            Profile profileEntity = mapper.toEntity(sanitizedProfile);
-
-            profileEntity.setProfileId(id);
-
-            Preferences preferences = profileEntity.getPreferences();
-            if (preferences != null && preferences.getId() == null) {
-                preferences = preferencesRepository.save(preferences);
-                profileEntity.setPreferences(preferences);
+            Profile existingProfile = repo.findByUserId(userId);
+            if (existingProfile == null) {
+                throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Profile for userId `%s` not found".formatted(userId));
             }
-            Profile savedProfile = repo.save(profileEntity);
 
+            CreateProfileDtoV1 sanitizedProfile = getSanitizedProfile(profile);
+
+            // Update existing profile fields
+            existingProfile.setName(sanitizedProfile.name());
+            existingProfile.setAge(sanitizedProfile.age());
+            existingProfile.setGender(sanitizedProfile.gender());
+            existingProfile.setBio(sanitizedProfile.bio());
+            existingProfile.setCity(sanitizedProfile.city());
+
+            // Handle preferences update
+            if (sanitizedProfile.preferences() != null) {
+                Preferences preferences = existingProfile.getPreferences();
+                if (preferences == null) {
+                    preferences = new Preferences();
+                    existingProfile.setPreferences(preferences);
+                }
+
+                PreferencesDto prefsDto = sanitizedProfile.preferences();
+                preferences.setMinAge(prefsDto.getMinAge());
+                preferences.setMaxAge(prefsDto.getMaxAge());
+                preferences.setGender(prefsDto.getGender());
+
+                if (preferences.getId() == null) {
+                    preferences = preferencesRepository.save(preferences);
+                    existingProfile.setPreferences(preferences);
+                }
+            }
+
+            Profile savedProfile = repo.save(existingProfile);
 
             Objects.requireNonNull(cacheManager.getCache("PROFILE_ENTITY_CACHE"))
                     .put(savedProfile.getProfileId(), savedProfile);
 
             return savedProfile;
+        } catch (ResponseStatusException e) {
+            log.error(e.getMessage());
+            throw e;
         } catch (Exception e) {
-
+            log.error("Error updating profile: " + e.getMessage());
             throw new RuntimeException(e);
         }
     }
@@ -139,7 +173,7 @@ public class ProfileService {
         Profile profile = repo.findById(id).orElseThrow(() ->
                 new ResponseStatusException(HttpStatus.NOT_FOUND, "Entity with id `%s` not found".formatted(id)));
 
-        createMapper.readerForUpdating(profile).readValue(patchNode);
+        objectMapper.readerForUpdating(profile).readValue(patchNode);
 
         return repo.save(profile);
     }
@@ -220,12 +254,12 @@ public class ProfileService {
 
     private @NonNull CreateProfileDtoV1 getSanitizedProfile(CreateProfileDtoV1 profile) {
         return new CreateProfileDtoV1(
-                sanitizationService.sanitizePlainText(profile.getName()),
-                profile.getAge(),
-                sanitizationService.sanitizePlainText(profile.getGender()),
-                sanitizationService.sanitizePlainText(profile.getBio()),
-                sanitizationService.sanitizePlainText(profile.getCity()),
-                profile.getPreferences()
+                sanitizationService.sanitizePlainText(profile.name()),
+                profile.age(),
+                sanitizationService.sanitizePlainText(profile.gender()),
+                sanitizationService.sanitizePlainText(profile.bio()),
+                sanitizationService.sanitizePlainText(profile.city()),
+                profile.preferences()
         );
     }
 }

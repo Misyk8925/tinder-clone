@@ -27,15 +27,15 @@ public class NewCreateProfileMapperImpl implements CreateProfileMapper {
 
         Profile.ProfileBuilder profile = Profile.builder();
 
-        System.out.println(createProfileDtoV1.getCity());
+        System.out.println(createProfileDtoV1.city());
 
-        profile.name( createProfileDtoV1.getName() );
-        profile.age( createProfileDtoV1.getAge() );
-        profile.bio( createProfileDtoV1.getBio() );
-        profile.gender( createProfileDtoV1.getGender() );
-        profile.city( createProfileDtoV1.getCity() );
-        profile.location( locationService.create(createProfileDtoV1.getCity()) );
-        profile.preferences( preferencesDtoToPreferences( createProfileDtoV1.getPreferences() ) );
+        profile.name( createProfileDtoV1.name() );
+        profile.age( createProfileDtoV1.age() );
+        profile.bio( createProfileDtoV1.bio() );
+        profile.gender( createProfileDtoV1.gender() );
+        profile.city( createProfileDtoV1.city() );
+        profile.location( locationService.create(createProfileDtoV1.city()) );
+        profile.preferences( preferencesDtoToPreferences( createProfileDtoV1.preferences() ) );
         profile.isActive( true );
         profile.createdAt(LocalDateTime.now());
         profile.updatedAt( LocalDateTime.now() );

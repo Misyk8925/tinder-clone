@@ -169,7 +169,7 @@ class ProfilesApplicationTests {
         JsonNode jsonNode = objectMapper.readTree(responseBody);
         UUID profileId = UUID.fromString(jsonNode.get("data").asText());
 
-        MvcResult updated = mockMvc.perform(put("/{id}", profileId)
+        MvcResult updated = mockMvc.perform(put("")
                         .content(updatedProfile)
                         .header("Authorization", keycloakTestHelper.createAuthorizationHeader("kovalmisha2000@gmail.com", "koval"))
                         .contentType(MediaType.APPLICATION_JSON))
