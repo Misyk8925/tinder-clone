@@ -275,60 +275,6 @@ public class ProfileService {
         repo.deleteAllById(ids);
     }
 
-    public List<GetProfileDto> fetchPage(int page, int size) {
-        Pageable pageable = PageRequest.of(page, size);
-
-        return repo.findAll(pageable).stream()
-                .map(getMapper::toGetProfileDto)
-                .toList();
-    }
-
-    public List<GetProfileDto> searchByViewerPrefs(UUID viewerId, PreferencesDto p, int limit) {
-
-        Profile viewer = repo.findById(viewerId)
-                .orElseThrow(() -> new NoSuchElementException("viewer not found"));
-
-         List<Profile> allProfiles = repo.findAll(PageRequest.of(0, Math.max(limit, 1))).stream()
-                 .filter(profile -> !profile.isDeleted())
-                 .toList();
-
-         log.debug("searchByViewerPrefs: viewer {} fetched {} profiles from repo", viewerId, allProfiles.size());
-
-         PreferencesDto prefs = p;
-
-         List<Profile> base = allProfiles.stream()
-
-                .filter(profile -> {
-                    Integer age = profile.getAge();
-                    return age != null && age >= prefs.getMinAge() && age <= prefs.getMaxAge();
-                })
-                .filter(profile -> {
-                    String prefGender = prefs.getGender();
-                    if (prefGender == null || prefGender.isEmpty() || prefGender.equalsIgnoreCase("any")) {
-                        return true;
-                    }
-                    return profile.getGender() != null && profile.getGender().equalsIgnoreCase(prefGender);
-                })
-                .limit(limit)
-                .toList();
-
-         log.debug("searchByViewerPrefs: viewer {} filtered to {} candidates by prefs", viewerId, base.size());
-
-        return base.stream().map(getMapper::toGetProfileDto).toList();
-    }
-
-
-    public List<GetProfileDto> getMany(List<UUID> ids) {
-        return repo.findAllById(ids).stream()
-                .map(getMapper::toGetProfileDto)
-                .toList();
-    }
-
-    public List<GetProfileDto> getActiveUsers() {
-        return repo.findAllByIsDeletedFalse().stream()
-                .map(getMapper::toGetProfileDto)
-                .toList();
-    }
 
 
     private @NonNull CreateProfileDtoV1 getSanitizedProfile(CreateProfileDtoV1 profile) {

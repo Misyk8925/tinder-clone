@@ -104,47 +104,4 @@ public class ProfileController {
         service.deleteMany(ids);
     }
 
-    @GetMapping("/search")
-    public List<GetProfileDto> search(@RequestParam UUID viewerId,
-                                   @RequestParam(required = false) String gender,
-                                   @RequestParam(required = false) Integer minAge,
-                                   @RequestParam(required = false) Integer maxAge,
-                                   @RequestParam(required = false) Integer maxRange,
-                                   @RequestParam(defaultValue = "2000") Integer limit) {
-        PreferencesDto prefs = new PreferencesDto(viewerId, minAge, maxAge, gender, maxRange);
-        return service.searchByViewerPrefs(viewerId, prefs, limit);
-    }
-
-    @GetMapping("/page")
-    public List<GetProfileDto> page(@RequestParam int page,
-                                 @RequestParam int size) {
-        return service.fetchPage(page, size);
-    }
-
-    @GetMapping("/by-ids")
-    public ResponseEntity<List<GetProfileDto>> getMany(@RequestParam List<UUID> ids) {
-        if ( ids.isEmpty())
-            return ResponseEntity.badRequest().build();
-        return ResponseEntity.ok(service.getMany(ids));
-    }
-
-    /**
-     * Get deck for a user
-     * Reads from Redis cache (populated by Deck Service)
-     * Falls back to on-the-fly building for new users
-     */
-    @GetMapping("/deck")
-    public ResponseEntity<List<GetProfileDto>> getDeck(
-            @RequestParam UUID viewerId,
-            @RequestParam(defaultValue = "0") int offset,
-            @RequestParam(defaultValue = "20") int limit) {
-
-        List<GetProfileDto> deck = deckService.listWithProfiles(viewerId, offset, limit);
-        return ResponseEntity.ok(deck);
-    }
-
-    @GetMapping("/active")
-    public ResponseEntity<List<GetProfileDto>> getActiveUsers() {
-        return ResponseEntity.ok(service.getActiveUsers());
-    }
 }

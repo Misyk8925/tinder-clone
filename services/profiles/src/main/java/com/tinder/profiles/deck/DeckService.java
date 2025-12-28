@@ -6,6 +6,7 @@ import com.tinder.profiles.profile.Profile;
 import com.tinder.profiles.profile.ProfileRepository;
 import com.tinder.profiles.profile.ProfileService;
 import com.tinder.profiles.profile.dto.profileData.GetProfileDto;
+import com.tinder.profiles.profile.internal.InternalProfileService;
 import com.tinder.profiles.profile.mapper.GetProfileMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -23,6 +24,7 @@ public class DeckService {
     private final ProfileRepository repo;
     private final GetProfileMapper getMapper;
     private final ProfileService profileService;
+    private final InternalProfileService internalProfileService;
 
     public List<GetProfileDto> listWithProfiles(UUID viewerId, int offset, int limit) {
 
@@ -66,7 +68,7 @@ public class DeckService {
                 preferences.getMaxRange()
         );
 
-        List<GetProfileDto> candidates = profileService.searchByViewerPrefs(userId,prefs, limit);
+        List<GetProfileDto> candidates = internalProfileService.searchByViewerPrefs(userId,prefs, limit);
 
 
         return candidates;
