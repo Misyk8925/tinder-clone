@@ -61,9 +61,10 @@ public class ProfileController {
     }
 
 
-    @DeleteMapping("/{id}")
-    public ResponseEntity<Void> delete(@PathVariable UUID id) {
-        applicationService.delete(id);
+    @DeleteMapping("/")
+    public ResponseEntity<Void> delete(
+                                       @AuthenticationPrincipal Jwt jwt) {
+        applicationService.delete(jwt.getSubject());
         return ResponseEntity.noContent().build();
     }
 

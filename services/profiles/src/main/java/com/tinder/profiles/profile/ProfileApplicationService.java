@@ -239,15 +239,17 @@ public class ProfileApplicationService {
      * Delete profile (soft delete)
      */
     @Transactional
-    public Profile delete(UUID id) {
-        Profile profile = profileRepository.findById(id).orElse(null);
-        if (profile != null) {
-            if (domainService.canDeleteProfile(profile)) {
-                domainService.markAsDeleted(profile);
-                profileRepository.save(profile);
-                evictFromCache(profile.getProfileId());
-                log.info("Profile deleted successfully: {}", id);
-            }
+    public Profile delete( String userId) {
+        Profile profile = profileRepository.findByUserId(userId);
+        UUID id = profile != null ? profile.getProfileId() : null;
+        if (profile == null || profile.isDeleted()) {
+            throw new ProfileNotFoundException(String.valueOf(id), "id");
+        }
+        if (domainService.canDeleteProfile(profile)) {
+            domainService.markAsDeleted(profile);
+            profileRepository.save(profile);
+            evictFromCache(profile.getProfileId());
+            log.info("Profile deleted successfully: {}", id);
         }
         return profile;
     }

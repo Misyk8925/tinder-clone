@@ -53,9 +53,7 @@ public class ProfileService {
         return applicationService.patch(id, patchDto);
     }
 
-    public Profile delete(UUID id) {
-        return applicationService.delete(id);
-    }
+
 
     public void deleteMany(List<UUID> ids) {
         applicationService.deleteMany(ids);
