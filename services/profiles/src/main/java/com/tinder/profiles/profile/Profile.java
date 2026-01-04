@@ -73,9 +73,7 @@ public class Profile {
 
     // Domain logic methods
 
-    /**
-     * Updates basic profile information
-     */
+
     public void updateBasicInfo(String name, Integer age, String gender, String bio, String city) {
         this.name = name;
         this.age = age;
@@ -85,18 +83,12 @@ public class Profile {
         this.updatedAt = LocalDateTime.now();
     }
 
-    /**
-     * Marks profile as deleted (soft delete)
-     */
     public void markAsDeleted() {
         this.isDeleted = true;
         this.isActive = false;
         this.updatedAt = LocalDateTime.now();
     }
 
-    /**
-     * Activates the profile
-     */
     public void activate() {
         if (!this.isDeleted) {
             this.isActive = true;
@@ -104,9 +96,7 @@ public class Profile {
         }
     }
 
-    /**
-     * Deactivates the profile
-     */
+
     public void deactivate() {
         this.isActive = false;
         this.updatedAt = LocalDateTime.now();

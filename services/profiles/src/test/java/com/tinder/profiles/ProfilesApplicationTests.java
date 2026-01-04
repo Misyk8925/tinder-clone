@@ -8,6 +8,8 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -205,42 +207,21 @@ class ProfilesApplicationTests {
                 .andReturn();
     }
 
-    @Test
+    @ParameterizedTest
+    @ValueSource(strings = {PROFILE_PATCHED_WRONG_AGE, PROFILE_PATCHED_WRONG_CITY, PROFILE_PATCHED_WRONG_GENDER, PROFILE_PATCHED_WRONG_NAME_LENGTH})
     @DisplayName("Patch profile with invalid data should return bad request")
-    public void patchProfileInvalid() throws Exception {
+    public void patchProfileInvalid(String value) throws Exception {
         sendCorrectFirstPostRequestToMockMvc();
 
         mockMvc.perform(patch("")
-                        .content(PROFILE_PATCHED_WRONG_AGE)
+                        .content(value)
                         .header("Authorization", createAuthHeader())
                         .contentType(MediaType.APPLICATION_JSON))
                 .andExpect(status().isBadRequest())
                 .andDo(print())
                 .andReturn();
 
-        mockMvc.perform(patch("")
-                        .content(PROFILE_PATCHED_WRONG_CITY)
-                        .header("Authorization", createAuthHeader())
-                        .contentType(MediaType.APPLICATION_JSON))
-                .andExpect(status().isBadRequest())
-                .andDo(print())
-                .andReturn();
 
-        mockMvc.perform(patch("")
-                        .content(PROFILE_PATCHED_WRONG_GENDER)
-                        .header("Authorization", createAuthHeader())
-                        .contentType(MediaType.APPLICATION_JSON))
-                .andExpect(status().isBadRequest())
-                .andDo(print())
-                .andReturn();
-
-        mockMvc.perform(patch("")
-                        .content(PROFILE_PATCHED_WRONG_NAME_LENGTH)
-                        .header("Authorization", createAuthHeader())
-                        .contentType(MediaType.APPLICATION_JSON))
-                .andExpect(status().isBadRequest())
-                .andDo(print())
-                .andReturn();
     }
 
     @Test

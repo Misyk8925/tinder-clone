@@ -2,6 +2,7 @@ package com.tinder.profiles.profile;
 
 import com.tinder.profiles.preferences.Preferences;
 import com.tinder.profiles.preferences.PreferencesRepository;
+import com.tinder.profiles.preferences.PreferencesService;
 import com.tinder.profiles.profile.dto.profileData.CreateProfileDtoV1;
 import com.tinder.profiles.profile.dto.profileData.GetProfileDto;
 import com.tinder.profiles.profile.dto.profileData.PatchProfileDto;
@@ -11,7 +12,6 @@ import com.tinder.profiles.profile.exception.PatchOperationException;
 import com.tinder.profiles.profile.mapper.CreateProfileMapper;
 import com.tinder.profiles.profile.mapper.GetProfileMapper;
 import com.tinder.profiles.security.InputSanitizationService;
-import lombok.NonNull;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.cache.Cache;
@@ -39,19 +39,15 @@ public class ProfileApplicationService {
     private final GetProfileMapper getMapper;
     private final CacheManager cacheManager;
     private final InputSanitizationService sanitizationService;
+    private final PreferencesService preferencesService;
 
     private static final String PROFILE_CACHE_NAME = "PROFILE_ENTITY_CACHE";
 
-    /**
-     * Get all profiles with pagination
-     */
+
     public Page<Profile> getAll(Pageable pageable) {
         return profileRepository.findAll(pageable);
     }
 
-    /**
-     * Get profile by ID with caching
-     */
     public GetProfileDto getOne(UUID id) {
         try {
             // Try to get from cache first
@@ -97,23 +93,14 @@ public class ProfileApplicationService {
         }
     }
 
-    /**
-     * Get profile by username
-     */
     public Profile getByUsername(String username) {
         return profileRepository.findByName(username);
     }
 
-    /**
-     * Get profile by user ID
-     */
     public Profile getByUserId(String userId) {
         return profileRepository.findByUserId(userId);
     }
 
-    /**
-     * Create a new profile
-     */
     @Transactional
     public Profile create(CreateProfileDtoV1 profileDto, String userId) {
         // Check if profile already exists
@@ -135,51 +122,42 @@ public class ProfileApplicationService {
         profile.setUserId(userId);
 
         // Handle preferences
-        Preferences preferences = domainService.updateOrCreatePreferences(profile, sanitizedProfile.preferences());
+        Preferences preferences = preferencesService.findOrCreate(sanitizedProfile.preferences());
         if (preferences.getId() == null) {
             preferences = preferencesRepository.save(preferences);
         }
         profile.setPreferences(preferences);
 
-        // Save profile
+
         Profile savedProfile = profileRepository.save(profile);
 
         log.info("Profile created successfully for userId: {}", userId);
         return savedProfile;
     }
 
-
-
-    /**
-     * Update existing profile
-     */
     @Transactional
     public Profile update(CreateProfileDtoV1 profileDto, String userId) {
-        // Find existing profile
+
         Profile existingProfile = profileRepository.findByUserId(userId);
         if (existingProfile == null) {
             throw new ProfileNotFoundException(userId);
         }
 
-        // Validate cross-field business rules (Bean Validation handles basic constraints)
         if (profileDto.preferences() != null) {
             domainService.validatePreferencesBusinessRules(profileDto.preferences());
         }
 
-        // Sanitize input data
         CreateProfileDtoV1 sanitizedProfile = domainService.sanitizeProfileData(profileDto);
 
-        // Update using domain service
         domainService.updateProfileFromDto(existingProfile, sanitizedProfile);
 
-        // Handle preferences update
-        Preferences preferences = domainService.updateOrCreatePreferences(existingProfile, sanitizedProfile.preferences());
+
+        Preferences preferences = preferencesService.findOrCreate(sanitizedProfile.preferences());
         if (preferences.getId() == null) {
             preferences = preferencesRepository.save(preferences);
         }
         existingProfile.setPreferences(preferences);
 
-        // Save
         Profile savedProfile = profileRepository.save(existingProfile);
 
         // Update cache
@@ -189,9 +167,6 @@ public class ProfileApplicationService {
         return savedProfile;
     }
 
-    /**
-     * Patch profile with partial updates
-     */
     @Transactional
     public Profile patch(String userId, PatchProfileDto patchDto) {
         Profile existingProfile = profileRepository.findByUserId(userId);
@@ -225,19 +200,16 @@ public class ProfileApplicationService {
             existingProfile.setCity(sanitizationService.sanitizePlainText(patchDto.city()));
         }
 
-        // Save updated profile
+
         Profile savedProfile = profileRepository.save(existingProfile);
 
-        // Update cache
+
         putInCache(savedProfile.getProfileId(), savedProfile);
 
         log.info("Profile patched successfully for userId: {}", userId);
         return savedProfile;
     }
 
-    /**
-     * Delete profile (soft delete)
-     */
     @Transactional
     public Profile delete( String userId) {
         Profile profile = profileRepository.findByUserId(userId);
@@ -254,9 +226,6 @@ public class ProfileApplicationService {
         return profile;
     }
 
-    /**
-     * Delete multiple profiles
-     */
     @Transactional
     public void deleteMany(List<UUID> ids) {
         profileRepository.deleteAllById(ids);

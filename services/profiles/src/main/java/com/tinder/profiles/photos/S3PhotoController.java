@@ -1,6 +1,7 @@
 package com.tinder.profiles.photos;
 
 import com.tinder.profiles.profile.Profile;
+import com.tinder.profiles.profile.ProfileApplicationService;
 import com.tinder.profiles.profile.ProfileService;
 import com.tinder.profiles.profile.dto.errors.ErrorSummary;
 import com.tinder.profiles.profile.dto.success.ApiResponse;
@@ -24,7 +25,7 @@ import java.util.UUID;
 public class S3PhotoController {
 
     private final S3PhotoService photoService;
-    private final ProfileService profileService;
+    private final ProfileApplicationService profileService;
 
     /**
      * Upload profile photo - creates 4 versions (original, large, medium, small)

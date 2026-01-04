@@ -6,6 +6,7 @@ import jakarta.persistence.*;
 import lombok.*;
 
 import java.util.List;
+import java.util.Objects;
 import java.util.UUID;
 
 @Getter
@@ -14,7 +15,17 @@ import java.util.UUID;
 @Builder
 @AllArgsConstructor
 @NoArgsConstructor
-@Table(name = "preferences", schema = "public")
+@Table(
+    name = "preferences",
+    schema = "public",
+    indexes = {
+        @Index(name = "idx_preferences_lookup", columnList = "min_age, max_age, gender, max_range")
+    },
+    uniqueConstraints = {
+    @UniqueConstraint(name = "uk_preferences_combination",
+            columnNames = {"min_age", "max_age", "gender", "max_range"})
+        }
+)
 public class Preferences {
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
@@ -34,8 +45,20 @@ public class Preferences {
     private Integer maxRange;
 
 
-    @JsonIgnore // Игнорируем поле при сериализации
+    @JsonIgnore // Ignore field during serialization
     @OneToMany(mappedBy = "preferences", fetch = FetchType.LAZY)
     private List<Profile> profiles;
 
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (o == null || getClass() != o.getClass()) return false;
+        Preferences that = (Preferences) o;
+        return Objects.equals(id, that.id);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(id);
+    }
 }

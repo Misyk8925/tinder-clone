@@ -25,7 +25,6 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class ProfileController {
 
-    private final ProfileService service;
     private final ProfileApplicationService applicationService;
     private final DeckService deckService;
 
@@ -33,7 +32,7 @@ public class ProfileController {
     public ResponseEntity<GetProfileDto> getOne(@PathVariable UUID id) {
         return ResponseEntity
                 .status(HttpStatus.OK)
-                .body(service.getOne(id));
+                .body(applicationService.getOne(id));
     }
 
     @PostMapping("/")
