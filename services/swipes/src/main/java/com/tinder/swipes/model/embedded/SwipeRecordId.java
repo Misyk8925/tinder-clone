@@ -29,4 +29,9 @@ public class SwipeRecordId implements Serializable {
     public int hashCode() {
         return Objects.hash(profile1Id, profile2Id);
     }
+
+    @Override
+    public String toString() {
+        return String.valueOf(profile1Id)+"-"+String.valueOf(profile2Id);
+    }
 }

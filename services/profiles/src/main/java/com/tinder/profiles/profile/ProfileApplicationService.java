@@ -23,10 +23,6 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.*;
 
-/**
- * Application service orchestrating profile operations.
- * Handles transactions, caching, and coordinates between domain service and infrastructure.
- */
 @Service
 @RequiredArgsConstructor
 @Slf4j

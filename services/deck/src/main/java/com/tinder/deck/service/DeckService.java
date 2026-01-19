@@ -40,7 +40,8 @@ public class DeckService {
         // Use default preferences if null
         if (prefs == null) {
             log.warn("Viewer {} has null preferences, using defaults", viewer.id());
-            prefs = new SharedPreferencesDto(18, 50, "ANY", 100);
+            // TODO check default values
+            prefs = new SharedPreferencesDto(18, 50,  null, 100);
         }
         
         final SharedPreferencesDto finalPrefs = prefs;

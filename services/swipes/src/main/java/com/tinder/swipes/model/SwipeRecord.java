@@ -3,12 +3,9 @@ package com.tinder.swipes.model;
 
 import com.tinder.swipes.model.embedded.SwipeRecordId;
 import jakarta.persistence.*;
-import lombok.AllArgsConstructor;
-import lombok.Getter;
-import lombok.NoArgsConstructor;
-import lombok.Setter;
+import lombok.*;
 
-import java.util.UUID;
+import java.io.Serializable;
 
 
 @Entity
@@ -17,10 +14,15 @@ import java.util.UUID;
 @NoArgsConstructor
 @Getter
 @Setter
-public class SwipeRecord {
+@Builder
+public class SwipeRecord implements Serializable {
 
     @EmbeddedId
     private SwipeRecordId swipeRecordId;
+
+    @Version
+    @Column(name = "version", nullable = false)
+    private Long version;
 
     @Column
     private Boolean decision1;
