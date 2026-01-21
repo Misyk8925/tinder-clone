@@ -57,22 +57,7 @@ class DeckServiceTest {
     private SharedProfileDto viewerProfile;
     private SharedPreferencesDto preferences;
 
-    @BeforeEach
-    void setUp() {
-        deckService = new DeckService(profilesHttp, swipesHttp, deckCache, scoringService);
-        
-        // Set configuration values using reflection
-        ReflectionTestUtils.setField(deckService, "parallelism", 32);
-        ReflectionTestUtils.setField(deckService, "timeoutMs", 1500L);
-        ReflectionTestUtils.setField(deckService, "retries", 1L);
-        ReflectionTestUtils.setField(deckService, "ttlMin", 60L);
-        ReflectionTestUtils.setField(deckService, "perUserLimit", 500);
-        ReflectionTestUtils.setField(deckService, "searchLimit", 2000);
 
-        viewerId = UUID.randomUUID();
-        preferences = new SharedPreferencesDto(25, 35, "FEMALE", 50);
-        viewerProfile = createProfile(viewerId, "John", 30, preferences);
-    }
 
     @Test
     @DisplayName("Should rebuild deck with candidates that have no swipe history")

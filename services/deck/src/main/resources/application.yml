@@ -14,7 +14,7 @@ swipes:
 
 server.port: 8030
 deck:
-  parallelism: 32
+  parallelism: 8
   request-timeout-ms: 1500
   retries: 1
   ttl-minutes: 60

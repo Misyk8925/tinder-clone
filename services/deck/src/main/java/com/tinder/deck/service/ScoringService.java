@@ -1,16 +1,21 @@
 package com.tinder.deck.service;
 
 import com.tinder.deck.dto.SharedProfileDto;
+import com.tinder.deck.service.scoring.ScoringStrategy;
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
+import java.util.List;
+
 @Service
+@RequiredArgsConstructor
 public class ScoringService {
 
-    public double score(SharedProfileDto viewerProfile, SharedProfileDto targetProfile) {
-        // double score = 0;
-        double ageFit = viewerProfile.preferences().minAge() != null && viewerProfile.preferences().maxAge() != null
-                ? targetProfile.age() <= viewerProfile.preferences().maxAge() && targetProfile.age() >= viewerProfile.preferences().minAge() ? 1 : 0
-                :0.5;
-        return ageFit;
+    private final List<ScoringStrategy> strategies;
+
+    public double score(SharedProfileDto viewer, SharedProfileDto candidate) {
+        return strategies.stream()
+                .mapToDouble(strategy -> strategy.calculateScore(viewer, candidate))
+                .sum();
     }
 }
