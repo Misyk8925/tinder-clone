@@ -1,5 +1,7 @@
 package com.tinder.swipes.service;
 
+import com.tinder.swipes.kafka.SwipeCreatedEvent;
+import com.tinder.swipes.kafka.producer.SwipeEventProducer;
 import com.tinder.swipes.model.SwipeRecord;
 import com.tinder.swipes.model.dto.SwipeRecordDto;
 import com.tinder.swipes.model.embedded.SwipeRecordId;
@@ -7,6 +9,7 @@ import com.tinder.swipes.repository.SwipeRepository;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
 
@@ -22,47 +25,65 @@ public class SwipeService {
 
     private final SwipeRepository repo;
     private final RedisTemplate<String, Object> redisTemplate;
+    private final SwipeEventProducer swipeEventProducer;
     private final static String SWIPE_KEY_PREFIX = "swipes:exists";
+
+    @Value("${app.kafka.topic.swipe-created}")
+    private String swipeCreatedTopic;
 
 
     @Transactional
     public void save(SwipeRecordDto swipeRecord) {
-        UUID swiperId = UUID.fromString(swipeRecord.profile1Id());
-        UUID targetId = UUID.fromString(swipeRecord.profile2Id());
-
-        // Try to find existing record in both directions
-        SwipeRecordId id1 = new SwipeRecordId(swiperId, targetId);
-        SwipeRecordId id2 = new SwipeRecordId(targetId, swiperId);
-
-        SwipeRecord existing = repo.findBySwipeRecordId(id1);
-        if (existing == null) {
-            existing = repo.findBySwipeRecordId(id2);
-        }
-
-        if (existing == null) {
-            // No existing record in either direction - create new one
-            log.info("record not found, creating new one");
-            SwipeRecord newSwipeRecord = SwipeRecord.builder()
-                    .swipeRecordId(id1)
-                    .decision1(swipeRecord.decision())
+        log.info("SWIPE SERVICE: Saving swipe record: {}", swipeRecord);
+        try {
+            SwipeCreatedEvent event = SwipeCreatedEvent.builder()
+                    .eventId(UUID.randomUUID().toString())
+                    .profile1Id(swipeRecord.profile1Id())
+                    .profile2Id(swipeRecord.profile2Id())
+                    .decision(swipeRecord.decision())
+                    .timestamp(new Timestamp(System.currentTimeMillis()).getTime())
                     .build();
-            repo.save(newSwipeRecord);
-        } else {
-            // Record exists - update decision2 if not set
 
-            log.info("record found, updating existing one");
-
-            if (existing.getDecision2() == null) {
-                log.info("decision 2 is null, updating it");
-                Boolean decision = swipeRecord.decision();
-
-                existing.setDecision2(decision);
-                log.info("Updated decision 2: {}", existing.getDecision2());
-                repo.save(existing);
-            } else {
-                log.info("decision 2 is not null");
-            }
+            swipeEventProducer.sendSwipeEvent(event, swipeRecord.profile1Id(), swipeCreatedTopic);
+        } catch (Exception e) {
+            log.error("Error parsing timestamp for SwipeCreatedEvent: {}", e.getMessage(), e);
         }
+//        UUID swiperId = UUID.fromString(swipeRecord.profile1Id());
+//        UUID targetId = UUID.fromString(swipeRecord.profile2Id());
+//
+//        // Try to find existing record in both directions
+//        SwipeRecordId id1 = new SwipeRecordId(swiperId, targetId);
+//        SwipeRecordId id2 = new SwipeRecordId(targetId, swiperId);
+//
+//        SwipeRecord existing = repo.findBySwipeRecordId(id1);
+//        if (existing == null) {
+//            existing = repo.findBySwipeRecordId(id2);
+//        }
+//
+//        if (existing == null) {
+//            // No existing record in either direction - create new one
+//            log.info("record not found, creating new one");
+//            SwipeRecord newSwipeRecord = SwipeRecord.builder()
+//                    .swipeRecordId(id1)
+//                    .decision1(swipeRecord.decision())
+//                    .build();
+//            repo.save(newSwipeRecord);
+//        } else {
+//            // Record exists - update decision2 if not set
+//
+//            log.info("record found, updating existing one");
+//
+//            if (existing.getDecision2() == null) {
+//                log.info("decision 2 is null, updating it");
+//                Boolean decision = swipeRecord.decision();
+//
+//                existing.setDecision2(decision);
+//                log.info("Updated decision 2: {}", existing.getDecision2());
+//                repo.save(existing);
+//            } else {
+//                log.info("decision 2 is not null");
+//            }
+//        }
     }
 
     /**
