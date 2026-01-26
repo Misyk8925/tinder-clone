@@ -125,7 +125,15 @@ public class DeckCache {
     public Mono<Long> markAsStaleForAllDecks(UUID profileId) {
         return redis.keys("deck:*")
                 .filter(key -> DECK_KEY_PATTERN.matcher(key).matches())
-                .map(key -> UUID.fromString(key.substring("deck:".length())))
+                .flatMap(key -> {
+                    String idPart = key.substring("deck:".length());
+                    try {
+                        return Mono.just(UUID.fromString(idPart));
+                    } catch (IllegalArgumentException e) {
+                        log.warn("Skipping malformed deck key when marking stale: {}", key, e);
+                        return Mono.empty();
+                    }
+                })
                 .flatMap(viewerId -> markAsStale(viewerId, profileId))
                 .map(added -> added > 0 ? 1L : 0L)
                 .reduce(0L, Long::sum)
