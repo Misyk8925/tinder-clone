@@ -26,40 +26,6 @@ public class PreferencesCacheHelper {
     private final ProfilesHttp profilesHttp;
 
     /**
-     * Fetch candidates using preferences cache
-     * On CACHE HIT: fetch profiles by IDs
-     * On CACHE MISS: query database and cache result
-     *
-     * @param viewerId   Viewer's ID
-     * @param prefs      Search preferences
-     * @param timeoutMs  Request timeout
-     * @param retries    Number of retries
-     * @param searchLimit Maximum number of results
-     * @param databaseQueryCallback Callback to execute database query on cache miss
-     * @return Flux of candidate profile IDs
-     */
-    public Flux<UUID> fetchCandidateIds(
-            UUID viewerId,
-            SharedPreferencesDto prefs,
-            long timeoutMs,
-            int retries,
-            int searchLimit,
-            DatabaseQueryCallback databaseQueryCallback) {
-
-        log.debug("Checking preferences cache for {}/{}/{}",
-                prefs.minAge(), prefs.maxAge(), prefs.gender());
-
-        return deckCache.hasPreferencesCache(prefs.minAge(), prefs.maxAge(), prefs.gender())
-                .flatMapMany(cacheExists -> {
-                    if (cacheExists) {
-                        return handleCacheHit(prefs);
-                    } else {
-                        return handleCacheMiss(viewerId, prefs, searchLimit, databaseQueryCallback);
-                    }
-                });
-    }
-
-    /**
      * Fetch full profiles by cached IDs
      *
      * @param cachedIds List of cached profile IDs
@@ -109,45 +75,4 @@ public class PreferencesCacheHelper {
                 );
     }
 
-    private Flux<UUID> handleCacheHit(SharedPreferencesDto prefs) {
-        log.info("Preferences cache HIT for {}/{}/{}",
-                prefs.minAge(), prefs.maxAge(), prefs.gender());
-
-        return deckCache.getCandidatesByPreferences(
-                prefs.minAge(), prefs.maxAge(), prefs.gender());
-    }
-
-    private Flux<UUID> handleCacheMiss(
-            UUID viewerId,
-            SharedPreferencesDto prefs,
-            int searchLimit,
-            DatabaseQueryCallback callback) {
-
-        log.info("Preferences cache MISS for {}/{}/{}, querying DB",
-                prefs.minAge(), prefs.maxAge(), prefs.gender());
-
-        return callback.queryDatabase(viewerId, prefs, searchLimit)
-                .collectList()
-                .flatMapMany(candidates -> {
-                    if (candidates.isEmpty()) {
-                        log.debug("No candidates found in DB for {}/{}/{}",
-                                prefs.minAge(), prefs.maxAge(), prefs.gender());
-                        return Flux.fromIterable(candidates);
-                    }
-
-                    List<UUID> candidateIds = candidates.stream()
-                            .map(SharedProfileDto::id)
-                            .toList();
-
-                    cacheInBackground(prefs, candidateIds);
-
-                    return Flux.fromIterable(candidates);
-                })
-                .map(SharedProfileDto::id);
-    }
-
-    @FunctionalInterface
-    public interface DatabaseQueryCallback {
-        Flux<SharedProfileDto> queryDatabase(UUID viewerId, SharedPreferencesDto prefs, int searchLimit);
-    }
 }

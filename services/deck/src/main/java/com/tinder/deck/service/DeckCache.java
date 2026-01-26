@@ -2,6 +2,7 @@ package com.tinder.deck.service;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.redis.core.ReactiveStringRedisTemplate;
 import org.springframework.data.redis.core.ReactiveZSetOperations;
 import org.springframework.data.redis.core.ZSetOperations;
@@ -14,6 +15,7 @@ import java.time.Instant;
 import java.util.*;
 import java.util.Map.Entry;
 import java.util.stream.Collectors;
+import java.util.regex.Pattern;
 
 @Service
 @RequiredArgsConstructor
@@ -27,6 +29,7 @@ public class DeckCache {
     private static String deckTsKey(UUID id)      { return "deck:build:ts:" + id; }
     private static String staleKey(UUID viewerId) { return "deck:stale:" + viewerId; }
     private static String lockKey(UUID viewerId)  { return "deck:lock:" + viewerId; }
+    private static final Pattern DECK_KEY_PATTERN = Pattern.compile("^deck:([0-9a-fA-F-]{36})$");
     private static String preferencesKey(int minAge, int maxAge, String gender) {
         return String.format("prefs:%d:%d:%s", minAge, maxAge, gender.toUpperCase());
     }
@@ -39,7 +42,8 @@ public class DeckCache {
     private static final Duration DEFAULT_STALE_TTL = Duration.ofHours(24);
 
     // Preferences cache configuration
-    private static final Duration PREFERENCES_CACHE_TTL = Duration.ofMinutes(5);
+    @Value("${deck.preferences-cache-ttl-minutes:5}")
+    private long preferencesCacheTtlMinutes;
 
 
     public Mono<Void> writeDeck(UUID viewerId, List<Entry<UUID, Double>> deck, Duration ttl) {
@@ -110,6 +114,22 @@ public class DeckCache {
         return redis.opsForSet()
                 .add(key, profileId.toString())
                 .flatMap(added -> redis.expire(key, DEFAULT_STALE_TTL).thenReturn(added));
+    }
+
+    /**
+     * Mark a profile as stale across all cached decks.
+     *
+     * @param profileId The profile that became stale (e.g., age/gender changed)
+     * @return Mono<Long> number of decks marked as stale
+     */
+    public Mono<Long> markAsStaleForAllDecks(UUID profileId) {
+        return redis.keys("deck:*")
+                .filter(key -> DECK_KEY_PATTERN.matcher(key).matches())
+                .map(key -> UUID.fromString(key.substring("deck:".length())))
+                .flatMap(viewerId -> markAsStale(viewerId, profileId))
+                .map(added -> added > 0 ? 1L : 0L)
+                .reduce(0L, Long::sum)
+                .doOnNext(count -> log.info("Marked profile {} as stale in {} decks", profileId, count));
     }
 
     /**
@@ -395,11 +415,13 @@ public class DeckCache {
                 .map(UUID::toString)
                 .toArray(String[]::new);
 
+        Duration ttl = Duration.ofMinutes(preferencesCacheTtlMinutes);
+
         return redis.opsForSet()
                 .add(key, candidateStrings)
-                .flatMap(count -> redis.expire(key, PREFERENCES_CACHE_TTL).thenReturn(count))
+                .flatMap(count -> redis.expire(key, ttl).thenReturn(count))
                 .doOnSuccess(count -> log.info("Cached {} candidates for preferences {} (TTL: {})",
-                        count, key, PREFERENCES_CACHE_TTL));
+                        count, key, ttl));
     }
 
     /**
@@ -439,4 +461,3 @@ public class DeckCache {
                 .size(preferencesKey(minAge, maxAge, gender));
     }
 }
-

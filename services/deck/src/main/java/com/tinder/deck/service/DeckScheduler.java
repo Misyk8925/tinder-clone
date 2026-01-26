@@ -32,12 +32,11 @@ public class DeckScheduler {
      * - 100x fewer database queries compared to individual rebuilds
      */
 
-    // TODO adjust cron expression as needed
-    @Scheduled(cron = "0 */1 * * * *")
+    @Scheduled(cron = "${deck.scheduler.cron:0 0 * * * *}")
     public void rebuildAllDecks() {
 
-        log.info("Starting scheduled batch deck rebuild (hourly)");
-        log.info("Preferences cache enabled - efficient batch processi^ng mode");
+        log.info("Starting scheduled batch deck rebuild");
+        log.info("Preferences cache enabled - efficient batch processing mode");
 
         Flux<SharedProfileDto> activeUsers = profilesHttp.getActiveUsers();
 

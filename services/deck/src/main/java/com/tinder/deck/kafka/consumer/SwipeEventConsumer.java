@@ -36,7 +36,7 @@ public class SwipeEventConsumer {
     @KafkaListener(
             topics = "${kafka.topics.swipe-events}",
             groupId = "${spring.kafka.consumer.group-id}",
-            containerFactory = "kafkaListenerContainerFactory"
+            containerFactory = "swipeKafkaListenerContainerFactory"
     )
     public void consume(
             @Payload SwipeCreatedEvent event,

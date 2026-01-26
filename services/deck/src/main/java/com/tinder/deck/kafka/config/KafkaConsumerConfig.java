@@ -56,6 +56,28 @@ public class KafkaConsumerConfig {
     }
 
     /**
+     * Consumer factory for SwipeCreatedEvent deserialization
+     */
+    @Bean
+    public ConsumerFactory<String, SwipeCreatedEvent> swipeEventConsumerFactory() {
+        Map<String, Object> props = new HashMap<>();
+        props.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers);
+        props.put(ConsumerConfig.GROUP_ID_CONFIG, groupId);
+        props.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class);
+        props.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, JsonDeserializer.class);
+        props.put(JsonDeserializer.TRUSTED_PACKAGES, "com.tinder.deck.kafka.dto");
+        props.put(JsonDeserializer.VALUE_DEFAULT_TYPE, SwipeCreatedEvent.class.getName());
+        props.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest");
+
+        // Performance tuning
+        props.put(ConsumerConfig.MAX_POLL_RECORDS_CONFIG, 100);
+        props.put(ConsumerConfig.SESSION_TIMEOUT_MS_CONFIG, 30000);
+        props.put(ConsumerConfig.HEARTBEAT_INTERVAL_MS_CONFIG, 10000);
+
+        return new DefaultKafkaConsumerFactory<>(props);
+    }
+
+    /**
      * Listener container factory with manual acknowledgment
      */
     @Bean
@@ -67,6 +89,22 @@ public class KafkaConsumerConfig {
         factory.getContainerProperties().setAckMode(ContainerProperties.AckMode.MANUAL);
 
         // Error handling
+        factory.setCommonErrorHandler(new org.springframework.kafka.listener.DefaultErrorHandler());
+
+        return factory;
+    }
+
+    /**
+     * Listener container factory for SwipeCreatedEvent with manual acknowledgment
+     */
+    @Bean
+    public ConcurrentKafkaListenerContainerFactory<String, SwipeCreatedEvent> swipeKafkaListenerContainerFactory() {
+        ConcurrentKafkaListenerContainerFactory<String, SwipeCreatedEvent> factory =
+                new ConcurrentKafkaListenerContainerFactory<>();
+        factory.setConsumerFactory(swipeEventConsumerFactory());
+        factory.setConcurrency(concurrency);
+        factory.getContainerProperties().setAckMode(ContainerProperties.AckMode.MANUAL);
+
         factory.setCommonErrorHandler(new org.springframework.kafka.listener.DefaultErrorHandler());
 
         return factory;

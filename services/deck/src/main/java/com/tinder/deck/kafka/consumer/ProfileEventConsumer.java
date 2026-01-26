@@ -11,21 +11,12 @@ import org.springframework.messaging.handler.annotation.Header;
 import org.springframework.messaging.handler.annotation.Payload;
 import org.springframework.stereotype.Component;
 
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
-
-
 @Component
 @RequiredArgsConstructor
 @Slf4j
 public class ProfileEventConsumer {
 
     private final DeckCache deckCache;
-
-    // Pattern for parsing preferences from metadata: "minAge:18,maxAge:25,gender:FEMALE"
-    private static final Pattern PREFS_PATTERN = Pattern.compile(
-            "minAge:(\\d+),maxAge:(\\d+),gender:(\\w+)"
-    );
 
     @KafkaListener(
             topics = "${kafka.topics.profile-events}",
@@ -99,6 +90,10 @@ public class ProfileEventConsumer {
                 .doOnError(error -> log.error("Failed to invalidate personal deck", error))
                 .subscribe();
 
+        deckCache.markAsStaleForAllDecks(event.getProfileId())
+                .doOnError(error -> log.error("Failed to mark profile as stale across decks", error))
+                .subscribe();
+
         log.debug("Preferences caches will expire naturally via TTL. " +
                  "Stale data acceptable for up to 5 minutes.");
     }
@@ -109,27 +104,4 @@ public class ProfileEventConsumer {
         // No action needed - changes don't affect deck eligibility
     }
 
-    private PreferencesData extractPreferences(String metadata) {
-        if (metadata == null || metadata.isBlank()) {
-            return null;
-        }
-
-        try {
-            Matcher matcher = PREFS_PATTERN.matcher(metadata);
-            if (matcher.find()) {
-                int minAge = Integer.parseInt(matcher.group(1));
-                int maxAge = Integer.parseInt(matcher.group(2));
-                String gender = matcher.group(3);
-
-                return new PreferencesData(minAge, maxAge, gender);
-            }
-        } catch (Exception e) {
-            log.warn("Failed to parse preferences from metadata: {}", metadata, e);
-        }
-
-        return null;
-    }
-
-    private record PreferencesData(int minAge, int maxAge, String gender) {
-    }
 }
