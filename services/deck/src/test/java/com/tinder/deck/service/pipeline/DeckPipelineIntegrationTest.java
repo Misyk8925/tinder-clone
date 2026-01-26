@@ -7,6 +7,7 @@ import com.tinder.deck.dto.SharedPreferencesDto;
 import com.tinder.deck.dto.SharedProfileDto;
 import com.tinder.deck.service.DeckCache;
 import com.tinder.deck.service.ScoringService;
+import com.tinder.deck.service.pipeline.util.PreferencesCacheHelper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -87,6 +88,9 @@ class DeckPipelineIntegrationTest {
     @Autowired
     private ScoringService scoringService;
 
+    @Autowired
+    private PreferencesCacheHelper preferencesCacheHelper;
+
     @MockitoBean
     private ProfilesHttp profilesHttp;
 
@@ -107,7 +111,7 @@ class DeckPipelineIntegrationTest {
                 .blockLast();
 
         // Create real pipeline components (CacheStage uses real Redis)
-        CandidateSearchStage searchStage = new CandidateSearchStage(profilesHttp);
+        CandidateSearchStage searchStage = new CandidateSearchStage(profilesHttp, deckCache, preferencesCacheHelper);
         ReflectionTestUtils.setField(searchStage, "searchLimit", SEARCH_LIMIT);
         ReflectionTestUtils.setField(searchStage, "timeoutMs", TIMEOUT_MS);
         ReflectionTestUtils.setField(searchStage, "retries", RETRIES);

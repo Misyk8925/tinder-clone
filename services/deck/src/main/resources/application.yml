@@ -5,6 +5,22 @@ spring:
     redis:
       host: localhost
       port: 6379
+
+  # Kafka Configuration
+  kafka:
+    bootstrap-servers: localhost:9092
+    consumer:
+      group-id: deck-service-group
+      auto-offset-reset: earliest
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
+      properties:
+        spring.json.trusted.packages: "com.tinder.deck.kafka.dto"
+        spring.json.value.default.type: com.tinder.deck.kafka.dto.ProfileEvent
+    listener:
+      concurrency: 3  # Number of consumer threads
+      ack-mode: manual  # Manual commit for better control
+
 profiles:
   # Prefer calling profiles service directly during local/test runs
   base-url: http://localhost:8010/api/v1/profiles
@@ -12,11 +28,58 @@ swipes:
   # Prefer calling swipes service directly during local/test runs
   base-url: http://localhost:8020/api/v1/swipes
 
-server.port: 8030
+server:
+  port: 8030
+
 deck:
-  parallelism: 8
+  parallelism: 32
   request-timeout-ms: 1500
   retries: 1
   ttl-minutes: 60
   per-user-limit: 500
   search-limit: 2000
+
+  # Preferences Cache Configuration
+  # Optimizes batch rebuilds by sharing candidate queries across users with same preferences
+  # Example: 1000 users with 10 preference groups → only 10 DB queries instead of 1000
+  preferences-cache-enabled: true  # Enabled for scheduler efficiency
+  preferences-cache-ttl-minutes: 5  # Short TTL ensures data freshness
+
+  # New configuration for event-driven rebuild
+  rebuild:
+    lock-timeout-seconds: 30
+    lock-retry-max-attempts: 3
+    lock-retry-delay-ms: 100
+    queue:
+      max-size: 10000
+      worker-threads: 5
+      high-priority-weight: 3  # Process 3 high-priority tasks per 1 low-priority
+    stale:
+      ttl-hours: 24  # How long to keep stale markers
+
+  scheduler:
+    # Changed from every minute to every hour
+    cron: "0 0 * * * *"
+    max-concurrent-rebuilds: 10
+
+# Kafka topics
+kafka:
+  topics:
+    profile-events: profile.updated
+    swipe-events: swipe.created
+
+# Metrics
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus
+  metrics:
+    tags:
+      application: ${spring.application.name}
+  prometheus:
+    metrics:
+      export:
+        enabled: true
+
+

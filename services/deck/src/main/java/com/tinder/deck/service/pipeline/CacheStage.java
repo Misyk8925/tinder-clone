@@ -32,6 +32,7 @@ public class CacheStage {
                 .flatMap(deck -> {
                     if (deck.isEmpty()) {
                         log.warn("Empty deck for viewer {} - no candidates after filtering", viewerId);
+                        return Mono.empty();
                     }
                     return deckCache.writeDeck(viewerId, deck, Duration.ofMinutes(ttlMinutes));
                 })

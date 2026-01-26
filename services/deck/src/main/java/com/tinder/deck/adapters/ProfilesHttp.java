@@ -22,29 +22,6 @@ public class ProfilesHttp {
     private final WebClient profilesWebClient;
     private static final AtomicReference<String> token = new AtomicReference<>();
 
-    // Initial token refresh on startup (non-blocking)
-    @Scheduled(initialDelay = 0, fixedRate = 50000) // Refresh every 50 seconds
-    public void refreshTokenScheduled() {
-        WebClient webClient = WebClient.builder()
-                .baseUrl("http://localhost:9080")
-                .build();
-
-        webClient.post()
-                .uri("/realms/spring/protocol/openid-connect/token")
-                .header("Content-Type", "application/x-www-form-urlencoded")
-                .bodyValue("client_id=spring-app&grant_type=password&username=kovalmisha2000@gmail.com&password=koval")
-                .retrieve()
-                .bodyToMono(java.util.Map.class)
-                .subscribe(
-                        response -> {
-                            String newToken = (String) response.get("access_token");
-                            token.set(newToken);
-                            log.info("Keycloak token refreshed successfully");
-                        },
-                        error -> log.error("Failed to refresh Keycloak token: {}", error.toString())
-                );
-    }
-
     private String getToken() {
         String currentToken = token.get();
         if (currentToken == null) {
@@ -106,6 +83,36 @@ public class ProfilesHttp {
                 .onErrorResume(throwable -> {
                     log.warn("Failed to call profiles service (getProfile {}). Cause: {}", id, throwable.toString());
                     return Mono.empty();
+                });
+    }
+
+    /**
+     * Fetch multiple profiles by IDs (for preferences cache)
+     * Calls /internal/by-ids endpoint with comma-separated IDs
+     */
+    public Flux<SharedProfileDto> getProfilesByIds(java.util.List<UUID> profileIds) {
+        if (profileIds == null || profileIds.isEmpty()) {
+            log.debug("Empty profile IDs list, returning empty flux");
+            return Flux.empty();
+        }
+
+        // Convert UUIDs to comma-separated string
+        String idsParam = profileIds.stream()
+                .map(UUID::toString)
+                .collect(java.util.stream.Collectors.joining(","));
+
+        log.debug("Fetching {} profiles by IDs", profileIds.size());
+
+        return profilesWebClient.get()
+                .uri(uri -> uri.path("/by-ids")
+                        .queryParam("ids", idsParam)
+                        .build())
+                .header("Authorization", "Bearer " + getToken())
+                .retrieve()
+                .bodyToFlux(SharedProfileDto.class)
+                .onErrorResume(throwable -> {
+                    log.warn("Failed to fetch profiles by IDs: {}", throwable.toString());
+                    return Flux.empty();
                 });
     }
 }

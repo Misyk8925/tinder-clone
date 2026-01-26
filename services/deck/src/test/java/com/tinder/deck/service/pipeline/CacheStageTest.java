@@ -20,6 +20,7 @@ import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.*;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -107,20 +108,15 @@ class CacheStageTest {
         UUID viewerId = UUID.randomUUID();
         Flux<ScoringStage.ScoredCandidate> scoredCandidates = Flux.empty();
 
-        when(deckCache.writeDeck(eq(viewerId), anyList(), any(Duration.class)))
-                .thenReturn(Mono.empty());
-
         // When
         Mono<Void> result = cacheStage.cacheDeck(viewerId, scoredCandidates);
 
-        // Then
+        // Then: should complete without calling writeDeck
         StepVerifier.create(result)
                 .verifyComplete();
 
-        verify(deckCache).writeDeck(eq(viewerId), deckCaptor.capture(), any(Duration.class));
-
-        List<Map.Entry<UUID, Double>> capturedDeck = deckCaptor.getValue();
-        assertThat(capturedDeck).isEmpty();
+        // Verify: writeDeck was NOT called for empty deck
+        verify(deckCache, never()).writeDeck(any(), anyList(), any(Duration.class));
     }
 
     @Test

@@ -244,22 +244,29 @@ class CacheStageIntegrationTest {
     }
 
     @Test
-    @DisplayName("Should handle Redis connection errors gracefully")
+    @DisplayName("Should handle Redis errors gracefully")
     void shouldPropagateRedisErrors() {
-        // Given: scored candidates and a non-existent viewer scenario
-        // Note: In real scenario, Redis might be down or connection lost
-        UUID invalidViewerId = null; // This will cause an error in DeckCache
+        // Given: Create a CacheStage with a mock DeckCache that simulates Redis error
+        DeckCache failingCache = new DeckCache(redisTemplate) {
+            @Override
+            public Mono<Void> writeDeck(UUID viewerId, List<Map.Entry<UUID, Double>> deck, Duration ttl) {
+                return Mono.error(new RuntimeException("Simulated Redis connection failure"));
+            }
+        };
+
+        CacheStage failingCacheStage = new CacheStage(failingCache);
 
         Flux<ScoringStage.ScoredCandidate> scoredCandidates = Flux.just(
-                new ScoringStage.ScoredCandidate(UUID.randomUUID(), 0.90)
+                new ScoringStage.ScoredCandidate(UUID.randomUUID(), 0.90),
+                new ScoringStage.ScoredCandidate(UUID.randomUUID(), 0.85)
         );
 
-        // When: caching with invalid ID
-        Mono<Void> result = cacheStage.cacheDeck(invalidViewerId, scoredCandidates);
+        // When: caching with failing cache
+        Mono<Void> result = failingCacheStage.cacheDeck(testViewerId, scoredCandidates);
 
-        // Then: should propagate error
+        // Then: should propagate error from Redis operations
         StepVerifier.create(result)
-                .expectError()
+                .expectError(RuntimeException.class)
                 .verify();
     }
 

@@ -4,6 +4,8 @@ import com.tinder.deck.adapters.ProfilesHttp;
 import com.tinder.deck.dto.SharedLocationDto;
 import com.tinder.deck.dto.SharedPreferencesDto;
 import com.tinder.deck.dto.SharedProfileDto;
+import com.tinder.deck.service.DeckCache;
+import com.tinder.deck.service.pipeline.util.PreferencesCacheHelper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -48,13 +50,19 @@ class CandidateSearchStageTest {
     @Mock
     private ProfilesHttp profilesHttp;
 
+    @Mock
+    private DeckCache deckCache;
+
+    @Mock
+    private PreferencesCacheHelper preferencesCacheHelper;
+
     private CandidateSearchStage candidateSearchStage;
 
     private final GeometryFactory geometryFactory = new GeometryFactory();
 
     @BeforeEach
     void setUp() {
-        candidateSearchStage = new CandidateSearchStage(profilesHttp);
+        candidateSearchStage = new CandidateSearchStage(profilesHttp, deckCache, preferencesCacheHelper);
         ReflectionTestUtils.setField(candidateSearchStage, "searchLimit", SEARCH_LIMIT);
         ReflectionTestUtils.setField(candidateSearchStage, "timeoutMs", TIMEOUT_MS);
         ReflectionTestUtils.setField(candidateSearchStage, "retries", RETRIES);

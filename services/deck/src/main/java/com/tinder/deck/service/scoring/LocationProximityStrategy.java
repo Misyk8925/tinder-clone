@@ -35,7 +35,7 @@ public class LocationProximityStrategy implements ScoringStrategy {
         return 0.8;
     }
 
-    private double calculateDistance(Point p1, Point p2) {
+    public static double calculateDistance(Point p1, Point p2) {
         // Haversine formula implementation
         double lat1 = p1.getY();
         double lon1 = p1.getX();

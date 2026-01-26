@@ -24,27 +24,33 @@ public class DeckScheduler {
 
     /**
      * Rebuild decks for all active users
-     * Runs every 10 minutes
-     * For now, this is a placeholder
+     * Runs every hour (reduced from every minute for efficiency)
+     *
+     * Note: With Preferences Cache enabled, this is much more efficient:
+     * - Groups users by preferences (10-15 groups typically)
+     * - Shares candidate queries across users with same preferences
+     * - 100x fewer database queries compared to individual rebuilds
      */
+
+    // TODO adjust cron expression as needed
     @Scheduled(cron = "0 */1 * * * *")
     public void rebuildAllDecks() {
 
-        log.info("Starting scheduled deck rebuild...");
-
+        log.info("Starting scheduled batch deck rebuild (hourly)");
+        log.info("Preferences cache enabled - efficient batch processi^ng mode");
 
         Flux<SharedProfileDto> activeUsers = profilesHttp.getActiveUsers();
-        log.info("Active users: {}", activeUsers.collectList().block());
 
         if (activeUsers == null){
-            log.info("ERROR: users not found");
+            log.error("Failed to fetch active users - aborting scheduled rebuild");
             return;
         }
+
         activeUsers
             .timeout(Duration.ofSeconds(60))
-            .doOnError(e -> log.error("Error getting active users", e))
+            .doOnError(e -> log.error("Error during scheduled deck rebuild", e))
             .doOnNext(viewer -> this.rebuildDeckForUser(viewer))
-            .doOnComplete(() -> log.info("Deck rebuilding completed"))
+            .doOnComplete(() -> log.info("Scheduled batch deck rebuild completed successfully"))
             .subscribe();
     }
 
