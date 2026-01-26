@@ -11,6 +11,8 @@ import org.springframework.messaging.handler.annotation.Header;
 import org.springframework.messaging.handler.annotation.Payload;
 import org.springframework.stereotype.Component;
 
+import java.time.Duration;
+
 @Component
 @RequiredArgsConstructor
 @Slf4j
@@ -65,7 +67,7 @@ public class ProfileEventConsumer {
         log.info("PREFERENCES changed for profile: {}. Invalidating personal deck only", event.getProfileId());
 
         try {
-            Long count = deckCache.invalidate(event.getProfileId()).block();
+            Long count = deckCache.invalidate(event.getProfileId()).block(Duration.ofSeconds(30));
             if (count != null && count > 0) {
                 log.info("Invalidated personal deck for profile: {}", event.getProfileId());
             } else {
@@ -82,7 +84,7 @@ public class ProfileEventConsumer {
                 event.getProfileId());
 
         try {
-            Long count = deckCache.invalidate(event.getProfileId()).block();
+            Long count = deckCache.invalidate(event.getProfileId()).block(Duration.ofSeconds(30));
             if (count != null && count > 0) {
                 log.info("Invalidated personal deck after critical field change: {}",
                         event.getProfileId());
@@ -93,7 +95,7 @@ public class ProfileEventConsumer {
         }
 
         try {
-            deckCache.markAsStaleForAllDecks(event.getProfileId()).block();
+            deckCache.markAsStaleForAllDecks(event.getProfileId()).block(Duration.ofSeconds(30));
         } catch (Exception error) {
             log.error("Failed to mark profile as stale across decks", error);
             throw error;
