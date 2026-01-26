@@ -86,13 +86,23 @@ public class ProfileEventConsumer {
 
         try {
             // Execute both operations concurrently and wait for both to complete
-            Mono.zip(
+            var results = Mono.zip(
                 deckCache.invalidate(event.getProfileId()),
                 deckCache.markAsStaleForAllDecks(event.getProfileId())
             ).block(Duration.ofSeconds(30));
             
-            log.info("Successfully invalidated personal deck and marked profile as stale: {}",
-                    event.getProfileId());
+            if (results != null) {
+                Long invalidatedCount = results.getT1();
+                Long staledCount = results.getT2();
+                
+                if (invalidatedCount != null && invalidatedCount > 0) {
+                    log.info("Invalidated personal deck after critical field change: {}", event.getProfileId());
+                } else {
+                    log.debug("No personal deck found for profile: {}", event.getProfileId());
+                }
+                
+                log.info("Marked profile {} as stale in {} deck(s)", event.getProfileId(), staledCount != null ? staledCount : 0);
+            }
         } catch (Exception error) {
             log.error("Failed to invalidate deck or mark profile as stale", error);
             throw error;
