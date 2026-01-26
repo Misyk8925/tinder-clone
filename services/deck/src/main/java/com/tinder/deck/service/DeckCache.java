@@ -30,6 +30,7 @@ public class DeckCache {
     private static String staleKey(UUID viewerId) { return "deck:stale:" + viewerId; }
     private static String lockKey(UUID viewerId)  { return "deck:lock:" + viewerId; }
     private static final Pattern DECK_KEY_PATTERN = Pattern.compile("^deck:([0-9a-fA-F-]{36})$");
+    private static final String ACTIVE_DECKS_KEY = "deck:active:viewers";
     private static String preferencesKey(int minAge, int maxAge, String gender) {
         return String.format("prefs:%d:%d:%s", minAge, maxAge, gender.toUpperCase());
     }
@@ -61,6 +62,7 @@ public class DeckCache {
                 .then(addAll)                               // ZADD all
                 .then(redis.expire(key, ttl))               // TTL
                 .then(redis.opsForValue().set(tsKey, String.valueOf(System.currentTimeMillis()))) // TS
+                .then(redis.opsForSet().add(ACTIVE_DECKS_KEY, viewerId.toString())) // Track active deck
                 .then();
     }
 
@@ -83,7 +85,9 @@ public class DeckCache {
     }
 
     public Mono<Long> invalidate(UUID viewerId) {
-        return redis.delete(deckKey(viewerId), deckTsKey(viewerId));
+        return redis.delete(deckKey(viewerId), deckTsKey(viewerId))
+                .flatMap(count -> redis.opsForSet().remove(ACTIVE_DECKS_KEY, viewerId.toString())
+                        .thenReturn(count));
     }
 
     public Mono<List<UUID>> readTop(UUID viewerId, int topN) {
@@ -118,14 +122,15 @@ public class DeckCache {
 
     /**
      * Mark a profile as stale across all cached decks.
+     * Uses the active decks tracking set instead of scanning all keys.
      *
      * @param profileId The profile that became stale (e.g., age/gender changed)
      * @return Mono<Long> number of decks marked as stale
      */
     public Mono<Long> markAsStaleForAllDecks(UUID profileId) {
-        return redis.keys("deck:*")
-                .filter(key -> DECK_KEY_PATTERN.matcher(key).matches())
-                .map(key -> UUID.fromString(key.substring("deck:".length())))
+        return redis.opsForSet()
+                .members(ACTIVE_DECKS_KEY)
+                .map(UUID::fromString)
                 .flatMap(viewerId -> markAsStale(viewerId, profileId))
                 .map(added -> added > 0 ? 1L : 0L)
                 .reduce(0L, Long::sum)
