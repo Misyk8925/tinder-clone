@@ -62,7 +62,7 @@ public class DeckCache {
                 .then(addAll)                               // ZADD all
                 .then(redis.expire(key, ttl))               // TTL
                 .then(redis.opsForValue().set(tsKey, String.valueOf(System.currentTimeMillis()))) // TS
-                .then(redis.opsForSet().add(ACTIVE_DECKS_KEY, viewerId.toString())) // Track active deck
+                .then(redis.opsForSet().add(ACTIVE_DECKS_KEY, viewerId.toString())) // Track active deck (Redis Set handles duplicates)
                 .then();
     }
 
@@ -86,8 +86,14 @@ public class DeckCache {
 
     public Mono<Long> invalidate(UUID viewerId) {
         return redis.delete(deckKey(viewerId), deckTsKey(viewerId))
-                .flatMap(count -> redis.opsForSet().remove(ACTIVE_DECKS_KEY, viewerId.toString())
-                        .thenReturn(count));
+                .flatMap(count -> {
+                    // Only remove from tracking set if deck deletion was successful
+                    if (count > 0) {
+                        return redis.opsForSet().remove(ACTIVE_DECKS_KEY, viewerId.toString())
+                                .thenReturn(count);
+                    }
+                    return Mono.just(count);
+                });
     }
 
     public Mono<List<UUID>> readTop(UUID viewerId, int topN) {
