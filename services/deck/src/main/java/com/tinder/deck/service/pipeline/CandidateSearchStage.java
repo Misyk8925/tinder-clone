@@ -79,6 +79,7 @@ public class CandidateSearchStage {
                 prefs.minAge(), prefs.maxAge(), prefs.gender());
 
         return deckCache.getCandidatesByPreferences(prefs.minAge(), prefs.maxAge(), prefs.gender())
+                .take(searchLimit)
                 .collectList()
                 .flatMapMany(cachedIds ->
                         preferencesCacheHelper.fetchProfilesByIds(
