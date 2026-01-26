@@ -10,6 +10,7 @@ import org.springframework.kafka.support.KafkaHeaders;
 import org.springframework.messaging.handler.annotation.Header;
 import org.springframework.messaging.handler.annotation.Payload;
 import org.springframework.stereotype.Component;
+import reactor.core.publisher.Mono;
 
 import java.time.Duration;
 
@@ -84,20 +85,16 @@ public class ProfileEventConsumer {
                 event.getProfileId());
 
         try {
-            Long count = deckCache.invalidate(event.getProfileId()).block(Duration.ofSeconds(30));
-            if (count != null && count > 0) {
-                log.info("Invalidated personal deck after critical field change: {}",
-                        event.getProfileId());
-            }
+            // Execute both operations concurrently and wait for both to complete
+            Mono.zip(
+                deckCache.invalidate(event.getProfileId()),
+                deckCache.markAsStaleForAllDecks(event.getProfileId())
+            ).block(Duration.ofSeconds(30));
+            
+            log.info("Successfully invalidated personal deck and marked profile as stale: {}",
+                    event.getProfileId());
         } catch (Exception error) {
-            log.error("Failed to invalidate personal deck", error);
-            throw error;
-        }
-
-        try {
-            deckCache.markAsStaleForAllDecks(event.getProfileId()).block(Duration.ofSeconds(30));
-        } catch (Exception error) {
-            log.error("Failed to mark profile as stale across decks", error);
+            log.error("Failed to invalidate deck or mark profile as stale", error);
             throw error;
         }
 
