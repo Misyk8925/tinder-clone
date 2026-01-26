@@ -29,6 +29,9 @@ public class DeckCache {
     private static String deckTsKey(UUID id)      { return "deck:build:ts:" + id; }
     private static String staleKey(UUID viewerId) { return "deck:stale:" + viewerId; }
     private static String lockKey(UUID viewerId)  { return "deck:lock:" + viewerId; }
+    // Matches only primary deck data keys of the form "deck:{uuid}" and intentionally
+    // excludes other "deck:"-prefixed keys such as "deck:build:ts:*", "deck:stale:*",
+    // and "deck:lock:*".
     private static final Pattern DECK_KEY_PATTERN = Pattern.compile("^deck:([0-9a-fA-F-]{36})$");
     private static String preferencesKey(int minAge, int maxAge, String gender) {
         return String.format("prefs:%d:%d:%s", minAge, maxAge, gender.toUpperCase());
