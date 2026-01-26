@@ -327,5 +327,76 @@ class DeckCacheIntegrationTest {
         StepVerifier.create(deckCache.readDeck(nonExistentViewerId, 0, 10))
                 .verifyComplete();
     }
+
+    @Test
+    @DisplayName("Should mark profile as stale across all active decks")
+    void testMarkAsStaleForAllDecks() {
+        // Given: Multiple viewers with decks
+        UUID viewer1 = UUID.randomUUID();
+        UUID viewer2 = UUID.randomUUID();
+        UUID viewer3 = UUID.randomUUID();
+        UUID profileToMarkStale = UUID.randomUUID();
+
+        // Create decks for all viewers
+        List<Entry<UUID, Double>> deck1 = List.of(
+                Map.entry(profileToMarkStale, 10.0),
+                Map.entry(UUID.randomUUID(), 20.0)
+        );
+        List<Entry<UUID, Double>> deck2 = List.of(
+                Map.entry(profileToMarkStale, 15.0),
+                Map.entry(UUID.randomUUID(), 25.0)
+        );
+        List<Entry<UUID, Double>> deck3 = List.of(
+                Map.entry(UUID.randomUUID(), 30.0)
+        );
+
+        deckCache.writeDeck(viewer1, deck1, Duration.ofMinutes(60)).block();
+        deckCache.writeDeck(viewer2, deck2, Duration.ofMinutes(60)).block();
+        deckCache.writeDeck(viewer3, deck3, Duration.ofMinutes(60)).block();
+
+        // When: Marking the profile as stale for all decks
+        Long markedCount = deckCache.markAsStaleForAllDecks(profileToMarkStale).block();
+
+        // Then: Profile should be marked as stale in all decks (3 decks total)
+        assertThat(markedCount).isEqualTo(3L);
+
+        // Verify the profile is marked as stale for viewer1
+        StepVerifier.create(deckCache.isStale(viewer1, profileToMarkStale))
+                .expectNext(true)
+                .verifyComplete();
+
+        // Verify the profile is marked as stale for viewer2
+        StepVerifier.create(deckCache.isStale(viewer2, profileToMarkStale))
+                .expectNext(true)
+                .verifyComplete();
+
+        // Verify the profile is marked as stale for viewer3 (even though it's not in the deck)
+        StepVerifier.create(deckCache.isStale(viewer3, profileToMarkStale))
+                .expectNext(true)
+                .verifyComplete();
+    }
+
+    @Test
+    @DisplayName("Should track active decks and remove on invalidate")
+    void testActiveDeckTracking() {
+        // Given: A viewer with a deck
+        UUID viewer = UUID.randomUUID();
+        UUID profile = UUID.randomUUID();
+        List<Entry<UUID, Double>> deck = List.of(Map.entry(profile, 10.0));
+
+        deckCache.writeDeck(viewer, deck, Duration.ofMinutes(60)).block();
+
+        // When: Marking a profile as stale (should find the active deck)
+        Long markedCount1 = deckCache.markAsStaleForAllDecks(profile).block();
+        assertThat(markedCount1).isEqualTo(1L);
+
+        // Then: Invalidating the deck
+        deckCache.invalidate(viewer).block();
+
+        // When: Marking another profile as stale (should not find the invalidated deck)
+        UUID anotherProfile = UUID.randomUUID();
+        Long markedCount2 = deckCache.markAsStaleForAllDecks(anotherProfile).block();
+        assertThat(markedCount2).isEqualTo(0L);
+    }
 }
 
