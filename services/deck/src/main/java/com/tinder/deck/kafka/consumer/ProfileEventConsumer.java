@@ -64,35 +64,40 @@ public class ProfileEventConsumer {
     private void handlePreferencesChange(ProfileEvent event) {
         log.info("PREFERENCES changed for profile: {}. Invalidating personal deck only", event.getProfileId());
 
-        deckCache.invalidate(event.getProfileId())
-                .doOnSuccess(count -> {
-                    if (count > 0) {
-                        log.info("Invalidated personal deck for profile: {}", event.getProfileId());
-                    } else {
-                        log.debug("No personal deck found for profile: {}", event.getProfileId());
-                    }
-                })
-                .doOnError(error -> log.error("Failed to invalidate personal deck", error))
-                .subscribe();
+        try {
+            Long count = deckCache.invalidate(event.getProfileId()).block();
+            if (count != null && count > 0) {
+                log.info("Invalidated personal deck for profile: {}", event.getProfileId());
+            } else {
+                log.debug("No personal deck found for profile: {}", event.getProfileId());
+            }
+        } catch (Exception error) {
+            log.error("Failed to invalidate personal deck", error);
+            throw error;
+        }
     }
 
     private void handleCriticalFieldsChange(ProfileEvent event) {
         log.info("CRITICAL_FIELDS changed for profile: {}. Invalidating personal deck",
                 event.getProfileId());
 
-        deckCache.invalidate(event.getProfileId())
-                .doOnSuccess(count -> {
-                    if (count > 0) {
-                        log.info("Invalidated personal deck after critical field change: {}",
-                                event.getProfileId());
-                    }
-                })
-                .doOnError(error -> log.error("Failed to invalidate personal deck", error))
-                .subscribe();
+        try {
+            Long count = deckCache.invalidate(event.getProfileId()).block();
+            if (count != null && count > 0) {
+                log.info("Invalidated personal deck after critical field change: {}",
+                        event.getProfileId());
+            }
+        } catch (Exception error) {
+            log.error("Failed to invalidate personal deck", error);
+            throw error;
+        }
 
-        deckCache.markAsStaleForAllDecks(event.getProfileId())
-                .doOnError(error -> log.error("Failed to mark profile as stale across decks", error))
-                .subscribe();
+        try {
+            deckCache.markAsStaleForAllDecks(event.getProfileId()).block();
+        } catch (Exception error) {
+            log.error("Failed to mark profile as stale across decks", error);
+            throw error;
+        }
 
         log.debug("Preferences caches will expire naturally via TTL. " +
                  "Stale data acceptable for up to 5 minutes.");
