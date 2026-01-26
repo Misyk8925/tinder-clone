@@ -13,11 +13,14 @@ import org.springframework.stereotype.Component;
 import reactor.core.publisher.Mono;
 
 import java.time.Duration;
+import java.util.Objects;
 
 @Component
 @RequiredArgsConstructor
 @Slf4j
 public class ProfileEventConsumer {
+
+    private static final Duration REDIS_OPERATION_TIMEOUT = Duration.ofSeconds(30);
 
     private final DeckCache deckCache;
 
@@ -68,7 +71,7 @@ public class ProfileEventConsumer {
         log.info("PREFERENCES changed for profile: {}. Invalidating personal deck only", event.getProfileId());
 
         try {
-            Long count = deckCache.invalidate(event.getProfileId()).block(Duration.ofSeconds(30));
+            Long count = deckCache.invalidate(event.getProfileId()).block(REDIS_OPERATION_TIMEOUT);
             if (count != null && count > 0) {
                 log.info("Invalidated personal deck for profile: {}", event.getProfileId());
             } else {
@@ -89,7 +92,7 @@ public class ProfileEventConsumer {
             var results = Mono.zip(
                 deckCache.invalidate(event.getProfileId()),
                 deckCache.markAsStaleForAllDecks(event.getProfileId())
-            ).block(Duration.ofSeconds(30));
+            ).block(REDIS_OPERATION_TIMEOUT);
             
             if (results != null) {
                 Long invalidatedCount = results.getT1();
@@ -101,7 +104,8 @@ public class ProfileEventConsumer {
                     log.debug("No personal deck found for profile: {}", event.getProfileId());
                 }
                 
-                log.info("Marked profile {} as stale in {} deck(s)", event.getProfileId(), staledCount != null ? staledCount : 0);
+                log.info("Marked profile {} as stale in {} deck(s)", event.getProfileId(), 
+                        Objects.requireNonNullElse(staledCount, 0L));
             }
         } catch (Exception error) {
             log.error("Failed to invalidate deck or mark profile as stale", error);
