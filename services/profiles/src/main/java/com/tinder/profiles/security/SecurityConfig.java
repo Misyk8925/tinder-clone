@@ -22,34 +22,11 @@ import java.util.HashSet;
 @EnableMethodSecurity
 public class SecurityConfig {
 
-    private final JwtAuthConverter jwtAuthConverter;
-
-    public SecurityConfig(JwtAuthConverter jwtAuthConverter) {
-        this.jwtAuthConverter = jwtAuthConverter;
-    }
-
-
-
     @Bean
-    Converter<Jwt, ? extends AbstractAuthenticationToken> keycloakAuthoritiesConverter() {
-        var delegate = new JwtGrantedAuthoritiesConverter();
-        delegate.setAuthoritiesClaimName("scope");
-        delegate.setAuthorityPrefix("SCOPE_");
-
-        return jwt -> {
-            // standard scopes
-            Collection<GrantedAuthority> authorities = new HashSet<>(delegate.convert(jwt));
-
-            // realm roles with ROLE_
-            var realm = jwt.getClaimAsMap("realm_access");
-            if (realm!=null && realm.get("roles") instanceof Collection<?> roles) {
-                roles.forEach(r -> authorities.add(new SimpleGrantedAuthority("ROLE_" + r)));
-            }
-            return new JwtAuthenticationToken(jwt, authorities, jwt.getSubject());
-        };
-
-
+    Converter<Jwt, AbstractAuthenticationToken> jwtAbstractAuthenticationTokenConverter() {
+        return new JwtAuthConverter();
     }
+
 
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity httpSecurity) throws Exception {
@@ -62,7 +39,7 @@ public class SecurityConfig {
                 )
                 .oauth2ResourceServer(oauth2 -> oauth2
                         .jwt(jwt -> jwt
-                                .jwtAuthenticationConverter(jwtAuthConverter)
+                                .jwtAuthenticationConverter(jwtAbstractAuthenticationTokenConverter())
                         )
                 )
                 .sessionManagement(sess -> sess.sessionCreationPolicy(SessionCreationPolicy.STATELESS))

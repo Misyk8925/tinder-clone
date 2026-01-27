@@ -1,32 +1,26 @@
 package com.tinder.profiles.profile;
 
-import com.tinder.profiles.deck.DeckService;
-import com.tinder.profiles.preferences.PreferencesDto;
 import com.tinder.profiles.profile.dto.profileData.GetProfileDto;
 import com.tinder.profiles.profile.dto.success.ApiResponse;
 import com.tinder.profiles.profile.dto.profileData.CreateProfileDtoV1;
 import com.tinder.profiles.profile.dto.profileData.PatchProfileDto;
-import com.tinder.profiles.profile.dto.errors.CustomErrorResponse;
-import com.tinder.profiles.profile.dto.errors.ErrorSummary;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.*;
-import org.springframework.web.server.ResponseStatusException;
 
 import java.util.List;
 import java.util.UUID;
 
 @RestController
+@RequestMapping
 @RequiredArgsConstructor
 public class ProfileController {
 
     private final ProfileApplicationService applicationService;
-    private final DeckService deckService;
 
     @GetMapping("/{id}")
     public ResponseEntity<GetProfileDto> getOne(@PathVariable UUID id) {

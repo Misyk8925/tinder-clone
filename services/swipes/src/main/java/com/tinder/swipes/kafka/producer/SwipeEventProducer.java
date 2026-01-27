@@ -18,9 +18,6 @@ public class SwipeEventProducer {
 
     private final KafkaTemplate<String, SwipeCreatedEvent> kafkaTemplate;
 
-    @Value("${app.kafka.topic.swipe-created}" )
-    private String swipeCreatedTopic;
-
     public void sendSwipeEvent(SwipeCreatedEvent event, String key, String topic) {
 
         log.info("Sending swipe event to topic: {} with key: {} and event: {}", topic, key, event);

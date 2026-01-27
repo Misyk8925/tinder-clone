@@ -7,6 +7,19 @@ server:
   servlet:
     context-path: /api/v1/profiles
 spring:
+  kafka:
+    bootstrap-servers: localhost:9092
+
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+      acks: all
+      retries: 3
+      properties:
+        max.in.flight.requests.per.connection: 5
+        enable.idempotence: true
+        spring.json.add.type.headers: false
+
   datasource:
     url: jdbc:postgresql://127.0.0.1:54322/postgres
     username: postgres
@@ -61,5 +74,7 @@ keycloak:
   realm: spring
   client-id: profiles-service
 
-
-
+# Kafka topics
+kafka:
+  topics:
+    profile-events: profile.updated

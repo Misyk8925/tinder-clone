@@ -1,5 +1,8 @@
 package com.tinder.profiles.profile;
 
+import com.tinder.profiles.kafka.ProfileEventProducer;
+import com.tinder.profiles.kafka.dto.ChangeType;
+import com.tinder.profiles.kafka.dto.ProfileUpdatedEvent;
 import com.tinder.profiles.preferences.Preferences;
 import com.tinder.profiles.preferences.PreferencesRepository;
 import com.tinder.profiles.preferences.PreferencesService;
@@ -14,6 +17,7 @@ import com.tinder.profiles.profile.mapper.GetProfileMapper;
 import com.tinder.profiles.security.InputSanitizationService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.cache.Cache;
 import org.springframework.cache.CacheManager;
 import org.springframework.data.domain.Page;
@@ -21,6 +25,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Instant;
 import java.util.*;
 
 @Service
@@ -36,6 +41,10 @@ public class ProfileApplicationService {
     private final CacheManager cacheManager;
     private final InputSanitizationService sanitizationService;
     private final PreferencesService preferencesService;
+    private final ProfileEventProducer profileEventProducer;
+
+    @Value("${kafka.topics.profile-events:profile.updated}")
+    private String profileEventsTopic;
 
     private static final String PROFILE_CACHE_NAME = "PROFILE_ENTITY_CACHE";
 
@@ -145,21 +154,39 @@ public class ProfileApplicationService {
 
         CreateProfileDtoV1 sanitizedProfile = domainService.sanitizeProfileData(profileDto);
 
+        // Track changed fields before update
+        Set<String> changedFields = detectChangedFields(existingProfile, sanitizedProfile);
+        boolean preferencesChanged = false;
+
+        // Update profile fields
         domainService.updateProfileFromDto(existingProfile, sanitizedProfile);
 
-
+        // Handle preferences
+        Preferences oldPreferences = existingProfile.getPreferences();
         Preferences preferences = preferencesService.findOrCreate(sanitizedProfile.preferences());
         if (preferences.getId() == null) {
             preferences = preferencesRepository.save(preferences);
         }
+
+        // Check if preferences changed
+        if (!preferencesEqual(oldPreferences, preferences)) {
+            preferencesChanged = true;
+            changedFields.add("preferences");
+        }
+
         existingProfile.setPreferences(preferences);
 
         Profile savedProfile = profileRepository.save(existingProfile);
 
+        // Determine change type and send event
+        ChangeType changeType = determineChangeType(changedFields, preferencesChanged);
+        sendProfileUpdatedEvent(savedProfile, changeType, changedFields);
+
         // Update cache
         putInCache(savedProfile.getProfileId(), savedProfile);
 
-        log.info("Profile updated successfully for userId: {}", userId);
+        log.info("Profile updated successfully for userId: {} with changeType: {} and fields: {}",
+                userId, changeType, changedFields);
         return savedProfile;
     }
 
@@ -175,34 +202,46 @@ public class ProfileApplicationService {
             throw PatchOperationException.noFieldsProvided();
         }
 
+        // Track changed fields
+        Set<String> changedFields = new HashSet<>();
+
         // Apply patches (Bean Validation already validated the format)
         if (patchDto.name() != null) {
             existingProfile.setName(sanitizationService.sanitizePlainText(patchDto.name()));
+            changedFields.add("name");
         }
 
         if (patchDto.age() != null) {
             existingProfile.setAge(patchDto.age());
+            changedFields.add("age");
         }
 
         if (patchDto.gender() != null) {
             existingProfile.setGender(sanitizationService.sanitizePlainText(patchDto.gender()));
+            changedFields.add("gender");
         }
 
         if (patchDto.bio() != null) {
             existingProfile.setBio(sanitizationService.sanitizePlainText(patchDto.bio()));
+            changedFields.add("bio");
         }
 
         if (patchDto.city() != null) {
             existingProfile.setCity(sanitizationService.sanitizePlainText(patchDto.city()));
+            changedFields.add("city");
         }
-
 
         Profile savedProfile = profileRepository.save(existingProfile);
 
+        // Determine change type and send event
+        ChangeType changeType = determineChangeType(changedFields, false);
+        sendProfileUpdatedEvent(savedProfile, changeType, changedFields);
 
+        // Update cache
         putInCache(savedProfile.getProfileId(), savedProfile);
 
-        log.info("Profile patched successfully for userId: {}", userId);
+        log.info("Profile patched successfully for userId: {} with changeType: {} and fields: {}",
+                userId, changeType, changedFields);
         return savedProfile;
     }
 
@@ -240,6 +279,102 @@ public class ProfileApplicationService {
                 .evict(profileId);
     }
 
+    // Event handling helper methods
 
+    /**
+     * Detect which fields changed between existing profile and new DTO
+     */
+    private Set<String> detectChangedFields(Profile existing, CreateProfileDtoV1 newDto) {
+        Set<String> changed = new HashSet<>();
+
+        if (!Objects.equals(existing.getName(), newDto.name())) {
+            changed.add("name");
+        }
+        if (!Objects.equals(existing.getAge(), newDto.age())) {
+            changed.add("age");
+        }
+        if (!Objects.equals(existing.getGender(), newDto.gender())) {
+            changed.add("gender");
+        }
+        if (!Objects.equals(existing.getBio(), newDto.bio())) {
+            changed.add("bio");
+        }
+        if (!Objects.equals(existing.getCity(), newDto.city())) {
+            changed.add("city");
+        }
+
+        return changed;
+    }
+
+    /**
+     * Check if preferences are equal
+     */
+    private boolean preferencesEqual(Preferences old, Preferences newPrefs) {
+        if (old == null && newPrefs == null) {
+            return true;
+        }
+        if (old == null || newPrefs == null) {
+            return false;
+        }
+
+        return Objects.equals(old.getMinAge(), newPrefs.getMinAge())
+                && Objects.equals(old.getMaxAge(), newPrefs.getMaxAge())
+                && Objects.equals(old.getGender(), newPrefs.getGender())
+                && Objects.equals(old.getMaxRange(), newPrefs.getMaxRange());
+    }
+
+    /**
+     * Determine the type of change based on changed fields
+     *
+     * Priority order:
+     * 1. PREFERENCES - if preferences changed
+     * 2. CRITICAL_FIELDS - if age, gender, or city changed
+     * 3. NON_CRITICAL - for name, bio changes
+     */
+    private ChangeType determineChangeType(Set<String> changedFields, boolean preferencesChanged) {
+        if (preferencesChanged) {
+            return ChangeType.PREFERENCES;
+        }
+
+        // Critical fields that affect matching
+        Set<String> criticalFields = Set.of("age", "gender", "city");
+        for (String field : changedFields) {
+            if (criticalFields.contains(field)) {
+                return ChangeType.CRITICAL_FIELDS;
+            }
+        }
+
+        return ChangeType.NON_CRITICAL;
+    }
+
+    /**
+     * Send profile updated event to Kafka
+     */
+    private void sendProfileUpdatedEvent(Profile profile, ChangeType changeType, Set<String> changedFields) {
+        try {
+            ProfileUpdatedEvent event = ProfileUpdatedEvent.builder()
+                    .eventId(UUID.randomUUID())
+                    .profileId(profile.getProfileId())
+                    .changeType(changeType)
+                    .changedFields(changedFields)
+                    .timestamp(Instant.now())
+                    .metadata(String.format("Profile updated: %s", changeType))
+                    .build();
+
+            profileEventProducer.sendProfileUpdateEvent(
+                    event,
+                    profile.getProfileId().toString(),
+                    profileEventsTopic
+            );
+
+            log.debug("Sent ProfileUpdatedEvent: eventId={}, profileId={}, changeType={}, fields={}",
+                    event.getEventId(), event.getProfileId(), changeType, changedFields);
+
+        } catch (Exception e) {
+            log.error("Failed to send ProfileUpdatedEvent for profile {}: {}",
+                    profile.getProfileId(), e.getMessage(), e);
+            // Don't throw - event sending should not fail the update operation
+        }
+    }
 }
 
