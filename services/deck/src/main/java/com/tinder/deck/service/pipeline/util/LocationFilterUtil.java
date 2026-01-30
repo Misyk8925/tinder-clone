@@ -27,9 +27,18 @@ public class LocationFilterUtil {
             return true; // No location filtering if data missing
         }
 
+        if (viewer.location().latitude() == null || viewer.location().longitude() == null ||
+            candidate.location().latitude() == null || candidate.location().longitude() == null) {
+            log.debug("Missing latitude/longitude for viewer {} or candidate {}, skipping location filter",
+                    viewer.id(), candidate.id());
+            return true;
+        }
+
         double distance = LocationProximityStrategy.calculateDistance(
-                viewer.location().geo(),
-                candidate.location().geo()
+                viewer.location().latitude(),
+                viewer.location().longitude(),
+                candidate.location().latitude(),
+                candidate.location().longitude()
         );
 
         boolean withinRange = distance <= maxRange;

@@ -2,7 +2,6 @@ package com.tinder.deck.service.scoring;
 
 
 import com.tinder.deck.dto.SharedProfileDto;
-import org.locationtech.jts.geom.Point;
 import org.springframework.stereotype.Component;
 
 @Component
@@ -14,9 +13,16 @@ public class LocationProximityStrategy implements ScoringStrategy {
             return 0.0;
         }
 
+        if (viewer.location().latitude() == null || viewer.location().longitude() == null ||
+            candidate.location().latitude() == null || candidate.location().longitude() == null) {
+            return 0.0;
+        }
+
         double distance = calculateDistance(
-                viewer.location().geo(),
-                candidate.location().geo()
+                viewer.location().latitude(),
+                viewer.location().longitude(),
+                candidate.location().latitude(),
+                candidate.location().longitude()
         );
 
         Integer maxRange = viewer.preferences() != null
@@ -35,12 +41,8 @@ public class LocationProximityStrategy implements ScoringStrategy {
         return 0.8;
     }
 
-    public static double calculateDistance(Point p1, Point p2) {
+    public static double calculateDistance(double lat1, double lon1, double lat2, double lon2) {
         // Haversine formula implementation
-        double lat1 = p1.getY();
-        double lon1 = p1.getX();
-        double lat2 = p2.getY();
-        double lon2 = p2.getX();
 
         double R = 6371; // Earth radius in km
         double dLat = Math.toRadians(lat2 - lat1);

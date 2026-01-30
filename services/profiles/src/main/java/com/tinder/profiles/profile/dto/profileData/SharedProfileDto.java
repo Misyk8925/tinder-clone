@@ -1,6 +1,4 @@
-package com.tinder.deck.dto;
-
-
+package com.tinder.profiles.profile.dto.profileData;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
 

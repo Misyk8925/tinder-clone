@@ -22,10 +22,11 @@ spring:
 
 profiles:
   # Prefer calling profiles service directly during local/test runs
-  base-url: http://localhost:8010/api/v1/profiles
+  base-url: http://localhost:8010/api/v1/profiles/internal
+  test-url: http://localhost:8011/api/v1/profiles/internal
 swipes:
   # Prefer calling swipes service directly during local/test runs
-  base-url: http://localhost:8020/api/v1/swipes
+  base-url: http://localhost:8020/api/v1/swipes/internal
 
 server:
   port: 8030
@@ -58,7 +59,7 @@ deck:
 
   scheduler:
     # Changed from every minute to every hour
-    cron: "0 0 * * * *"
+    cron: "0 0/1 * * * *"
     max-concurrent-rebuilds: 10
 
 # Kafka topics
@@ -81,3 +82,7 @@ management:
       export:
         enabled: true
 
+# Logging
+logging:
+  level:
+    com.tinder.deck.adapters: DEBUG

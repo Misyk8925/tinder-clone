@@ -17,7 +17,6 @@ public class WebSecurityConfig {
 
     private final JwtAuthConverter jwtAuthConverter;
 
-    // Явный конструктор вместо @RequiredArgsConstructor
     public WebSecurityConfig(JwtAuthConverter jwtAuthConverter) {
         this.jwtAuthConverter = jwtAuthConverter;
     }

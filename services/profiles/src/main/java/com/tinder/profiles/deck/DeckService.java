@@ -4,10 +4,9 @@ import com.tinder.profiles.preferences.Preferences;
 import com.tinder.profiles.preferences.PreferencesDto;
 import com.tinder.profiles.profile.Profile;
 import com.tinder.profiles.profile.ProfileRepository;
-import com.tinder.profiles.profile.ProfileService;
-import com.tinder.profiles.profile.dto.profileData.GetProfileDto;
+import com.tinder.profiles.profile.dto.profileData.SharedProfileDto;
 import com.tinder.profiles.profile.internal.InternalProfileService;
-import com.tinder.profiles.profile.mapper.GetProfileMapper;
+import com.tinder.profiles.profile.mapper.SharedProfileMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -22,11 +21,10 @@ public class DeckService {
 
     private final DeckCacheReader cacheReader;
     private final ProfileRepository repo;
-    private final GetProfileMapper getMapper;
-    private final ProfileService profileService;
+    private final SharedProfileMapper sharedMapper;
     private final InternalProfileService internalProfileService;
 
-    public List<GetProfileDto> listWithProfiles(UUID viewerId, int offset, int limit) {
+    public List<SharedProfileDto> listWithProfiles(UUID viewerId, int offset, int limit) {
 
         List<UUID> deckUUIDs = cacheReader.readDeck(viewerId, offset, limit);
 
@@ -40,7 +38,7 @@ public class DeckService {
         return buildDeckOnTheFly(viewerId, limit);
     }
 
-    private List<GetProfileDto> getProfilesByIds(List<UUID> candidateIds) {
+    private List<SharedProfileDto> getProfilesByIds(List<UUID> candidateIds) {
 
         List<Profile> profiles = repo.findAllById(candidateIds);
 
@@ -50,11 +48,11 @@ public class DeckService {
         return candidateIds.stream()
                 .map(profileMap::get)
                 .filter(Objects::nonNull)
-                .map(getMapper::toGetProfileDto)
+                .map(sharedMapper::toSharedProfileDto)
                 .collect(Collectors.toList());
     }
 
-    private List<GetProfileDto> buildDeckOnTheFly(UUID userId, int limit) {
+    private List<SharedProfileDto> buildDeckOnTheFly(UUID userId, int limit) {
 
         Preferences preferences = repo.findById(userId)
                 .orElseThrow(() -> new NoSuchElementException("viewer not found"))
@@ -68,9 +66,6 @@ public class DeckService {
                 preferences.getMaxRange()
         );
 
-        List<GetProfileDto> candidates = internalProfileService.searchByViewerPrefs(userId,prefs, limit);
-
-
-        return candidates;
+        return internalProfileService.searchByViewerPrefs(userId, prefs, limit);
     }
 }

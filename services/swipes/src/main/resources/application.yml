@@ -76,6 +76,8 @@ spring:
 
 server:
   port: 8020
+  servlet:
+        context-path: /api/v1/swipes
 
 
 app:

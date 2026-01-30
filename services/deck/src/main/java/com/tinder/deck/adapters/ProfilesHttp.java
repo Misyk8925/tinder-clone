@@ -6,30 +6,18 @@ import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.ResponseEntity;
-import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.web.reactive.function.client.WebClient;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
 import java.util.UUID;
-import java.util.concurrent.atomic.AtomicReference;
 
 @Service
 @RequiredArgsConstructor
 public class ProfilesHttp {
     private static final Logger log = LoggerFactory.getLogger(ProfilesHttp.class);
     private final WebClient profilesWebClient;
-    private static final AtomicReference<String> token = new AtomicReference<>();
-
-    private String getToken() {
-        String currentToken = token.get();
-        if (currentToken == null) {
-            log.warn("Token is null, returning empty string");
-            return "";
-        }
-        return currentToken;
-    }
 
     public Flux<SharedProfileDto> searchProfiles(UUID viewerId, SharedPreferencesDto preferences, int limit) {
         // Use default preferences if null
@@ -38,16 +26,23 @@ public class ProfilesHttp {
             preferences = new SharedPreferencesDto(18, 50, "ANY", 100);
         }
 
+        log.debug("Calling profiles service /search with viewerId={}, gender={}, minAge={}, maxAge={}, maxRange={}, limit={}",
+                viewerId, preferences.gender(), preferences.minAge(), preferences.maxAge(), preferences.maxRange(), limit);
+
         final SharedPreferencesDto finalPrefs = preferences;
         return profilesWebClient.get()
-                .uri(uri -> uri.path("/search")
-                        .queryParam("viewerId", viewerId)
-                        .queryParam("gender", finalPrefs.gender())
-                        .queryParam("minAge", finalPrefs.minAge())
-                        .queryParam("maxAge", finalPrefs.maxAge())
-                        .queryParam("limit", limit)
-                        .build())
-                .header("Authorization", "Bearer " + getToken())
+                .uri(uri -> {
+                    java.net.URI built = uri.path("/search")
+                            .queryParam("viewerId", viewerId)
+                            .queryParam("gender", finalPrefs.gender())
+                            .queryParam("minAge", finalPrefs.minAge())
+                            .queryParam("maxAge", finalPrefs.maxAge())
+                            .queryParam("maxRange", finalPrefs.maxRange())
+                            .queryParam("limit", limit)
+                            .build();
+                    log.debug("Built URI: {}", built);
+                    return built;
+                })
                 .retrieve()
                 .bodyToFlux(SharedProfileDto.class)
                 .onErrorResume(throwable -> {
@@ -61,7 +56,6 @@ public class ProfilesHttp {
         return profilesWebClient.get()
                 .uri(uri -> uri.path("/active")
                         .build())
-                .header("Authorization", "Bearer " + getToken())
                 .retrieve()
                 .bodyToFlux(SharedProfileDto.class)
                 .onErrorResume(throwable -> {
@@ -76,7 +70,6 @@ public class ProfilesHttp {
     public Mono<SharedProfileDto> getProfile(UUID id) {
         return profilesWebClient.get()
                 .uri("/{id}", id)
-                .header("Authorization", "Bearer " + getToken())
                 .retrieve()
                 .toEntity(SharedProfileDto.class)
                 .map(ResponseEntity::getBody)
@@ -107,7 +100,6 @@ public class ProfilesHttp {
                 .uri(uri -> uri.path("/by-ids")
                         .queryParam("ids", idsParam)
                         .build())
-                .header("Authorization", "Bearer " + getToken())
                 .retrieve()
                 .bodyToFlux(SharedProfileDto.class)
                 .onErrorResume(throwable -> {

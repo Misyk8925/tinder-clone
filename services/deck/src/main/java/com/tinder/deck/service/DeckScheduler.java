@@ -32,7 +32,7 @@ public class DeckScheduler {
      * - 100x fewer database queries compared to individual rebuilds
      */
 
-    @Scheduled(cron = "${deck.scheduler.cron:0 0 * * * *}")
+    @Scheduled(cron = "${deck.scheduler.cron:0 0/1 * * * *}")
     public void rebuildAllDecks() {
 
         log.info("Starting scheduled batch deck rebuild");
@@ -58,7 +58,17 @@ public class DeckScheduler {
      * Can be called manually or from a queue
      */
     public void rebuildDeckForUser(SharedProfileDto viewer) {
-        log.info("Rebuilding deck for user: {}", viewer.id());
+        if (viewer == null) {
+            log.error("Cannot rebuild deck: viewer is null");
+            return;
+        }
+
+        if (viewer.id() == null) {
+            log.error("Cannot rebuild deck: viewer ID is null for viewer: {}", viewer);
+            return;
+        }
+
+        log.info("Rebuilding deck for user: {} (name: {})", viewer.id(), viewer.name());
 
         deckService.rebuildOneDeck(viewer)
                 .timeout(Duration.ofSeconds(30))

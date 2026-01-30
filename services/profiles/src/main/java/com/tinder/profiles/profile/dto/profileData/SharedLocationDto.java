@@ -1,4 +1,4 @@
-package com.tinder.deck.dto;
+package com.tinder.profiles.profile.dto.profileData;
 
 import java.time.LocalDateTime;
 import java.util.UUID;

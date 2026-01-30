@@ -202,5 +202,10 @@ public class KeycloakTestHelper {
         String token = getAccessToken(username, password);
         return "Bearer " + token;
     }
+
+    public void cleanupTestUsers() {
+
+
+    }
 }
 

@@ -3,8 +3,8 @@ package com.tinder.profiles.profile.internal;
 import com.tinder.profiles.preferences.PreferencesDto;
 import com.tinder.profiles.profile.Profile;
 import com.tinder.profiles.profile.ProfileRepository;
-import com.tinder.profiles.profile.dto.profileData.GetProfileDto;
-import com.tinder.profiles.profile.mapper.GetProfileMapper;
+import com.tinder.profiles.profile.dto.profileData.SharedProfileDto;
+import com.tinder.profiles.profile.mapper.SharedProfileMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.PageRequest;
@@ -22,21 +22,21 @@ import java.util.UUID;
 public class InternalProfileService {
 
     private final ProfileRepository repo;
-    private final GetProfileMapper getMapper;
+    private final SharedProfileMapper sharedMapper;
 
 
-    public List<GetProfileDto> fetchPage(int page, int size) {
+    public List<SharedProfileDto> fetchPage(int page, int size) {
         log.debug("Fetching page {} with size {}", page, size);
         Pageable pageable = PageRequest.of(page, size);
 
-        List<GetProfileDto> results = repo.findAll(pageable).stream()
-                .map(getMapper::toGetProfileDto)
+        List<SharedProfileDto> results = repo.findAll(pageable).stream()
+                .map(sharedMapper::toSharedProfileDto)
                 .toList();
 
         log.debug("Fetched {} profiles for page {}", results.size(), page);
         return results;
     }
-    public List<GetProfileDto> searchByViewerPrefs(UUID viewerId, PreferencesDto prefs, int limit) {
+    public List<SharedProfileDto> searchByViewerPrefs(UUID viewerId, PreferencesDto prefs, int limit) {
         log.debug("searchByViewerPrefs: viewer {} searching with prefs: minAge={}, maxAge={}, gender={}, limit={}",
                 viewerId, prefs.getMinAge(), prefs.getMaxAge(), prefs.getGender(), limit);
 
@@ -60,15 +60,15 @@ public class InternalProfileService {
         log.debug("searchByViewerPrefs: viewer {} found {} matching profiles", viewerId, matchingProfiles.size());
 
         return matchingProfiles.stream()
-                .map(getMapper::toGetProfileDto)
+                .map(sharedMapper::toSharedProfileDto)
                 .toList();
     }
 
-    public List<GetProfileDto> getMany(List<UUID> ids) {
+    public List<SharedProfileDto> getMany(List<UUID> ids) {
         log.debug("Fetching {} profiles by IDs", ids.size());
 
-        List<GetProfileDto> results = repo.findAllById(ids).stream()
-                .map(getMapper::toGetProfileDto)
+        List<SharedProfileDto> results = repo.findAllById(ids).stream()
+                .map(sharedMapper::toSharedProfileDto)
                 .toList();
 
         if (results.size() < ids.size()) {
@@ -80,11 +80,11 @@ public class InternalProfileService {
     }
 
 
-    public List<GetProfileDto> getActiveUsers() {
+    public List<SharedProfileDto> getActiveUsers() {
         log.debug("Fetching all active users");
 
-        List<GetProfileDto> results = repo.findAllByIsDeletedFalse().stream()
-                .map(getMapper::toGetProfileDto)
+        List<SharedProfileDto> results = repo.findAllByIsDeletedFalse().stream()
+                .map(sharedMapper::toSharedProfileDto)
                 .toList();
 
         log.info("Found {} active users", results.size());

@@ -13,7 +13,7 @@ import reactor.netty.http.client.HttpClient;
 public class HttpClientConfig {
 
     @Bean
-    WebClient profilesWebClient(@Value("${profiles.base-url}/internal") String profilesUrl) {
+    WebClient profilesWebClient(@Value("${profiles.test-url}") String profilesUrl) {
         HttpClient client = HttpClient.create()
                 .option(ChannelOption.CONNECT_TIMEOUT_MILLIS, 2_000)
                 .responseTimeout(Duration.ofMillis(3_000))

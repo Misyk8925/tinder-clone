@@ -6,6 +6,8 @@ import org.springframework.core.convert.converter.Converter;
 import org.springframework.security.authentication.AbstractAuthenticationToken;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
+import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
+import org.springframework.security.config.annotation.web.configuration.WebSecurityCustomizer;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.core.GrantedAuthority;
@@ -20,11 +22,22 @@ import java.util.HashSet;
 
 @Configuration("ProfilesSecurityConfig")
 @EnableMethodSecurity
+@EnableWebSecurity
 public class SecurityConfig {
 
     @Bean
     Converter<Jwt, AbstractAuthenticationToken> jwtAbstractAuthenticationTokenConverter() {
         return new JwtAuthConverter();
+    }
+
+    // TODO delete or secure internal endpoints
+    @Bean
+    public WebSecurityCustomizer webSecurityCustomizer() {
+        return (web -> {
+            web.ignoring().requestMatchers(
+                    "/internal/**"
+            );
+        });
     }
 
 

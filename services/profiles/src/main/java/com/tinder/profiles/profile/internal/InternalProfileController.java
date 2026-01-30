@@ -4,6 +4,8 @@ package com.tinder.profiles.profile.internal;
 import com.tinder.profiles.deck.DeckService;
 import com.tinder.profiles.preferences.PreferencesDto;
 import com.tinder.profiles.profile.dto.profileData.GetProfileDto;
+import com.tinder.profiles.profile.dto.profileData.SharedLocationDto;
+import com.tinder.profiles.profile.dto.profileData.SharedProfileDto;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
@@ -29,7 +31,7 @@ public class InternalProfileController {
     private final DeckService deckService;
 
     @GetMapping("/search")
-    public ResponseEntity<List<GetProfileDto>> search(
+    public ResponseEntity<List<SharedProfileDto>> search(
             @RequestParam UUID viewerId,
             @RequestParam(required = false) String gender,
             @RequestParam(required = false) Integer minAge,
@@ -44,13 +46,13 @@ public class InternalProfileController {
         }
 
         PreferencesDto prefs = new PreferencesDto(null, minAge, maxAge, gender, maxRange);
-        List<GetProfileDto> results = profileService.searchByViewerPrefs(viewerId, prefs, limit);
+        List<SharedProfileDto> results = profileService.searchByViewerPrefs(viewerId, prefs, limit);
         return ResponseEntity.ok(results);
     }
 
 
     @GetMapping("/page")
-    public ResponseEntity<List<GetProfileDto>> page(
+    public ResponseEntity<List<SharedProfileDto>> page(
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size) {
 
@@ -60,12 +62,12 @@ public class InternalProfileController {
             return ResponseEntity.badRequest().build();
         }
 
-        List<GetProfileDto> results = profileService.fetchPage(page, size);
+        List<SharedProfileDto> results = profileService.fetchPage(page, size);
         return ResponseEntity.ok(results);
     }
 
     @GetMapping("/by-ids")
-    public ResponseEntity<List<GetProfileDto>> getMany(@RequestParam List<UUID> ids) {
+    public ResponseEntity<List<SharedProfileDto>> getMany(@RequestParam List<UUID> ids) {
         if (ids == null || ids.isEmpty()) {
             log.warn("Empty or null ids list provided to /by-ids");
             return ResponseEntity.badRequest().build();
@@ -76,13 +78,13 @@ public class InternalProfileController {
             return ResponseEntity.badRequest().build();
         }
 
-        List<GetProfileDto> results = profileService.getMany(ids);
+        List<SharedProfileDto> results = profileService.getMany(ids);
         return ResponseEntity.ok(results);
     }
 
 
     @GetMapping("/deck")
-    public ResponseEntity<List<GetProfileDto>> getDeck(
+    public ResponseEntity<List<SharedProfileDto>> getDeck(
             @RequestParam UUID viewerId,
             @RequestParam(defaultValue = "0") int offset,
             @RequestParam(defaultValue = "20") int limit) {
@@ -93,13 +95,13 @@ public class InternalProfileController {
             return ResponseEntity.badRequest().build();
         }
 
-        List<GetProfileDto> deck = deckService.listWithProfiles(viewerId, offset, limit);
+        List<SharedProfileDto> deck = deckService.listWithProfiles(viewerId, offset, limit);
         return ResponseEntity.ok(deck);
     }
 
     @GetMapping("/active")
-    public ResponseEntity<List<GetProfileDto>> getActiveUsers() {
-        List<GetProfileDto> activeUsers = profileService.getActiveUsers();
+    public ResponseEntity<List<SharedProfileDto>> getActiveUsers() {
+        List<SharedProfileDto> activeUsers = profileService.getActiveUsers();
         log.debug("Fetched {} active users", activeUsers.size());
         return ResponseEntity.ok(activeUsers);
     }
