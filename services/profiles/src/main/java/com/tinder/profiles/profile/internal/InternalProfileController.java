@@ -3,9 +3,7 @@ package com.tinder.profiles.profile.internal;
 
 import com.tinder.profiles.deck.DeckService;
 import com.tinder.profiles.preferences.PreferencesDto;
-import com.tinder.profiles.profile.dto.profileData.GetProfileDto;
-import com.tinder.profiles.profile.dto.profileData.SharedLocationDto;
-import com.tinder.profiles.profile.dto.profileData.SharedProfileDto;
+import com.tinder.profiles.profile.dto.profileData.shared.SharedProfileDto;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;

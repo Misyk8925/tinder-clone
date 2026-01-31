@@ -3,9 +3,9 @@ package com.tinder.profiles.profile.mapper;
 import com.tinder.profiles.location.Location;
 import com.tinder.profiles.preferences.Preferences;
 import com.tinder.profiles.profile.Profile;
-import com.tinder.profiles.profile.dto.profileData.SharedLocationDto;
-import com.tinder.profiles.profile.dto.profileData.SharedPreferencesDto;
-import com.tinder.profiles.profile.dto.profileData.SharedProfileDto;
+import com.tinder.profiles.profile.dto.profileData.shared.SharedLocationDto;
+import com.tinder.profiles.profile.dto.profileData.shared.SharedPreferencesDto;
+import com.tinder.profiles.profile.dto.profileData.shared.SharedProfileDto;
 import com.tinder.profiles.profile.dto.profileData.GetProfileDto;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Primary;
@@ -41,7 +41,8 @@ public class CustomSharedProfileMapper implements SharedProfileMapper {
                 profile.isActive(),
                 locationToSharedLocationDto(profile.getLocation()),
                 preferencesToSharedPreferencesDto(profile.getPreferences()),
-                profile.isDeleted()
+                profile.isDeleted(),
+                profile.getPhotos()
         );
     }
 

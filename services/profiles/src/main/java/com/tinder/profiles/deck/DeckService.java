@@ -4,7 +4,7 @@ import com.tinder.profiles.preferences.Preferences;
 import com.tinder.profiles.preferences.PreferencesDto;
 import com.tinder.profiles.profile.Profile;
 import com.tinder.profiles.profile.ProfileRepository;
-import com.tinder.profiles.profile.dto.profileData.SharedProfileDto;
+import com.tinder.profiles.profile.dto.profileData.shared.SharedProfileDto;
 import com.tinder.profiles.profile.internal.InternalProfileService;
 import com.tinder.profiles.profile.mapper.SharedProfileMapper;
 import lombok.RequiredArgsConstructor;

@@ -3,7 +3,7 @@ package com.tinder.profiles.profile.internal;
 import com.tinder.profiles.preferences.PreferencesDto;
 import com.tinder.profiles.profile.Profile;
 import com.tinder.profiles.profile.ProfileRepository;
-import com.tinder.profiles.profile.dto.profileData.SharedProfileDto;
+import com.tinder.profiles.profile.dto.profileData.shared.SharedProfileDto;
 import com.tinder.profiles.profile.mapper.SharedProfileMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;

@@ -63,6 +63,8 @@ public class TestKafkaConsumerConfig {
         Map<String, Object> props = new HashMap<>();
         props.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers);
         props.put(ConsumerConfig.GROUP_ID_CONFIG, groupId);
+        // Use 'earliest' to consume all events from the beginning
+        // Test logic will filter by counting increments
         props.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest");
 
         // Manual commit for precise control
@@ -246,6 +248,33 @@ public class TestKafkaConsumerConfig {
             return profileCreatedEvents.size() +
                    profileUpdatedEvents.size() +
                    profileDeletedEvents.size();
+        }
+
+        /**
+         * Get collected ProfileCreateEvent events (thread-safe copy)
+         */
+        public List<ProfileCreateEvent> getProfileCreatedEvents() {
+            synchronized (profileCreatedEvents) {
+                return new ArrayList<>(profileCreatedEvents);
+            }
+        }
+
+        /**
+         * Get collected ProfileUpdatedEvent events (thread-safe copy)
+         */
+        public List<ProfileUpdatedEvent> getProfileUpdatedEvents() {
+            synchronized (profileUpdatedEvents) {
+                return new ArrayList<>(profileUpdatedEvents);
+            }
+        }
+
+        /**
+         * Get collected ProfileDeleteEvent events (thread-safe copy)
+         */
+        public List<ProfileDeleteEvent> getProfileDeletedEvents() {
+            synchronized (profileDeletedEvents) {
+                return new ArrayList<>(profileDeletedEvents);
+            }
         }
     }
 }

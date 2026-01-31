@@ -1,4 +1,4 @@
-package com.tinder.profiles.profile.dto.profileData;
+package com.tinder.profiles.profile.dto.profileData.shared;
 
 import java.time.LocalDateTime;
 import java.util.UUID;
