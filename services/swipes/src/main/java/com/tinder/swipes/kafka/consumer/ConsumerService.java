@@ -1,15 +1,15 @@
 package com.tinder.swipes.kafka.consumer;
 
+import com.tinder.swipes.kafka.ProfileCreateEvent;
 import com.tinder.swipes.kafka.SwipeCreatedEvent;
-import com.tinder.swipes.kafka.producer.SwipeEventProducer;
+import com.tinder.swipes.model.ProfileCacheModel;
 import com.tinder.swipes.model.SwipeRecord;
-import com.tinder.swipes.model.dto.SwipeRecordDto;
 import com.tinder.swipes.model.embedded.SwipeRecordId;
+import com.tinder.swipes.repository.ProfileCacheRepository;
 import com.tinder.swipes.repository.SwipeRepository;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
 
 import java.util.UUID;
@@ -20,6 +20,18 @@ import java.util.UUID;
 public class ConsumerService {
 
     private final SwipeRepository repo;
+
+    private final ProfileCacheRepository profileCacheRepository;
+
+    @Transactional
+    public void saveProfileCache (ProfileCreateEvent event) {
+        ProfileCacheModel profileCacheModel = ProfileCacheModel.builder()
+                .profileId(event.getProfileId())
+                .createdAt(event.getTimestamp())
+                .build();
+        log.info("Saving profile cache for profileId: {}", profileCacheModel.getProfileId());
+        profileCacheRepository.save(profileCacheModel);
+    }
 
     @Transactional
     public void save(SwipeCreatedEvent swipeRecord) {

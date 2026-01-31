@@ -77,4 +77,7 @@ keycloak:
 # Kafka topics
 kafka:
   topics:
-    profile-events: profile.updated
+    profile-events:
+      updated: profile.updated
+      created: profile.created
+      deleted: profile.deleted

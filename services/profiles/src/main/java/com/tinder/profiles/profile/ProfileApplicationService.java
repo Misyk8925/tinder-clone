@@ -2,6 +2,8 @@ package com.tinder.profiles.profile;
 
 import com.tinder.profiles.kafka.ProfileEventProducer;
 import com.tinder.profiles.kafka.dto.ChangeType;
+import com.tinder.profiles.kafka.dto.ProfileCreateEvent;
+import com.tinder.profiles.kafka.dto.ProfileDeleteEvent;
 import com.tinder.profiles.kafka.dto.ProfileUpdatedEvent;
 import com.tinder.profiles.preferences.Preferences;
 import com.tinder.profiles.preferences.PreferencesRepository;
@@ -43,8 +45,15 @@ public class ProfileApplicationService {
     private final PreferencesService preferencesService;
     private final ProfileEventProducer profileEventProducer;
 
-    @Value("${kafka.topics.profile-events:profile.updated}")
-    private String profileEventsTopic;
+    @Value("${kafka.topics.profile-events.updated}")
+    private String profileUpdatedEventsTopic;
+
+    @Value("${kafka.topics.profile-events.created}")
+    private String profileCreatedEventsTopic;
+
+    @Value("${kafka.topics.profile-events.deleted}")
+    private String profileDeletedEventsTopic;
+
 
     private static final String PROFILE_CACHE_NAME = "PROFILE_ENTITY_CACHE";
 
@@ -135,6 +144,23 @@ public class ProfileApplicationService {
 
 
         Profile savedProfile = profileRepository.save(profile);
+
+        try {
+            // Send profile created event
+            profileEventProducer.sendProfileCreateEvent(
+                    ProfileCreateEvent.builder()
+                            .eventId(UUID.randomUUID())
+                            .profileId(savedProfile.getProfileId())
+                            .timestamp(Instant.now())
+                            .build(),
+                    savedProfile.getProfileId().toString(),
+                    profileCreatedEventsTopic
+            );
+        } catch (Exception e) {
+            log.error("Failed to send ProfileCreateEvent for profile {}: {}",
+                    savedProfile.getProfileId(), e.getMessage(), e);
+            // Don't throw - event sending should not fail the create operation
+        }
 
         log.info("Profile created successfully for userId: {}", userId);
         return savedProfile;
@@ -258,6 +284,23 @@ public class ProfileApplicationService {
             evictFromCache(profile.getProfileId());
             log.info("Profile deleted successfully: {}", id);
         }
+
+        try {
+            // Send profile deleted event
+            profileEventProducer.sendProfileDeleteEvent(
+                    ProfileDeleteEvent.builder()
+                            .eventId(UUID.randomUUID())
+                            .profileId(profile.getProfileId())
+                            .timestamp(Instant.now())
+                            .build(),
+                    profile.getProfileId().toString(),
+                    profileDeletedEventsTopic
+            );
+        } catch (Exception e) {
+            log.error("Failed to send ProfileDeleteEvent for profile {}: {}",
+                    profile.getProfileId(), e.getMessage(), e);
+            // Don't throw - event sending should not fail the delete operation
+        }
         return profile;
     }
 
@@ -364,7 +407,7 @@ public class ProfileApplicationService {
             profileEventProducer.sendProfileUpdateEvent(
                     event,
                     profile.getProfileId().toString(),
-                    profileEventsTopic
+                    profileUpdatedEventsTopic
             );
 
             log.debug("Sent ProfileUpdatedEvent: eventId={}, profileId={}, changeType={}, fields={}",

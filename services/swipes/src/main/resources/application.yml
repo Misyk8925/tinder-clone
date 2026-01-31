@@ -22,9 +22,7 @@ spring:
       properties:
         spring.deserializer.key.delegate.class: org.apache.kafka.common.serialization.StringDeserializer
         spring.deserializer.value.delegate.class: org.springframework.kafka.support.serializer.JsonDeserializer
-
-        spring.json.trusted.packages: "com.tinder.swipes.*"
-        spring.json.value.default.type: com.tinder.swipes.kafka.SwipeCreatedEvent
+        spring.json.trusted.packages: "com.tinder.*"
         isolation.level: read_committed
     listener:
       ack-mode: manual
@@ -84,6 +82,7 @@ app:
   kafka:
     topic:
       swipe-created: swipe-created
+      profile-created: profile.created
 
 
 logging:
