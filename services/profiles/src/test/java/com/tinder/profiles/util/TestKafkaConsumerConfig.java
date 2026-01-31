@@ -14,19 +14,30 @@ import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.kafka.config.ConcurrentKafkaListenerContainerFactory;
 import org.springframework.kafka.core.ConsumerFactory;
 import org.springframework.kafka.core.DefaultKafkaConsumerFactory;
+import org.springframework.kafka.listener.ContainerProperties;
+import org.springframework.kafka.listener.DefaultErrorHandler;
 import org.springframework.kafka.support.serializer.ErrorHandlingDeserializer;
 import org.springframework.kafka.support.serializer.JsonDeserializer;
 import org.springframework.stereotype.Component;
+import org.springframework.util.backoff.FixedBackOff;
 
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 
 /**
  * Test Kafka consumer configuration for capturing events during integration tests
+ *
+ * Key features:
+ * - Unique consumer group per test run to avoid conflicts
+ * - Manual commit for precise control
+ * - Error handling with log-and-skip strategy
+ * - No code duplication in consumer factories
  */
+@Slf4j
 @TestConfiguration
 public class TestKafkaConsumerConfig {
 
@@ -34,15 +45,28 @@ public class TestKafkaConsumerConfig {
     private String bootstrapServers;
 
     /**
-     * Consumer factory for ProfileCreateEvent with proper JSON deserialization
+     * Generate unique consumer group ID for each test run
+     * This prevents offset conflicts between parallel or sequential test runs
      */
     @Bean
-    public ConsumerFactory<String, ProfileCreateEvent> testProfileCreateEventConsumerFactory() {
+    public String testConsumerGroupId() {
+        String groupId = "test-consumer-group-" + UUID.randomUUID();
+        log.info("Generated unique test consumer group ID: {}", groupId);
+        return groupId;
+    }
+
+    /**
+     * Base consumer properties shared by all event types
+     * Eliminates code duplication
+     */
+    private Map<String, Object> baseConsumerProps(String groupId) {
         Map<String, Object> props = new HashMap<>();
         props.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers);
-        props.put(ConsumerConfig.GROUP_ID_CONFIG, "test-consumer-group");
+        props.put(ConsumerConfig.GROUP_ID_CONFIG, groupId);
         props.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest");
-        props.put(ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG, true);
+
+        // Manual commit for precise control
+        props.put(ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG, false);
 
         // Use ErrorHandlingDeserializer as wrapper
         props.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, ErrorHandlingDeserializer.class);
@@ -54,89 +78,76 @@ public class TestKafkaConsumerConfig {
 
         // JSON deserializer specific config
         props.put(JsonDeserializer.TRUSTED_PACKAGES, "com.tinder.profiles.kafka.dto");
-        props.put(JsonDeserializer.VALUE_DEFAULT_TYPE, ProfileCreateEvent.class.getName());
         props.put(JsonDeserializer.USE_TYPE_INFO_HEADERS, false);
 
+        return props;
+    }
+
+    /**
+     * Create consumer factory for specific event type
+     * @param valueType The class of the event type to deserialize
+     * @param groupId Unique consumer group ID
+     */
+    private <T> ConsumerFactory<String, T> createConsumerFactory(Class<T> valueType, String groupId) {
+        Map<String, Object> props = baseConsumerProps(groupId);
+        props.put(JsonDeserializer.VALUE_DEFAULT_TYPE, valueType.getName());
         return new DefaultKafkaConsumerFactory<>(props);
     }
 
     /**
-     * Consumer factory for ProfileUpdatedEvent with proper JSON deserialization
+     * Create listener container factory with error handling
+     * @param consumerFactory The consumer factory to use
      */
-    @Bean
-    public ConsumerFactory<String, ProfileUpdatedEvent> testProfileUpdatedEventConsumerFactory() {
-        Map<String, Object> props = new HashMap<>();
-        props.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers);
-        props.put(ConsumerConfig.GROUP_ID_CONFIG, "test-consumer-group");
-        props.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest");
-        props.put(ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG, true);
-
-        props.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, ErrorHandlingDeserializer.class);
-        props.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, ErrorHandlingDeserializer.class);
-        props.put(ErrorHandlingDeserializer.KEY_DESERIALIZER_CLASS, StringDeserializer.class);
-        props.put(ErrorHandlingDeserializer.VALUE_DESERIALIZER_CLASS, JsonDeserializer.class);
-
-        props.put(JsonDeserializer.TRUSTED_PACKAGES, "com.tinder.profiles.kafka.dto");
-        props.put(JsonDeserializer.VALUE_DEFAULT_TYPE, ProfileUpdatedEvent.class.getName());
-        props.put(JsonDeserializer.USE_TYPE_INFO_HEADERS, false);
-
-        return new DefaultKafkaConsumerFactory<>(props);
-    }
-
-    /**
-     * Consumer factory for ProfileDeleteEvent with proper JSON deserialization
-     */
-    @Bean
-    public ConsumerFactory<String, ProfileDeleteEvent> testProfileDeleteEventConsumerFactory() {
-        Map<String, Object> props = new HashMap<>();
-        props.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers);
-        props.put(ConsumerConfig.GROUP_ID_CONFIG, "test-consumer-group");
-        props.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest");
-        props.put(ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG, true);
-
-        props.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, ErrorHandlingDeserializer.class);
-        props.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, ErrorHandlingDeserializer.class);
-        props.put(ErrorHandlingDeserializer.KEY_DESERIALIZER_CLASS, StringDeserializer.class);
-        props.put(ErrorHandlingDeserializer.VALUE_DESERIALIZER_CLASS, JsonDeserializer.class);
-
-        props.put(JsonDeserializer.TRUSTED_PACKAGES, "com.tinder.profiles.kafka.dto");
-        props.put(JsonDeserializer.VALUE_DEFAULT_TYPE, ProfileDeleteEvent.class.getName());
-        props.put(JsonDeserializer.USE_TYPE_INFO_HEADERS, false);
-
-        return new DefaultKafkaConsumerFactory<>(props);
-    }
-
-    /**
-     * Listener container factory for ProfileCreateEvent
-     */
-    @Bean
-    public ConcurrentKafkaListenerContainerFactory<String, ProfileCreateEvent> testProfileCreateKafkaListenerContainerFactory() {
-        ConcurrentKafkaListenerContainerFactory<String, ProfileCreateEvent> factory =
+    private <T> ConcurrentKafkaListenerContainerFactory<String, T> createListenerFactory(
+            ConsumerFactory<String, T> consumerFactory) {
+        ConcurrentKafkaListenerContainerFactory<String, T> factory =
                 new ConcurrentKafkaListenerContainerFactory<>();
-        factory.setConsumerFactory(testProfileCreateEventConsumerFactory());
+        factory.setConsumerFactory(consumerFactory);
+
+        // Manual acknowledgment for precise control
+        factory.getContainerProperties().setAckMode(ContainerProperties.AckMode.MANUAL);
+
+        // Error handler: log and skip (no retries in tests)
+        DefaultErrorHandler errorHandler = new DefaultErrorHandler(
+                (record, exception) -> {
+                    log.error("Test Kafka consumer error - skipping record: topic={}, partition={}, offset={}",
+                            record.topic(), record.partition(), record.offset(), exception);
+                },
+                new FixedBackOff(0L, 0L) // No retries
+        );
+        factory.setCommonErrorHandler(errorHandler);
+
         return factory;
     }
 
-    /**
-     * Listener container factory for ProfileUpdatedEvent
-     */
     @Bean
-    public ConcurrentKafkaListenerContainerFactory<String, ProfileUpdatedEvent> testProfileUpdatedKafkaListenerContainerFactory() {
-        ConcurrentKafkaListenerContainerFactory<String, ProfileUpdatedEvent> factory =
-                new ConcurrentKafkaListenerContainerFactory<>();
-        factory.setConsumerFactory(testProfileUpdatedEventConsumerFactory());
-        return factory;
+    public ConsumerFactory<String, ProfileCreateEvent> testProfileCreateEventConsumerFactory(String testConsumerGroupId) {
+        return createConsumerFactory(ProfileCreateEvent.class, testConsumerGroupId);
     }
 
-    /**
-     * Listener container factory for ProfileDeleteEvent
-     */
     @Bean
-    public ConcurrentKafkaListenerContainerFactory<String, ProfileDeleteEvent> testProfileDeleteKafkaListenerContainerFactory() {
-        ConcurrentKafkaListenerContainerFactory<String, ProfileDeleteEvent> factory =
-                new ConcurrentKafkaListenerContainerFactory<>();
-        factory.setConsumerFactory(testProfileDeleteEventConsumerFactory());
-        return factory;
+    public ConsumerFactory<String, ProfileUpdatedEvent> testProfileUpdatedEventConsumerFactory(String testConsumerGroupId) {
+        return createConsumerFactory(ProfileUpdatedEvent.class, testConsumerGroupId);
+    }
+
+    @Bean
+    public ConsumerFactory<String, ProfileDeleteEvent> testProfileDeleteEventConsumerFactory(String testConsumerGroupId) {
+        return createConsumerFactory(ProfileDeleteEvent.class, testConsumerGroupId);
+    }
+
+    @Bean
+    public ConcurrentKafkaListenerContainerFactory<String, ProfileCreateEvent> testProfileCreateKafkaListenerContainerFactory(String testConsumerGroupId) {
+        return createListenerFactory(testProfileCreateEventConsumerFactory(testConsumerGroupId));
+    }
+
+    @Bean
+    public ConcurrentKafkaListenerContainerFactory<String, ProfileUpdatedEvent> testProfileUpdatedKafkaListenerContainerFactory(String testConsumerGroupId) {
+        return createListenerFactory(testProfileUpdatedEventConsumerFactory(testConsumerGroupId));
+    }
+
+    @Bean
+    public ConcurrentKafkaListenerContainerFactory<String, ProfileDeleteEvent> testProfileDeleteKafkaListenerContainerFactory(String testConsumerGroupId) {
+        return createListenerFactory(testProfileDeleteEventConsumerFactory(testConsumerGroupId));
     }
 
     /**
@@ -156,38 +167,66 @@ public class TestKafkaConsumerConfig {
 
         @KafkaListener(
             topics = "${kafka.topics.profile-events.created}",
-            groupId = "test-consumer-group",
             containerFactory = "testProfileCreateKafkaListenerContainerFactory",
             autoStartup = "true"
         )
-        public void consumeProfileCreated(ProfileCreateEvent event) {
-            log.info("Test consumer received ProfileCreateEvent: eventId={}, profileId={}",
-                event.getEventId(), event.getProfileId());
-            profileCreatedEvents.add(event);
+        public void consumeProfileCreated(
+                ProfileCreateEvent event,
+                org.springframework.kafka.support.Acknowledgment acknowledgment) {
+            try {
+                log.info("Test consumer received ProfileCreateEvent: eventId={}, profileId={}",
+                    event.getEventId(), event.getProfileId());
+                profileCreatedEvents.add(event);
+
+                // Manual acknowledgment
+                if (acknowledgment != null) {
+                    acknowledgment.acknowledge();
+                }
+            } catch (Exception e) {
+                log.error("Error processing ProfileCreateEvent: {}", event, e);
+            }
         }
 
         @KafkaListener(
             topics = "${kafka.topics.profile-events.updated}",
-            groupId = "test-consumer-group",
             containerFactory = "testProfileUpdatedKafkaListenerContainerFactory",
             autoStartup = "true"
         )
-        public void consumeProfileUpdated(ProfileUpdatedEvent event) {
-            log.info("Test consumer received ProfileUpdatedEvent: eventId={}, profileId={}",
-                event.getEventId(), event.getProfileId());
-            profileUpdatedEvents.add(event);
+        public void consumeProfileUpdated(
+                ProfileUpdatedEvent event,
+                org.springframework.kafka.support.Acknowledgment acknowledgment) {
+            try {
+                log.info("Test consumer received ProfileUpdatedEvent: eventId={}, profileId={}",
+                    event.getEventId(), event.getProfileId());
+                profileUpdatedEvents.add(event);
+
+                if (acknowledgment != null) {
+                    acknowledgment.acknowledge();
+                }
+            } catch (Exception e) {
+                log.error("Error processing ProfileUpdatedEvent: {}", event, e);
+            }
         }
 
         @KafkaListener(
             topics = "${kafka.topics.profile-events.deleted}",
-            groupId = "test-consumer-group",
             containerFactory = "testProfileDeleteKafkaListenerContainerFactory",
             autoStartup = "true"
         )
-        public void consumeProfileDeleted(ProfileDeleteEvent event) {
-            log.info("Test consumer received ProfileDeleteEvent: eventId={}, profileId={}",
-                event.getEventId(), event.getProfileId());
-            profileDeletedEvents.add(event);
+        public void consumeProfileDeleted(
+                ProfileDeleteEvent event,
+                org.springframework.kafka.support.Acknowledgment acknowledgment) {
+            try {
+                log.info("Test consumer received ProfileDeleteEvent: eventId={}, profileId={}",
+                    event.getEventId(), event.getProfileId());
+                profileDeletedEvents.add(event);
+
+                if (acknowledgment != null) {
+                    acknowledgment.acknowledge();
+                }
+            } catch (Exception e) {
+                log.error("Error processing ProfileDeleteEvent: {}", event, e);
+            }
         }
 
         /**
