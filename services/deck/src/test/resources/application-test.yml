@@ -1,0 +1,71 @@
+spring:
+  application:
+    name: deck-test
+  data:
+    redis:
+      host: localhost
+      port: 6379
+
+  # Kafka Test Configuration
+  kafka:
+    bootstrap-servers: localhost:9092
+    consumer:
+      group-id: deck-test-group
+      auto-offset-reset: earliest
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
+      properties:
+        spring.json.trusted.packages: "com.tinder.deck.kafka.dto"
+        spring.json.value.default.type: com.tinder.deck.kafka.dto.ProfileEvent
+    listener:
+      concurrency: 1
+      ack-mode: manual
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+
+profiles:
+  base-url: http://localhost:8011/api/v1/profiles/internal
+swipes:
+  base-url: http://localhost:8021/api/v1/swipes/internal
+
+server:
+  port: 8031  # Fixed test port to avoid conflicts
+
+deck:
+  parallelism: 4
+  request-timeout-ms: 1500
+  retries: 1
+  ttl-minutes: 60
+  per-user-limit: 100
+  search-limit: 500
+
+  rebuild:
+    lock-timeout-seconds: 10
+    lock-retry-max-attempts: 2
+    lock-retry-delay-ms: 50
+    queue:
+      max-size: 1000
+      worker-threads: 2
+      high-priority-weight: 3
+    stale:
+      ttl-hours: 1
+
+  scheduler:
+    cron: "0 0 * * * *"
+    max-concurrent-rebuilds: 5
+
+kafka:
+  topics:
+    profile-events: profile.updated
+    swipe-events: swipe.created
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,metrics
+  metrics:
+    export:
+      prometheus:
+        enabled: false

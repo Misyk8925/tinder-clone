@@ -1,0 +1,81 @@
+spring:
+  main:
+    allow-bean-definition-overriding: true
+  cloud:
+    config:
+      enabled: false
+      import-check:
+        enabled: false
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          jwk-set-uri: http://localhost:9080/realms/spring/protocol/openid-connect/certs
+  jpa:
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+  data:
+    redis:
+      host: localhost
+      port: 6379
+  cache:
+    type: redis
+  servlet:
+    multipart:
+      max-file-size: 50MB
+      max-request-size: 60MB
+  application:
+    name: profiles-service
+  kafka:
+    bootstrap-servers: localhost:9092
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+      acks: all
+      retries: 3
+      properties:
+        max.in.flight.requests.per.connection: 5
+        enable.idempotence: true
+        spring.json.add.type.headers: false
+    consumer:
+      group-id: profiles-test-group
+      auto-offset-reset: earliest
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
+      properties:
+        spring.json.trusted.packages: "com.tinder.*"
+
+server:
+  port: 8011
+  servlet:
+    context-path: /api/v1/profiles
+
+app:
+  s3:
+    bucket: "test-bucket"
+    presign-exp-seconds: 300
+  geocoding:
+    user-agent: "TinderClone/1.0 (tclone@tclone.com)"
+    base-url: "https://nominatim.openstreetmap.org"
+    country-codes: "de,at,pl"
+    timeout-ms: 3000
+
+cloud:
+  aws:
+    region: eu-north-1
+
+
+
+keycloak:
+  auth-server-url: http://localhost:6700
+  realm: spring
+  client-id: profiles-service
+
+# Kafka topics
+kafka:
+  topics:
+    profile-events:
+      updated: profile.updated
+      created: profile.created
+      deleted: profile.deleted
