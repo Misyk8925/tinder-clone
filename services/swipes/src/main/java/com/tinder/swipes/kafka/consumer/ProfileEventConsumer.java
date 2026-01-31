@@ -30,7 +30,7 @@ public class ProfileEventConsumer {
             @Header(KafkaHeaders.OFFSET) long offset,
             Acknowledgment acknowledgment
             ) {
-        log.info("Received SwipeCreatedEvent from partition: {}, offset: {}, event: {}",
+        log.info("Received ProfileCreatedEvent from partition: {}, offset: {}, event: {}",
                 partition, offset, event);
 
         try {

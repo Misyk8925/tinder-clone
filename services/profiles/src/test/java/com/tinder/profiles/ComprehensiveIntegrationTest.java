@@ -3,11 +3,13 @@ package com.tinder.profiles;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.tinder.profiles.deck.DeckCacheReader;
+import com.tinder.profiles.kafka.dto.ProfileCreateEvent;
 import com.tinder.profiles.profile.Profile;
 import com.tinder.profiles.profile.ProfileRepository;
 import com.tinder.profiles.user.NewUserRecord;
 import com.tinder.profiles.user.UserService;
 import com.tinder.profiles.util.KeycloakTestHelper;
+import com.tinder.profiles.util.TestKafkaConsumerConfig;
 import org.junit.jupiter.api.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -15,6 +17,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.context.annotation.Import;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.ActiveProfiles;
@@ -22,8 +25,6 @@ import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.web.reactive.function.client.WebClient;
-import org.springframework.web.reactive.function.client.WebClientResponseException;
-import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
@@ -34,6 +35,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.awaitility.Awaitility.await;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -41,15 +43,17 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  * Comprehensive integration test that demonstrates the full user journey:
  * 1. Create Keycloak users
  * 2. Create profiles for users
- * 3. Create swipes between users
- * 4. Wait 1.5 minutes for deck service to build decks
- * 5. Verify correct decks are stored in Redis
+ * 3. Verify Kafka ProfileCreateEvent messages
+ * 4. Create swipes between users
+ * 5. Wait 1.5 minutes for deck service to build decks
+ * 6. Verify correct decks are stored in Redis
  */
 @AutoConfigureMockMvc
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.DEFINED_PORT)
 @Testcontainers
 @ActiveProfiles("test")
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
+@Import(TestKafkaConsumerConfig.class)
 public class ComprehensiveIntegrationTest {
 
     private static final Logger log = LoggerFactory.getLogger(ComprehensiveIntegrationTest.class);
@@ -68,11 +72,21 @@ public class ComprehensiveIntegrationTest {
     @Container
     static PostgreSQLContainer<?> postgresContainer;
 
+    @Container
+    static org.testcontainers.containers.KafkaContainer kafkaContainer;
 
     static final String definedPort = SpringBootTest.WebEnvironment.DEFINED_PORT.toString();
 
     static {
-        log.info("definedPort: {}", definedPort);
+        // Start Kafka container FIRST
+        kafkaContainer = new org.testcontainers.containers.KafkaContainer(
+            DockerImageName.parse("confluentinc/cp-kafka:7.5.0")
+        ).withStartupTimeout(java.time.Duration.ofMinutes(2));
+        kafkaContainer.start();
+
+        log.info("Kafka container started: {}", kafkaContainer.getBootstrapServers());
+
+        // Then start PostgreSQL
         postgresContainer = new PostgreSQLContainer<>(
                 DockerImageName.parse("postgis/postgis:16-3.4-alpine")
                         .asCompatibleSubstituteFor("postgres"))
@@ -91,7 +105,10 @@ public class ComprehensiveIntegrationTest {
         registry.add("spring.datasource.password", postgresContainer::getPassword);
         registry.add("spring.jpa.hibernate.ddl-auto", () -> "create-drop");
 
-
+        // Kafka
+        registry.add("spring.kafka.bootstrap-servers", kafkaContainer::getBootstrapServers);
+        registry.add("spring.kafka.producer.bootstrap-servers", kafkaContainer::getBootstrapServers);
+        registry.add("spring.kafka.consumer.bootstrap-servers", kafkaContainer::getBootstrapServers);
 
         // Disable Eureka for tests
         registry.add("eureka.client.enabled", () -> "false");
@@ -116,6 +133,8 @@ public class ComprehensiveIntegrationTest {
     @Autowired
     private StringRedisTemplate redisTemplate;
 
+    @Autowired
+    private TestKafkaConsumerConfig.TestKafkaEventCollector kafkaEventCollector;
 
     private final KeycloakTestHelper keycloakTestHelper = new KeycloakTestHelper();
 
@@ -146,9 +165,12 @@ public class ComprehensiveIntegrationTest {
         profileRepository.deleteAll();
         preferencesRepository.deleteAll();
 
+        // Reset Kafka event collector
+        kafkaEventCollector.reset();
+
         createdProfiles.clear();
 
-        log.info("Test setup complete: Redis and database cleaned");
+        log.info("Test setup complete: Redis, database, and Kafka collector cleaned");
     }
 
     /**
@@ -190,6 +212,9 @@ public class ComprehensiveIntegrationTest {
         int keycloakUsersCreated = 0;
         int profilesCreated = 0;
         int profilesFailed = 0;
+        int kafkaCreateEventsReceived = 0;
+        int kafkaUpdateEventsReceived = 0;
+        int kafkaDeleteEventsReceived = 0;
         int swipesCreated = 0;
         int swipesFailed = 0;
         int likesCount = 0;
@@ -209,6 +234,9 @@ public class ComprehensiveIntegrationTest {
             log.info("========================================");
             log.info("Keycloak users created: {}", keycloakUsersCreated);
             log.info("Profiles created: {}/{}", profilesCreated, profilesCreated + profilesFailed);
+            log.info("Kafka ProfileCreateEvent received: {}", kafkaCreateEventsReceived);
+            log.info("Kafka ProfileUpdatedEvent received: {}", kafkaUpdateEventsReceived);
+            log.info("Kafka ProfileDeleteEvent received: {}", kafkaDeleteEventsReceived);
             log.info("Swipes created: {} (Likes: {}, Dislikes: {})", swipesCreated, likesCount, dislikesCount);
             log.info("Swipes failed: {}", swipesFailed);
             log.info("Deck build wait time: {} ms ({} seconds)", deckBuildWaitTimeMs, deckBuildWaitTimeMs / 1000);
@@ -228,12 +256,13 @@ public class ComprehensiveIntegrationTest {
      * This test combines all steps in a single flow:
      * 1. Create Keycloak users
      * 2. Create profiles
-     * 3. Create swipes
-     * 4. Wait 1.5 minutes
-     * 5. Verify decks in Redis
+     * 3. Verify Kafka ProfileCreateEvent messages
+     * 4. Create swipes
+     * 5. Wait 1.5 minutes
+     * 6. Verify decks in Redis
      */
     @Test
-    @DisplayName("Comprehensive Integration Test: Keycloak -> Profiles -> Swipes -> Wait -> Verify Decks")
+    @DisplayName("Comprehensive Integration Test: Keycloak -> Profiles -> Kafka Verification -> Swipes -> Wait -> Verify Decks")
     public void testCompleteUserJourneyWithDeckBuild() throws Exception {
         long startTime = System.currentTimeMillis();
         TestStatistics stats = new TestStatistics();
@@ -242,7 +271,7 @@ public class ComprehensiveIntegrationTest {
         log.info("COMPREHENSIVE INTEGRATION TEST STARTED");
         log.info("========================================");
         log.info("PostgreSQL: {}", postgresContainer.getJdbcUrl());
-
+        log.info("Kafka: {}", kafkaContainer.getBootstrapServers());
         log.info("Profiles Service Port: {} (actual: {})", PROFILES_PORT, actualServerPort);
         log.info("Swipes Service: {}", swipesBaseUrl);
         log.info("Users to create: {}", TEST_USER_COUNT);
@@ -269,6 +298,9 @@ public class ComprehensiveIntegrationTest {
             List<ProfileTestData> profiles = createProfilesForUsers(keycloakUsers, stats);
             createdProfiles.addAll(profiles);
 
+            // STEP 2.5: Verify Kafka ProfileCreateEvent messages
+            verifyProfileCreateEvents(profiles, stats);
+
             // STEP 3: Create swipes between users
             createSwipesBetweenUsers(profiles, stats);
 
@@ -284,6 +316,9 @@ public class ComprehensiveIntegrationTest {
             // Final assertions
             assertThat(stats.keycloakUsersCreated).isEqualTo(TEST_USER_COUNT);
             assertThat(stats.profilesCreated).isEqualTo(TEST_USER_COUNT);
+            assertThat(stats.kafkaCreateEventsReceived)
+                .as("Should receive ProfileCreateEvent for each profile")
+                .isEqualTo(TEST_USER_COUNT);
             assertThat(stats.swipesCreated).isGreaterThan(0);
 
             // Deck verification is conditional since deck service may not be running
@@ -379,6 +414,142 @@ public class ComprehensiveIntegrationTest {
 
         log.info("✓ Successfully created {}/{} profiles", stats.profilesCreated, users.size());
         return profiles;
+    }
+
+    /**
+     * STEP 2.5: Verify Kafka ProfileCreateEvent messages
+     */
+    private void verifyProfileCreateEvents(List<ProfileTestData> profiles, TestStatistics stats) {
+        log.info("========================================");
+        log.info("STEP 2.5: Verifying Kafka Events");
+        log.info("========================================");
+        log.info("Waiting for ProfileCreateEvent messages to be consumed...");
+
+        // Wait for Kafka events with timeout
+        await()
+            .atMost(30, TimeUnit.SECONDS)
+            .pollDelay(1, TimeUnit.SECONDS)
+            .pollInterval(2, TimeUnit.SECONDS)
+            .untilAsserted(() -> {
+                int receivedCount = kafkaEventCollector.getProfileCreatedEvents().size();
+                log.info("  Received {}/{} ProfileCreateEvent messages", receivedCount, profiles.size());
+
+                assertThat(receivedCount)
+                    .as("Should receive ProfileCreateEvent for each created profile")
+                    .isGreaterThanOrEqualTo(profiles.size());
+            });
+
+        List<ProfileCreateEvent> events = kafkaEventCollector.getProfileCreatedEvents();
+        stats.kafkaCreateEventsReceived = events.size();
+
+        log.info("✓ Received {} ProfileCreateEvent messages", stats.kafkaCreateEventsReceived);
+        log.info("");
+        log.info("Verifying event correctness...");
+
+        // Verify event structure and content
+        int validEvents = 0;
+        int eventsWithValidId = 0;
+        int eventsWithValidTimestamp = 0;
+        int eventsMatchingProfiles = 0;
+
+        Set<String> createdProfileIds = profiles.stream()
+            .map(p -> p.profileId)
+            .collect(Collectors.toSet());
+
+        for (int i = 0; i < events.size(); i++) {
+            ProfileCreateEvent event = events.get(i);
+            boolean isValid = true;
+
+            // Check eventId
+            if (event.getEventId() != null) {
+                eventsWithValidId++;
+            } else {
+                log.warn("  [Event {}] Missing eventId", i + 1);
+                isValid = false;
+            }
+
+            // Check profileId
+            if (event.getProfileId() != null) {
+                String profileId = event.getProfileId().toString();
+
+                // Check if profileId matches one of created profiles
+                if (createdProfileIds.contains(profileId)) {
+                    eventsMatchingProfiles++;
+                } else {
+                    log.warn("  [Event {}] ProfileId {} does not match any created profile",
+                        i + 1, profileId);
+                    isValid = false;
+                }
+            } else {
+                log.warn("  [Event {}] Missing profileId", i + 1);
+                isValid = false;
+            }
+
+            // Check timestamp
+            if (event.getTimestamp() != null) {
+                eventsWithValidTimestamp++;
+            } else {
+                log.warn("  [Event {}] Missing timestamp", i + 1);
+                isValid = false;
+            }
+
+            if (isValid) {
+                validEvents++;
+                log.debug("  [Event {}] ✓ Valid: eventId={}, profileId={}, timestamp={}",
+                    i + 1, event.getEventId(), event.getProfileId(), event.getTimestamp());
+            }
+        }
+
+        // Log verification results
+        log.info("");
+        log.info("Event Verification Results:");
+        log.info("  Total events received: {}", events.size());
+        log.info("  Events with valid eventId: {}/{}", eventsWithValidId, events.size());
+        log.info("  Events with valid profileId: {}/{}", eventsMatchingProfiles, events.size());
+        log.info("  Events with valid timestamp: {}/{}", eventsWithValidTimestamp, events.size());
+        log.info("  Fully valid events: {}/{}", validEvents, events.size());
+
+        // Assertions
+        assertThat(eventsWithValidId)
+            .as("All events should have eventId")
+            .isEqualTo(events.size());
+
+        assertThat(eventsMatchingProfiles)
+            .as("All events should have profileId matching created profiles")
+            .isEqualTo(events.size());
+
+        assertThat(eventsWithValidTimestamp)
+            .as("All events should have timestamp")
+            .isEqualTo(events.size());
+
+        assertThat(validEvents)
+            .as("All events should be fully valid")
+            .isEqualTo(events.size());
+
+        // Check for duplicates
+        Set<String> eventIds = events.stream()
+            .map(e -> e.getEventId().toString())
+            .collect(Collectors.toSet());
+
+        assertThat(eventIds)
+            .as("All eventIds should be unique")
+            .hasSize(events.size());
+
+        Set<String> eventProfileIds = events.stream()
+            .map(e -> e.getProfileId().toString())
+            .collect(Collectors.toSet());
+
+        assertThat(eventProfileIds)
+            .as("All profileIds in events should be unique")
+            .hasSize(events.size());
+
+        log.info("");
+        log.info("✓✓✓ All Kafka event validations passed!");
+        log.info("  - Correct number of events: {}", events.size());
+        log.info("  - All events have valid structure");
+        log.info("  - All events match created profiles");
+        log.info("  - No duplicate events");
+        log.info("========================================");
     }
 
     /**
