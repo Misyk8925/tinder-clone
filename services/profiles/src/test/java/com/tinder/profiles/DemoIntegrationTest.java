@@ -180,10 +180,7 @@ public class DemoIntegrationTest {
         log.debug("Test setup complete: Redis and database cleaned");
     }
 
-    @AfterEach
-    void cleanup() {
-        keycloakTestHelper.cleanupTestUsers();
-    }
+
 
     /**
      * Test data structure to hold profile information
@@ -1047,18 +1044,4 @@ public class DemoIntegrationTest {
         return profileRepository.save(profile);
     }
 
-    /**
-     * Extract sub claim from JWT token
-     */
-    @SuppressWarnings("unused")
-    private String extractSubFromToken(String token) {
-        try {
-            String[] parts = token.split("\\.");
-            String payload = new String(Base64.getUrlDecoder().decode(parts[1]));
-            Map<String, Object> claims = objectMapper.readValue(payload, Map.class);
-            return (String) claims.get("sub");
-        } catch (Exception e) {
-            throw new RuntimeException("Failed to extract sub from token", e);
-        }
-    }
 }

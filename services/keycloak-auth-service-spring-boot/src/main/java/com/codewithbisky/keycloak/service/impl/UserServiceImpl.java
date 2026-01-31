@@ -108,6 +108,12 @@ public class UserServiceImpl implements UserService {
         return getUser(userId).groups();
     }
 
+    @Override
+    public int getUserCount() {
+        UsersResource usersResource = getUsersResource();
+        return usersResource.count();
+    }
+
     private UsersResource getUsersResource(){
 
         return keycloak.realm(realm).users();

@@ -53,4 +53,10 @@ public class UsersApi {
 
         return ResponseEntity.status(HttpStatus.OK).body(userService.getUserGroups(id));
     }
+
+    @GetMapping("/count")
+    public ResponseEntity<?> getUserCount() {
+        return ResponseEntity.status(HttpStatus.OK).body(userService.getUserCount());
+    }
+
 }

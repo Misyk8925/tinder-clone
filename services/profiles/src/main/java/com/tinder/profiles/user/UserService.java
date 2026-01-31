@@ -1,7 +1,9 @@
 package com.tinder.profiles.user;
 
+import lombok.Getter;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.web.reactive.function.client.WebClient;
 
@@ -10,6 +12,7 @@ import java.util.List;
 
 @Service
 public class UserService {
+    @Getter
     private List<NewUserRecord> users;
 
 
@@ -45,18 +48,26 @@ public class UserService {
 
     public void createTestUsers(){
         setup();
-        users.forEach(user -> {
-            keycloakWebClient.post()
-                    .uri("/auth/users")
-                    .bodyValue(user)
-                    .retrieve()
-                    .bodyToMono(String.class)
-                    .block();
-        });
+        if (getUsersCount()<10){
+            users.forEach(user -> {
+                keycloakWebClient.post()
+                        .uri("/auth/users")
+                        .bodyValue(user)
+                        .retrieve()
+                        .bodyToMono(String.class)
+                        .block();
+            });
+        }
+
     }
 
-    public List<NewUserRecord> getUsers() {
-        return users;
+    public int getUsersCount() {
+        Integer count = keycloakWebClient.get()
+                .uri("/auth/users/count")
+                .retrieve()
+                .bodyToMono(Integer.class)
+                .block();
+        return count != null ? count : 0;
     }
 
 }

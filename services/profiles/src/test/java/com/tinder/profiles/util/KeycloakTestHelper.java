@@ -1,11 +1,13 @@
 package com.tinder.profiles.util;
 
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestTemplate;
+import org.springframework.web.reactive.function.client.WebClient;
 
 import java.util.Map;
 
@@ -19,6 +21,9 @@ public class KeycloakTestHelper {
     private final String realm;
     private final String clientId;
     private final RestTemplate restTemplate;
+
+    @Value("${keycloak.auth-server-url}")
+    private  String authServiceUrl;
 
     public KeycloakTestHelper(String keycloakUrl, String realm, String clientId) {
         this.keycloakUrl = keycloakUrl;
@@ -203,9 +208,16 @@ public class KeycloakTestHelper {
         return "Bearer " + token;
     }
 
-    public void cleanupTestUsers() {
-
-
+    public int getUsersCount() {
+        WebClient webClient = WebClient.builder()
+                .baseUrl(authServiceUrl+"/api/users/count")
+                .defaultHeader(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE)
+                .build();
+        Integer count = webClient.get()
+                .retrieve()
+                .bodyToMono(Integer.class)
+                .block();
+        return count != null ? count : 0;
     }
 }
 

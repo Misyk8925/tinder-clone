@@ -15,4 +15,5 @@ public interface UserService {
     UserResource getUser(String userId);
     List<RoleRepresentation> getUserRoles(String userId);
     List<GroupRepresentation> getUserGroups(String userId);
+    int getUserCount();
 }

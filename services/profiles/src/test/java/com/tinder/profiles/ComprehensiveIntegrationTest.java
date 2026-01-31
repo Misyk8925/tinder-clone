@@ -116,10 +116,6 @@ public class ComprehensiveIntegrationTest {
     @Autowired
     private StringRedisTemplate redisTemplate;
 
-    // Note: DeckCacheTestHelper is available but not used in current test approach
-    // We validate actual deck service behavior instead of comparing to predicted decks
-    // @Autowired
-    // private com.tinder.profiles.util.DeckCacheTestHelper deckCacheTestHelper;
 
     private final KeycloakTestHelper keycloakTestHelper = new KeycloakTestHelper();
 
@@ -153,11 +149,6 @@ public class ComprehensiveIntegrationTest {
         createdProfiles.clear();
 
         log.info("Test setup complete: Redis and database cleaned");
-    }
-
-    @AfterEach
-    void cleanup() {
-        keycloakTestHelper.cleanupTestUsers();
     }
 
     /**
