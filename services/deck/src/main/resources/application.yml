@@ -21,11 +21,11 @@ spring:
       ack-mode: manual  # Manual commit for better control
 
 profiles:
-  # Prefer calling profiles service directly during local/test runs
-  base-url: http://localhost:8010/api/v1/profiles/internal
-  test-url: http://localhost:8011/api/v1/profiles/internal
+  # Default to test profiles service port (8011) - matches ComprehensiveIntegrationTest
+  # For production, override with: --profiles.base-url=http://localhost:8010/api/v1/profiles/internal
+  base-url: http://localhost:8011/api/v1/profiles/internal
 swipes:
-  # Prefer calling swipes service directly during local/test runs
+  # Swipes service internal API endpoint
   base-url: http://localhost:8020/api/v1/swipes/internal
 
 server:
@@ -42,7 +42,9 @@ deck:
   # Preferences Cache Configuration
   # Optimizes batch rebuilds by sharing candidate queries across users with same preferences
   # Example: 1000 users with 10 preference groups → only 10 DB queries instead of 1000
-  preferences-cache-enabled: true  # Enabled for scheduler efficiency
+  # IMPORTANT: Disabled by default to prevent stale cache issues during testing
+  # For production batch rebuilds, enable with: --deck.preferences-cache-enabled=true
+  preferences-cache-enabled: false
   preferences-cache-ttl-minutes: 5  # Short TTL ensures data freshness
 
   # New configuration for event-driven rebuild
