@@ -2,7 +2,6 @@ package com.tinder.profiles;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.tinder.profiles.deck.DeckCacheReader;
 import com.tinder.profiles.kafka.dto.ProfileCreateEvent;
 import com.tinder.profiles.profile.Profile;
 import com.tinder.profiles.profile.ProfileRepository;
@@ -75,10 +74,7 @@ public class ComprehensiveIntegrationTest {
     static PostgreSQLContainer<?> postgresContainer;
 
     // Use docker-compose Kafka instead of Testcontainers
-    // This allows Deck service to connect to the same Kafka
     private static final String KAFKA_BOOTSTRAP_SERVERS = "localhost:9092";
-
-    static final String definedPort = SpringBootTest.WebEnvironment.DEFINED_PORT.toString();
 
     static {
         log.info("Using docker-compose Kafka: {}", KAFKA_BOOTSTRAP_SERVERS);
@@ -125,9 +121,6 @@ public class ComprehensiveIntegrationTest {
     private com.tinder.profiles.preferences.PreferencesRepository preferencesRepository;
 
     @Autowired
-    private DeckCacheReader deckCacheReader;
-
-    @Autowired
     private StringRedisTemplate redisTemplate;
 
     @Autowired
@@ -162,14 +155,9 @@ public class ComprehensiveIntegrationTest {
         profileRepository.deleteAll();
         preferencesRepository.deleteAll();
 
-        // DON'T reset Kafka event collector here!
-        // We need to count events BEFORE creating profiles (in the test method)
-        // If we reset here, consumer will re-read old events before we count them
-
         createdProfiles.clear();
 
         log.info("Test setup complete: Redis and database cleaned");
-        log.info("Note: Kafka collector NOT reset - will count increments in test");
     }
 
     /**
@@ -197,10 +185,6 @@ public class ComprehensiveIntegrationTest {
 
         public String getShortId() {
             return profileId.substring(0, Math.min(8, profileId.length()));
-        }
-
-        public UUID getUUID() {
-            return UUID.fromString(profileId);
         }
     }
 
@@ -278,14 +262,6 @@ public class ComprehensiveIntegrationTest {
         log.info("Users to create: {}", TEST_USER_COUNT);
         log.info("Deck build wait time: {} ms", DECK_BUILD_WAIT_TIME_MS);
         log.info("========================================");
-        log.info("⚠️  IMPORTANT: Deck Service Configuration");
-        log.info("========================================");
-        log.info("Deck service MUST use docker-compose Kafka: {}", KAFKA_BOOTSTRAP_SERVERS);
-        log.info("Deck service MUST use docker-compose Redis: localhost:6379");
-        log.info("");
-        log.info("To start Deck Service:");
-        log.info("  cd services/deck && ./run-for-comprehensive-test.sh");
-        log.info("========================================");
 
         try {
             // STEP 1: Create Keycloak users
@@ -326,53 +302,19 @@ public class ComprehensiveIntegrationTest {
             assertThat(stats.swipesCreated).isGreaterThan(0);
 
             // Deck verification is conditional since deck service may not be running
-            // or may not have access to test Redis container
             if (stats.decksWithData > 0) {
-                log.info("✓✓✓ BONUS: Deck service is running and built {} decks!", stats.decksWithData);
+                log.info("✓ Deck service is running and built {} decks!", stats.decksWithData);
 
-                // Calculate success rate
                 double successRate = (stats.decksFullyCorrect * 100.0) / stats.decksWithData;
-                double partialSuccessRate = ((stats.decksFullyCorrect + stats.decksPartiallyCorrect) * 100.0) / stats.decksWithData;
+                log.info("Deck quality: {}% fully correct ({}/{})",
+                    String.format("%.1f", successRate), stats.decksFullyCorrect, stats.decksWithData);
 
-                if (successRate >= 50.0) {
-                    log.info("✓ Deck quality is GOOD: {}% fully correct ({}/{})",
-                        String.format("%.1f", successRate), stats.decksFullyCorrect, stats.decksWithData);
-                } else if (successRate >= 20.0) {
-                    log.warn("⚠ Deck quality is LOW: {}% fully correct ({}/{})",
-                        String.format("%.1f", successRate), stats.decksFullyCorrect, stats.decksWithData);
-                    log.warn("  This may indicate:");
-                    log.warn("  1. Deck service is not properly excluding swiped profiles");
-                    log.warn("  2. Not enough candidates available for matching");
-                    log.warn("  3. Preferences are too restrictive");
-                } else {
-                    log.error("✗ Deck quality is VERY LOW: {}% fully correct ({}/{})",
-                        String.format("%.1f", successRate), stats.decksFullyCorrect, stats.decksWithData);
-                    log.info("  However, {}% of decks are at least partially correct ({}/{})",
-                        String.format("%.1f", partialSuccessRate),
-                        stats.decksFullyCorrect + stats.decksPartiallyCorrect, stats.decksWithData);
-                }
-
-                // Require at least some decks to be correct or partially correct (lenient for integration test)
-                // This allows for deck service edge cases while still validating basic functionality
                 int acceptableDecks = stats.decksFullyCorrect + stats.decksPartiallyCorrect;
                 assertThat(acceptableDecks)
                     .as("At least some decks should be fully or partially correct")
                     .isGreaterThan(0);
             } else {
-                log.warn("⚠ ⚠ ⚠  NO DECKS FOUND IN REDIS");
-                log.warn("This is expected if:");
-                log.warn("  1. Deck service is not running");
-                log.warn("  2. Deck service cannot connect to test Redis container");
-                log.warn("  3. Scheduler hasn't run yet (runs every minute)");
-                log.warn("");
-                log.warn("To verify deck functionality, start deck service with:");
-                log.warn("  cd services/deck && mvn spring-boot:run \\");
-                log.warn("    -Dspring-boot.run.arguments=\"\\");
-                log.warn("      --profiles.base-url=http://localhost:{}/api/v1/profiles/internal\"", PROFILES_PORT);
-                log.warn("");
-                log.warn("Then run this test again.");
-                log.warn("");
-                log.warn("Test will continue without deck verification...");
+                log.warn("⚠ NO DECKS FOUND - Deck service may not be running or connected to test environment");
             }
 
             log.info("========================================");
@@ -495,7 +437,6 @@ public class ComprehensiveIntegrationTest {
 
         log.info("✓ Received {} ProfileCreateEvent messages (total: {}, filtered for this test: {})",
             newEventsReceived, finalEventCount, events.size());
-        log.info("Verifying event correctness...");
 
         // Verify event structure and content
         int validEvents = 0;
@@ -503,13 +444,10 @@ public class ComprehensiveIntegrationTest {
         int eventsWithValidTimestamp = 0;
         int eventsMatchingProfiles = 0;
 
-        // createdProfileIds already created above for filtering
-
         for (int i = 0; i < events.size(); i++) {
             ProfileCreateEvent event = events.get(i);
             boolean isValid = true;
 
-            // Check eventId
             if (event.getEventId() != null) {
                 eventsWithValidId++;
             } else {
@@ -517,16 +455,13 @@ public class ComprehensiveIntegrationTest {
                 isValid = false;
             }
 
-            // Check profileId
             if (event.getProfileId() != null) {
-                // Already filtered by createdProfileIds, so this is always valid
                 eventsMatchingProfiles++;
             } else {
                 log.warn("  [Event {}] Missing profileId", i + 1);
                 isValid = false;
             }
 
-            // Check timestamp
             if (event.getTimestamp() != null) {
                 eventsWithValidTimestamp++;
             } else {
@@ -536,19 +471,10 @@ public class ComprehensiveIntegrationTest {
 
             if (isValid) {
                 validEvents++;
-                log.debug("  [Event {}] ✓ Valid: eventId={}, profileId={}, timestamp={}",
-                    i + 1, event.getEventId(), event.getProfileId(), event.getTimestamp());
             }
         }
 
-        // Log verification results
-        log.info("");
-        log.info("Event Verification Results:");
-        log.info("  Total events received: {}", events.size());
-        log.info("  Events with valid eventId: {}/{}", eventsWithValidId, events.size());
-        log.info("  Events with valid profileId: {}/{}", eventsMatchingProfiles, events.size());
-        log.info("  Events with valid timestamp: {}/{}", eventsWithValidTimestamp, events.size());
-        log.info("  Fully valid events: {}/{}", validEvents, events.size());
+        log.info("Event Verification: {}/{} valid events", validEvents, events.size());
 
         // Assertions
         assertThat(eventsWithValidId)
@@ -584,17 +510,11 @@ public class ComprehensiveIntegrationTest {
             .as("All profileIds in events should be unique")
             .hasSize(events.size());
 
-        // Most important: check we got events for ALL created profiles
         assertThat(events.size())
             .as("Should receive event for EACH created profile")
             .isEqualTo(profiles.size());
 
-        log.info("");
-        log.info("✓✓✓ All Kafka event validations passed!");
-        log.info("  - Correct number of events: {}/{}", events.size(), profiles.size());
-        log.info("  - All events have valid structure");
-        log.info("  - All events match created profiles");
-        log.info("  - No duplicate events");
+        log.info("✓ All Kafka event validations passed");
         log.info("========================================");
     }
 
@@ -800,9 +720,8 @@ public class ComprehensiveIntegrationTest {
         }
 
         log.info("✓ Successfully updated {}/{} profiles", profilesUpdated, profilesToUpdate);
-        log.info("  - PREFERENCES updates: {}", preferencesUpdates);
-        log.info("  - CRITICAL_FIELDS updates: {}", criticalFieldsUpdates);
-        log.info("  - NON_CRITICAL updates: {}", nonCriticalUpdates);
+        log.info("  Updates by type - PREFERENCES: {}, CRITICAL_FIELDS: {}, NON_CRITICAL: {}",
+            preferencesUpdates, criticalFieldsUpdates, nonCriticalUpdates);
 
         // Wait for Kafka events with timeout
         log.info("Waiting for ProfileUpdatedEvent messages...");
@@ -946,11 +865,7 @@ public class ComprehensiveIntegrationTest {
             .as("Should have NON_CRITICAL change events")
             .isGreaterThan(0);
 
-        log.info("");
-        log.info("✓✓✓ All ProfileUpdatedEvent validations passed!");
-        log.info("  - Received {} update events", newEvents);
-        log.info("  - All events have valid structure");
-        log.info("  - All three ChangeTypes are present and correctly categorized");
+        log.info("✓ All ProfileUpdatedEvent validations passed");
         log.info("========================================");
     }
 
@@ -986,12 +901,11 @@ public class ComprehensiveIntegrationTest {
 
                 profilesDeleted++;
                 deletedProfiles.add(profile);
-                log.info("[{}/{}] ✓ Deleted profile: {} (profileId: {})",
-                        profilesDeleted, profilesToDelete, profile.firstName, profile.profileId);
+                log.info("[{}/{}] ✓ Deleted profile: {}", profilesDeleted, profilesToDelete, profile.firstName);
 
             } catch (Exception e) {
-                log.error("[{}/{}] ✗ Failed to delete profile: {} - {}",
-                        profilesDeleted + 1, profilesToDelete, profile.firstName, e.getMessage(), e);
+                log.error("[{}/{}] ✗ Failed to delete profile: {}",
+                        profilesDeleted + 1, profilesToDelete, profile.firstName, e);
             }
         }
 
@@ -1085,11 +999,7 @@ public class ComprehensiveIntegrationTest {
             .as("Should have received delete events for all deleted profiles")
             .isEqualTo(profilesDeleted);
 
-        log.info("");
-        log.info("✓✓✓ All ProfileDeleteEvent validations passed!");
-        log.info("  - Received {} delete events", newEvents);
-        log.info("  - All events have valid structure");
-        log.info("  - All profileIds match deleted profiles");
+        log.info("✓ All ProfileDeleteEvent validations passed");
         log.info("========================================");
     }
 
@@ -1129,22 +1039,15 @@ public class ComprehensiveIntegrationTest {
         log.info("STEP 4: Waiting for Deck Service");
         log.info("========================================");
 
-        // Check current Redis state BEFORE waiting
         checkRedisStateBeforeWait();
 
         long startWait = System.currentTimeMillis();
-
-        log.info("Waiting {} ms (1.5 minutes) for deck service to:", DECK_BUILD_WAIT_TIME_MS);
-        log.info("  1. Consume Kafka events (profile.updated, swipe.created)");
-        log.info("  2. Process event queue");
-        log.info("  3. Build decks for all users");
-        log.info("  4. Store decks in Redis");
-        log.info("  5. After 45s: Update some profiles and verify new Kafka events");
-        log.info("  6. After 55s: Delete some profiles and verify new Kafka events");
+        log.info("Waiting {} seconds for deck service to process events",
+            DECK_BUILD_WAIT_TIME_MS / 1000);
 
         // Show progress during wait
         long remainingMs = DECK_BUILD_WAIT_TIME_MS;
-        long intervalMs = 15_000; // 15 seconds
+        long intervalMs = 15_000;
         boolean profilesUpdated = false;
         boolean profilesDeleted = false;
 
@@ -1154,40 +1057,25 @@ public class ComprehensiveIntegrationTest {
             remainingMs -= sleepTime;
 
             long elapsed = System.currentTimeMillis() - startWait;
-            int percentComplete = (int) ((elapsed * 100) / DECK_BUILD_WAIT_TIME_MS);
+            log.info("  Wait progress: {}/{}s", elapsed / 1000, DECK_BUILD_WAIT_TIME_MS / 1000);
 
-            log.info("  [{}/{}s] {}% complete...",
-                elapsed / 1000, DECK_BUILD_WAIT_TIME_MS / 1000, percentComplete);
-
-            // After 45 seconds (when ~45 seconds remain), update some profiles
+            // After 45 seconds, update some profiles
             if (!profilesUpdated && elapsed >= 45_000) {
-                log.info("");
-                log.info("  ⏱️  Reached 45 seconds mark - updating profiles now!");
                 updateProfilesAndVerifyEvents(stats);
                 profilesUpdated = true;
-                log.info("  ⏱️  Continuing to wait for remaining {} seconds...", remainingMs / 1000);
-                log.info("");
             }
 
-            // After 55 seconds (10 seconds after update), delete some profiles
+            // After 55 seconds, delete some profiles
             if (!profilesDeleted && elapsed >= 55_000) {
-                log.info("");
-                log.info("  ⏱️  Reached 55 seconds mark - deleting profiles now!");
                 deleteProfilesAndVerifyEvents(stats);
                 profilesDeleted = true;
-                log.info("  ⏱️  Continuing to wait for remaining {} seconds...", remainingMs / 1000);
-                log.info("");
             }
 
-            // Check Redis keys every 15 seconds
             checkRedisKeysDuringWait();
         }
 
         stats.deckBuildWaitTimeMs = System.currentTimeMillis() - startWait;
-
         log.info("✓ Wait completed ({} ms)", stats.deckBuildWaitTimeMs);
-
-        // Final check after wait
         checkRedisStateAfterWait();
     }
 
@@ -1195,28 +1083,15 @@ public class ComprehensiveIntegrationTest {
      * Check Redis state before waiting
      */
     private void checkRedisStateBeforeWait() {
-        log.info("---");
-        log.info("Redis State Check (BEFORE waiting):");
-
         Set<String> allKeys = redisTemplate.keys("*");
         if (allKeys != null && !allKeys.isEmpty()) {
-            // Sort keys for deterministic iteration
             List<String> sortedKeys = new ArrayList<>(allKeys);
             Collections.sort(sortedKeys);
 
-            log.info("  Total keys in Redis: {}", sortedKeys.size());
-
-            long profileKeys = sortedKeys.stream().filter(k -> k.startsWith("profile:")).count();
-            long swipeKeys = sortedKeys.stream().filter(k -> k.startsWith("swipe:")).count();
             long deckKeys = sortedKeys.stream().filter(k -> k.startsWith("deck:")).count();
-
-            log.info("  Profile keys: {}", profileKeys);
-            log.info("  Swipe keys: {}", swipeKeys);
-            log.info("  Deck keys: {} ⚠️  (should be 0 before deck service runs)", deckKeys);
-        } else {
-            log.info("  Total keys in Redis: 0");
+            log.info("Redis state: {} total keys, {} deck keys (should be 0 initially)",
+                sortedKeys.size(), deckKeys);
         }
-        log.info("---");
     }
 
     /**
@@ -1225,7 +1100,7 @@ public class ComprehensiveIntegrationTest {
     private void checkRedisKeysDuringWait() {
         Set<String> deckKeys = redisTemplate.keys("deck:*");
         if (deckKeys != null && !deckKeys.isEmpty()) {
-            log.info("    [PROGRESS] Found {} deck keys in Redis!", deckKeys.size());
+            log.info("    [PROGRESS] Found {} deck keys in Redis", deckKeys.size());
         }
     }
 
@@ -1233,37 +1108,14 @@ public class ComprehensiveIntegrationTest {
      * Check Redis state after waiting
      */
     private void checkRedisStateAfterWait() {
-        log.info("---");
-        log.info("Redis State Check (AFTER waiting):");
+        Set<String> deckKeys = redisTemplate.keys("deck:*");
+        long deckKeyCount = (deckKeys != null) ? deckKeys.size() : 0;
 
-        Set<String> allKeys = redisTemplate.keys("*");
-        if (allKeys != null && !allKeys.isEmpty()) {
-            // Sort keys for deterministic iteration
-            List<String> sortedKeys = new ArrayList<>(allKeys);
-            Collections.sort(sortedKeys);
-
-            log.info("  Total keys in Redis: {}", sortedKeys.size());
-
-            long deckKeys = sortedKeys.stream().filter(k -> k.startsWith("deck:")).count();
-            log.info("  Deck keys: {}", deckKeys);
-
-            if (deckKeys == 0) {
-                log.warn("  ⚠️ ⚠️ ⚠️  NO DECK KEYS FOUND!");
-                log.warn("  This means Deck Service either:");
-                log.warn("    1. Is not running");
-                log.warn("    2. Connected to WRONG Redis (localhost:6379 instead of test Redis)");
-                log.warn("    3. Has not processed events yet");
-                log.warn("");
-                log.warn("  To verify Deck Service Redis connection:");
-                log.warn("    Check Deck Service logs for Redis connection info");
-            } else {
-                log.info("  ✓ Deck keys found! Deck service is working correctly.");
-            }
+        if (deckKeyCount == 0) {
+            log.warn("No deck keys found - Deck service may not be running");
         } else {
-            log.info("  Total keys in Redis: 0");
-            log.warn("  ⚠️  Redis is empty - no data at all!");
+            log.info("✓ Found {} deck keys in Redis", deckKeyCount);
         }
-        log.info("---");
     }
 
     /**
@@ -1278,12 +1130,6 @@ public class ComprehensiveIntegrationTest {
     private void verifyDecksInRedis(List<ProfileTestData> profiles, TestStatistics stats) {
         log.info("========================================");
         log.info("STEP 5: Verifying Decks in Redis");
-        log.info("========================================");
-        log.info("Performing comprehensive deck correctness verification:");
-        log.info("  1. Deck existence and size");
-        log.info("  2. Swiped profiles exclusion");
-        log.info("  3. Preference matching (age, gender)");
-        log.info("  4. Candidate correctness");
         log.info("========================================");
 
         // Build swipe map for exclusion verification
@@ -1307,7 +1153,7 @@ public class ComprehensiveIntegrationTest {
             String deckKey = "deck:" + profile.profileId;
             Boolean hasKey = redisTemplate.hasKey(deckKey);
 
-            if (Boolean.FALSE.equals(hasKey)) {
+            if (hasKey == null || !hasKey) {
                 log.warn("  ✗ No deck found in Redis");
                 continue;
             }
@@ -1349,12 +1195,8 @@ public class ComprehensiveIntegrationTest {
             // Overall verdict
             if (hasCorrectExclusions && hasCorrectCandidates && hasGoodQuality) {
                 stats.decksFullyCorrect++;
-                log.info("  ✓✓✓ Deck is FULLY CORRECT (size: {}, all checks passed)", deckSize);
+                log.info("  ✓ Deck is FULLY CORRECT (size: {})", deckSize);
             } else {
-                log.warn("  ⚠ Deck has issues (size: {}, exclusions: {}, candidates: {}, quality: {})",
-                    deckSize, hasCorrectExclusions, hasCorrectCandidates, hasGoodQuality);
-
-                // Count decks with at least partial correctness for more lenient validation
                 if (hasCorrectExclusions || hasCorrectCandidates) {
                     stats.decksPartiallyCorrect++;
                 }
@@ -1362,8 +1204,6 @@ public class ComprehensiveIntegrationTest {
 
             // Show sample of top candidates
             displayTopCandidates(profile, profiles, deckContents);
-
-            log.info("  ---");
         }
 
         printVerificationSummary(stats);
@@ -1393,23 +1233,8 @@ public class ComprehensiveIntegrationTest {
             stats.decksWithCorrectExclusions++;
             log.info("    ✓ Exclusion check: Correctly excludes {} swiped users", swipedByUser.size());
         } else {
-            log.warn("    ✗ Exclusion check FAILED: Contains {} swiped profiles that should be excluded:",
+            log.warn("    ✗ Exclusion check: {} swiped profiles found in deck (should be excluded)",
                 foundSwiped.size());
-
-            // Show which swiped profiles incorrectly appear in deck
-            for (String swipedId : foundSwiped) {
-                // Find profile name for better readability
-                String profileName = createdProfiles.stream()
-                    .filter(p -> p.profileId.equals(swipedId))
-                    .map(p -> p.firstName)
-                    .findFirst()
-                    .orElse("Unknown");
-                log.warn("      - {} [{}] (was swiped but still in deck)",
-                    profileName, swipedId.substring(0, 8));
-            }
-
-            log.warn("    Total swiped by user: {}, Found in deck: {}",
-                swipedByUser.size(), foundSwiped.size());
         }
 
         return hasCorrectExclusions;
@@ -1477,11 +1302,9 @@ public class ComprehensiveIntegrationTest {
 
         if (allCandidatesValid) {
             stats.decksWithCorrectCandidates++;
-            log.info("    ✓ Preference check: All {} candidates match preferences (gender: {}, age: {}-{})",
-                validCount, prefs.getGender(), prefs.getMinAge(), prefs.getMaxAge());
+            log.info("    ✓ Preference check: All {} candidates match preferences", validCount);
         } else {
-            log.warn("    ✗ Preference check: {} invalid candidates found: {}",
-                invalidCandidates.size(), invalidCandidates.stream().limit(3).collect(Collectors.toList()));
+            log.warn("    ✗ Preference check: {} invalid candidates", invalidCandidates.size());
         }
 
         return allCandidatesValid;
@@ -1489,10 +1312,6 @@ public class ComprehensiveIntegrationTest {
 
     /**
      * Verify deck quality - checks that deck service produces reasonable results
-     * Rather than predicting exact deck contents, we validate:
-     * - Deck has reasonable size (not empty, not too large)
-     * - All candidates are valid (not deleted, not self)
-     * - Deck has some diversity (not all same gender if ANY preference)
      */
     private boolean verifyDeckQuality(
             ProfileTestData profile,
@@ -1539,44 +1358,11 @@ public class ComprehensiveIntegrationTest {
         }
 
         if (!invalidCandidates.isEmpty()) {
-            log.warn("    ✗ Quality check: {} invalid candidates: {}",
-                invalidCandidates.size(), invalidCandidates.stream().limit(3).collect(Collectors.toList()));
+            log.warn("    ✗ Quality check: {} invalid candidates", invalidCandidates.size());
             return false;
         }
 
-        // Check 3: Verify deck has reasonable diversity (if preferences allow)
-        Optional<Profile> viewerOpt = allProfiles.stream()
-            .filter(p -> p.getProfileId().toString().equals(profile.profileId))
-            .findFirst();
-
-        if (viewerOpt.isPresent()) {
-            Profile viewer = viewerOpt.get();
-            com.tinder.profiles.preferences.Preferences prefs = viewer.getPreferences();
-
-            if (prefs != null &&
-                (prefs.getGender().equalsIgnoreCase("ANY") || prefs.getGender().equalsIgnoreCase("ALL"))) {
-
-                // If preferences is ANY, deck should ideally have both genders
-                long maleCount = deckContents.stream()
-                    .map(id -> allProfiles.stream()
-                        .filter(p -> p.getProfileId().toString().equals(id))
-                        .findFirst())
-                    .filter(Optional::isPresent)
-                    .map(Optional::get)
-                    .filter(p -> p.getGender().equalsIgnoreCase("MALE"))
-                    .count();
-
-                long femaleCount = deckSize - maleCount;
-
-                // Just informational - not a failure
-                if (maleCount > 0 && femaleCount > 0) {
-                    log.debug("      Good diversity: {} males, {} females", maleCount, femaleCount);
-                }
-            }
-        }
-
-        log.info("    ✓ Quality check: Deck size {} is reasonable with {} valid candidates",
-            deckSize, deckSize - invalidCandidates.size());
+        log.info("    ✓ Quality check: Deck size {} is reasonable", deckSize);
 
         return true;
     }
@@ -1659,10 +1445,7 @@ public class ComprehensiveIntegrationTest {
         if (minAge != null && candidateAge < minAge) {
             return false;
         }
-        if (maxAge != null && candidateAge > maxAge) {
-            return false;
-        }
-        return true;
+        return maxAge == null || candidateAge <= maxAge;
     }
 
     /**
