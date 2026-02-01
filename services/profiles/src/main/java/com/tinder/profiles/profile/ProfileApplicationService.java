@@ -230,6 +230,7 @@ public class ProfileApplicationService {
 
         // Track changed fields
         Set<String> changedFields = new HashSet<>();
+        boolean preferencesChanged = false;
 
         // Apply patches (Bean Validation already validated the format)
         if (patchDto.name() != null) {
@@ -257,10 +258,29 @@ public class ProfileApplicationService {
             changedFields.add("city");
         }
 
+        // Handle preferences update
+        if (patchDto.preferences() != null) {
+            domainService.validatePreferencesBusinessRules(patchDto.preferences());
+
+            Preferences oldPreferences = existingProfile.getPreferences();
+            Preferences newPreferences = preferencesService.findOrCreate(patchDto.preferences());
+
+            if (newPreferences.getId() == null) {
+                newPreferences = preferencesRepository.save(newPreferences);
+            }
+
+            // Check if preferences actually changed
+            if (!preferencesEqual(oldPreferences, newPreferences)) {
+                existingProfile.setPreferences(newPreferences);
+                preferencesChanged = true;
+                changedFields.add("preferences");
+            }
+        }
+
         Profile savedProfile = profileRepository.save(existingProfile);
 
         // Determine change type and send event
-        ChangeType changeType = determineChangeType(changedFields, false);
+        ChangeType changeType = determineChangeType(changedFields, preferencesChanged);
         sendProfileUpdatedEvent(savedProfile, changeType, changedFields);
 
         // Update cache

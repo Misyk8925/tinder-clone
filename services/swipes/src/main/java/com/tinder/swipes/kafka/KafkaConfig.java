@@ -102,6 +102,34 @@ public class KafkaConfig {
     }
 
     /**
+     * Consumer factory for ProfileDeleteEvent deserialization
+     */
+    @Bean
+    public ConsumerFactory<String, ProfileDeleteEvent> profileDeleteEventConsumerFactory() {
+        Map<String, Object> props = new HashMap<>();
+        props.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers);
+        props.put(ConsumerConfig.GROUP_ID_CONFIG, groupId + "-profile-delete");
+        props.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest");
+        props.put(ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG, false);
+        props.put(ConsumerConfig.ISOLATION_LEVEL_CONFIG, "read_committed");
+
+        // Error handling deserializer wrapper
+        props.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, ErrorHandlingDeserializer.class);
+        props.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, ErrorHandlingDeserializer.class);
+
+        // Delegate deserializers
+        props.put(ErrorHandlingDeserializer.KEY_DESERIALIZER_CLASS, StringDeserializer.class);
+        props.put(ErrorHandlingDeserializer.VALUE_DESERIALIZER_CLASS, JsonDeserializer.class);
+
+        // JSON deserializer configuration
+        props.put(JsonDeserializer.TRUSTED_PACKAGES, "com.tinder.*");
+        props.put(JsonDeserializer.VALUE_DEFAULT_TYPE, ProfileDeleteEvent.class.getName());
+        props.put(JsonDeserializer.USE_TYPE_INFO_HEADERS, false);
+
+        return new DefaultKafkaConsumerFactory<>(props);
+    }
+
+    /**
      * Listener container factory for SwipeCreatedEvent with manual acknowledgment
      */
     @Bean
@@ -126,6 +154,23 @@ public class KafkaConfig {
         ConcurrentKafkaListenerContainerFactory<String, ProfileCreateEvent> factory =
                 new ConcurrentKafkaListenerContainerFactory<>();
         factory.setConsumerFactory(profileEventConsumerFactory());
+        factory.setConcurrency(concurrency);
+        factory.getContainerProperties().setAckMode(ContainerProperties.AckMode.MANUAL);
+
+        // Error handling
+        factory.setCommonErrorHandler(new DefaultErrorHandler());
+
+        return factory;
+    }
+
+    /**
+     * Listener container factory for ProfileDeleteEvent with manual acknowledgment
+     */
+    @Bean
+    public ConcurrentKafkaListenerContainerFactory<String, ProfileDeleteEvent> profileDeleteKafkaListenerContainerFactory() {
+        ConcurrentKafkaListenerContainerFactory<String, ProfileDeleteEvent> factory =
+                new ConcurrentKafkaListenerContainerFactory<>();
+        factory.setConsumerFactory(profileDeleteEventConsumerFactory());
         factory.setConcurrency(concurrency);
         factory.getContainerProperties().setAckMode(ContainerProperties.AckMode.MANUAL);
 

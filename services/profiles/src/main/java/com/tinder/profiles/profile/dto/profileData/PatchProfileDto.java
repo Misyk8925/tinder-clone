@@ -1,7 +1,9 @@
 package com.tinder.profiles.profile.dto.profileData;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import com.tinder.profiles.preferences.PreferencesDto;
 import com.tinder.profiles.profile.Profile;
+import jakarta.validation.Valid;
 import jakarta.validation.constraints.*;
 
 /**
@@ -32,13 +34,16 @@ public record PatchProfileDto(
                 regexp = "^[a-zA-ZÀ-ÿ\\s-]+$",
                 message = "city can only contain letters, spaces, and hyphens"
         )
-        String city
+        String city,
+
+        @Valid
+        PreferencesDto preferences
 ) {
     /**
      * Checks if any field is provided
      */
     public boolean hasAnyField() {
-        return name != null || age != null || gender != null || bio != null || city != null;
+        return name != null || age != null || gender != null || bio != null || city != null || preferences != null;
     }
 }
 

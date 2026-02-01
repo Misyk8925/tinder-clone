@@ -79,7 +79,7 @@ class ProfileEventConsumerIntegrationTest {
 
     @Test
     @DisplayName("Should consume and process PREFERENCES change event")
-    void testConsumePreferencesChangeEvent() {
+    void testConsumeProfileUpdatePreferencesChangeEvent() {
         // Given
         UUID profileId = UUID.randomUUID();
         ProfileEvent event = ProfileEvent.builder()
@@ -107,7 +107,7 @@ class ProfileEventConsumerIntegrationTest {
 
     @Test
     @DisplayName("Should consume and process CRITICAL_FIELDS change event")
-    void testConsumeCriticalFieldsChangeEvent() {
+    void testConsumeProfileUpdateCriticalFieldsChangeEvent() {
         // Given
         UUID profileId = UUID.randomUUID();
         ProfileEvent event = ProfileEvent.builder()
@@ -134,7 +134,7 @@ class ProfileEventConsumerIntegrationTest {
 
     @Test
     @DisplayName("Should process multiple events for same profile")
-    void testConsumeMultipleEventsForSameProfile() {
+    void testConsumeProfileUpdateMultipleEventsForSameProfile() {
         // Given
         UUID profileId = UUID.randomUUID();
 
@@ -170,7 +170,7 @@ class ProfileEventConsumerIntegrationTest {
 
     @Test
     @DisplayName("Should process NON_CRITICAL change event")
-    void testConsumeNonCriticalChangeEvent() {
+    void testConsumeProfileUpdateNonCriticalChangeEvent() {
         // Given
         UUID profileId = UUID.randomUUID();
         ProfileEvent event = ProfileEvent.builder()
@@ -196,7 +196,7 @@ class ProfileEventConsumerIntegrationTest {
 
     @Test
     @DisplayName("Should handle multiple events for different profiles concurrently")
-    void testConsumeEventsForDifferentProfiles() {
+    void testConsumeProfileUpdateEventsForDifferentProfiles() {
         // Given
         UUID profileId1 = UUID.randomUUID();
         UUID profileId2 = UUID.randomUUID();

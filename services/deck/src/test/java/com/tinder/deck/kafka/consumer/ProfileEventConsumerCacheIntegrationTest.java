@@ -96,7 +96,7 @@ class ProfileEventConsumerCacheIntegrationTest {
                 .metadata("minAge:18,maxAge:25,gender:FEMALE")
                 .build();
 
-        consumer.consume(event, 0, 1L, mockAck);
+        consumer.consumeProfileUpdate(event, 0, 1L, mockAck);
 
         // Wait for async processing
         Thread.sleep(100);
@@ -135,7 +135,7 @@ class ProfileEventConsumerCacheIntegrationTest {
                 .metadata("minAge:22,maxAge:30,gender:MALE")
                 .build();
 
-        consumer.consume(event, 0, 1L, mockAck);
+        consumer.consumeProfileUpdate(event, 0, 1L, mockAck);
 
         // Wait for async processing
         Thread.sleep(100);
@@ -168,7 +168,7 @@ class ProfileEventConsumerCacheIntegrationTest {
                 .metadata("minAge:22,maxAge:30,gender:MALE")
                 .build();
 
-        consumer.consume(event, 0, 1L, mockAck);
+        consumer.consumeProfileUpdate(event, 0, 1L, mockAck);
 
         // Wait for async processing
         Thread.sleep(100);
@@ -200,7 +200,7 @@ class ProfileEventConsumerCacheIntegrationTest {
                 .timestamp(Instant.now())
                 .build();
 
-        consumer.consume(event, 0, 1L, mockAck);
+        consumer.consumeProfileUpdate(event, 0, 1L, mockAck);
 
         // Wait for async processing
         Thread.sleep(100);
@@ -232,7 +232,7 @@ class ProfileEventConsumerCacheIntegrationTest {
                 .metadata(null)
                 .build();
 
-        consumer.consume(event, 0, 1L, mockAck);
+        consumer.consumeProfileUpdate(event, 0, 1L, mockAck);
 
         // Wait for async processing
         Thread.sleep(100);
@@ -265,7 +265,7 @@ class ProfileEventConsumerCacheIntegrationTest {
                 .metadata("minAge:18,maxAge:25,gender:FEMALE")
                 .build();
 
-        consumer.consume(event, 0, 1L, mockAck);
+        consumer.consumeProfileUpdate(event, 0, 1L, mockAck);
 
         // Wait for async processing
         Thread.sleep(100);

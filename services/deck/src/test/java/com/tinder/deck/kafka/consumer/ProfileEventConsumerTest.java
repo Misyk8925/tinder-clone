@@ -10,7 +10,6 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.kafka.support.Acknowledgment;
-import reactor.core.publisher.Mono;
 
 import java.time.Instant;
 import java.util.Set;
@@ -40,7 +39,7 @@ class ProfileEventConsumerTest {
 
     @Test
     @DisplayName("Should acknowledge PREFERENCES change event without invalidating preferences cache")
-    void testConsumePreferencesChangeEvent() throws InterruptedException {
+    void testConsumeProfileUpdatePreferencesChangeEvent() throws InterruptedException {
         // Given
         ProfileEvent event = ProfileEvent.builder()
                 .eventId(UUID.randomUUID())
@@ -52,7 +51,7 @@ class ProfileEventConsumerTest {
                 .build();
 
         // When
-        consumer.consume(event, 0, 1L, acknowledgment);
+        consumer.consumeProfileUpdate(event, 0, 1L, acknowledgment);
 
         // Wait for async subscribe() to complete
         Thread.sleep(100);
@@ -67,7 +66,7 @@ class ProfileEventConsumerTest {
 
     @Test
     @DisplayName("Should acknowledge CRITICAL_FIELDS change event without invalidating preferences cache")
-    void testConsumeCriticalFieldsChangeEvent() throws InterruptedException {
+    void testConsumeProfileUpdateCriticalFieldsChangeEvent() throws InterruptedException {
         // Given
         ProfileEvent event = ProfileEvent.builder()
                 .eventId(UUID.randomUUID())
@@ -79,7 +78,7 @@ class ProfileEventConsumerTest {
                 .build();
 
         // When
-        consumer.consume(event, 0, 2L, acknowledgment);
+        consumer.consumeProfileUpdate(event, 0, 2L, acknowledgment);
 
         // Wait for async subscribe() operations to complete
         Thread.sleep(200);
@@ -94,7 +93,7 @@ class ProfileEventConsumerTest {
 
     @Test
     @DisplayName("Should acknowledge NON_CRITICAL change event without cache invalidation")
-    void testConsumeNonCriticalChangeEvent() {
+    void testConsumeProfileUpdateNonCriticalChangeEvent() {
         // Given
         ProfileEvent event = ProfileEvent.builder()
                 .eventId(UUID.randomUUID())
@@ -105,7 +104,7 @@ class ProfileEventConsumerTest {
                 .build();
 
         // When
-        consumer.consume(event, 0, 3L, acknowledgment);
+        consumer.consumeProfileUpdate(event, 0, 3L, acknowledgment);
 
         // Then
         verify(acknowledgment, times(1)).acknowledge();
@@ -115,7 +114,7 @@ class ProfileEventConsumerTest {
 
     @Test
     @DisplayName("Should acknowledge event even if exception occurs")
-    void testConsumeWithException() {
+    void testConsumeProfileUpdateWithException() {
         // Given: Create event that might cause issues
         ProfileEvent event = ProfileEvent.builder()
                 .eventId(null) // Potential NPE trigger
@@ -126,7 +125,7 @@ class ProfileEventConsumerTest {
                 .build();
 
         // When
-        consumer.consume(event, 0, 4L, acknowledgment);
+        consumer.consumeProfileUpdate(event, 0, 4L, acknowledgment);
 
         // Then: Should still acknowledge to prevent infinite retry
         verify(acknowledgment, times(1)).acknowledge();
@@ -134,7 +133,7 @@ class ProfileEventConsumerTest {
 
     @Test
     @DisplayName("Should handle missing metadata gracefully")
-    void testConsumeMissingMetadata() {
+    void testConsumeProfileUpdateMissingMetadata() {
         // Given: Event without metadata
         ProfileEvent event = ProfileEvent.builder()
                 .eventId(UUID.randomUUID())
@@ -146,7 +145,7 @@ class ProfileEventConsumerTest {
                 .build();
 
         // When
-        consumer.consume(event, 0, 5L, acknowledgment);
+        consumer.consumeProfileUpdate(event, 0, 5L, acknowledgment);
 
         // Then
         verify(acknowledgment, times(1)).acknowledge();
@@ -158,7 +157,7 @@ class ProfileEventConsumerTest {
 
     @Test
     @DisplayName("Should handle invalid metadata format gracefully")
-    void testConsumeInvalidMetadata() {
+    void testConsumeProfileUpdateInvalidMetadata() {
         // Given: Event with invalid metadata format
         ProfileEvent event = ProfileEvent.builder()
                 .eventId(UUID.randomUUID())
@@ -170,7 +169,7 @@ class ProfileEventConsumerTest {
                 .build();
 
         // When
-        consumer.consume(event, 0, 6L, acknowledgment);
+        consumer.consumeProfileUpdate(event, 0, 6L, acknowledgment);
 
         // Then
         verify(acknowledgment, times(1)).acknowledge();
@@ -180,7 +179,7 @@ class ProfileEventConsumerTest {
 
     @Test
     @DisplayName("Should handle DeckCache errors gracefully")
-    void testConsumeDeckCacheError() {
+    void testConsumeProfileUpdateDeckCacheError() {
 
 
         ProfileEvent event = ProfileEvent.builder()
@@ -193,7 +192,7 @@ class ProfileEventConsumerTest {
                 .build();
 
         // When
-        consumer.consume(event, 0, 7L, acknowledgment);
+        consumer.consumeProfileUpdate(event, 0, 7L, acknowledgment);
 
         // Then: Should still acknowledge
         verify(acknowledgment, times(1)).acknowledge();
@@ -213,7 +212,7 @@ class ProfileEventConsumerTest {
                 .build();
 
         // When
-        consumer.consume(event1, 0, 8L, acknowledgment);
+        consumer.consumeProfileUpdate(event1, 0, 8L, acknowledgment);
 
         // Wait for async subscribe() to complete
         Thread.sleep(100);

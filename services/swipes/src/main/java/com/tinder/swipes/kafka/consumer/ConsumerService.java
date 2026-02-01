@@ -1,6 +1,7 @@
 package com.tinder.swipes.kafka.consumer;
 
 import com.tinder.swipes.kafka.ProfileCreateEvent;
+import com.tinder.swipes.kafka.ProfileDeleteEvent;
 import com.tinder.swipes.kafka.SwipeCreatedEvent;
 import com.tinder.swipes.model.ProfileCacheModel;
 import com.tinder.swipes.model.SwipeRecord;
@@ -31,6 +32,20 @@ public class ConsumerService {
                 .build();
         log.info("Saving profile cache for profileId: {}", profileCacheModel.getProfileId());
         profileCacheRepository.save(profileCacheModel);
+    }
+
+    @Transactional
+    public void deleteProfileCache(ProfileDeleteEvent event) {
+        UUID profileId = event.getProfileId();
+        log.info("Deleting profile cache for profileId: {}", profileId);
+
+        profileCacheRepository.findById(profileId).ifPresentOrElse(
+            profile -> {
+                profileCacheRepository.delete(profile);
+                log.info("Successfully deleted profile cache for profileId: {}", profileId);
+            },
+            () -> log.warn("Profile cache not found for profileId: {}", profileId)
+        );
     }
 
     @Transactional

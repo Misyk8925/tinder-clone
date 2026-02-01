@@ -69,6 +69,7 @@ kafka:
   topics:
     profile-events: profile.updated
     swipe-events: swipe.created
+    delete-events: profile.deleted
 
 # Metrics
 management:

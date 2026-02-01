@@ -1,5 +1,6 @@
 package com.tinder.deck.kafka.consumer;
 
+import com.tinder.deck.kafka.dto.ProfileDeleteEvent;
 import com.tinder.deck.kafka.dto.ProfileEvent;
 import com.tinder.deck.service.DeckCache;
 import lombok.RequiredArgsConstructor;
@@ -23,7 +24,7 @@ public class ProfileEventConsumer {
             groupId = "${spring.kafka.consumer.group-id}",
             containerFactory = "kafkaListenerContainerFactory"
     )
-    public void consume(
+    public void consumeProfileUpdate(
             @Payload ProfileEvent event,
             @Header(KafkaHeaders.RECEIVED_PARTITION) int partition,
             @Header(KafkaHeaders.OFFSET) long offset,
@@ -48,6 +49,50 @@ public class ProfileEventConsumer {
             acknowledgment.acknowledge();
         }
     }
+
+    @KafkaListener(
+            topics = "${kafka.topics.delete-events}",
+            groupId = "${spring.kafka.consumer.group-id}",
+            containerFactory = "deleteKafkaListenerContainerFactory"
+    )
+    public void consumeProfileDeletion(
+            @Payload ProfileDeleteEvent event,
+            @Header(KafkaHeaders.RECEIVED_PARTITION) int partition,
+            @Header(KafkaHeaders.OFFSET) long offset,
+            Acknowledgment acknowledgment
+    ) {
+        log.info("RECEIVED PROFILE DELETION Event: eventId={}, profileId={}, partition={}, offset={}",
+                event.getEventId(), event.getProfileId(), partition, offset);
+
+        try {
+            log.info("Invalidating all decks for deleted profile: {}", event.getProfileId());
+
+            deckCache.markAsStaleForAllDecks(event.getProfileId())
+                    .doOnError(error -> log.error("Failed to mark deleted profile as stale across decks", error))
+                    .subscribe();
+            deckCache.invalidate(event.getProfileId())
+                    .doOnSuccess(count -> {
+                        if (count > 0) {
+                            log.info("Invalidated decks for deleted profile: {}", event.getProfileId());
+                        } else {
+                            log.debug("No decks found for deleted profile: {}", event.getProfileId());
+                        }
+                    })
+                    .doOnError(error -> log.error("Failed to invalidate decks for deleted profile", error))
+                    .subscribe();
+
+            acknowledgment.acknowledge();
+
+            log.debug("Successfully processed Profile Deletion Event: eventId={}", event.getEventId());
+
+        } catch (Exception e) {
+            log.error("Error processing Profile Deletion Event: eventId={}, profileId={}",
+                    event.getEventId(), event.getProfileId(), e);
+            // Acknowledge to prevent infinite retry
+            acknowledgment.acknowledge();
+        }
+    }
+
 
     private void handleProfileEvent(ProfileEvent event) {
         log.info("Handling profile event: profileId={}, changeType={}, fields={}",
@@ -80,15 +125,6 @@ public class ProfileEventConsumer {
         log.info("CRITICAL_FIELDS changed for profile: {}. Invalidating personal deck",
                 event.getProfileId());
 
-        deckCache.invalidate(event.getProfileId())
-                .doOnSuccess(count -> {
-                    if (count > 0) {
-                        log.info("Invalidated personal deck after critical field change: {}",
-                                event.getProfileId());
-                    }
-                })
-                .doOnError(error -> log.error("Failed to invalidate personal deck", error))
-                .subscribe();
 
         deckCache.markAsStaleForAllDecks(event.getProfileId())
                 .doOnError(error -> log.error("Failed to mark profile as stale across decks", error))
