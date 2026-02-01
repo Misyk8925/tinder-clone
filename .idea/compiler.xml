@@ -23,7 +23,7 @@
         </processorPath>
         <module name="profiles" />
       </profile>
-      <profile name="Annotation profile for deck" enabled="true">
+      <profile name="Annotation profile for swipes" enabled="true">
         <sourceOutputDir name="target/generated-sources/annotations" />
         <sourceTestOutputDir name="target/generated-test-sources/test-annotations" />
         <outputRelativeToContentRoot value="true" />
