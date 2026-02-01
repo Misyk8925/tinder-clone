@@ -9,7 +9,7 @@
 
     <!-- Send logs to Logstash -->
     <appender name="LOGSTASH" class="net.logstash.logback.appender.LogstashTcpSocketAppender">
-        <destination>localhost:5000</destination>
+        <destination>localhost:5010</destination>
         <encoder class="net.logstash.logback.encoder.LogstashEncoder">
             <customFields>{"service":"deck"}</customFields>
         </encoder>
