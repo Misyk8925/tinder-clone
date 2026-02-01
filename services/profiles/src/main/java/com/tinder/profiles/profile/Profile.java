@@ -29,7 +29,14 @@ import java.util.UUID;
         @Index(name = "idx_gender", columnList = "gender"),
         @Index(name = "idx_city", columnList = "city"),
         @Index(name = "idx_active_deleted", columnList = "is_active, is_deleted"),
-        @Index(name = "idx_user_id", columnList = "user_id", unique = true)
+        @Index(name = "idx_user_id", columnList = "user_id", unique = true),
+        @Index(name = "idx_search_query",
+                columnList = "is_deleted, age, gender"),
+        @Index(name = "idx_created_at_deleted",
+                columnList = "created_at, is_deleted"),
+        @Index(name = "idx_active_created",
+                columnList = "is_active, created_at"),
+        @Index(name = "idx_name_lower", columnList = "name"),
 })
 @EntityListeners(AuditingEntityListener.class)
 @JsonIgnoreProperties(value = {"hibernateLazyInitializer", "handler"}, ignoreUnknown = true)

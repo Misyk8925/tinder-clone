@@ -1,5 +1,6 @@
 package com.tinder.swipes.model.embedded;
 
+import jakarta.persistence.Column;
 import jakarta.persistence.Embeddable;
 import lombok.*;
 
@@ -13,7 +14,10 @@ import java.util.UUID;
 @Getter
 @Setter
 public class SwipeRecordId implements Serializable {
+
+    @Column(name = "profile1_id", nullable = false)
     private UUID profile1Id;
+    @Column(name = "profile2_id", nullable = false)
     private UUID profile2Id;
 
     @Override

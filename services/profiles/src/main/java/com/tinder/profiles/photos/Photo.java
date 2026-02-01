@@ -12,7 +12,14 @@ import java.util.UUID;
 @Getter
 @Setter
 @Entity
-@Table(name = "photo")
+@Table(name = "photo", indexes = {
+        @Index(name = "idx_photo_profile_id",
+                columnList = "profile_id"),
+        @Index(name = "idx_photo_s3_key",
+                columnList = "s3_key", unique = true),
+        @Index(name = "idx_photo_primary_profile",
+                columnList = "profile_id, is_primary"),
+})
 public class Photo {
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
