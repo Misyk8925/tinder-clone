@@ -7,6 +7,8 @@ server:
   servlet:
     context-path: /api/v1/profiles
 spring:
+  config:
+    import: "optional:file:services/profiles/.env.properties"
   kafka:
     bootstrap-servers: localhost:9092
 
@@ -66,8 +68,10 @@ cloud:
   aws:
     region: eu-north-1
     credentials:
-      access-key: ${AWS_ACCESS_KEY_ID:placeholder}
-      secret-key: ${AWS_SECRET_ACCESS_KEY:placeholder}
+      access-key: ${AWS_ACCESS_KEY_ID:placeholder-access-key}
+      secret-key: ${AWS_SECRET_ACCESS_KEY:placeholder-secret-key}}
+    s3:
+      endpoint: ${AWS_S3_ENDPOINT:}
 
 keycloak:
   auth-server-url: http://localhost:6700

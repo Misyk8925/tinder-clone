@@ -5,7 +5,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
 import javax.imageio.ImageIO;
+import java.awt.*;
 import java.awt.image.BufferedImage;
+import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.util.List;
@@ -14,13 +16,22 @@ import java.util.List;
 public class ImageProcessingService {
 
     /**
-     * Create multiple sizes of an uploaded image
+     * Create multiple sizes of an uploaded image.
+     * Uses pre-read bytes to avoid stream exhaustion issues.
      */
     public ProcessedImages processUploadedImage(MultipartFile file)
             throws IOException {
+        return processUploadedImage(file.getBytes());
+    }
 
-        // Read original image
-        BufferedImage original = ImageIO.read(file.getInputStream());
+    /**
+     * Create multiple sizes from raw image bytes.
+     */
+    public ProcessedImages processUploadedImage(byte[] imageBytes)
+            throws IOException {
+
+        // Read original image from bytes
+        BufferedImage original = ImageIO.read(new ByteArrayInputStream(imageBytes));
 
         // Validate
         if (original == null) {
@@ -83,7 +94,8 @@ public class ImageProcessingService {
     }
 
     /**
-     * Validate image dimensions and type
+     * Validate image dimensions and type.
+     * Now reads bytes once and delegates to byte-based validation.
      */
     public void validateImage(MultipartFile file) throws IOException {
         // Check MIME type
@@ -98,8 +110,17 @@ public class ImageProcessingService {
             throw new IllegalArgumentException("Image too large ("+file.getSize()+" bytes)");
         }
 
+        // Read bytes once and validate - THIS IS THE KEY FIX!
+        byte[] imageBytes = file.getBytes();
+        validateImageBytes(imageBytes);
+    }
+
+    /**
+     * Validate image from raw bytes
+     */
+    public void validateImageBytes(byte[] imageBytes) throws IOException {
         // Verify actual image content
-        BufferedImage img = ImageIO.read(file.getInputStream());
+        BufferedImage img = ImageIO.read(new ByteArrayInputStream(imageBytes));
         if (img == null) {
             throw new IllegalArgumentException("Corrupted image");
         }
@@ -116,7 +137,33 @@ public class ImageProcessingService {
     private byte[] toBytes(BufferedImage image, String format)
             throws IOException {
         ByteArrayOutputStream baos = new ByteArrayOutputStream();
-        ImageIO.write(image, format, baos);
+
+        // If we're converting to JPEG, we need to handle transparency
+        if ("jpg".equals(format) || "jpeg".equals(format)) {
+            // Create a new RGB image if the original has transparency (PNG)
+            if (image.getColorModel().hasAlpha()) {
+                BufferedImage rgbImage = new BufferedImage(
+                        image.getWidth(),
+                        image.getHeight(),
+                        BufferedImage.TYPE_INT_RGB
+                );
+
+                // Fill with white background and draw the original image
+                Graphics2D g2d = rgbImage.createGraphics();
+                g2d.setColor(Color.WHITE);
+                g2d.fillRect(0, 0, image.getWidth(), image.getHeight());
+                g2d.drawImage(image, 0, 0, null);
+                g2d.dispose();
+
+                image = rgbImage;
+            }
+        }
+
+        boolean written = ImageIO.write(image, format, baos);
+        if (!written) {
+            throw new IOException("Failed to write image in format: " + format);
+        }
+
         return baos.toByteArray();
     }
 

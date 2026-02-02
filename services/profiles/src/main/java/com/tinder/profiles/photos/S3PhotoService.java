@@ -71,12 +71,24 @@ public class S3PhotoService {
         String profileId = profile.getProfileId().toString();
         log.info("Processing photo upload for user: {}", profileId);
 
-        // 1. Validate the image first
-        imageProcessingService.validateImage(file);
+        // Read bytes once to avoid stream exhaustion
+        byte[] imageBytes = file.getBytes();
 
-        // 2. Process image into multiple sizes
+        // 1. Validate content type and file size
+        String contentType = file.getContentType();
+        if (!List.of("image/jpeg", "image/png", "image/webp").contains(contentType)) {
+            throw new IllegalArgumentException("Invalid image type" + (contentType == null ? "" : ": " + contentType));
+        }
+        if (file.getSize() > 5 * 1024 * 1024) {
+            throw new IllegalArgumentException("Image too large (" + file.getSize() + " bytes)");
+        }
+
+        // 2. Validate image content and dimensions using bytes
+        imageProcessingService.validateImageBytes(imageBytes);
+
+        // 3. Process image into multiple sizes (using same cached bytes)
         ImageProcessingService.ProcessedImages processed =
-                imageProcessingService.processUploadedImage(file);
+                imageProcessingService.processUploadedImage(imageBytes);
 
         // 3. Generate unique photo ID and S3 keys
         String photoId = UUID.randomUUID().toString();
