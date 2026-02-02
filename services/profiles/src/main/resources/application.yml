@@ -69,7 +69,7 @@ cloud:
     region: eu-north-1
     credentials:
       access-key: ${AWS_ACCESS_KEY_ID:placeholder-access-key}
-      secret-key: ${AWS_SECRET_ACCESS_KEY:placeholder-secret-key}}
+      secret-key: ${AWS_SECRET_ACCESS_KEY:placeholder-secret-key}
     s3:
       endpoint: ${AWS_S3_ENDPOINT:}
 
