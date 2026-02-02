@@ -1,7 +1,7 @@
 package com.tinder.deck.kafka.consumer;
 
 import com.tinder.deck.kafka.dto.ChangeType;
-import com.tinder.deck.kafka.dto.ProfileEvent;
+import com.tinder.deck.kafka.dto.ProfileUpdateEvent;
 import com.tinder.deck.service.DeckCache;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -87,7 +87,7 @@ class ProfileEventConsumerCacheIntegrationTest {
 
         // When: ProfileEvent with PREFERENCES change (user changes their preferences)
         UUID profileId = UUID.randomUUID();
-        ProfileEvent event = ProfileEvent.builder()
+        ProfileUpdateEvent event = ProfileUpdateEvent.builder()
                 .eventId(UUID.randomUUID())
                 .profileId(profileId)
                 .changeType(ChangeType.PREFERENCES)
@@ -126,7 +126,7 @@ class ProfileEventConsumerCacheIntegrationTest {
                 .verifyComplete();
 
         // When: ProfileEvent with PREFERENCES change
-        ProfileEvent event = ProfileEvent.builder()
+        ProfileUpdateEvent event = ProfileUpdateEvent.builder()
                 .eventId(UUID.randomUUID())
                 .profileId(profileId)
                 .changeType(ChangeType.PREFERENCES)
@@ -159,7 +159,7 @@ class ProfileEventConsumerCacheIntegrationTest {
 
         // When: ProfileEvent with CRITICAL_FIELDS change
         UUID profileId = UUID.randomUUID();
-        ProfileEvent event = ProfileEvent.builder()
+        ProfileUpdateEvent event = ProfileUpdateEvent.builder()
                 .eventId(UUID.randomUUID())
                 .profileId(profileId)
                 .changeType(ChangeType.CRITICAL_FIELDS)
@@ -192,7 +192,7 @@ class ProfileEventConsumerCacheIntegrationTest {
 
         // When: ProfileEvent with NON_CRITICAL change
         UUID profileId = UUID.randomUUID();
-        ProfileEvent event = ProfileEvent.builder()
+        ProfileUpdateEvent event = ProfileUpdateEvent.builder()
                 .eventId(UUID.randomUUID())
                 .profileId(profileId)
                 .changeType(ChangeType.NON_CRITICAL)
@@ -223,7 +223,7 @@ class ProfileEventConsumerCacheIntegrationTest {
         deckCache.writeDeck(profileId, deck, java.time.Duration.ofMinutes(60)).block();
 
         // When: ProfileEvent without metadata
-        ProfileEvent event = ProfileEvent.builder()
+        ProfileUpdateEvent event = ProfileUpdateEvent.builder()
                 .eventId(UUID.randomUUID())
                 .profileId(profileId)
                 .changeType(ChangeType.PREFERENCES)
@@ -256,7 +256,7 @@ class ProfileEventConsumerCacheIntegrationTest {
         deckCache.cachePreferencesResult(minAge, maxAge, gender, candidateIds).block();
 
         // When: Candidate changes their age (CRITICAL_FIELDS change)
-        ProfileEvent event = ProfileEvent.builder()
+        ProfileUpdateEvent event = ProfileUpdateEvent.builder()
                 .eventId(UUID.randomUUID())
                 .profileId(candidateId)
                 .changeType(ChangeType.CRITICAL_FIELDS)

@@ -1,7 +1,7 @@
 package com.tinder.deck.kafka.consumer;
 
 import com.tinder.deck.kafka.dto.ChangeType;
-import com.tinder.deck.kafka.dto.ProfileEvent;
+import com.tinder.deck.kafka.dto.ProfileUpdateEvent;
 import com.tinder.deck.service.DeckCache;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -60,7 +60,7 @@ class ProfileEventConsumerIntegrationTest {
     }
 
     @Autowired
-    private KafkaTemplate<String, ProfileEvent> kafkaTemplate;
+    private KafkaTemplate<String, ProfileUpdateEvent> kafkaTemplate;
 
     @Autowired
     private ProfileEventConsumer consumer;
@@ -82,7 +82,7 @@ class ProfileEventConsumerIntegrationTest {
     void testConsumeProfileUpdatePreferencesChangeEvent() {
         // Given
         UUID profileId = UUID.randomUUID();
-        ProfileEvent event = ProfileEvent.builder()
+        ProfileUpdateEvent event = ProfileUpdateEvent.builder()
                 .eventId(UUID.randomUUID())
                 .profileId(profileId)
                 .changeType(ChangeType.PREFERENCES)
@@ -110,7 +110,7 @@ class ProfileEventConsumerIntegrationTest {
     void testConsumeProfileUpdateCriticalFieldsChangeEvent() {
         // Given
         UUID profileId = UUID.randomUUID();
-        ProfileEvent event = ProfileEvent.builder()
+        ProfileUpdateEvent event = ProfileUpdateEvent.builder()
                 .eventId(UUID.randomUUID())
                 .profileId(profileId)
                 .changeType(ChangeType.CRITICAL_FIELDS)
@@ -138,7 +138,7 @@ class ProfileEventConsumerIntegrationTest {
         // Given
         UUID profileId = UUID.randomUUID();
 
-        ProfileEvent event1 = ProfileEvent.builder()
+        ProfileUpdateEvent event1 = ProfileUpdateEvent.builder()
                 .eventId(UUID.randomUUID())
                 .profileId(profileId)
                 .changeType(ChangeType.PREFERENCES)
@@ -146,7 +146,7 @@ class ProfileEventConsumerIntegrationTest {
                 .timestamp(Instant.now())
                 .build();
 
-        ProfileEvent event2 = ProfileEvent.builder()
+        ProfileUpdateEvent event2 = ProfileUpdateEvent.builder()
                 .eventId(UUID.randomUUID())
                 .profileId(profileId)
                 .changeType(ChangeType.CRITICAL_FIELDS)
@@ -173,7 +173,7 @@ class ProfileEventConsumerIntegrationTest {
     void testConsumeProfileUpdateNonCriticalChangeEvent() {
         // Given
         UUID profileId = UUID.randomUUID();
-        ProfileEvent event = ProfileEvent.builder()
+        ProfileUpdateEvent event = ProfileUpdateEvent.builder()
                 .eventId(UUID.randomUUID())
                 .profileId(profileId)
                 .changeType(ChangeType.NON_CRITICAL)
@@ -202,7 +202,7 @@ class ProfileEventConsumerIntegrationTest {
         UUID profileId2 = UUID.randomUUID();
         UUID profileId3 = UUID.randomUUID();
 
-        ProfileEvent event1 = ProfileEvent.builder()
+        ProfileUpdateEvent event1 = ProfileUpdateEvent.builder()
                 .eventId(UUID.randomUUID())
                 .profileId(profileId1)
                 .changeType(ChangeType.PREFERENCES)
@@ -210,7 +210,7 @@ class ProfileEventConsumerIntegrationTest {
                 .timestamp(Instant.now())
                 .build();
 
-        ProfileEvent event2 = ProfileEvent.builder()
+        ProfileUpdateEvent event2 = ProfileUpdateEvent.builder()
                 .eventId(UUID.randomUUID())
                 .profileId(profileId2)
                 .changeType(ChangeType.CRITICAL_FIELDS)
@@ -218,7 +218,7 @@ class ProfileEventConsumerIntegrationTest {
                 .timestamp(Instant.now())
                 .build();
 
-        ProfileEvent event3 = ProfileEvent.builder()
+        ProfileUpdateEvent event3 = ProfileUpdateEvent.builder()
                 .eventId(UUID.randomUUID())
                 .profileId(profileId3)
                 .changeType(ChangeType.PREFERENCES)

@@ -1,7 +1,7 @@
 package com.tinder.deck.kafka.config;
 
 import com.tinder.deck.kafka.dto.ProfileDeleteEvent;
-import com.tinder.deck.kafka.dto.ProfileEvent;
+import com.tinder.deck.kafka.dto.ProfileUpdateEvent;
 import com.tinder.deck.kafka.dto.SwipeCreatedEvent;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.common.serialization.StringDeserializer;
@@ -38,14 +38,14 @@ public class KafkaConsumerConfig {
      * Consumer factory for ProfileEvent deserialization
      */
     @Bean
-    public ConsumerFactory<String, ProfileEvent> profileEventConsumerFactory() {
+    public ConsumerFactory<String, ProfileUpdateEvent> profileEventConsumerFactory() {
         Map<String, Object> props = new HashMap<>();
         props.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers);
         props.put(ConsumerConfig.GROUP_ID_CONFIG, groupId);
         props.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class);
         props.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, JsonDeserializer.class);
         props.put(JsonDeserializer.TRUSTED_PACKAGES, "com.tinder.deck.kafka.dto");
-        props.put(JsonDeserializer.VALUE_DEFAULT_TYPE, ProfileEvent.class.getName());
+        props.put(JsonDeserializer.VALUE_DEFAULT_TYPE, ProfileUpdateEvent.class.getName());
         props.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest");
 
         // Performance tuning
@@ -104,8 +104,8 @@ public class KafkaConsumerConfig {
      * Listener container factory with manual acknowledgment
      */
     @Bean
-    public ConcurrentKafkaListenerContainerFactory<String, ProfileEvent> kafkaListenerContainerFactory() {
-        ConcurrentKafkaListenerContainerFactory<String, ProfileEvent> factory =
+    public ConcurrentKafkaListenerContainerFactory<String, ProfileUpdateEvent> kafkaListenerContainerFactory() {
+        ConcurrentKafkaListenerContainerFactory<String, ProfileUpdateEvent> factory =
                 new ConcurrentKafkaListenerContainerFactory<>();
         factory.setConsumerFactory(profileEventConsumerFactory());
         factory.setConcurrency(concurrency);

@@ -1,7 +1,7 @@
 package com.tinder.deck.kafka.consumer;
 
 import com.tinder.deck.kafka.dto.ChangeType;
-import com.tinder.deck.kafka.dto.ProfileEvent;
+import com.tinder.deck.kafka.dto.ProfileUpdateEvent;
 import com.tinder.deck.service.DeckCache;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -41,7 +41,7 @@ class ProfileEventConsumerTest {
     @DisplayName("Should acknowledge PREFERENCES change event without invalidating preferences cache")
     void testConsumeProfileUpdatePreferencesChangeEvent() throws InterruptedException {
         // Given
-        ProfileEvent event = ProfileEvent.builder()
+        ProfileUpdateEvent event = ProfileUpdateEvent.builder()
                 .eventId(UUID.randomUUID())
                 .profileId(UUID.randomUUID())
                 .changeType(ChangeType.PREFERENCES)
@@ -68,7 +68,7 @@ class ProfileEventConsumerTest {
     @DisplayName("Should acknowledge CRITICAL_FIELDS change event without invalidating preferences cache")
     void testConsumeProfileUpdateCriticalFieldsChangeEvent() throws InterruptedException {
         // Given
-        ProfileEvent event = ProfileEvent.builder()
+        ProfileUpdateEvent event = ProfileUpdateEvent.builder()
                 .eventId(UUID.randomUUID())
                 .profileId(UUID.randomUUID())
                 .changeType(ChangeType.CRITICAL_FIELDS)
@@ -95,7 +95,7 @@ class ProfileEventConsumerTest {
     @DisplayName("Should acknowledge NON_CRITICAL change event without cache invalidation")
     void testConsumeProfileUpdateNonCriticalChangeEvent() {
         // Given
-        ProfileEvent event = ProfileEvent.builder()
+        ProfileUpdateEvent event = ProfileUpdateEvent.builder()
                 .eventId(UUID.randomUUID())
                 .profileId(UUID.randomUUID())
                 .changeType(ChangeType.NON_CRITICAL)
@@ -116,7 +116,7 @@ class ProfileEventConsumerTest {
     @DisplayName("Should acknowledge event even if exception occurs")
     void testConsumeProfileUpdateWithException() {
         // Given: Create event that might cause issues
-        ProfileEvent event = ProfileEvent.builder()
+        ProfileUpdateEvent event = ProfileUpdateEvent.builder()
                 .eventId(null) // Potential NPE trigger
                 .profileId(UUID.randomUUID())
                 .changeType(ChangeType.PREFERENCES)
@@ -135,7 +135,7 @@ class ProfileEventConsumerTest {
     @DisplayName("Should handle missing metadata gracefully")
     void testConsumeProfileUpdateMissingMetadata() {
         // Given: Event without metadata
-        ProfileEvent event = ProfileEvent.builder()
+        ProfileUpdateEvent event = ProfileUpdateEvent.builder()
                 .eventId(UUID.randomUUID())
                 .profileId(UUID.randomUUID())
                 .changeType(ChangeType.PREFERENCES)
@@ -159,7 +159,7 @@ class ProfileEventConsumerTest {
     @DisplayName("Should handle invalid metadata format gracefully")
     void testConsumeProfileUpdateInvalidMetadata() {
         // Given: Event with invalid metadata format
-        ProfileEvent event = ProfileEvent.builder()
+        ProfileUpdateEvent event = ProfileUpdateEvent.builder()
                 .eventId(UUID.randomUUID())
                 .profileId(UUID.randomUUID())
                 .changeType(ChangeType.PREFERENCES)
@@ -182,7 +182,7 @@ class ProfileEventConsumerTest {
     void testConsumeProfileUpdateDeckCacheError() {
 
 
-        ProfileEvent event = ProfileEvent.builder()
+        ProfileUpdateEvent event = ProfileUpdateEvent.builder()
                 .eventId(UUID.randomUUID())
                 .profileId(UUID.randomUUID())
                 .changeType(ChangeType.PREFERENCES)
@@ -202,7 +202,7 @@ class ProfileEventConsumerTest {
     @DisplayName("Should invalidate only personal deck for PREFERENCES change (not preferences cache)")
     void testPreferencesParsingVariations() throws InterruptedException {
         // Given: User changes their preferences
-        ProfileEvent event1 = ProfileEvent.builder()
+        ProfileUpdateEvent event1 = ProfileUpdateEvent.builder()
                 .eventId(UUID.randomUUID())
                 .profileId(UUID.randomUUID())
                 .changeType(ChangeType.PREFERENCES)

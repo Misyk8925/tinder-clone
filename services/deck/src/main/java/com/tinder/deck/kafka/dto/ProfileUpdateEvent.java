@@ -12,7 +12,7 @@ import java.util.UUID;
 
 @Value
 @Builder
-public class ProfileEvent {
+public class ProfileUpdateEvent {
 
     UUID eventId;
 
@@ -30,7 +30,7 @@ public class ProfileEvent {
     String metadata;
 
     @JsonCreator
-    public ProfileEvent(
+    public ProfileUpdateEvent(
             @JsonProperty("eventId") UUID eventId,
             @JsonProperty("profileId") UUID profileId,
             @JsonProperty("changeType") ChangeType changeType,

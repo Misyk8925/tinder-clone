@@ -1,7 +1,7 @@
 package com.tinder.deck.kafka.consumer;
 
 import com.tinder.deck.kafka.dto.ProfileDeleteEvent;
-import com.tinder.deck.kafka.dto.ProfileEvent;
+import com.tinder.deck.kafka.dto.ProfileUpdateEvent;
 import com.tinder.deck.service.DeckCache;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -25,7 +25,7 @@ public class ProfileEventConsumer {
             containerFactory = "kafkaListenerContainerFactory"
     )
     public void consumeProfileUpdate(
-            @Payload ProfileEvent event,
+            @Payload ProfileUpdateEvent event,
             @Header(KafkaHeaders.RECEIVED_PARTITION) int partition,
             @Header(KafkaHeaders.OFFSET) long offset,
             Acknowledgment acknowledgment
@@ -34,7 +34,7 @@ public class ProfileEventConsumer {
                 event.getEventId(), event.getProfileId(), event.getChangeType(), partition, offset);
 
         try {
-            handleProfileEvent(event);
+            handleProfileUpdateEvent(event);
 
             acknowledgment.acknowledge();
 
@@ -94,7 +94,7 @@ public class ProfileEventConsumer {
     }
 
 
-    private void handleProfileEvent(ProfileEvent event) {
+    private void handleProfileUpdateEvent(ProfileUpdateEvent event) {
         log.info("Handling profile event: profileId={}, changeType={}, fields={}",
                 event.getProfileId(), event.getChangeType(), event.getChangedFields());
 
@@ -106,7 +106,7 @@ public class ProfileEventConsumer {
         }
     }
 
-    private void handlePreferencesChange(ProfileEvent event) {
+    private void handlePreferencesChange(ProfileUpdateEvent event) {
         log.info("PREFERENCES changed for profile: {}. Invalidating personal deck only", event.getProfileId());
 
         deckCache.invalidate(event.getProfileId())
@@ -121,7 +121,7 @@ public class ProfileEventConsumer {
                 .subscribe();
     }
 
-    private void handleCriticalFieldsChange(ProfileEvent event) {
+    private void handleCriticalFieldsChange(ProfileUpdateEvent event) {
         log.info("CRITICAL_FIELDS changed for profile: {}. Invalidating personal deck",
                 event.getProfileId());
 
@@ -134,7 +134,7 @@ public class ProfileEventConsumer {
                  "Stale data acceptable for up to 5 minutes.");
     }
 
-    private void handleNonCriticalChange(ProfileEvent event) {
+    private void handleNonCriticalChange(ProfileUpdateEvent event) {
         log.debug("NON_CRITICAL changes for profile: {}. No cache invalidation required",
                 event.getProfileId());
         // No action needed - changes don't affect deck eligibility

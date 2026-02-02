@@ -1,6 +1,6 @@
 package com.tinder.deck.kafka.config;
 
-import com.tinder.deck.kafka.dto.ProfileEvent;
+import com.tinder.deck.kafka.dto.ProfileUpdateEvent;
 import com.tinder.deck.kafka.dto.SwipeCreatedEvent;
 import org.apache.kafka.clients.producer.ProducerConfig;
 import org.apache.kafka.common.serialization.StringSerializer;
@@ -29,7 +29,7 @@ public class KafkaProducerConfig {
      * Producer factory for ProfileEvent serialization
      */
     @Bean
-    public ProducerFactory<String, ProfileEvent> profileEventProducerFactory() {
+    public ProducerFactory<String, ProfileUpdateEvent> profileEventProducerFactory() {
         Map<String, Object> props = new HashMap<>();
         props.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers);
         props.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, StringSerializer.class);
@@ -42,7 +42,7 @@ public class KafkaProducerConfig {
      * KafkaTemplate for sending ProfileEvent messages
      */
     @Bean
-    public KafkaTemplate<String, ProfileEvent> kafkaTemplate() {
+    public KafkaTemplate<String, ProfileUpdateEvent> kafkaTemplate() {
         return new KafkaTemplate<>(profileEventProducerFactory());
     }
 
