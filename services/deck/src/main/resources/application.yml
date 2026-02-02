@@ -38,6 +38,22 @@ deck:
   ttl-minutes: 60
   per-user-limit: 500
   search-limit: 2000
+  clients:
+    profiles:
+      timeout-ms: 1500
+      retry:
+        max-attempts: 2
+        backoff-ms: 200
+    swipes:
+      timeout-ms: 1500
+      retry:
+        max-attempts: 2
+        backoff-ms: 200
+  redis:
+    timeout-ms: 200
+    retry:
+      max-attempts: 1
+      backoff-ms: 50
 
   # Preferences Cache Configuration
   # Optimizes batch rebuilds by sharing candidate queries across users with same preferences
@@ -89,3 +105,38 @@ management:
 logging:
   level:
     com.tinder.deck.adapters: DEBUG
+
+resilience4j:
+  circuitbreaker:
+    configs:
+      default:
+        slidingWindowType: COUNT_BASED
+        slidingWindowSize: 50
+        minimumNumberOfCalls: 20
+        failureRateThreshold: 50
+        slowCallRateThreshold: 50
+        slowCallDurationThreshold: 2s
+        waitDurationInOpenState: 20s
+        permittedNumberOfCallsInHalfOpenState: 5
+        automaticTransitionFromOpenToHalfOpenEnabled: true
+    instances:
+      profilesClient:
+        baseConfig: default
+        slowCallDurationThreshold: 1s
+      swipesClient:
+        baseConfig: default
+        slowCallDurationThreshold: 1s
+      redisCache:
+        baseConfig: default
+        slowCallDurationThreshold: 200ms
+  bulkhead:
+    instances:
+      profilesClient:
+        maxConcurrentCalls: 40
+        maxWaitDuration: 0
+      swipesClient:
+        maxConcurrentCalls: 30
+        maxWaitDuration: 0
+      redisCache:
+        maxConcurrentCalls: 60
+        maxWaitDuration: 0

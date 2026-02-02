@@ -66,6 +66,7 @@ app:
     country-codes:  "de,at,pl"
     timeout-ms: 5000
     retries: 3
+    retry-backoff-ms: 400
 
 cloud:
   aws:
@@ -88,3 +89,26 @@ kafka:
       updated: profile.updated
       created: profile.created
       deleted: profile.deleted
+
+resilience4j:
+  circuitbreaker:
+    configs:
+      default:
+        slidingWindowType: COUNT_BASED
+        slidingWindowSize: 30
+        minimumNumberOfCalls: 10
+        failureRateThreshold: 50
+        slowCallRateThreshold: 50
+        slowCallDurationThreshold: 2s
+        waitDurationInOpenState: 30s
+        permittedNumberOfCallsInHalfOpenState: 5
+        automaticTransitionFromOpenToHalfOpenEnabled: true
+    instances:
+      nominatimClient:
+        baseConfig: default
+        slowCallDurationThreshold: 1500ms
+  bulkhead:
+    instances:
+      nominatimClient:
+        maxConcurrentCalls: 20
+        maxWaitDuration: 0
