@@ -11,10 +11,15 @@ public enum ChangeType {
     PREFERENCES,
 
     /**
-     * Changes to critical profile fields (age, gender, location, photos)
+     * Changes to critical profile fields (age, gender, photos)
      * Profile should be marked as stale in other users' decks
      */
     CRITICAL_FIELDS,
+
+    /**
+     * Location updates that affect both the owner's deck and viewers' decks.
+     */
+    LOCATION_CHANGE,
 
     /**
      * Non-critical changes (bio, name, etc.)

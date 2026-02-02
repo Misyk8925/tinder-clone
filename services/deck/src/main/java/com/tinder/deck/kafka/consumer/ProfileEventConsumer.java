@@ -101,6 +101,7 @@ public class ProfileEventConsumer {
         switch (event.getChangeType()) {
             case PREFERENCES -> handlePreferencesChange(event);
             case CRITICAL_FIELDS -> handleCriticalFieldsChange(event);
+            case LOCATION_CHANGE -> handleLocationChange(event);
             case NON_CRITICAL -> handleNonCriticalChange(event);
             default -> log.warn("Unknown change type: {}", event.getChangeType());
         }
@@ -132,6 +133,26 @@ public class ProfileEventConsumer {
 
         log.debug("Preferences caches will expire naturally via TTL. " +
                  "Stale data acceptable for up to 5 minutes.");
+    }
+
+    private void handleLocationChange(ProfileUpdateEvent event) {
+        log.info("LOCATION_CHANGE for profile: {}. Invalidating personal deck and marking stale for viewers",
+                event.getProfileId());
+
+        deckCache.invalidate(event.getProfileId())
+                .doOnSuccess(count -> {
+                    if (count > 0) {
+                        log.info("Invalidated personal deck for profile: {}", event.getProfileId());
+                    } else {
+                        log.debug("No personal deck found for profile: {}", event.getProfileId());
+                    }
+                })
+                .doOnError(error -> log.error("Failed to invalidate personal deck after location change", error))
+                .subscribe();
+
+        deckCache.markAsStaleForAllDecks(event.getProfileId())
+                .doOnError(error -> log.error("Failed to mark profile as stale across decks after location change", error))
+                .subscribe();
     }
 
     private void handleNonCriticalChange(ProfileUpdateEvent event) {

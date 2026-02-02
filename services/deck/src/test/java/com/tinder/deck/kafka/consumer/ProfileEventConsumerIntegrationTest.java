@@ -213,7 +213,7 @@ class ProfileEventConsumerIntegrationTest {
         ProfileUpdateEvent event2 = ProfileUpdateEvent.builder()
                 .eventId(UUID.randomUUID())
                 .profileId(profileId2)
-                .changeType(ChangeType.CRITICAL_FIELDS)
+                .changeType(ChangeType.LOCATION_CHANGE)
                 .changedFields(Set.of("location"))
                 .timestamp(Instant.now())
                 .build();

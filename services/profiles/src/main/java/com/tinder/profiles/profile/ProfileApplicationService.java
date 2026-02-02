@@ -390,17 +390,22 @@ public class ProfileApplicationService {
      * Determine the type of change based on changed fields
      *
      * Priority order:
-     * 1. PREFERENCES - if preferences changed
-     * 2. CRITICAL_FIELDS - if age, gender, or city changed
-     * 3. NON_CRITICAL - for name, bio changes
+     * 1. LOCATION_CHANGE - if city changed (superset: affects both the owner's deck and viewers' decks)
+     * 2. PREFERENCES - if preferences changed
+     * 3. CRITICAL_FIELDS - if age or gender changed
+     * 4. NON_CRITICAL - for name, bio changes
      */
     private ChangeType determineChangeType(Set<String> changedFields, boolean preferencesChanged) {
+        if (changedFields.contains("city")) {
+            return ChangeType.LOCATION_CHANGE;
+        }
+
         if (preferencesChanged) {
             return ChangeType.PREFERENCES;
         }
 
         // Critical fields that affect matching
-        Set<String> criticalFields = Set.of("age", "gender", "city");
+        Set<String> criticalFields = Set.of("age", "gender");
         for (String field : changedFields) {
             if (criticalFields.contains(field)) {
                 return ChangeType.CRITICAL_FIELDS;
@@ -440,4 +445,3 @@ public class ProfileApplicationService {
         }
     }
 }
-

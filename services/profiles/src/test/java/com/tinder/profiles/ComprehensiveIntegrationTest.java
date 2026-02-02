@@ -634,8 +634,11 @@ public class ComprehensiveIntegrationTest {
         log.info("STEP 3.5: Updating Profiles (Mid-Wait)");
         log.info("========================================");
 
-        int profilesToUpdate = Math.min(15, createdProfiles.size());
-        log.info("Will update {} profiles out of {} to test all ChangeTypes", profilesToUpdate, createdProfiles.size());
+        int maxUpdates = Math.min(15, createdProfiles.size());
+        int locationUpdatesTarget = Math.min(2, maxUpdates);
+        int profilesToUpdate = maxUpdates - locationUpdatesTarget;
+        log.info("Will update {} profiles out of {} to test all ChangeTypes (plus {} location changes)",
+                profilesToUpdate, createdProfiles.size(), locationUpdatesTarget);
 
         // Reset Kafka event collector to count only new update events
         int beforeUpdateEvents = kafkaEventCollector.getProfileUpdatedEvents().size();
@@ -645,6 +648,8 @@ public class ComprehensiveIntegrationTest {
         int preferencesUpdates = 0;
         int criticalFieldsUpdates = 0;
         int nonCriticalUpdates = 0;
+        int locationUpdates = 0;
+        Set<UUID> locationUpdatedProfileIds = new HashSet<>();
 
         for (int i = 0; i < profilesToUpdate; i++) {
             ProfileTestData profile = createdProfiles.get(i);
@@ -653,7 +658,7 @@ public class ComprehensiveIntegrationTest {
                 String patchJson;
                 String updateType;
 
-                // Test all three types of updates
+                // Test baseline update types
                 int updateTypeIndex = i % 3;
 
                 if (updateTypeIndex == 0) {
@@ -710,17 +715,46 @@ public class ComprehensiveIntegrationTest {
 
                 profilesUpdated++;
                 log.info("[{}/{}] ✓ Updated profile: {} (ChangeType: {})",
-                        i + 1, profilesToUpdate, profile.firstName, updateType);
+                        i + 1, maxUpdates, profile.firstName, updateType);
 
             } catch (Exception e) {
                 log.error("[{}/{}] ✗ Failed to update profile: {}",
-                        i + 1, profilesToUpdate, profile.firstName, e);
+                        i + 1, maxUpdates, profile.firstName, e);
             }
         }
 
-        log.info("✓ Successfully updated {}/{} profiles", profilesUpdated, profilesToUpdate);
-        log.info("  Updates by type - PREFERENCES: {}, CRITICAL_FIELDS: {}, NON_CRITICAL: {}",
-            preferencesUpdates, criticalFieldsUpdates, nonCriticalUpdates);
+        for (int i = 0; i < locationUpdatesTarget; i++) {
+            ProfileTestData profile = createdProfiles.get(profilesToUpdate + i);
+
+            try {
+                // City validation disallows digits; keep test values simple and deterministic.
+                String newCity = (i % 2 == 0) ? "Munich" : "Hamburg";
+                String patchJson = String.format("""
+                        {
+                            "city": "%s"
+                        }""", newCity);
+
+                mockMvc.perform(patch("")
+                                .content(patchJson)
+                                .header("Authorization", "Bearer " + profile.token)
+                                .contentType(MediaType.APPLICATION_JSON))
+                        .andExpect(status().isOk());
+
+                profilesUpdated++;
+                locationUpdates++;
+                locationUpdatedProfileIds.add(UUID.fromString(profile.profileId));
+                log.info("[{}/{}] ✓ Updated profile: {} (ChangeType: LOCATION_CHANGE)",
+                        profilesToUpdate + i + 1, maxUpdates, profile.firstName);
+
+            } catch (Exception e) {
+                log.error("[{}/{}] ✗ Failed to update profile: {}",
+                        profilesToUpdate + i + 1, maxUpdates, profile.firstName, e);
+            }
+        }
+
+        log.info("✓ Successfully updated {}/{} profiles", profilesUpdated, maxUpdates);
+        log.info("  Updates by type - PREFERENCES: {}, CRITICAL_FIELDS: {}, NON_CRITICAL: {}, LOCATION_CHANGE: {}",
+            preferencesUpdates, criticalFieldsUpdates, nonCriticalUpdates, locationUpdates);
 
         // Wait for Kafka events with timeout
         log.info("Waiting for ProfileUpdatedEvent messages...");
@@ -759,6 +793,8 @@ public class ComprehensiveIntegrationTest {
         int preferencesEvents = 0;
         int criticalFieldsEvents = 0;
         int nonCriticalEvents = 0;
+        int locationChangeEvents = 0;
+        Set<UUID> locationChangeProfileIds = new HashSet<>();
 
         for (int i = 0; i < updateEvents.size(); i++) {
             com.tinder.profiles.kafka.dto.ProfileUpdatedEvent event = updateEvents.get(i);
@@ -785,6 +821,12 @@ public class ComprehensiveIntegrationTest {
                     case PREFERENCES -> preferencesEvents++;
                     case CRITICAL_FIELDS -> criticalFieldsEvents++;
                     case NON_CRITICAL -> nonCriticalEvents++;
+                    case LOCATION_CHANGE -> {
+                        locationChangeEvents++;
+                        if (event.getProfileId() != null) {
+                            locationChangeProfileIds.add(event.getProfileId());
+                        }
+                    }
                 }
             }
 
@@ -804,9 +846,9 @@ public class ComprehensiveIntegrationTest {
                         }
                         case CRITICAL_FIELDS -> {
                             boolean hasCriticalField = event.getChangedFields().stream()
-                                    .anyMatch(field -> field.equals("age") || field.equals("gender") || field.equals("city"));
+                                    .anyMatch(field -> field.equals("age") || field.equals("gender"));
                             if (!hasCriticalField) {
-                                log.warn("  [Event {}] CRITICAL_FIELDS changeType should contain at least one critical field (age/gender/city): {}",
+                                log.warn("  [Event {}] CRITICAL_FIELDS changeType should contain at least one critical field (age/gender): {}",
                                         i + 1, event.getChangedFields());
                             }
                         }
@@ -816,6 +858,12 @@ public class ComprehensiveIntegrationTest {
                                                field.equals("city") || field.equals("preferences"));
                             if (!hasOnlyNonCritical) {
                                 log.warn("  [Event {}] NON_CRITICAL changeType should only contain non-critical fields (name/bio): {}",
+                                        i + 1, event.getChangedFields());
+                            }
+                        }
+                        case LOCATION_CHANGE -> {
+                            if (!event.getChangedFields().contains("city")) {
+                                log.warn("  [Event {}] LOCATION_CHANGE changeType should contain 'city' field: {}",
                                         i + 1, event.getChangedFields());
                             }
                         }
@@ -845,13 +893,14 @@ public class ComprehensiveIntegrationTest {
         log.info("    - PREFERENCES: {}", preferencesEvents);
         log.info("    - CRITICAL_FIELDS: {}", criticalFieldsEvents);
         log.info("    - NON_CRITICAL: {}", nonCriticalEvents);
+        log.info("    - LOCATION_CHANGE: {}", locationChangeEvents);
 
         // Assertions
         assertThat(validEvents)
             .as("All ProfileUpdatedEvent should be valid")
             .isEqualTo(newEvents);
 
-        // Verify we have all three types of change events
+        // Verify we have all change event types
         assertThat(preferencesEvents)
             .as("Should have PREFERENCES change events")
             .isGreaterThan(0);
@@ -863,6 +912,14 @@ public class ComprehensiveIntegrationTest {
         assertThat(nonCriticalEvents)
             .as("Should have NON_CRITICAL change events")
             .isGreaterThan(0);
+
+        assertThat(locationChangeEvents)
+            .as("Should have LOCATION_CHANGE events")
+            .isGreaterThanOrEqualTo(locationUpdates);
+
+        assertThat(locationChangeProfileIds)
+            .as("Should have LOCATION_CHANGE events for all profiles patched with city")
+            .containsAll(locationUpdatedProfileIds);
 
         log.info("✓ All ProfileUpdatedEvent validations passed");
         log.info("========================================");
