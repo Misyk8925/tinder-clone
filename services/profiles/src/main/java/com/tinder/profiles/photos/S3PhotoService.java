@@ -23,6 +23,7 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 
 @Slf4j
@@ -45,6 +46,15 @@ public class S3PhotoService {
     @Value("5")
     private int maxPhotosPerProfile;
 
+    @Value("${app.cloudfront.domain}")
+    private String cloudfrontDomain;
+
+    @Value("${app.cloudfront.enabled:false}")
+    private boolean cloudfrontEnabled;
+
+    @Value("${cloud.aws.region}")
+    private String region;
+
 
 
     public PhotoUrls uploadProfilePhoto(MultipartFile file, Profile profile, String position) throws IOException {
@@ -60,8 +70,28 @@ public class S3PhotoService {
         if (iPosition < existingPhotos.size()) {
             // Replace existing photo at this position
             Photo toReplace = existingPhotos.get(iPosition);
-            String[] parts = toReplace.getS3Key().split("/");
-            delete(parts[parts.length-1], UUID.fromString(profile.getUserId()));
+
+            log.debug("Replacing photo at position {}, Photo ID: {}, S3 key: {}",
+                     iPosition, toReplace.getPhotoID(), toReplace.getS3Key());
+
+            // Primary method: Use the Photo's UUID directly
+            String photoId = toReplace.getPhotoID().toString();
+            log.debug("Using photoId from database: {}", photoId);
+
+            delete(photoId, UUID.fromString(profile.getUserId()));
+
+            // Fallback method: Also delete based on s3Key path to handle legacy records
+            try {
+                String s3KeyPhotoId = extractPhotoIdFromS3Key(toReplace.getS3Key());
+                if (!s3KeyPhotoId.equals(photoId)) {
+                    log.info("S3 key contains different photoId: {}, also deleting it", s3KeyPhotoId);
+                    delete(s3KeyPhotoId, UUID.fromString(profile.getUserId()));
+                }
+            } catch (Exception e) {
+                log.warn("Could not extract photoId from s3Key: {}, continuing with database photoId only",
+                        toReplace.getS3Key(), e);
+            }
+
             photoRepository.delete(toReplace);
         } else if (iPosition > existingPhotos.size()) {
             if (iPosition> maxPhotosPerProfile - 1) {
@@ -70,6 +100,9 @@ public class S3PhotoService {
         }
         String profileId = profile.getProfileId().toString();
         log.info("Processing photo upload for user: {}", profileId);
+
+        // Clean up any orphaned photos before processing new upload
+        cleanupOrphanedPhotos(UUID.fromString(profileId));
 
         // Read bytes once to avoid stream exhaustion
         byte[] imageBytes = file.getBytes();
@@ -204,7 +237,14 @@ public class S3PhotoService {
      * Generate public S3 URL
      */
     private String getPublicUrl(String key) {
-        return String.format("https://%s.s3.amazonaws.com/%s", bucket, key);
+        if (cloudfrontEnabled && !cloudfrontDomain.isEmpty()) {
+            // Use CloudFront URL
+            return cloudfrontDomain + "/" + key;
+        } else {
+            // Fallback to S3 URL
+            return String.format("https://%s.s3.%s.amazonaws.com/%s",
+                    bucket, region, key);
+        }
     }
 
     /**
@@ -246,6 +286,7 @@ public class S3PhotoService {
      * Delete photo from S3 (deletes all versions if using new structure)
      */
     public void delete(String photoId, UUID userId) {
+        log.info("Deleting photo {} for user {}", photoId, userId);
         String baseKey = String.format("photos/%s/%s", userId, photoId);
 
         // Delete all versions
@@ -255,6 +296,57 @@ public class S3PhotoService {
         deleteFromS3(baseKey + "/small.jpg");
 
         log.info("Deleted all versions of photo {} for user {}", photoId, userId);
+    }
+
+    /**
+     * Clean up all orphaned photos for a user
+     * This method lists all S3 objects for a user and deletes those not in database
+     */
+    public void cleanupOrphanedPhotos(UUID userId) {
+        try {
+            log.info("Cleaning up orphaned photos for user: {}", userId);
+
+            // Get all photos for user from database
+            List<Photo> dbPhotos = photoRepository.findAllByProfile_ProfileId(userId);
+            Set<String> validPhotoIds = dbPhotos.stream()
+                .map(photo -> photo.getPhotoID().toString())
+                .collect(java.util.stream.Collectors.toSet());
+
+            // List all objects in S3 for this user
+            String userPrefix = String.format("photos/%s/", userId);
+
+            software.amazon.awssdk.services.s3.model.ListObjectsV2Request listRequest =
+                software.amazon.awssdk.services.s3.model.ListObjectsV2Request.builder()
+                    .bucket(bucket)
+                    .prefix(userPrefix)
+                    .build();
+
+            software.amazon.awssdk.services.s3.model.ListObjectsV2Response listResponse =
+                s3Client.listObjectsV2(listRequest);
+
+            int deletedCount = 0;
+            Set<String> processedPhotoIds = new java.util.HashSet<>();
+
+            for (software.amazon.awssdk.services.s3.model.S3Object s3Object : listResponse.contents()) {
+                String key = s3Object.key();
+                // Extract photoId from key: photos/userId/photoId/filename.jpg
+                String[] parts = key.split("/");
+                if (parts.length >= 3) {
+                    String s3PhotoId = parts[2];
+                    if (!validPhotoIds.contains(s3PhotoId) && !processedPhotoIds.contains(s3PhotoId)) {
+                        log.info("Found orphaned photo {} for user {}, deleting", s3PhotoId, userId);
+                        delete(s3PhotoId, userId);
+                        deletedCount++;
+                        processedPhotoIds.add(s3PhotoId);
+                    }
+                }
+            }
+
+            log.info("Cleanup completed for user {}: deleted {} orphaned photos", userId, deletedCount);
+
+        } catch (Exception e) {
+            log.error("Failed to cleanup orphaned photos for user {}", userId, e);
+        }
     }
 
     /**
@@ -279,6 +371,51 @@ public class S3PhotoService {
     public int getPhotoCountForUser(String userId) {
         UUID uuid = UUID.fromString(userId);
         return photoRepository.countByProfile_ProfileId(uuid);
+    }
+
+    /**
+     * Extract photo ID from S3 key or URL
+     * Handles both formats:
+     * - S3 key: "photos/userId/photoId/medium.jpg"
+     * - CloudFront URL: "https://domain.cloudfront.net/photos/userId/photoId/medium.jpg"
+     * - S3 URL: "https://bucket.s3.region.amazonaws.com/photos/userId/photoId/medium.jpg"
+     */
+    private String extractPhotoIdFromS3Key(String s3KeyOrUrl) {
+        if (s3KeyOrUrl == null || s3KeyOrUrl.isEmpty()) {
+            throw new IllegalArgumentException("S3 key or URL cannot be null or empty");
+        }
+
+        log.debug("Extracting photoId from: {}", s3KeyOrUrl);
+
+        // Remove protocol and domain if it's a full URL
+        String path = s3KeyOrUrl;
+        if (s3KeyOrUrl.startsWith("http")) {
+            try {
+                java.net.URL url = new java.net.URL(s3KeyOrUrl);
+                path = url.getPath();
+                // Remove leading slash from path
+                if (path.startsWith("/")) {
+                    path = path.substring(1);
+                }
+                log.debug("Converted URL to path: {}", path);
+            } catch (java.net.MalformedURLException e) {
+                throw new IllegalArgumentException("Invalid URL format: " + s3KeyOrUrl, e);
+            }
+        }
+
+        // Now path should be like: "photos/userId/photoId/medium.jpg"
+        String[] parts = path.split("/");
+        log.debug("Split path into parts: {}", java.util.Arrays.toString(parts));
+
+        if (parts.length < 4 || !parts[0].equals("photos")) {
+            throw new IllegalArgumentException("Invalid S3 key format: " + path +
+                ". Expected format: photos/userId/photoId/filename.jpg");
+        }
+
+        // parts[0] = "photos", parts[1] = userId, parts[2] = photoId, parts[3] = filename
+        String extractedPhotoId = parts[2];
+        log.debug("Extracted photoId: {}", extractedPhotoId);
+        return extractedPhotoId;
     }
 
     /**

@@ -136,4 +136,26 @@ public class S3PhotoController {
                             .build());
         }
     }
+
+    /**
+     * Clean up orphaned photos for the authenticated user
+     */
+    @PostMapping("/cleanup-orphaned")
+    public ResponseEntity<?> cleanupOrphanedPhotos(@AuthenticationPrincipal Jwt jwt) {
+        try {
+            UUID userId = UUID.fromString(jwt.getSubject());
+            photoService.cleanupOrphanedPhotos(userId);
+
+            return ResponseEntity.ok(ApiResponse.success("Orphaned photos cleanup completed", null));
+
+        } catch (Exception e) {
+            log.error("Failed to cleanup orphaned photos", e);
+            return ResponseEntity
+                    .status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(ErrorSummary.builder()
+                            .code("CLEANUP_FAILED")
+                            .message("Failed to cleanup orphaned photos")
+                            .build());
+        }
+    }
 }

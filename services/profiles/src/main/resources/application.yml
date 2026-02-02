@@ -55,8 +55,11 @@ spring:
       enabled: false
 app:
   s3:
-    bucket: "tinderclone-photobucket"
+    bucket: ${AWS_S3_BUCKET:placeholder-bucket}
     presign-exp-seconds: 300
+  cloudfront:
+    domain: ${CLOUDFRONT_DOMAIN:d123example.cloudfront.net}
+    enabled: ${CDN_ENABLED:false}
   geocoding:
     user-agent: "TinderClone/1.0 (tclone@tclone.com)"
     base-url: "https://nominatim.openstreetmap.org"
