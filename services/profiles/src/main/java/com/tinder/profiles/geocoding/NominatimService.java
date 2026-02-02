@@ -2,6 +2,11 @@ package com.tinder.profiles.geocoding;
 
 // NominatimService.java
 import lombok.extern.slf4j.Slf4j;
+import io.github.resilience4j.bulkhead.SemaphoreBulkhead;
+import io.github.resilience4j.circuitbreaker.CallNotPermittedException;
+import io.github.resilience4j.circuitbreaker.CircuitBreaker;
+import io.github.resilience4j.reactor.bulkhead.operator.BulkheadOperator;
+import io.github.resilience4j.reactor.circuitbreaker.operator.CircuitBreakerOperator;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.MediaType;
@@ -18,6 +23,8 @@ import java.util.Optional;
 @Service
 public class NominatimService {
     private final WebClient nominatimClient;
+    private final CircuitBreaker nominatimCircuitBreaker;
+    private final SemaphoreBulkhead nominatimBulkhead;
 
     @Value("${app.geocoding.country-codes:}")
     private String countryCodes;
@@ -28,9 +35,18 @@ public class NominatimService {
     @Value("${app.geocoding.retries:3}")
     private int maxRetries;
 
+    @Value("${app.geocoding.retry-backoff-ms:400}")
+    private long retryBackoffMs;
+
     // Explicit constructor with @Qualifier
-    public NominatimService(@Qualifier("nominatimWebClient") WebClient nominatimClient) {
+    public NominatimService(
+            @Qualifier("nominatimWebClient") WebClient nominatimClient,
+            CircuitBreaker nominatimCircuitBreaker,
+            SemaphoreBulkhead nominatimBulkhead
+    ) {
         this.nominatimClient = nominatimClient;
+        this.nominatimCircuitBreaker = nominatimCircuitBreaker;
+        this.nominatimBulkhead = nominatimBulkhead;
     }
 
     public Optional<GeoPoint> geocodeCity(String city) {
@@ -56,11 +72,19 @@ public class NominatimService {
                     .retrieve()
                     .bodyToMono(NominatimResult[].class)
                     .timeout(Duration.ofMillis(timeoutMs))
-                    .retryWhen(Retry.backoff(maxRetries, Duration.ofMillis(500))
+                    .retryWhen(Retry.backoff(maxRetries, Duration.ofMillis(retryBackoffMs))
+                            .jitter(0.5d)
+                            .filter(throwable -> !(throwable instanceof CallNotPermittedException))
                             .filter(throwable -> !(throwable instanceof WebClientResponseException.NotFound))
                             .doBeforeRetry(retrySignal ->
                                 log.warn("Retrying geocoding for city '{}', attempt: {}, error: {}",
                                     trimmedCity, retrySignal.totalRetries() + 1, retrySignal.failure().getMessage())))
+                    .transformDeferred(BulkheadOperator.of(nominatimBulkhead))
+                    .transformDeferred(CircuitBreakerOperator.of(nominatimCircuitBreaker))
+                    .onErrorResume(CallNotPermittedException.class, throwable -> {
+                        log.warn("Geocoding circuit breaker open for city '{}'", trimmedCity);
+                        return Mono.just(new NominatimResult[0]);
+                    })
                     .doOnError(error -> log.error("Geocoding request failed for city '{}': {}", trimmedCity, error.getMessage()))
                     .onErrorResume(throwable -> {
                         log.error("Error during geocoding for city '{}': {} - {}",

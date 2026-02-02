@@ -7,8 +7,6 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 import reactor.core.publisher.Flux;
 
-import java.time.Duration;
-import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -44,9 +42,6 @@ public class SwipeFilterStage extends BasicStage {
                 candidateIds.size(), viewerId);
 
         return swipesHttp.betweenBatch(viewerId, candidateIds)
-                .timeout(Duration.ofMillis(timeoutMs))
-                .retry(retries)
-                .onErrorReturn(Collections.emptyMap())
                 .flatMapMany(swipeMap -> Flux.fromIterable(batch)
                         .filter(candidate -> !hasSwipeHistory(candidate.id(), swipeMap)));
     }
