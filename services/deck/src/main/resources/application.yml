@@ -128,7 +128,7 @@ resilience4j:
         slowCallDurationThreshold: 1s
       redisCache:
         baseConfig: default
-        slowCallDurationThreshold: 200ms
+        slowCallDurationThreshold: 150ms
   bulkhead:
     instances:
       profilesClient:
