@@ -6,9 +6,6 @@ import com.tinder.deck.dto.SharedProfileDto;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.locationtech.jts.geom.Coordinate;
-import org.locationtech.jts.geom.GeometryFactory;
-import org.locationtech.jts.geom.Point;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Captor;
 import org.mockito.Mock;
@@ -20,6 +17,7 @@ import reactor.test.StepVerifier;
 
 import java.time.Duration;
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.UUID;
 
 import static org.mockito.ArgumentMatchers.*;
@@ -65,8 +63,6 @@ class DeckPipelineTest {
     private ArgumentCaptor<Flux<ScoringStage.ScoredCandidate>> scoredCandidatesCaptor;
 
     private DeckPipeline deckPipeline;
-
-    private final GeometryFactory geometryFactory = new GeometryFactory();
 
     @BeforeEach
     void setUp() {
@@ -328,15 +324,15 @@ class DeckPipelineTest {
 
     // Helper method
     private SharedProfileDto createProfile(UUID id, String name, int age) {
-        Point point = geometryFactory.createPoint(new Coordinate(0.0, 0.0));
         SharedLocationDto location = new SharedLocationDto(
                 UUID.randomUUID(),
-                point,
+                0.0,
+                0.0,
                 "City",
                 LocalDateTime.now(),
                 LocalDateTime.now()
         );
         SharedPreferencesDto prefs = new SharedPreferencesDto(18, 50, "ANY", 100);
-        return new SharedProfileDto(id, name, age, "Bio", "City", true, location, prefs, false);
+        return new SharedProfileDto(id, name, age, "Bio", "City", true, location, prefs, false, List.of());
     }
 }

@@ -10,7 +10,6 @@ import org.junit.jupiter.api.TestInstance;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.data.redis.core.ReactiveStringRedisTemplate;
-import org.springframework.kafka.support.Acknowledgment;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.testcontainers.containers.GenericContainer;
@@ -22,8 +21,6 @@ import java.time.Instant;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
-
-import static org.mockito.Mockito.mock;
 
 /**
  * Integration tests for ProfileEventConsumer cache invalidation
@@ -58,12 +55,8 @@ class ProfileEventConsumerCacheIntegrationTest {
     @Autowired
     private ReactiveStringRedisTemplate redisTemplate;
 
-    private Acknowledgment mockAck;
-
     @BeforeEach
     void setUp() {
-        mockAck = mock(Acknowledgment.class);
-
         // Clean up Redis before each test
         redisTemplate.execute(connection -> connection.serverCommands().flushAll())
                 .blockLast();
@@ -96,10 +89,7 @@ class ProfileEventConsumerCacheIntegrationTest {
                 .metadata("minAge:18,maxAge:25,gender:FEMALE")
                 .build();
 
-        consumer.consumeProfileUpdate(event, 0, 1L, mockAck);
-
-        // Wait for async processing
-        Thread.sleep(100);
+        consumer.consumeProfileUpdate(event, 0, 1L);
 
         // Then: Preferences cache should STILL EXIST (not invalidated)
         // Reason: User changing their preferences doesn't affect the candidates pool
@@ -135,10 +125,7 @@ class ProfileEventConsumerCacheIntegrationTest {
                 .metadata("minAge:22,maxAge:30,gender:MALE")
                 .build();
 
-        consumer.consumeProfileUpdate(event, 0, 1L, mockAck);
-
-        // Wait for async processing
-        Thread.sleep(100);
+        consumer.consumeProfileUpdate(event, 0, 1L);
 
         // Then: Personal deck should be invalidated
         StepVerifier.create(deckCache.exists(profileId))
@@ -168,10 +155,7 @@ class ProfileEventConsumerCacheIntegrationTest {
                 .metadata("minAge:22,maxAge:30,gender:MALE")
                 .build();
 
-        consumer.consumeProfileUpdate(event, 0, 1L, mockAck);
-
-        // Wait for async processing
-        Thread.sleep(100);
+        consumer.consumeProfileUpdate(event, 0, 1L);
 
         // Then: Preferences cache should be invalidated
         StepVerifier.create(deckCache.hasPreferencesCache(minAge, maxAge, gender))
@@ -200,10 +184,7 @@ class ProfileEventConsumerCacheIntegrationTest {
                 .timestamp(Instant.now())
                 .build();
 
-        consumer.consumeProfileUpdate(event, 0, 1L, mockAck);
-
-        // Wait for async processing
-        Thread.sleep(100);
+        consumer.consumeProfileUpdate(event, 0, 1L);
 
         // Then: Preferences cache should still exist
         StepVerifier.create(deckCache.hasPreferencesCache(minAge, maxAge, gender))
@@ -232,10 +213,7 @@ class ProfileEventConsumerCacheIntegrationTest {
                 .metadata(null)
                 .build();
 
-        consumer.consumeProfileUpdate(event, 0, 1L, mockAck);
-
-        // Wait for async processing
-        Thread.sleep(100);
+        consumer.consumeProfileUpdate(event, 0, 1L);
 
         // Then: Personal deck should still be invalidated
         StepVerifier.create(deckCache.exists(profileId))
@@ -265,10 +243,7 @@ class ProfileEventConsumerCacheIntegrationTest {
                 .metadata("minAge:18,maxAge:25,gender:FEMALE")
                 .build();
 
-        consumer.consumeProfileUpdate(event, 0, 1L, mockAck);
-
-        // Wait for async processing
-        Thread.sleep(100);
+        consumer.consumeProfileUpdate(event, 0, 1L);
 
         // Then: Preferences cache should STILL EXIST (not invalidated)
         // Reason: We don't know which caches this candidate is in (could be in many!)

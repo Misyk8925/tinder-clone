@@ -8,14 +8,12 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.locationtech.jts.geom.Coordinate;
-import org.locationtech.jts.geom.GeometryFactory;
-import org.locationtech.jts.geom.Point;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import reactor.core.publisher.Mono;
 
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.UUID;
 
 import static org.mockito.ArgumentMatchers.any;
@@ -197,12 +195,10 @@ class DeckSchedulerTest {
 
     // Helper method to create profile
     private SharedProfileDto createProfile(UUID id, String name, int age) {
-        GeometryFactory geometryFactory = new GeometryFactory();
-        Point point = geometryFactory.createPoint(new Coordinate(0.0, 0.0));
-
         SharedLocationDto location = new SharedLocationDto(
                 UUID.randomUUID(),
-                point,
+                0.0,
+                0.0,
                 "City",
                 LocalDateTime.now(),
                 LocalDateTime.now()
@@ -210,7 +206,6 @@ class DeckSchedulerTest {
 
         SharedPreferencesDto prefs = new SharedPreferencesDto(18, 50, "ANY", 100);
 
-        return new SharedProfileDto(id, name, age, "Bio", "City", true, location, prefs, false);
+        return new SharedProfileDto(id, name, age, "Bio", "City", true, location, prefs, false, List.of());
     }
 }
-

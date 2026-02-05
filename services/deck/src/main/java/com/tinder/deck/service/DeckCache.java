@@ -1,10 +1,5 @@
 package com.tinder.deck.service;
 
-import io.github.resilience4j.bulkhead.SemaphoreBulkhead;
-import io.github.resilience4j.circuitbreaker.CallNotPermittedException;
-import io.github.resilience4j.circuitbreaker.CircuitBreaker;
-import io.github.resilience4j.reactor.bulkhead.operator.BulkheadOperator;
-import io.github.resilience4j.reactor.circuitbreaker.operator.CircuitBreakerOperator;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -14,15 +9,13 @@ import org.springframework.data.redis.core.ZSetOperations;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
-import reactor.util.retry.Retry;
 
 import java.time.Duration;
 import java.time.Instant;
 import java.util.*;
 import java.util.Map.Entry;
-import java.util.concurrent.TimeoutException;
-import java.util.regex.Pattern;
 import java.util.stream.Collectors;
+import java.util.regex.Pattern;
 
 @Service
 @RequiredArgsConstructor
@@ -30,8 +23,6 @@ import java.util.stream.Collectors;
 public class DeckCache {
 
     private final ReactiveStringRedisTemplate redis;
-    private final CircuitBreaker redisCircuitBreaker;
-    private final SemaphoreBulkhead redisBulkhead;
 
     // Redis key patterns
     private static String deckKey(UUID id)        { return "deck:" + id; }
@@ -57,14 +48,6 @@ public class DeckCache {
     @Value("${deck.preferences-cache-ttl-minutes:5}")
     private long preferencesCacheTtlMinutes;
 
-    @Value("${deck.redis.timeout-ms:200}")
-    private long redisTimeoutMs;
-
-    @Value("${deck.redis.retry.max-attempts:1}")
-    private int redisMaxRetries;
-
-    @Value("${deck.redis.retry.backoff-ms:50}")
-    private long redisRetryBackoffMs;
 
     public Mono<Void> writeDeck(UUID viewerId, List<Entry<UUID, Double>> deck, Duration ttl) {
         String key   = deckKey(viewerId);
@@ -77,36 +60,33 @@ public class DeckCache {
                 .collect(Collectors.toSet())
                 .flatMap(tuples -> z.addAll(key, tuples));
 
-        Mono<Void> writeFlow = redis.delete(key, tsKey)     // fast delete старых данных
+        return redis.delete(key, tsKey)     // fast delete старых данных
                 .then(addAll)                               // ZADD all
                 .then(redis.expire(key, ttl))               // TTL
                 .then(redis.opsForValue().set(tsKey, String.valueOf(System.currentTimeMillis()))) // TS
                 .then();
-        return withRedisResilience(writeFlow, "writeDeck", Mono.empty());
     }
 
     public Flux<UUID> readDeck(UUID viewerId, int offset, int limit) {
         String key = deckKey(viewerId);
         long end = offset + Math.max(limit, 1) - 1;
-        Flux<UUID> readFlow = redis.opsForZSet()
+        return redis.opsForZSet()
                 .reverseRange(key, org.springframework.data.domain.Range.closed((long)offset, end))
                 .map(UUID::fromString);
-        return withRedisResilience(readFlow, "readDeck");
     }
 
     public Mono<Long> size(UUID viewerId) {
-        return withRedisResilience(redis.opsForZSet().size(deckKey(viewerId)), "size", Mono.just(0L));
+        return redis.opsForZSet().size(deckKey(viewerId));
     }
 
     public Mono<Optional<Instant>> getBuildInstant(UUID viewerId) {
-        Mono<Optional<Instant>> readFlow = redis.opsForValue().get(deckTsKey(viewerId))
+        return redis.opsForValue().get(deckTsKey(viewerId))
                 .map(v -> Optional.of(Instant.ofEpochMilli(Long.parseLong(v))))
                 .defaultIfEmpty(Optional.empty());
-        return withRedisResilience(readFlow, "getBuildInstant", Mono.just(Optional.empty()));
     }
 
     public Mono<Long> invalidate(UUID viewerId) {
-        return withRedisResilience(redis.delete(deckKey(viewerId), deckTsKey(viewerId)), "invalidate", Mono.just(0L));
+        return redis.delete(deckKey(viewerId), deckTsKey(viewerId));
     }
 
     public Mono<List<UUID>> readTop(UUID viewerId, int topN) {
@@ -114,11 +94,10 @@ public class DeckCache {
     }
 
     public Flux<Entry<UUID, Double>> readRangeWithScores(UUID viewerId, long start, long end) {
-        Flux<Entry<UUID, Double>> readFlow = redis.opsForZSet()
+        return redis.opsForZSet()
                 .reverseRangeWithScores(deckKey(viewerId), org.springframework.data.domain.Range.closed(start, end))
                 .map(t -> Map.entry(UUID.fromString(Objects.requireNonNull(t.getValue())),
                         Objects.requireNonNull(t.getScore())));
-        return withRedisResilience(readFlow, "readRangeWithScores");
     }
 
     // ==================== Phase 2: Stale Tracking ====================
@@ -135,10 +114,9 @@ public class DeckCache {
         String key = staleKey(viewerId);
         log.debug("Marking profile {} as stale for viewer {}", profileId, viewerId);
 
-        Mono<Long> writeFlow = redis.opsForSet()
+        return redis.opsForSet()
                 .add(key, profileId.toString())
                 .flatMap(added -> redis.expire(key, DEFAULT_STALE_TTL).thenReturn(added));
-        return withRedisResilience(writeFlow, "markAsStale", Mono.just(0L));
     }
 
     /**
@@ -148,8 +126,7 @@ public class DeckCache {
      * @return Mono<Long> number of decks marked as stale
      */
     public Mono<Long> markAsStaleForAllDecks(UUID profileId) {
-        Flux<String> keyFlow = redis.keys("deck:*");
-        return withRedisResilience(keyFlow, "markAsStaleForAllDecks")
+        return redis.keys("deck:*")
                 .filter(key -> DECK_KEY_PATTERN.matcher(key).matches())
                 .flatMap(key -> {
                     String idPart = key.substring("deck:".length());
@@ -174,11 +151,8 @@ public class DeckCache {
      * @return Mono<Boolean> true if profile is stale
      */
     public Mono<Boolean> isStale(UUID viewerId, UUID profileId) {
-        return withRedisResilience(
-                redis.opsForSet().isMember(staleKey(viewerId), profileId.toString()),
-                "isStale",
-                Mono.just(false)
-        );
+        return redis.opsForSet()
+                .isMember(staleKey(viewerId), profileId.toString());
     }
 
     /**
@@ -188,10 +162,9 @@ public class DeckCache {
      * @return Flux of stale profile IDs
      */
     public Flux<UUID> getStaleProfiles(UUID viewerId) {
-        Flux<UUID> readFlow = redis.opsForSet()
+        return redis.opsForSet()
                 .members(staleKey(viewerId))
                 .map(UUID::fromString);
-        return withRedisResilience(readFlow, "getStaleProfiles");
     }
 
     /**
@@ -202,11 +175,8 @@ public class DeckCache {
      * @return Mono<Long> number of removed items
      */
     public Mono<Long> removeStale(UUID viewerId, UUID profileId) {
-        return withRedisResilience(
-                redis.opsForSet().remove(staleKey(viewerId), profileId.toString()),
-                "removeStale",
-                Mono.just(0L)
-        );
+        return redis.opsForSet()
+                .remove(staleKey(viewerId), profileId.toString());
     }
 
     /**
@@ -216,9 +186,8 @@ public class DeckCache {
      * @return Mono<Boolean> true if stale set was deleted
      */
     public Mono<Boolean> clearStale(UUID viewerId) {
-        Mono<Boolean> writeFlow = redis.delete(staleKey(viewerId))
+        return redis.delete(staleKey(viewerId))
                 .map(count -> count > 0);
-        return withRedisResilience(writeFlow, "clearStale", Mono.just(false));
     }
 
     // ==================== Phase 2: Distributed Locking ====================
@@ -245,7 +214,7 @@ public class DeckCache {
         String key = lockKey(viewerId);
         log.debug("Attempting to acquire lock for viewer {}", viewerId);
 
-        Mono<Boolean> writeFlow = redis.opsForValue()
+        return redis.opsForValue()
                 .setIfAbsent(key, LOCK_VALUE, ttl)
                 .doOnNext(acquired -> {
                     if (acquired) {
@@ -254,7 +223,6 @@ public class DeckCache {
                         log.debug("Lock already held for viewer {}", viewerId);
                     }
                 });
-        return withRedisResilience(writeFlow, "acquireLock", Mono.just(false));
     }
 
     /**
@@ -267,7 +235,7 @@ public class DeckCache {
         String key = lockKey(viewerId);
         log.debug("Releasing lock for viewer {}", viewerId);
 
-        Mono<Boolean> writeFlow = redis.delete(key)
+        return redis.delete(key)
                 .map(count -> count > 0)
                 .doOnNext(released -> {
                     if (released) {
@@ -276,7 +244,6 @@ public class DeckCache {
                         log.warn("No lock found to release for viewer {}", viewerId);
                     }
                 });
-        return withRedisResilience(writeFlow, "releaseLock", Mono.just(false));
     }
 
     /**
@@ -286,7 +253,7 @@ public class DeckCache {
      * @return Mono<Boolean> true if lock exists
      */
     public Mono<Boolean> isLocked(UUID viewerId) {
-        return withRedisResilience(redis.hasKey(lockKey(viewerId)), "isLocked", Mono.just(false));
+        return redis.hasKey(lockKey(viewerId));
     }
 
     /**
@@ -366,11 +333,8 @@ public class DeckCache {
         String key = deckKey(viewerId);
         log.debug("Removing profile {} from deck of viewer {}", profileId, viewerId);
 
-        return withRedisResilience(
-                redis.opsForZSet().remove(key, profileId.toString()),
-                "removeFromDeck",
-                Mono.just(0L)
-        );
+        return redis.opsForZSet()
+                .remove(key, profileId.toString());
     }
 
     /**
@@ -392,11 +356,8 @@ public class DeckCache {
                 .map(UUID::toString)
                 .toArray(String[]::new);
 
-        return withRedisResilience(
-                redis.opsForZSet().remove(key, (Object[]) profileStrings),
-                "removeMultipleFromDeck",
-                Mono.just(0L)
-        );
+        return redis.opsForZSet()
+                .remove(key, (Object[]) profileStrings);
     }
 
     /**
@@ -422,11 +383,7 @@ public class DeckCache {
      * @return Mono<Boolean> true if cached
      */
     public Mono<Boolean> hasPreferencesCache(int minAge, int maxAge, String gender) {
-        return withRedisResilience(
-                redis.hasKey(preferencesKey(minAge, maxAge, gender)),
-                "hasPreferencesCache",
-                Mono.just(false)
-        );
+        return redis.hasKey(preferencesKey(minAge, maxAge, gender));
     }
 
     /**
@@ -441,11 +398,10 @@ public class DeckCache {
         String key = preferencesKey(minAge, maxAge, gender);
         log.debug("Fetching preferences cache: {}", key);
 
-        Flux<UUID> readFlow = redis.opsForSet()
+        return redis.opsForSet()
                 .members(key)
                 .map(UUID::fromString)
                 .doOnComplete(() -> log.debug("Preferences cache HIT: {}", key));
-        return withRedisResilience(readFlow, "getCandidatesByPreferences");
     }
 
     /**
@@ -472,12 +428,11 @@ public class DeckCache {
 
         Duration ttl = Duration.ofMinutes(preferencesCacheTtlMinutes);
 
-        Mono<Long> writeFlow = redis.opsForSet()
+        return redis.opsForSet()
                 .add(key, candidateStrings)
                 .flatMap(count -> redis.expire(key, ttl).thenReturn(count))
                 .doOnSuccess(count -> log.info("Cached {} candidates for preferences {} (TTL: {})",
                         count, key, ttl));
-        return withRedisResilience(writeFlow, "cachePreferencesResult", Mono.just(0L));
     }
 
     /**
@@ -493,7 +448,7 @@ public class DeckCache {
         String key = preferencesKey(minAge, maxAge, gender);
         log.info("Invalidating preferences cache: {}", key);
 
-        Mono<Boolean> writeFlow = redis.delete(key)
+        return redis.delete(key)
                 .map(count -> count > 0)
                 .doOnNext(deleted -> {
                     if (deleted) {
@@ -502,7 +457,6 @@ public class DeckCache {
                         log.debug("Preferences cache not found (already expired?): {}", key);
                     }
                 });
-        return withRedisResilience(writeFlow, "invalidatePreferencesCache", Mono.just(false));
     }
 
     /**
@@ -514,56 +468,7 @@ public class DeckCache {
      * @return Mono<Long> number of candidates in cache
      */
     public Mono<Long> getPreferencesCacheSize(int minAge, int maxAge, String gender) {
-        return withRedisResilience(
-                redis.opsForSet().size(preferencesKey(minAge, maxAge, gender)),
-                "getPreferencesCacheSize",
-                Mono.just(0L)
-        );
-    }
-
-    private <T> Mono<T> withRedisResilience(Mono<T> action, String operation, Mono<T> fallback) {
-        return action
-                .timeout(Duration.ofMillis(redisTimeoutMs))
-                .retryWhen(buildRetry(operation))
-                .transformDeferred(BulkheadOperator.of(redisBulkhead))
-                .transformDeferred(CircuitBreakerOperator.of(redisCircuitBreaker))
-                .onErrorResume(CallNotPermittedException.class, throwable -> {
-                    log.warn("Redis circuit breaker open ({}). Skipping cache.", operation);
-                    return fallback;
-                })
-                .onErrorResume(throwable -> {
-                    log.warn("Redis operation failed ({}). Skipping cache. Cause: {}", operation, throwable.toString());
-                    return fallback;
-                });
-    }
-
-    private <T> Flux<T> withRedisResilience(Flux<T> action, String operation) {
-        return action
-                .timeout(Duration.ofMillis(redisTimeoutMs))
-                .retryWhen(buildRetry(operation))
-                .transformDeferred(BulkheadOperator.of(redisBulkhead))
-                .transformDeferred(CircuitBreakerOperator.of(redisCircuitBreaker))
-                .onErrorResume(CallNotPermittedException.class, throwable -> {
-                    log.warn("Redis circuit breaker open ({}). Skipping cache.", operation);
-                    return Flux.empty();
-                })
-                .onErrorResume(throwable -> {
-                    log.warn("Redis operation failed ({}). Skipping cache. Cause: {}", operation, throwable.toString());
-                    return Flux.empty();
-                });
-    }
-
-    private Retry buildRetry(String operation) {
-        return Retry.backoff(redisMaxRetries, Duration.ofMillis(redisRetryBackoffMs))
-                .jitter(0.5d)
-                .filter(throwable -> !(throwable instanceof CallNotPermittedException))
-                .doBeforeRetry(retrySignal -> log.warn(
-                        "Retrying redis operation ({}), attempt {} due to {}",
-                        operation,
-                        retrySignal.totalRetries() + 1,
-                        retrySignal.failure() instanceof TimeoutException
-                                ? "timeout"
-                                : retrySignal.failure().toString()
-                ));
+        return redis.opsForSet()
+                .size(preferencesKey(minAge, maxAge, gender));
     }
 }

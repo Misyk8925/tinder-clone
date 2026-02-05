@@ -12,9 +12,6 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
-import org.locationtech.jts.geom.Coordinate;
-import org.locationtech.jts.geom.GeometryFactory;
-import org.locationtech.jts.geom.Point;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.data.redis.core.ReactiveStringRedisTemplate;
@@ -98,8 +95,6 @@ class DeckPipelineIntegrationTest {
     private SwipesHttp swipesHttp;
 
     private DeckPipeline deckPipeline;
-
-    private final GeometryFactory geometryFactory = new GeometryFactory();
     private UUID testViewerId;
 
     @BeforeEach
@@ -113,8 +108,6 @@ class DeckPipelineIntegrationTest {
         // Create real pipeline components (CacheStage uses real Redis)
         CandidateSearchStage searchStage = new CandidateSearchStage(profilesHttp, deckCache, preferencesCacheHelper);
         ReflectionTestUtils.setField(searchStage, "searchLimit", SEARCH_LIMIT);
-        ReflectionTestUtils.setField(searchStage, "timeoutMs", TIMEOUT_MS);
-        ReflectionTestUtils.setField(searchStage, "retries", RETRIES);
 
         SwipeFilterStage filterStage = new SwipeFilterStage(swipesHttp);
         ReflectionTestUtils.setField(filterStage, "batchSize", BATCH_SIZE);
@@ -434,16 +427,16 @@ class DeckPipelineIntegrationTest {
      * Creates a test profile for pipeline testing
      */
     private SharedProfileDto createProfile(UUID id, String name, int age) {
-        Point location = geometryFactory.createPoint(new Coordinate(0.0, 0.0));
         SharedLocationDto locationDto = new SharedLocationDto(
                 UUID.randomUUID(),
-                location,
+                0.0,
+                0.0,
                 "Test City",
                 LocalDateTime.now(),
                 LocalDateTime.now()
         );
         SharedPreferencesDto preferences = new SharedPreferencesDto(18, 50, "M", 100);
 
-        return new SharedProfileDto(id, name, age, "Bio", "Test City", true, locationDto, preferences, false);
+        return new SharedProfileDto(id, name, age, "Bio", "Test City", true, locationDto, preferences, false, List.of());
     }
 }

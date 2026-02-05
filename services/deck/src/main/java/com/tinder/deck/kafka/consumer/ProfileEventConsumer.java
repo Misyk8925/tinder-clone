@@ -6,11 +6,11 @@ import com.tinder.deck.service.DeckCache;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.kafka.annotation.KafkaListener;
-import org.springframework.kafka.support.Acknowledgment;
 import org.springframework.kafka.support.KafkaHeaders;
 import org.springframework.messaging.handler.annotation.Header;
 import org.springframework.messaging.handler.annotation.Payload;
 import org.springframework.stereotype.Component;
+import reactor.core.publisher.Mono;
 
 @Component
 @RequiredArgsConstructor
@@ -27,27 +27,13 @@ public class ProfileEventConsumer {
     public void consumeProfileUpdate(
             @Payload ProfileUpdateEvent event,
             @Header(KafkaHeaders.RECEIVED_PARTITION) int partition,
-            @Header(KafkaHeaders.OFFSET) long offset,
-            Acknowledgment acknowledgment
+            @Header(KafkaHeaders.OFFSET) long offset
     ) {
         log.info("Received ProfileEvent: eventId={}, profileId={}, changeType={}, partition={}, offset={}",
                 event.getEventId(), event.getProfileId(), event.getChangeType(), partition, offset);
 
-        try {
-            handleProfileUpdateEvent(event);
-
-            acknowledgment.acknowledge();
-
-            log.debug("Successfully processed ProfileEvent: eventId={}", event.getEventId());
-
-        } catch (Exception e) {
-            log.error("Error processing ProfileEvent: eventId={}, profileId={}",
-                    event.getEventId(), event.getProfileId(), e);
-
-            // TODO: Implement retry logic or DLQ (Dead Letter Queue)
-            // For now, acknowledge to prevent infinite retry
-            acknowledgment.acknowledge();
-        }
+        handleProfileUpdateEvent(event).block();
+        log.debug("Successfully processed ProfileEvent: eventId={}", event.getEventId());
     }
 
     @KafkaListener(
@@ -58,59 +44,47 @@ public class ProfileEventConsumer {
     public void consumeProfileDeletion(
             @Payload ProfileDeleteEvent event,
             @Header(KafkaHeaders.RECEIVED_PARTITION) int partition,
-            @Header(KafkaHeaders.OFFSET) long offset,
-            Acknowledgment acknowledgment
+            @Header(KafkaHeaders.OFFSET) long offset
     ) {
         log.info("RECEIVED PROFILE DELETION Event: eventId={}, profileId={}, partition={}, offset={}",
                 event.getEventId(), event.getProfileId(), partition, offset);
 
-        try {
-            log.info("Invalidating all decks for deleted profile: {}", event.getProfileId());
+        log.info("Invalidating decks for deleted profile: {}", event.getProfileId());
 
-            deckCache.markAsStaleForAllDecks(event.getProfileId())
-                    .doOnError(error -> log.error("Failed to mark deleted profile as stale across decks", error))
-                    .subscribe();
-            deckCache.invalidate(event.getProfileId())
-                    .doOnSuccess(count -> {
-                        if (count > 0) {
-                            log.info("Invalidated decks for deleted profile: {}", event.getProfileId());
-                        } else {
-                            log.debug("No decks found for deleted profile: {}", event.getProfileId());
-                        }
-                    })
-                    .doOnError(error -> log.error("Failed to invalidate decks for deleted profile", error))
-                    .subscribe();
+        deckCache.markAsStaleForAllDecks(event.getProfileId())
+                .doOnNext(count -> log.info("Marked deleted profile {} as stale in {} decks", event.getProfileId(), count))
+                .then(deckCache.invalidate(event.getProfileId())
+                        .doOnNext(count -> {
+                            if (count > 0) {
+                                log.info("Invalidated personal deck for deleted profile: {}", event.getProfileId());
+                            } else {
+                                log.debug("No personal deck found for deleted profile: {}", event.getProfileId());
+                            }
+                        }))
+                .then()
+                .block();
 
-            acknowledgment.acknowledge();
-
-            log.debug("Successfully processed Profile Deletion Event: eventId={}", event.getEventId());
-
-        } catch (Exception e) {
-            log.error("Error processing Profile Deletion Event: eventId={}, profileId={}",
-                    event.getEventId(), event.getProfileId(), e);
-            // Acknowledge to prevent infinite retry
-            acknowledgment.acknowledge();
-        }
+        log.debug("Successfully processed Profile Deletion Event: eventId={}", event.getEventId());
     }
 
 
-    private void handleProfileUpdateEvent(ProfileUpdateEvent event) {
+    private Mono<Void> handleProfileUpdateEvent(ProfileUpdateEvent event) {
         log.info("Handling profile event: profileId={}, changeType={}, fields={}",
                 event.getProfileId(), event.getChangeType(), event.getChangedFields());
 
-        switch (event.getChangeType()) {
+        return switch (event.getChangeType()) {
             case PREFERENCES -> handlePreferencesChange(event);
             case CRITICAL_FIELDS -> handleCriticalFieldsChange(event);
             case LOCATION_CHANGE -> handleLocationChange(event);
             case NON_CRITICAL -> handleNonCriticalChange(event);
-            default -> log.warn("Unknown change type: {}", event.getChangeType());
-        }
+            default -> Mono.fromRunnable(() -> log.warn("Unknown change type: {}", event.getChangeType()));
+        };
     }
 
-    private void handlePreferencesChange(ProfileUpdateEvent event) {
+    private Mono<Void> handlePreferencesChange(ProfileUpdateEvent event) {
         log.info("PREFERENCES changed for profile: {}. Invalidating personal deck only", event.getProfileId());
 
-        deckCache.invalidate(event.getProfileId())
+        return deckCache.invalidate(event.getProfileId())
                 .doOnSuccess(count -> {
                     if (count > 0) {
                         log.info("Invalidated personal deck for profile: {}", event.getProfileId());
@@ -118,28 +92,24 @@ public class ProfileEventConsumer {
                         log.debug("No personal deck found for profile: {}", event.getProfileId());
                     }
                 })
-                .doOnError(error -> log.error("Failed to invalidate personal deck", error))
-                .subscribe();
+                .then();
     }
 
-    private void handleCriticalFieldsChange(ProfileUpdateEvent event) {
+    private Mono<Void> handleCriticalFieldsChange(ProfileUpdateEvent event) {
         log.info("CRITICAL_FIELDS changed for profile: {}. Invalidating personal deck",
                 event.getProfileId());
 
-
-        deckCache.markAsStaleForAllDecks(event.getProfileId())
-                .doOnError(error -> log.error("Failed to mark profile as stale across decks", error))
-                .subscribe();
-
-        log.debug("Preferences caches will expire naturally via TTL. " +
-                 "Stale data acceptable for up to 5 minutes.");
+        return deckCache.markAsStaleForAllDecks(event.getProfileId())
+                .doOnNext(count -> log.info("Marked profile {} as stale in {} decks", event.getProfileId(), count))
+                .then(Mono.fromRunnable(() -> log.debug("Preferences caches will expire naturally via TTL. " +
+                        "Stale data acceptable for up to 5 minutes.")));
     }
 
-    private void handleLocationChange(ProfileUpdateEvent event) {
+    private Mono<Void> handleLocationChange(ProfileUpdateEvent event) {
         log.info("LOCATION_CHANGE for profile: {}. Invalidating personal deck and marking stale for viewers",
                 event.getProfileId());
 
-        deckCache.invalidate(event.getProfileId())
+        Mono<Long> invalidate = deckCache.invalidate(event.getProfileId())
                 .doOnSuccess(count -> {
                     if (count > 0) {
                         log.info("Invalidated personal deck for profile: {}", event.getProfileId());
@@ -147,18 +117,19 @@ public class ProfileEventConsumer {
                         log.debug("No personal deck found for profile: {}", event.getProfileId());
                     }
                 })
-                .doOnError(error -> log.error("Failed to invalidate personal deck after location change", error))
-                .subscribe();
+                .doOnError(error -> log.error("Failed to invalidate personal deck after location change", error));
 
-        deckCache.markAsStaleForAllDecks(event.getProfileId())
-                .doOnError(error -> log.error("Failed to mark profile as stale across decks after location change", error))
-                .subscribe();
+        Mono<Long> markStale = deckCache.markAsStaleForAllDecks(event.getProfileId())
+                .doOnNext(count -> log.info("Marked profile {} as stale in {} decks", event.getProfileId(), count))
+                .doOnError(error -> log.error("Failed to mark profile as stale across decks after location change", error));
+
+        return invalidate.then(markStale).then();
     }
 
-    private void handleNonCriticalChange(ProfileUpdateEvent event) {
-        log.debug("NON_CRITICAL changes for profile: {}. No cache invalidation required",
-                event.getProfileId());
-        // No action needed - changes don't affect deck eligibility
+    private Mono<Void> handleNonCriticalChange(ProfileUpdateEvent event) {
+        return Mono.fromRunnable(() ->
+                log.debug("NON_CRITICAL changes for profile: {}. No cache invalidation required",
+                        event.getProfileId()));
     }
 
 }

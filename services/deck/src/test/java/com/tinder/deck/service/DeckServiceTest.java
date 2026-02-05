@@ -9,8 +9,6 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.locationtech.jts.geom.GeometryFactory;
-import org.locationtech.jts.geom.Point;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Captor;
 import org.mockito.Mock;
@@ -296,13 +294,10 @@ class DeckServiceTest {
 
     // Helper method to create profile
     private SharedProfileDto createProfile(UUID id, String name, int age, SharedPreferencesDto prefs) {
-        // Create a Point using JTS GeometryFactory
-        GeometryFactory geometryFactory = new org.locationtech.jts.geom.GeometryFactory();
-        Point point = geometryFactory.createPoint(new org.locationtech.jts.geom.Coordinate(0.0, 0.0));
-
         SharedLocationDto location = new SharedLocationDto(
                 UUID.randomUUID(),
-                point,
+                0.0,
+                0.0,
                 "City",
                 java.time.LocalDateTime.now(),
                 java.time.LocalDateTime.now()
@@ -311,7 +306,6 @@ class DeckServiceTest {
         if (prefs == null) {
             prefs = new SharedPreferencesDto(18, 50, "ANY", 100);
         }
-        return new SharedProfileDto(id, name, age, "Bio", "City", true, location, prefs, false);
+        return new SharedProfileDto(id, name, age, "Bio", "City", true, location, prefs, false, List.of());
     }
 }
-

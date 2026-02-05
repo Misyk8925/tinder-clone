@@ -66,4 +66,25 @@ public class KafkaProducerConfig {
     public KafkaTemplate<String, SwipeCreatedEvent> swipeKafkaTemplate() {
         return new KafkaTemplate<>(swipeEventProducerFactory());
     }
+
+    /**
+     * Generic KafkaTemplate used by the consumer error handler to publish failed records to DLT topics.
+     */
+    @Bean
+    public ProducerFactory<Object, Object> deadLetterProducerFactory() {
+        Map<String, Object> props = new HashMap<>();
+        props.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers);
+        props.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, StringSerializer.class);
+        props.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, JsonSerializer.class);
+
+        return new DefaultKafkaProducerFactory<>(props);
+    }
+
+    /**
+     * KafkaTemplate for publishing failed records to dead-letter topics (DLT).
+     */
+    @Bean
+    public KafkaTemplate<Object, Object> deadLetterKafkaTemplate() {
+        return new KafkaTemplate<>(deadLetterProducerFactory());
+    }
 }

@@ -7,9 +7,6 @@ import com.tinder.deck.dto.SharedProfileDto;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.locationtech.jts.geom.Coordinate;
-import org.locationtech.jts.geom.GeometryFactory;
-import org.locationtech.jts.geom.Point;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.test.util.ReflectionTestUtils;
@@ -48,8 +45,6 @@ class SwipeFilterStageTest {
     private SwipesHttp swipesHttp;
 
     private SwipeFilterStage swipeFilterStage;
-
-    private final GeometryFactory geometryFactory = new GeometryFactory();
 
     @BeforeEach
     void setUp() {
@@ -217,16 +212,16 @@ class SwipeFilterStageTest {
      * Creates a test profile for use in filtering tests
      */
     private SharedProfileDto createProfile(UUID id, String name, int age) {
-        Point location = geometryFactory.createPoint(new Coordinate(0.0, 0.0));
         SharedLocationDto locationDto = new SharedLocationDto(
                 UUID.randomUUID(),
-                location,
+                0.0,
+                0.0,
                 "Test City",
                 LocalDateTime.now(),
                 LocalDateTime.now()
         );
         SharedPreferencesDto preferences = new SharedPreferencesDto(18, 50, "ANY", 100);
 
-        return new SharedProfileDto(id, name, age, "Bio", "Test City", true, locationDto, preferences, false);
+        return new SharedProfileDto(id, name, age, "Bio", "Test City", true, locationDto, preferences, false, List.of());
     }
 }

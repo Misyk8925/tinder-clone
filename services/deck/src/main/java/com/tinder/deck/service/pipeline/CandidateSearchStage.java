@@ -14,7 +14,6 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 import reactor.core.publisher.Flux;
 
-import java.time.Duration;
 import java.util.UUID;
 
 @Component
@@ -28,12 +27,6 @@ public class CandidateSearchStage {
 
     @Value("${deck.search-limit:2000}")
     private int searchLimit;
-
-    @Value("${deck.request-timeout-ms:5000}")
-    private long timeoutMs;
-
-    @Value("${deck.retries:3}")
-    private int retries;
 
     @Value("${deck.preferences-cache-enabled:false}")
     private boolean preferencesCacheEnabled;
@@ -84,8 +77,6 @@ public class CandidateSearchStage {
                 .flatMapMany(cachedIds ->
                         preferencesCacheHelper.fetchProfilesByIds(
                                 cachedIds,
-                                timeoutMs,
-                                retries,
                                 searchFromDatabaseAndCache(viewer.id(), prefs)
                         )
                 )
@@ -124,8 +115,6 @@ public class CandidateSearchStage {
      */
     private Flux<SharedProfileDto> searchFromDatabase(UUID viewerId, SharedPreferencesDto prefs) {
         return profilesHttp.searchProfiles(viewerId, prefs, searchLimit)
-                .timeout(Duration.ofMillis(timeoutMs))
-                .retry(retries)
                 .onErrorResume(e -> {
                     log.warn("Candidate search failed for viewer {}: {}",
                             viewerId, e.getMessage());

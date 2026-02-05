@@ -57,7 +57,9 @@ public class DeckController {
         return profilesHttp.getProfile(viewerId)
                 .flatMap(viewer -> deckService.rebuildOneDeck(viewer)
                         .thenReturn(ResponseEntity.ok("Rebuild started for " + viewerId)))
-                .switchIfEmpty(Mono.just(ResponseEntity.status(404).body("Viewer not found")));
+                .switchIfEmpty(Mono.just(ResponseEntity.status(404).body("Viewer not found")))
+                .onErrorResume(e ->
+                        Mono.just(ResponseEntity.status(503).body("Profiles service unavailable")));
     }
 
     /**

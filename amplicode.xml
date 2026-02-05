@@ -5,14 +5,10 @@
   </component>
   <component name="AmplicodePersistenceUnitSettings">
     <persistence-units>
+      <persistence-unit moduleName="swipes" name="Default" />
       <persistence-unit moduleName="profiles" name="Default">
         <packages>
           <package value="com.tinder.profiles" />
-        </packages>
-      </persistence-unit>
-      <persistence-unit moduleName="swipes" name="Default">
-        <packages>
-          <package value="com.tinder.swipes" />
         </packages>
       </persistence-unit>
     </persistence-units>

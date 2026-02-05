@@ -1,6 +1,8 @@
 package com.tinder.deck.service.pipeline;
 
 import com.tinder.deck.service.DeckCache;
+import com.tinder.deck.config.DeckResilienceProperties;
+import com.tinder.deck.resilience.DeckResilience;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -247,7 +249,8 @@ class CacheStageIntegrationTest {
     @DisplayName("Should handle Redis errors gracefully")
     void shouldPropagateRedisErrors() {
         // Given: Create a CacheStage with a mock DeckCache that simulates Redis error
-        DeckCache failingCache = new DeckCache(redisTemplate) {
+        DeckResilience resilience = DeckResilience.from(new DeckResilienceProperties());
+        DeckCache failingCache = new DeckCache(redisTemplate, resilience) {
             @Override
             public Mono<Void> writeDeck(UUID viewerId, List<Map.Entry<UUID, Double>> deck, Duration ttl) {
                 return Mono.error(new RuntimeException("Simulated Redis connection failure"));

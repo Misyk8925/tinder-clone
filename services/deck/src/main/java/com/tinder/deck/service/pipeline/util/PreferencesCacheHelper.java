@@ -9,7 +9,6 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 import reactor.core.publisher.Flux;
 
-import java.time.Duration;
 import java.util.List;
 import java.util.UUID;
 
@@ -29,15 +28,11 @@ public class PreferencesCacheHelper {
      * Fetch full profiles by cached IDs
      *
      * @param cachedIds List of cached profile IDs
-     * @param timeoutMs Request timeout
-     * @param retries   Number of retries
      * @param fallbackCallback Callback to execute on error
      * @return Flux of full profiles
      */
     public Flux<SharedProfileDto> fetchProfilesByIds(
             List<UUID> cachedIds,
-            long timeoutMs,
-            int retries,
             Flux<SharedProfileDto> fallbackCallback) {
 
         if (cachedIds.isEmpty()) {
@@ -48,8 +43,6 @@ public class PreferencesCacheHelper {
         log.debug("Fetching {} profiles from cache IDs", cachedIds.size());
 
         return profilesHttp.getProfilesByIds(cachedIds)
-                .timeout(Duration.ofMillis(timeoutMs))
-                .retry(retries)
                 .onErrorResume(e -> {
                     log.warn("Failed to fetch profiles by IDs, falling back to DB: {}", e.toString());
                     return fallbackCallback;

@@ -9,9 +9,6 @@ import com.tinder.deck.service.pipeline.util.PreferencesCacheHelper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.locationtech.jts.geom.Coordinate;
-import org.locationtech.jts.geom.GeometryFactory;
-import org.locationtech.jts.geom.Point;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.test.util.ReflectionTestUtils;
@@ -20,6 +17,7 @@ import reactor.test.StepVerifier;
 
 import java.time.Duration;
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.UUID;
 
 import static org.mockito.ArgumentMatchers.*;
@@ -57,8 +55,6 @@ class CandidateSearchStageTest {
     private PreferencesCacheHelper preferencesCacheHelper;
 
     private CandidateSearchStage candidateSearchStage;
-
-    private final GeometryFactory geometryFactory = new GeometryFactory();
 
     @BeforeEach
     void setUp() {
@@ -144,32 +140,32 @@ class CandidateSearchStageTest {
      * Creates a test profile with full preferences
      */
     private SharedProfileDto createProfile(UUID id, String name, int age) {
-        Point location = geometryFactory.createPoint(new Coordinate(0.0, 0.0));
         SharedLocationDto locationDto = new SharedLocationDto(
                 UUID.randomUUID(),
-                location,
+                0.0,
+                0.0,
                 "Test City",
                 LocalDateTime.now(),
                 LocalDateTime.now()
         );
         SharedPreferencesDto preferences = new SharedPreferencesDto(18, 50, "ANY", 100);
 
-        return new SharedProfileDto(id, name, age, "Bio", "Test City", true, locationDto, preferences, false);
+        return new SharedProfileDto(id, name, age, "Bio", "Test City", true, locationDto, preferences, false, List.of());
     }
 
     /**
      * Creates a test profile without preferences (null)
      */
     private SharedProfileDto createProfileWithoutPreferences(UUID id, String name, int age) {
-        Point location = geometryFactory.createPoint(new Coordinate(0.0, 0.0));
         SharedLocationDto locationDto = new SharedLocationDto(
                 UUID.randomUUID(),
-                location,
+                0.0,
+                0.0,
                 "Test City",
                 LocalDateTime.now(),
                 LocalDateTime.now()
         );
 
-        return new SharedProfileDto(id, name, age, "Bio", "Test City", true, locationDto, null, false);
+        return new SharedProfileDto(id, name, age, "Bio", "Test City", true, locationDto, null, false, List.of());
     }
 }
