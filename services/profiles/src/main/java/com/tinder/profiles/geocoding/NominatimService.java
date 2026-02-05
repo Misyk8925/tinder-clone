@@ -1,8 +1,8 @@
 package com.tinder.profiles.geocoding;
 
 // NominatimService.java
+import io.github.resilience4j.bulkhead.internal.SemaphoreBulkhead;
 import lombok.extern.slf4j.Slf4j;
-import io.github.resilience4j.bulkhead.SemaphoreBulkhead;
 import io.github.resilience4j.circuitbreaker.CallNotPermittedException;
 import io.github.resilience4j.circuitbreaker.CircuitBreaker;
 import io.github.resilience4j.reactor.bulkhead.operator.BulkheadOperator;
@@ -23,9 +23,6 @@ import java.util.Optional;
 @Service
 public class NominatimService {
     private final WebClient nominatimClient;
-    private final CircuitBreaker nominatimCircuitBreaker;
-    private final SemaphoreBulkhead nominatimBulkhead;
-
     @Value("${app.geocoding.country-codes:}")
     private String countryCodes;
 
@@ -40,13 +37,10 @@ public class NominatimService {
 
     // Explicit constructor with @Qualifier
     public NominatimService(
-            @Qualifier("nominatimWebClient") WebClient nominatimClient,
-            CircuitBreaker nominatimCircuitBreaker,
-            SemaphoreBulkhead nominatimBulkhead
+            @Qualifier("nominatimWebClient") WebClient nominatimClient
     ) {
         this.nominatimClient = nominatimClient;
-        this.nominatimCircuitBreaker = nominatimCircuitBreaker;
-        this.nominatimBulkhead = nominatimBulkhead;
+
     }
 
     public Optional<GeoPoint> geocodeCity(String city) {
@@ -79,8 +73,6 @@ public class NominatimService {
                             .doBeforeRetry(retrySignal ->
                                 log.warn("Retrying geocoding for city '{}', attempt: {}, error: {}",
                                     trimmedCity, retrySignal.totalRetries() + 1, retrySignal.failure().getMessage())))
-                    .transformDeferred(BulkheadOperator.of(nominatimBulkhead))
-                    .transformDeferred(CircuitBreakerOperator.of(nominatimCircuitBreaker))
                     .onErrorResume(CallNotPermittedException.class, throwable -> {
                         log.warn("Geocoding circuit breaker open for city '{}'", trimmedCity);
                         return Mono.just(new NominatimResult[0]);

@@ -6,7 +6,10 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 import reactor.core.publisher.Flux;
+import reactor.core.publisher.Mono;
 
+import java.time.Duration;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -28,9 +31,30 @@ public class SwipeFilterStage extends BasicStage {
 
         return candidates
                 .buffer(batchSize)
-                .concatMap(batch -> filterBatch(viewer.id(), batch))
-                .doOnComplete(() -> log.debug("Swipe filtering completed for viewer {}",
-                        viewer.id()));
+                .concatMap(batch -> {
+                    if (batch.isEmpty()) {
+                        return Flux.empty();
+                    }
+
+                    List<UUID> candidateIds = batch.stream()
+                            .map(SharedProfileDto::id)
+                            .toList();
+
+                    return swipesHttp.betweenBatch(viewer.id(), candidateIds)
+                            .timeout(Duration.ofMillis(timeoutMs))
+                            .retry(retries)
+                            .onErrorResume(error -> {
+                                // Fail-open: if swipes service fails, return empty map (don't filter)
+                                log.warn("Swipes service error, continuing without filtering: {}", error.getMessage());
+                                return Mono.just(Collections.emptyMap());
+                            })
+                            .flatMapMany(swipeMap -> {
+                                List<SharedProfileDto> filtered = batch.stream()
+                                        .filter(candidate -> !swipeMap.getOrDefault(candidate.id(), false))
+                                        .toList();
+                                return Flux.fromIterable(filtered);
+                            });
+                });
     }
 
     private Flux<SharedProfileDto> filterBatch(UUID viewerId, List<SharedProfileDto> batch) {

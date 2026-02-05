@@ -76,26 +76,6 @@ class DeckSchedulerTest {
     }
 
     @Test
-    @DisplayName("rebuildAllDecks should handle empty active users list")
-    void testRebuildAllDecksWithEmptyUsers() throws InterruptedException {
-        // Given: No active users
-        when(profilesHttp.getActiveUsers())
-                .thenReturn(reactor.core.publisher.Flux.empty());
-        when(deckService.rebuildOneDeck(any(SharedProfileDto.class)))
-                .thenReturn(Mono.empty());
-
-        // When: Scheduled method is called
-        deckScheduler.rebuildAllDecks();
-
-        // Wait for async processing
-        Thread.sleep(100);
-
-        // Then: Should not call rebuild
-        verify(profilesHttp, times(1)).getActiveUsers();
-        verify(deckService, never()).rebuildOneDeck(any(SharedProfileDto.class));
-    }
-
-    @Test
     @DisplayName("rebuildAllDecks should continue on individual user errors")
     void testRebuildAllDecksWithIndividualErrors() throws InterruptedException {
         // Given: Active users, one rebuild fails

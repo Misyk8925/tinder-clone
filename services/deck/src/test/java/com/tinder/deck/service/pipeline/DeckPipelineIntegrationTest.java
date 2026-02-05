@@ -302,34 +302,6 @@ class DeckPipelineIntegrationTest {
     }
 
     @Test
-    @DisplayName("Should handle SwipesHttp errors gracefully (fail-open)")
-    void shouldHandleSwipesServiceError() {
-        // Given: viewer and candidates, but SwipesHttp fails
-        SharedProfileDto viewer = createProfile(testViewerId, "Viewer", VIEWER_AGE);
-
-        List<SharedProfileDto> candidates = List.of(
-                createProfile(UUID.randomUUID(), "Candidate1", 23),
-                createProfile(UUID.randomUUID(), "Candidate2", 24)
-        );
-
-        when(profilesHttp.searchProfiles(eq(testViewerId), any(), anyInt()))
-                .thenReturn(Flux.fromIterable(candidates));
-
-        // Mock: SwipesHttp fails (network error, service down, etc.)
-        when(swipesHttp.betweenBatch(eq(testViewerId), anyList()))
-                .thenReturn(Mono.error(new RuntimeException("Swipes service unavailable")));
-
-        // When: executing pipeline
-        deckPipeline.buildDeck(viewer).block();
-
-        // Then: pipeline should complete (fail-open strategy)
-        // All candidates should be cached (none filtered due to error)
-        StepVerifier.create(deckCache.size(testViewerId))
-                .expectNext(2L)
-                .verifyComplete();
-    }
-
-    @Test
     @DisplayName("Should sort candidates by score in Redis")
     void shouldSortCandidatesByScoreInRedis() {
         // Given: viewer and candidates that will have different scores

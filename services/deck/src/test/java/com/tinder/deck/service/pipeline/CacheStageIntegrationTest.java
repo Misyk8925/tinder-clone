@@ -250,7 +250,7 @@ class CacheStageIntegrationTest {
     void shouldPropagateRedisErrors() {
         // Given: Create a CacheStage with a mock DeckCache that simulates Redis error
         DeckResilience resilience = DeckResilience.from(new DeckResilienceProperties());
-        DeckCache failingCache = new DeckCache(redisTemplate, resilience) {
+        DeckCache failingCache = new DeckCache(redisTemplate) {
             @Override
             public Mono<Void> writeDeck(UUID viewerId, List<Map.Entry<UUID, Double>> deck, Duration ttl) {
                 return Mono.error(new RuntimeException("Simulated Redis connection failure"));

@@ -5,6 +5,7 @@ import com.tinder.deck.adapters.SwipesHttp;
 import com.tinder.deck.dto.SharedLocationDto;
 import com.tinder.deck.dto.SharedPreferencesDto;
 import com.tinder.deck.dto.SharedProfileDto;
+import com.tinder.deck.service.pipeline.*;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -50,12 +51,43 @@ class DeckServiceTest {
     private ArgumentCaptor<Duration> durationCaptor;
 
     private DeckService deckService;
+    private DeckPipeline pipeline;
+    private CandidateSearchStage searchStage;
+    private SwipeFilterStage filterStage;
+    private ScoringStage scoringStage;
+    private CacheStage cacheStage;
 
     private UUID viewerId;
     private SharedProfileDto viewerProfile;
     private SharedPreferencesDto preferences;
 
+    @BeforeEach
+    void setUp() {
+        viewerId = UUID.randomUUID();
+        preferences = new SharedPreferencesDto(18, 50, "ANY", 100);
+        viewerProfile = createProfile(viewerId, "Viewer", 25, preferences);
 
+        // Create real pipeline stages with mocked dependencies
+        searchStage = new CandidateSearchStage(profilesHttp, deckCache, null);
+        ReflectionTestUtils.setField(searchStage, "searchLimit", 2000);
+        ReflectionTestUtils.setField(searchStage, "preferencesCacheEnabled", false);
+
+        filterStage = new SwipeFilterStage(swipesHttp);
+        ReflectionTestUtils.setField(filterStage, "batchSize", 200);
+        ReflectionTestUtils.setField(filterStage, "timeoutMs", 5000L);
+        ReflectionTestUtils.setField(filterStage, "retries", 1);
+
+        scoringStage = new ScoringStage(scoringService);
+        ReflectionTestUtils.setField(scoringStage, "parallelism", 2);
+
+        cacheStage = new CacheStage(deckCache);
+        ReflectionTestUtils.setField(cacheStage, "ttlMinutes", 60L);
+
+        pipeline = new DeckPipeline(searchStage, filterStage, scoringStage, cacheStage);
+        ReflectionTestUtils.setField(pipeline, "perUserLimit", 500);
+
+        deckService = new DeckService(pipeline);
+    }
 
     @Test
     @DisplayName("Should rebuild deck with candidates that have no swipe history")
@@ -155,19 +187,12 @@ class DeckServiceTest {
         when(profilesHttp.searchProfiles(eq(viewerId), eq(preferences), eq(2000)))
                 .thenReturn(Flux.empty());
 
-        // Mock cache write
-        when(deckCache.writeDeck(eq(viewerId), anyList(), any(Duration.class)))
-                .thenReturn(Mono.empty());
-
         // When: Rebuilding deck
         StepVerifier.create(deckService.rebuildOneDeck(viewerProfile))
                 .verifyComplete();
 
-        // Then: Cache should be written with empty deck
-        verify(deckCache).writeDeck(eq(viewerId), deckCaptor.capture(), any(Duration.class));
-
-        List<Map.Entry<UUID, Double>> deck = deckCaptor.getValue();
-        assertThat(deck).isEmpty();
+        // Then: Cache should NOT be called (no candidates to cache)
+        verify(deckCache, never()).writeDeck(any(), any(), any());
     }
 
     @Test
@@ -177,19 +202,12 @@ class DeckServiceTest {
         when(profilesHttp.searchProfiles(eq(viewerId), eq(preferences), eq(2000)))
                 .thenReturn(Flux.error(new RuntimeException("Profiles service error")));
 
-        // Mock cache write
-        when(deckCache.writeDeck(eq(viewerId), anyList(), any(Duration.class)))
-                .thenReturn(Mono.empty());
-
         // When: Rebuilding deck
         StepVerifier.create(deckService.rebuildOneDeck(viewerProfile))
                 .verifyComplete();
 
-        // Then: Cache should be written with empty deck (error was handled)
-        verify(deckCache).writeDeck(eq(viewerId), deckCaptor.capture(), any(Duration.class));
-
-        List<Map.Entry<UUID, Double>> deck = deckCaptor.getValue();
-        assertThat(deck).isEmpty();
+        // Then: Cache should NOT be called (error was handled gracefully)
+        verify(deckCache, never()).writeDeck(any(), any(), any());
     }
 
     @Test
@@ -228,8 +246,8 @@ class DeckServiceTest {
     @Test
     @DisplayName("Should limit deck to perUserLimit")
     void testRebuildDeckWithLimitEnforcement() {
-        // Given: More candidates than perUserLimit (set to 500)
-        ReflectionTestUtils.setField(deckService, "perUserLimit", 3);
+        // Given: More candidates than perUserLimit (set to 3 for testing)
+        ReflectionTestUtils.setField(pipeline, "perUserLimit", 3);
 
         List<SharedProfileDto> candidates = new ArrayList<>();
         for (int i = 0; i < 10; i++) {

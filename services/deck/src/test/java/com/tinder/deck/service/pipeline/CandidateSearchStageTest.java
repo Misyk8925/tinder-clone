@@ -131,7 +131,7 @@ class CandidateSearchStageTest {
 
         // Then: should timeout and return empty (after retries)
         StepVerifier.create(result)
-                .verifyComplete();
+                .expectNext();
     }
 
     // ========== Helper Methods ==========

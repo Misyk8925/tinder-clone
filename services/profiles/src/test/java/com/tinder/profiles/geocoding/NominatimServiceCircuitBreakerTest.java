@@ -1,10 +1,10 @@
 package com.tinder.profiles.geocoding;
 
-import io.github.resilience4j.bulkhead.SemaphoreBulkheadRegistry;
 import io.github.resilience4j.circuitbreaker.CircuitBreaker;
 import io.github.resilience4j.circuitbreaker.CircuitBreakerRegistry;
 import java.util.Optional;
 import org.junit.jupiter.api.Test;
+import org.springframework.http.HttpStatusCode;
 import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.web.reactive.function.client.ClientResponse;
 import org.springframework.web.reactive.function.client.ExchangeFunction;
@@ -17,18 +17,15 @@ class NominatimServiceCircuitBreakerTest {
 
     @Test
     void geocodeCityReturnsEmptyWhenCircuitOpen() {
-        ExchangeFunction exchangeFunction = request -> Mono.just(ClientResponse.create(500).build());
+        ExchangeFunction exchangeFunction = request -> Mono.just(ClientResponse.create(HttpStatusCode.valueOf(500)).build());
         WebClient webClient = WebClient.builder().exchangeFunction(exchangeFunction).build();
 
         CircuitBreakerRegistry cbRegistry = CircuitBreakerRegistry.ofDefaults();
-        SemaphoreBulkheadRegistry bulkheadRegistry = SemaphoreBulkheadRegistry.ofDefaults();
         CircuitBreaker circuitBreaker = cbRegistry.circuitBreaker("nominatimClient");
         circuitBreaker.transitionToOpenState();
 
         NominatimService service = new NominatimService(
-                webClient,
-                circuitBreaker,
-                bulkheadRegistry.bulkhead("nominatimClient")
+                webClient
         );
         ReflectionTestUtils.setField(service, "timeoutMs", 10L);
         ReflectionTestUtils.setField(service, "maxRetries", 0);

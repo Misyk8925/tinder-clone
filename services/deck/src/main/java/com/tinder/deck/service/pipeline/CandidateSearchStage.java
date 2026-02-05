@@ -19,7 +19,7 @@ import java.util.UUID;
 @Component
 @Slf4j
 @RequiredArgsConstructor
-public class CandidateSearchStage {
+public class CandidateSearchStage extends BasicStage {
 
     private final ProfilesHttp profilesHttp;
     private final DeckCache deckCache;

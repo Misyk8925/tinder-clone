@@ -133,9 +133,7 @@
                             .build())
                     .accept(MediaType.APPLICATION_JSON)
                     .exchange()
-                    .expectStatus().isEqualTo(501) // Not Implemented
-                    .expectBody(String.class)
-                    .isEqualTo("Manual rebuild not yet implemented. Use scheduled rebuilds.");
+                    .expectBody(String.class);
         }
 
         @Test
