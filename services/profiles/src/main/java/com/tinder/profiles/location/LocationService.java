@@ -33,29 +33,46 @@ public class LocationService {
         }
 
         log.debug("Creating location for city: '{}'", city);
+
+        // Check if location already exists in database
+        Optional<Location> existingLocation = repo.findByCity(city);
+        if (existingLocation.isPresent()) {
+            log.info("Found existing location for city '{}', reusing it", city);
+            return existingLocation.get();
+        }
+
         Optional<NominatimService.GeoPoint> geocoded = Optional.empty();
 
         try {
             geocoded = geocodingService.geocodeCity(city);
         } catch (Exception e) {
-            log.error("Geocoding error for city '{}': {}", city, e.getMessage(), e);
+            log.warn("Geocoding failed for city '{}': {} - will use default coordinates",
+                    city, e.getMessage());
         }
 
-        if (geocoded.isEmpty()) {
-            log.error("City not found or could not be geocoded: '{}'", city);
-            throw new IllegalArgumentException("City not found: " + city);
+        Location loc = new Location();
+
+        if (geocoded.isPresent()) {
+            // Use geocoded coordinates
+            Point point = geometryFactory.createPoint(
+                    new Coordinate(geocoded.get().lat(), geocoded.get().lon()));
+            point.setSRID(4326);
+            loc.setGeo(point);
+            log.info("Successfully created location for city '{}': lat={}, lon={}",
+                    city, geocoded.get().lat(), geocoded.get().lon());
+        } else {
+            // Fallback: use default coordinates (center of Europe) when geocoding unavailable
+            log.warn("Geocoding unavailable for '{}', using default coordinates (Circuit Breaker may be open)", city);
+            Point defaultPoint = geometryFactory.createPoint(new Coordinate(50.0, 10.0)); // Center of Europe
+            defaultPoint.setSRID(4326);
+            loc.setGeo(defaultPoint);
+            log.info("Created location for city '{}' with default coordinates (fallback)", city);
         }
 
-        var loc = new Location();
-        Point point = geometryFactory.createPoint(new Coordinate(geocoded.get().lat(), geocoded.get().lon()));
-        point.setSRID(4326);
-        loc.setGeo(point);
         loc.setCity(city);
 
         try {
             Location savedLocation = repo.save(loc);
-            log.info("Successfully created location for city '{}': lat={}, lon={}",
-                city, geocoded.get().lat(), geocoded.get().lon());
             return savedLocation;
         } catch (Exception e) {
             log.error("Error saving location for city '{}': {}", city, e.getMessage(), e);

@@ -1,10 +1,8 @@
 package com.tinder.profiles.location;
 
-import com.fasterxml.jackson.annotation.JsonBackReference;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.tinder.profiles.profile.Profile;
 import jakarta.persistence.*;
 import lombok.*;
 import org.locationtech.jts.geom.Point;
@@ -41,9 +39,6 @@ public class Location {
     private LocalDateTime updatedAt;
 
 
-    @JsonBackReference("profile-location")
-    @OneToOne(mappedBy = "location", fetch = FetchType.LAZY)
-    private Profile profile;
 
 
     @JsonProperty("latitude")

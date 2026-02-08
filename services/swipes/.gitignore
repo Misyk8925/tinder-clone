@@ -31,3 +31,9 @@ build/
 
 ### VS Code ###
 .vscode/
+
+### Security - JWT tokens ###
+*.token
+.env.local
+jwt_token.txt
+

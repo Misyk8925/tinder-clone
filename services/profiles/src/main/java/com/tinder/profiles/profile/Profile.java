@@ -72,8 +72,7 @@ public class Profile {
     @ColumnDefault("true")
     private boolean isActive;
 
-    @JsonManagedReference("profile-location")
-    @OneToOne(fetch = FetchType.EAGER, cascade = CascadeType.ALL, optional = false, orphanRemoval = true)
+    @ManyToOne(fetch = FetchType.EAGER, cascade = {CascadeType.PERSIST, CascadeType.MERGE}, optional = false)
     @JoinColumn(name = "location_id", nullable = false)
     private Location location;
 

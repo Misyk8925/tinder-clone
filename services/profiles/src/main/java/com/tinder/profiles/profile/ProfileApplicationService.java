@@ -1,6 +1,6 @@
 package com.tinder.profiles.profile;
 
-import com.tinder.profiles.kafka.ProfileEventProducer;
+import com.tinder.profiles.kafka.ResilientProfileEventProducer;
 import com.tinder.profiles.kafka.dto.ChangeType;
 import com.tinder.profiles.kafka.dto.ProfileCreateEvent;
 import com.tinder.profiles.kafka.dto.ProfileDeleteEvent;
@@ -16,12 +16,12 @@ import com.tinder.profiles.profile.exception.ProfileNotFoundException;
 import com.tinder.profiles.profile.exception.PatchOperationException;
 import com.tinder.profiles.profile.mapper.CreateProfileMapper;
 import com.tinder.profiles.profile.mapper.GetProfileMapper;
+import com.tinder.profiles.redis.ResilientCacheManager;
 import com.tinder.profiles.security.InputSanitizationService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.cache.Cache;
-import org.springframework.cache.CacheManager;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -40,10 +40,10 @@ public class ProfileApplicationService {
     private final ProfileDomainService domainService;
     private final CreateProfileMapper createMapper;
     private final GetProfileMapper getMapper;
-    private final CacheManager cacheManager;
+    private final ResilientCacheManager resilientCacheManager;
     private final InputSanitizationService sanitizationService;
     private final PreferencesService preferencesService;
-    private final ProfileEventProducer profileEventProducer;
+    private final ResilientProfileEventProducer resilientProfileEventProducer;
 
     @Value("${kafka.topics.profile-events.updated}")
     private String profileUpdatedEventsTopic;
@@ -64,8 +64,9 @@ public class ProfileApplicationService {
 
     public GetProfileDto getOne(UUID id) {
         try {
-            // Try to get from cache first
-            Cache.ValueWrapper profileCache = Objects.requireNonNull(cacheManager.getCache(PROFILE_CACHE_NAME)).get(id);
+            // Try to get from cache first using resilient cache manager
+            Cache.ValueWrapper profileCache = resilientCacheManager.get(PROFILE_CACHE_NAME, id);
+
             if (profileCache != null) {
                 Object cached = profileCache.get();
 
@@ -80,7 +81,7 @@ public class ProfileApplicationService {
                 }
             }
 
-            // Load from database
+            // Load from database if not in cache or cache unavailable
             Optional<Profile> profileOptional = profileRepository.findById(id);
             if (profileOptional.isEmpty()) {
                 throw new ProfileNotFoundException(id.toString(), "id");
@@ -91,12 +92,12 @@ public class ProfileApplicationService {
                 return null;
             }
 
-            // Cache the profile
+            // Cache the profile using resilient cache manager
             putInCache(id, profile);
             return getMapper.toGetProfileDto(profile);
 
-        } catch (NullPointerException e) {
-            log.error("Cache not initialized: {}", e.getMessage());
+        } catch (Exception e) {
+            log.error("Error retrieving profile {}: {}. Loading from database.", id, e.getMessage());
             // Continue without cache - load from database
             Optional<Profile> profileOptional = profileRepository.findById(id);
             if (profileOptional.isEmpty()) {
@@ -147,7 +148,7 @@ public class ProfileApplicationService {
 
         try {
             // Send profile created event
-            profileEventProducer.sendProfileCreateEvent(
+            resilientProfileEventProducer.sendProfileCreateEvent(
                     ProfileCreateEvent.builder()
                             .eventId(UUID.randomUUID())
                             .profileId(savedProfile.getProfileId())
@@ -307,7 +308,7 @@ public class ProfileApplicationService {
 
         try {
             // Send profile deleted event
-            profileEventProducer.sendProfileDeleteEvent(
+            resilientProfileEventProducer.sendProfileDeleteEvent(
                     ProfileDeleteEvent.builder()
                             .eventId(UUID.randomUUID())
                             .profileId(profile.getProfileId())
@@ -333,13 +334,11 @@ public class ProfileApplicationService {
     // Cache management methods
 
     private void putInCache(UUID profileId, Profile profile) {
-        Objects.requireNonNull(cacheManager.getCache(PROFILE_CACHE_NAME))
-                .put(profileId, profile);
+        resilientCacheManager.put(PROFILE_CACHE_NAME, profileId, profile);
     }
 
     private void evictFromCache(UUID profileId) {
-        Objects.requireNonNull(cacheManager.getCache(PROFILE_CACHE_NAME))
-                .evict(profileId);
+        resilientCacheManager.evict(PROFILE_CACHE_NAME, profileId);
     }
 
     // Event handling helper methods
@@ -429,7 +428,7 @@ public class ProfileApplicationService {
                     .metadata(String.format("Profile updated: %s", changeType))
                     .build();
 
-            profileEventProducer.sendProfileUpdateEvent(
+            resilientProfileEventProducer.sendProfileUpdateEvent(
                     event,
                     profile.getProfileId().toString(),
                     profileUpdatedEventsTopic

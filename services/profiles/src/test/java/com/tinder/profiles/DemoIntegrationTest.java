@@ -1039,7 +1039,7 @@ public class DemoIntegrationTest {
             .build();
 
         // Set bidirectional relationship
-        location.setProfile(profile);
+        //location.setProfile(profile);
 
         return profileRepository.save(profile);
     }

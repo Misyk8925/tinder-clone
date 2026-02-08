@@ -17,7 +17,7 @@ spring:
       properties:
         spring.json.trusted.packages: "com.tinder.deck.kafka.dto"
     listener:
-      concurrency: 3  # Number of consumer threads
+      concurrency: 20  # Number of consumer threads
       ack-mode: manual  # Manual commit for better control
 
 profiles:

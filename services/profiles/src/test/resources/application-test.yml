@@ -81,3 +81,70 @@ kafka:
       updated: profile.updated
       created: profile.created
       deleted: profile.deleted
+
+# Resilience4j configuration for tests
+resilience4j:
+  circuitbreaker:
+    configs:
+      default:
+        slidingWindowType: COUNT_BASED
+        slidingWindowSize: 10
+        minimumNumberOfCalls: 5
+        failureRateThreshold: 50
+        slowCallRateThreshold: 50
+        slowCallDurationThreshold: 1s
+        waitDurationInOpenState: 5s
+        permittedNumberOfCallsInHalfOpenState: 3
+        automaticTransitionFromOpenToHalfOpenEnabled: true
+        recordExceptions:
+          - java.lang.Exception
+        ignoreExceptions:
+          - java.lang.IllegalArgumentException
+    instances:
+      nominatimClient:
+        baseConfig: default
+        slowCallDurationThreshold: 500ms
+        failureRateThreshold: 60
+      redisCache:
+        baseConfig: default
+        slidingWindowSize: 20
+        minimumNumberOfCalls: 5
+        failureRateThreshold: 50
+        slowCallDurationThreshold: 1000ms
+        waitDurationInOpenState: 20s
+      kafkaProducer:
+        baseConfig: default
+        slidingWindowSize: 50
+        minimumNumberOfCalls: 10
+        failureRateThreshold: 60
+        slowCallDurationThreshold: 3000ms
+        waitDurationInOpenState: 60s
+        permittedNumberOfCallsInHalfOpenState: 10
+  bulkhead:
+    instances:
+      nominatimClient:
+        maxConcurrentCalls: 20
+        maxWaitDuration: 0
+      redisCache:
+        maxConcurrentCalls: 50
+        maxWaitDuration: 100ms
+      kafkaProducer:
+        maxConcurrentCalls: 100
+        maxWaitDuration: 500ms
+  retry:
+    instances:
+      nominatimClient:
+        maxAttempts: 2
+        waitDuration: 100ms
+        enableExponentialBackoff: true
+        exponentialBackoffMultiplier: 2
+      redisCache:
+        maxAttempts: 2
+        waitDuration: 100ms
+      kafkaProducer:
+        maxAttempts: 2
+        waitDuration: 500ms
+        enableExponentialBackoff: true
+        exponentialBackoffMultiplier: 2
+
+

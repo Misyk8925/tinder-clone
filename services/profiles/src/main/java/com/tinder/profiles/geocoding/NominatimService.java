@@ -1,12 +1,14 @@
 package com.tinder.profiles.geocoding;
 
 // NominatimService.java
-import io.github.resilience4j.bulkhead.internal.SemaphoreBulkhead;
+import io.github.resilience4j.bulkhead.Bulkhead;
+import io.github.resilience4j.circuitbreaker.CircuitBreaker;
+import io.github.resilience4j.retry.Retry;
 import lombok.extern.slf4j.Slf4j;
 import io.github.resilience4j.circuitbreaker.CallNotPermittedException;
-import io.github.resilience4j.circuitbreaker.CircuitBreaker;
 import io.github.resilience4j.reactor.bulkhead.operator.BulkheadOperator;
 import io.github.resilience4j.reactor.circuitbreaker.operator.CircuitBreakerOperator;
+import io.github.resilience4j.reactor.retry.RetryOperator;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.MediaType;
@@ -14,7 +16,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.reactive.function.client.WebClient;
 import org.springframework.web.reactive.function.client.WebClientResponseException;
 import reactor.core.publisher.Mono;
-import reactor.util.retry.Retry;
 
 import java.time.Duration;
 import java.util.Optional;
@@ -23,24 +24,27 @@ import java.util.Optional;
 @Service
 public class NominatimService {
     private final WebClient nominatimClient;
+    private final CircuitBreaker circuitBreaker;
+    private final Bulkhead bulkhead;
+    private final Retry retry;
+
     @Value("${app.geocoding.country-codes:}")
     private String countryCodes;
 
     @Value("${app.geocoding.timeout-ms:3000}")
     private long timeoutMs;
 
-    @Value("${app.geocoding.retries:3}")
-    private int maxRetries;
-
-    @Value("${app.geocoding.retry-backoff-ms:400}")
-    private long retryBackoffMs;
-
-    // Explicit constructor with @Qualifier
+    // Constructor with circuit breaker injection
     public NominatimService(
-            @Qualifier("nominatimWebClient") WebClient nominatimClient
+            @Qualifier("nominatimWebClient") WebClient nominatimClient,
+            @Qualifier("nominatimCircuitBreaker") CircuitBreaker circuitBreaker,
+            @Qualifier("nominatimBulkhead") Bulkhead bulkhead,
+            @Qualifier("nominatimRetry") Retry retry
     ) {
         this.nominatimClient = nominatimClient;
-
+        this.circuitBreaker = circuitBreaker;
+        this.bulkhead = bulkhead;
+        this.retry = retry;
     }
 
     public Optional<GeoPoint> geocodeCity(String city) {
@@ -66,18 +70,19 @@ public class NominatimService {
                     .retrieve()
                     .bodyToMono(NominatimResult[].class)
                     .timeout(Duration.ofMillis(timeoutMs))
-                    .retryWhen(Retry.backoff(maxRetries, Duration.ofMillis(retryBackoffMs))
-                            .jitter(0.5d)
-                            .filter(throwable -> !(throwable instanceof CallNotPermittedException))
-                            .filter(throwable -> !(throwable instanceof WebClientResponseException.NotFound))
-                            .doBeforeRetry(retrySignal ->
-                                log.warn("Retrying geocoding for city '{}', attempt: {}, error: {}",
-                                    trimmedCity, retrySignal.totalRetries() + 1, retrySignal.failure().getMessage())))
+                    .transformDeferred(CircuitBreakerOperator.of(circuitBreaker))
+                    .transformDeferred(BulkheadOperator.of(bulkhead))
+                    .transformDeferred(RetryOperator.of(retry))
                     .onErrorResume(CallNotPermittedException.class, throwable -> {
-                        log.warn("Geocoding circuit breaker open for city '{}'", trimmedCity);
+                        log.warn("Geocoding circuit breaker open for city '{}', returning empty result", trimmedCity);
                         return Mono.just(new NominatimResult[0]);
                     })
-                    .doOnError(error -> log.error("Geocoding request failed for city '{}': {}", trimmedCity, error.getMessage()))
+                    .onErrorResume(WebClientResponseException.NotFound.class, throwable -> {
+                        log.debug("No geocoding results found for city '{}' (404)", trimmedCity);
+                        return Mono.just(new NominatimResult[0]);
+                    })
+                    .doOnError(error -> log.error("Geocoding request failed for city '{}': {} - {}",
+                            trimmedCity, error.getClass().getSimpleName(), error.getMessage()))
                     .onErrorResume(throwable -> {
                         log.error("Error during geocoding for city '{}': {} - {}",
                             trimmedCity, throwable.getClass().getSimpleName(), throwable.getMessage());
