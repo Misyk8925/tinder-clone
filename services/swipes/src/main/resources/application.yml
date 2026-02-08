@@ -6,12 +6,16 @@ spring:
     producer:
       key-serializer: org.apache.kafka.common.serialization.StringSerializer
       value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
-      acks: all
-      retries: 3
       properties:
-          max.in.flight.requests.per.connection: 5
-          enable.idempotence: true
-          spring.json.add.type.headers: false
+        acks: "0"
+        retries: 0
+        enable.idempotence: false
+        linger.ms: 5
+        batch.size: 65536
+        buffer.memory: 134217728
+        compression.type: lz4
+        max.in.flight.requests.per.connection: 5
+        spring.json.add.type.headers: false
 
     consumer:
       group-id: swipes-group
@@ -26,7 +30,7 @@ spring:
         isolation.level: read_committed
     listener:
       ack-mode: manual
-      concurrency: 1
+      concurrency: 10
 
 
 
@@ -35,7 +39,7 @@ spring:
       dialect: org.hibernate.dialect.PostgreSQLDialect
     hibernate:
       ddl-auto: create-drop
-    show-sql: true
+    show-sql: false
 
   data:
     redis:
@@ -88,7 +92,7 @@ app:
 
 logging:
   level:
-    com.zaxxer.hikari: DEBUG
-    com.zaxxer.hikari.HikariConfig: DEBUG
-    org.hibernate.SQL: DEBUG
-    org.hibernate.type.descriptor.sql.BasicBinder: TRACE
+    com.zaxxer.hikari: INFO
+    com.zaxxer.hikari.HikariConfig: INFO
+    org.hibernate.SQL: WARN
+    org.hibernate.type.descriptor.sql.BasicBinder: WARN
