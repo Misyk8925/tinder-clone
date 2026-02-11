@@ -1,0 +1,27 @@
+spring:
+  jpa:
+    properties:
+      dialect: org.hibernate.dialect.PostgreSQLDialect
+    hibernate:
+      ddl-auto: create-drop
+    show-sql: true
+  kafka:
+    bootstrap-servers: localhost:9092
+    consumer:
+      group-id: consumer-service-group
+      auto-offset-reset: earliest
+      enable-auto-commit: false
+
+  datasource:
+      url: jdbc:postgresql://127.0.0.1:54322/postgres
+      username: postgres
+      password: postgres
+      driver-class-name: org.postgresql.Driver
+
+server:
+  port: 8050
+
+app:
+  kafka:
+    topic:
+      swipe-created: swipe-created
