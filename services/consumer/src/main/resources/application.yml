@@ -25,3 +25,5 @@ app:
   kafka:
     topic:
       swipe-created: swipe-created
+      profile-created: profile.created
+      profile-deleted: profile.deleted
