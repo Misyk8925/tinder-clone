@@ -2,7 +2,7 @@ package com.tinder.profiles.security;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.data.redis.core.RedisTemplate;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 
 import java.util.Set;
@@ -18,16 +18,16 @@ public class JwtCacheService {
 
     private static final String JWT_CACHE_PREFIX = "jwt:cache:";
 
-    private final RedisTemplate<String, Object> redisTemplate;
+    private final StringRedisTemplate stringRedisTemplate;
 
     /**
      * Clear all JWT tokens from cache.
      * Use with caution - forces re-validation of all tokens.
      */
     public void clearAllTokens() {
-        Set<String> keys = redisTemplate.keys(JWT_CACHE_PREFIX + "*");
+        Set<String> keys = stringRedisTemplate.keys(JWT_CACHE_PREFIX + "*");
         if (keys != null && !keys.isEmpty()) {
-            Long deleted = redisTemplate.delete(keys);
+            Long deleted = stringRedisTemplate.delete(keys);
             log.info("Cleared {} JWT tokens from cache", deleted);
         }
     }
@@ -40,7 +40,7 @@ public class JwtCacheService {
      */
     public void invalidateToken(String token) {
         String cacheKey = JWT_CACHE_PREFIX + hashToken(token);
-        Boolean deleted = redisTemplate.delete(cacheKey);
+        Boolean deleted = stringRedisTemplate.delete(cacheKey);
         if (Boolean.TRUE.equals(deleted)) {
             log.debug("Invalidated JWT token from cache");
         }
@@ -52,7 +52,7 @@ public class JwtCacheService {
      * @return number of tokens currently cached
      */
     public long getCachedTokenCount() {
-        Set<String> keys = redisTemplate.keys(JWT_CACHE_PREFIX + "*");
+        Set<String> keys = stringRedisTemplate.keys(JWT_CACHE_PREFIX + "*");
         return keys != null ? keys.size() : 0;
     }
 
@@ -66,4 +66,3 @@ public class JwtCacheService {
         return hash + ":" + suffix.hashCode();
     }
 }
-

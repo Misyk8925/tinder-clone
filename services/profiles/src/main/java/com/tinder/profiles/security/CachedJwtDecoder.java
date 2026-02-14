@@ -1,7 +1,7 @@
 package com.tinder.profiles.security;
 
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.data.redis.core.RedisTemplate;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.security.oauth2.jwt.JwtDecoder;
 import org.springframework.security.oauth2.jwt.JwtException;
@@ -12,38 +12,38 @@ import java.util.concurrent.TimeUnit;
 
 /**
  * JWT Decoder with Redis caching to avoid validating the same token multiple times.
- * Caches decoded JWT objects by token string as key.
+ * Caches only validation status to avoid serializing Spring Security Jwt objects.
  */
 @Slf4j
 public class CachedJwtDecoder implements JwtDecoder {
 
     private static final String JWT_CACHE_PREFIX = "jwt:cache:";
+    private static final String VALID_CACHE_VALUE = "valid";
     private static final long MIN_CACHE_TTL_SECONDS = 60; // minimum 1 minute cache
 
     private final JwtDecoder delegate;
-    private final RedisTemplate<String, Object> redisTemplate;
+    private final StringRedisTemplate stringRedisTemplate;
 
-    public CachedJwtDecoder(JwtDecoder delegate, RedisTemplate<String, Object> redisTemplate) {
+    public CachedJwtDecoder(JwtDecoder delegate, StringRedisTemplate stringRedisTemplate) {
         this.delegate = delegate;
-        this.redisTemplate = redisTemplate;
+        this.stringRedisTemplate = stringRedisTemplate;
     }
 
     @Override
     public Jwt decode(String token) throws JwtException {
         String cacheKey = JWT_CACHE_PREFIX + hashToken(token);
 
-        // Try to get from cache
-        Jwt cachedJwt = (Jwt) redisTemplate.opsForValue().get(cacheKey);
-        if (cachedJwt != null) {
-            log.trace("JWT cache hit for token");
-
-            // Verify token hasn't expired
-            if (cachedJwt.getExpiresAt() != null && cachedJwt.getExpiresAt().isAfter(Instant.now())) {
-                return cachedJwt;
-            } else {
-                log.debug("Cached JWT expired, removing from cache");
-                redisTemplate.delete(cacheKey);
-            }
+        // Try to get validation marker from cache.
+        // If key exists, we still decode to build Authentication from current token claims.
+        String cachedStatus = stringRedisTemplate.opsForValue().get(cacheKey);
+        if (VALID_CACHE_VALUE.equals(cachedStatus)) {
+            log.trace("JWT cache hit - token previously validated");
+            return delegate.decode(token);
+        }
+        if (cachedStatus != null) {
+            // Defensive cleanup for unexpected old cache format.
+            log.debug("Unexpected JWT cache value format, evicting key");
+            stringRedisTemplate.delete(cacheKey);
         }
 
         // Cache miss - decode and validate token
@@ -56,8 +56,8 @@ public class CachedJwtDecoder implements JwtDecoder {
 
             // Only cache if token has reasonable lifetime remaining
             if (ttlSeconds > MIN_CACHE_TTL_SECONDS) {
-                redisTemplate.opsForValue().set(cacheKey, jwt, ttlSeconds, TimeUnit.SECONDS);
-                log.trace("Cached JWT with TTL {} seconds", ttlSeconds);
+                stringRedisTemplate.opsForValue().set(cacheKey, VALID_CACHE_VALUE, ttlSeconds, TimeUnit.SECONDS);
+                log.trace("Cached JWT validation marker with TTL {} seconds", ttlSeconds);
             }
         }
 
@@ -76,4 +76,3 @@ public class CachedJwtDecoder implements JwtDecoder {
         return hash + ":" + suffix.hashCode();
     }
 }
-

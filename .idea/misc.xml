@@ -32,12 +32,15 @@
         <option value="$PROJECT_DIR$/services/deck/pom.xml" />
         <option value="$PROJECT_DIR$/services/keycloak-auth-service-spring-boot/pom.xml" />
         <option value="$PROJECT_DIR$/services/consumer/pom.xml" />
+        <option value="$USER_HOME$/Downloads/swipes-demo/pom.xml" />
+        <option value="$PROJECT_DIR$/services/swipes-demo/pom.xml" />
       </list>
     </option>
     <option name="ignoredFiles">
       <set>
         <option value="$PROJECT_DIR$/services/config-server/pom.xml" />
         <option value="$PROJECT_DIR$/services/gateway-service/pom.xml" />
+        <option value="$USER_HOME$/Downloads/swipes-demo/pom.xml" />
       </set>
     </option>
   </component>

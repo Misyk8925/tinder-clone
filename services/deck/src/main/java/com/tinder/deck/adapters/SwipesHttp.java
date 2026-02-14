@@ -18,7 +18,7 @@ public class SwipesHttp {
 
     /**
      * Batch check if swipes exist between viewer and candidates
-     * Calls /internal/between/batch endpoint (not secured)
+     * Calls /between/batch on consumer service
      */
     public Mono<Map<UUID, Boolean>> betweenBatch(UUID viewerId, List<UUID> candidateIds) {
         return swipesWebClient.post()

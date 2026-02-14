@@ -25,8 +25,9 @@ profiles:
   # For production, override with: --profiles.base-url=http://localhost:8010/api/v1/profiles/internal
   base-url: http://localhost:8011/api/v1/profiles/internal
 swipes:
-  # Swipes service internal API endpoint
-  base-url: http://localhost:8020/api/v1/swipes/internal
+  # base-url: http://localhost:8020/api/v1/swipes/internal
+  # Consumer service endpoint for swipe history lookups
+  base-url: http://localhost:8050
 
 server:
   port: 8030

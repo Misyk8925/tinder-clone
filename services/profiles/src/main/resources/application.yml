@@ -133,8 +133,8 @@ resilience4j:
         maxConcurrentCalls: 20
         maxWaitDuration: 0
       redisCache:
-        maxConcurrentCalls: 50
-        maxWaitDuration: 100ms
+        maxConcurrentCalls: 500
+        maxWaitDuration: 500ms
       kafkaProducer:
         maxConcurrentCalls: 100
         maxWaitDuration: 500ms

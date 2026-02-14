@@ -27,7 +27,7 @@ spring:
 profiles:
   base-url: http://localhost:8011/api/v1/profiles/internal
 swipes:
-  base-url: http://localhost:8021/api/v1/swipes/internal
+  base-url: http://localhost:8050
 
 server:
   port: 8031  # Fixed test port to avoid conflicts

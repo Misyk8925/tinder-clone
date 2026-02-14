@@ -130,7 +130,7 @@ public class ComprehensiveIntegrationTest {
     @Autowired
     private ObjectMapper objectMapper;
 
-    @Value("${swipes.base-url:http://localhost:8020}")
+    @Value("${swipes.base-url:http://localhost:8040}")
     private String swipesBaseUrl;
 
     @Value("${server.port}")
@@ -148,6 +148,10 @@ public class ComprehensiveIntegrationTest {
         Set<String> keys = redisTemplate.keys("deck:*");
         if (keys != null && !keys.isEmpty()) {
             redisTemplate.delete(keys);
+        }
+        Set<String> jwtCacheKeys = redisTemplate.keys("jwt:cache:*");
+        if (jwtCacheKeys != null && !jwtCacheKeys.isEmpty()) {
+            redisTemplate.delete(jwtCacheKeys);
         }
 
         // Clean up database
@@ -1072,7 +1076,7 @@ public class ComprehensiveIntegrationTest {
 
         try {
             swipesClient.post()
-                    .uri("/api/v1/swipes/")
+                    .uri("/api/v1/swipes")
                     .header("Authorization", "Bearer " + swiper.token)
                     .contentType(MediaType.APPLICATION_JSON)
                     .bodyValue(swipeData)

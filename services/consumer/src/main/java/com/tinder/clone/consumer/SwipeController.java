@@ -1,26 +1,24 @@
-package com.tinder.swipes.controller;
+package com.tinder.clone.consumer;
 
-import com.tinder.swipes.model.dto.SwipeRecordDto;
-import com.tinder.swipes.service.SwipeService;
+import com.tinder.clone.consumer.model.dto.SwipeRecordDto;
+import com.tinder.clone.consumer.service.SwipeService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
-/**
- * Internal API endpoints for service-to-service communication
- * These endpoints are not secured (see SecurityConfig)
- */
-@RestController
-@RequestMapping("/internal")
-@RequiredArgsConstructor
 @Slf4j
-public class InternalSwipeController {
+@RestController
+@RequiredArgsConstructor
+public class SwipeController {
 
     private final SwipeService service;
 
@@ -35,13 +33,5 @@ public class InternalSwipeController {
         return service.existsBetweenBatch(viewerId, candidateIds);
     }
 
-    /**
-     * Store swipe directly in DB (bypasses Kafka producer/consumer flow)
-     */
-    @PostMapping(value = "/store", consumes = MediaType.APPLICATION_JSON_VALUE)
-    public ResponseEntity<SwipeRecordDto> storeDirectly(@RequestBody SwipeRecordDto swipeRecord) {
-        log.debug("Internal direct swipe store: {}", swipeRecord);
-        service.saveDirectlyToDb(swipeRecord);
-        return ResponseEntity.ok(swipeRecord);
-    }
+
 }

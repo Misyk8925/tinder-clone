@@ -27,6 +27,7 @@ public class SwipeService {
     private final RedisTemplate<String, Object> redisTemplate;
     private final SwipeEventProducer swipeEventProducer;
     private final static String SWIPE_KEY_PREFIX = "swipes:exists";
+    private final static Duration SWIPE_CACHE_TTL = Duration.ofHours(24);
 
     @Value("${app.kafka.topic.swipe-created}")
     private String swipeCreatedTopic;
@@ -86,6 +87,49 @@ public class SwipeService {
 //        }
     }
 
+    @Transactional
+    public SwipeRecord saveDirectlyToDb(SwipeRecordDto swipeRecord) {
+        UUID swiperId = UUID.fromString(swipeRecord.profile1Id());
+        UUID targetId = UUID.fromString(swipeRecord.profile2Id());
+
+        SwipeRecordId directId = new SwipeRecordId(swiperId, targetId);
+        SwipeRecord directRecord = repo.findBySwipeRecordId(directId);
+
+        if (directRecord != null) {
+            if (directRecord.getDecision1() == null) {
+                directRecord.setDecision1(swipeRecord.decision());
+                SwipeRecord saved = repo.save(directRecord);
+                refreshSwipeCache(swiperId, targetId);
+                return saved;
+            }
+            refreshSwipeCache(swiperId, targetId);
+            return directRecord;
+        }
+
+        SwipeRecordId reverseId = new SwipeRecordId(targetId, swiperId);
+        SwipeRecord reverseRecord = repo.findBySwipeRecordId(reverseId);
+
+        if (reverseRecord != null) {
+            if (reverseRecord.getDecision2() == null) {
+                reverseRecord.setDecision2(swipeRecord.decision());
+                SwipeRecord saved = repo.save(reverseRecord);
+                refreshSwipeCache(swiperId, targetId);
+                return saved;
+            }
+            refreshSwipeCache(swiperId, targetId);
+            return reverseRecord;
+        }
+
+        SwipeRecord newSwipeRecord = SwipeRecord.builder()
+                .swipeRecordId(directId)
+                .decision1(swipeRecord.decision())
+                .build();
+
+        SwipeRecord saved = repo.save(newSwipeRecord);
+        refreshSwipeCache(swiperId, targetId);
+        return saved;
+    }
+
     /**
      * Returns map: candidateId -> true/false (has viewer already swiped on this candidate?)
      * true = viewer already swiped on this candidate → should NOT show in deck
@@ -135,7 +179,7 @@ public class SwipeService {
             String[] idsToCache = allSwipesInDb.stream().map(UUID::toString).toArray(String[]::new);
             redisTemplate.opsForSet().add(cacheKey, idsToCache);
 
-            redisTemplate.expire(cacheKey, Duration.ofHours(24));
+            redisTemplate.expire(cacheKey, SWIPE_CACHE_TTL);
         } else {
             // No swipes found, store EMPTY_MARKER
             redisTemplate.opsForSet().add(cacheKey, "EMPTY_MARKER");
@@ -148,5 +192,18 @@ public class SwipeService {
             result.put(cid, allSwipesInDb.contains(cid));
         }
         return result;
+    }
+
+    private void refreshSwipeCache(UUID swiperId, UUID targetId) {
+        String cacheKey = SWIPE_KEY_PREFIX + ":" + swiperId;
+        Boolean cacheExists = redisTemplate.hasKey(cacheKey);
+
+        if (!Boolean.TRUE.equals(cacheExists)) {
+            return;
+        }
+
+        redisTemplate.opsForSet().remove(cacheKey, "EMPTY_MARKER");
+        redisTemplate.opsForSet().add(cacheKey, targetId.toString());
+        redisTemplate.expire(cacheKey, SWIPE_CACHE_TTL);
     }
 }

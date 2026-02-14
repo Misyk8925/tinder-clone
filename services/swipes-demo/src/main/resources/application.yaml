@@ -1,0 +1,25 @@
+spring:
+
+
+  codec:
+    max-in-memory-size: 2MB
+
+
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          jwk-set-uri: http://localhost:9080/realms/spring/protocol/openid-connect/certs
+  kafka:
+    bootstrap-servers: localhost:9092
+    producer:
+      acks: 1
+      batch-size: 131072        # 128kb
+      linger-ms: 20
+
+      buffer-memory: 67108864  # 64MB
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.apache.kafka.common.serialization.StringSerializer
+server:
+  port: 8040
+
