@@ -2,7 +2,6 @@ package com.tinder.profiles.photos;
 
 import com.tinder.profiles.profile.Profile;
 import com.tinder.profiles.profile.ProfileApplicationService;
-import com.tinder.profiles.profile.ProfileService;
 import com.tinder.profiles.profile.dto.errors.ErrorSummary;
 import com.tinder.profiles.profile.dto.success.ApiResponse;
 import lombok.RequiredArgsConstructor;

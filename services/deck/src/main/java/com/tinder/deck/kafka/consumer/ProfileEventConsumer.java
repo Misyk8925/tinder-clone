@@ -51,7 +51,10 @@ public class ProfileEventConsumer {
 
         log.info("Invalidating decks for deleted profile: {}", event.getProfileId());
 
-        deckCache.markAsStaleForAllDecks(event.getProfileId())
+        deckCache.removeFromAllDecks(event.getProfileId())
+                .doOnNext(count -> log.info("Removed deleted profile {} from {} cached decks",
+                        event.getProfileId(), count))
+                .then(deckCache.markAsStaleForAllDecks(event.getProfileId())
                 .doOnNext(count -> log.info("Marked deleted profile {} as stale in {} decks", event.getProfileId(), count))
                 .then(deckCache.invalidate(event.getProfileId())
                         .doOnNext(count -> {
@@ -60,7 +63,7 @@ public class ProfileEventConsumer {
                             } else {
                                 log.debug("No personal deck found for deleted profile: {}", event.getProfileId());
                             }
-                        }))
+                        })))
                 .then()
                 .block();
 

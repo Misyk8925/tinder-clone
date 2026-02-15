@@ -1,7 +1,6 @@
 package com.tinder.profiles.photos;
 
 import com.tinder.profiles.profile.Profile;
-import com.tinder.profiles.profile.ProfileService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -20,7 +19,6 @@ import java.io.IOException;
 import java.net.URL;
 import java.time.Duration;
 import java.time.LocalDateTime;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -35,7 +33,6 @@ public class S3PhotoService {
     private final S3Presigner s3Presigner;
     private final PhotoRepository photoRepository;
     private final ImageProcessingService imageProcessingService;
-    private final ProfileService profileService;
 
     @Value("${app.s3.bucket}")
     private String bucket;

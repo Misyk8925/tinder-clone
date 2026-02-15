@@ -94,11 +94,6 @@ public class ResilienceConfig {
     }
 
     @Bean
-    public Bulkhead kafkaBulkhead() {
-        return bulkheadRegistry.bulkhead("kafkaProducer");
-    }
-
-    @Bean
     public Bulkhead nominatimBulkhead() {
         return bulkheadRegistry.bulkhead("nominatimClient");
     }
@@ -109,11 +104,6 @@ public class ResilienceConfig {
     @Bean
     public Retry redisRetry() {
         return retryRegistry.retry("redisCache");
-    }
-
-    @Bean
-    public Retry kafkaRetry() {
-        return retryRegistry.retry("kafkaProducer");
     }
 
     @Bean

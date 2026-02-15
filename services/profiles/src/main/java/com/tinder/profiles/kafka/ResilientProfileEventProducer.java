@@ -1,24 +1,24 @@
 package com.tinder.profiles.kafka;
 
+import com.tinder.profiles.config.OutboxPublisherProperties;
 import com.tinder.profiles.kafka.dto.ProfileCreateEvent;
 import com.tinder.profiles.kafka.dto.ProfileDeleteEvent;
 import com.tinder.profiles.kafka.dto.ProfileUpdatedEvent;
-import com.tinder.profiles.resilience.ResilienceSchedulerConfig;
-import io.github.resilience4j.bulkhead.Bulkhead;
 import io.github.resilience4j.circuitbreaker.CircuitBreaker;
-import io.github.resilience4j.retry.Retry;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Service;
 
 import java.util.concurrent.CompletionStage;
-import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.function.Supplier;
 
 /**
- * Resilient wrapper for Kafka producer operations with circuit breaker, bulkhead, and retry patterns.
- * Provides fail-safe event publishing that degrades gracefully when Kafka is unavailable.
+ * Kafka producer wrapper for background outbox publishing.
+ * Uses circuit breaker for resource protection and throws on failure so outbox can retry.
  */
 @Slf4j
 @Service
@@ -27,128 +27,94 @@ public class ResilientProfileEventProducer {
     private final KafkaTemplate<String, ProfileUpdatedEvent> profileUpdatedEventKafkaTemplate;
     private final KafkaTemplate<String, ProfileDeleteEvent> profileDeleteEventKafkaTemplate;
     private final KafkaTemplate<String, ProfileCreateEvent> profileCreateEventKafkaTemplate;
-    private final ScheduledExecutorService retryScheduler;
     private final CircuitBreaker circuitBreaker;
-    private final Bulkhead bulkhead;
-    private final Retry retry;
+    private final long sendTimeoutMs;
 
     public ResilientProfileEventProducer(
             KafkaTemplate<String, ProfileUpdatedEvent> profileUpdatedEventKafkaTemplate,
             KafkaTemplate<String, ProfileDeleteEvent> profileDeleteEventKafkaTemplate,
             KafkaTemplate<String, ProfileCreateEvent> profileCreateEventKafkaTemplate,
-            ScheduledExecutorService retryScheduler,
             @Qualifier("kafkaCircuitBreaker") CircuitBreaker circuitBreaker,
-            @Qualifier("kafkaBulkhead") Bulkhead bulkhead,
-            @Qualifier("kafkaRetry") Retry retry
+            OutboxPublisherProperties outboxPublisherProperties
     ) {
         this.profileUpdatedEventKafkaTemplate = profileUpdatedEventKafkaTemplate;
         this.profileDeleteEventKafkaTemplate = profileDeleteEventKafkaTemplate;
         this.profileCreateEventKafkaTemplate = profileCreateEventKafkaTemplate;
-        this.retryScheduler = retryScheduler;
         this.circuitBreaker = circuitBreaker;
-        this.bulkhead = bulkhead;
-        this.retry = retry;
+        this.sendTimeoutMs = outboxPublisherProperties.getSendTimeoutMs();
     }
 
-    /**
-     * Send profile update event with resilience patterns
-     */
-    public void sendProfileUpdateEvent(
-            ProfileUpdatedEvent event,
-            String key,
-            String topic
-    ) {
-        log.info("Sending profile update event to topic: {} with key: {} and event: {}", topic, key, event);
+    public void sendProfileUpdateEvent(ProfileUpdatedEvent event, String key, String topic) {
+        log.debug("Sending profile update event to topic: {} with key: {}", topic, key);
 
-        executeResilient(
-                    () -> profileUpdatedEventKafkaTemplate.send(topic, key, event),
-                            "ProfileUpdateEvent",
-                            topic,
-                            key);
-
+        executeWithCircuitBreaker(
+                () -> profileUpdatedEventKafkaTemplate.send(topic, key, event),
+                "ProfileUpdateEvent",
+                topic,
+                key
+        );
     }
 
-    /**
-     * Send profile delete event with resilience patterns
-     */
-    public void sendProfileDeleteEvent(
-           ProfileDeleteEvent event,
-           String key,
-           String topic
-    ){
-        log.info("Sending profile delete event to topic: {} with key: {} and event: {}", topic, key, event);
+    public void sendProfileDeleteEvent(ProfileDeleteEvent event, String key, String topic) {
+        log.debug("Sending profile delete event to topic: {} with key: {}", topic, key);
 
-        executeResilient(
+        executeWithCircuitBreaker(
                 () -> profileDeleteEventKafkaTemplate.send(topic, key, event),
                 "ProfileDeleteEvent",
                 topic,
-                key);
+                key
+        );
     }
 
-    /**
-     * Send profile create event with resilience patterns
-     */
-    public void sendProfileCreateEvent(
-           ProfileCreateEvent event,
-           String key,
-           String topic
-    ){
-        log.info("Sending profile create event to topic: {} with key: {} and event: {}", topic, key, event);
+    public void sendProfileCreateEvent(ProfileCreateEvent event, String key, String topic) {
+        log.debug("Sending profile create event to topic: {} with key: {}", topic, key);
 
-        executeResilient(
+        executeWithCircuitBreaker(
                 () -> profileCreateEventKafkaTemplate.send(topic, key, event),
                 "ProfileCreateEvent",
                 topic,
-                key);
+                key
+        );
     }
 
-    /**
-     * Execute Kafka operation with circuit breaker, bulkhead, and retry
-     *
-     * @param supplier the Kafka send operation
-     * @param eventType event type name for logging
-     * @param topic Kafka topic
-     * @param key message key
-     */
-
-    private <T> void executeResilient(Supplier<CompletionStage<T>> supplier,
-                                      String eventType,
-                                      String topic,
-                                      String key) {
-        // Bulkhead (sync) as a simple concurrency gate around starting the async operation
-        Bulkhead bulk = this.bulkhead;
-
-        if (!bulk.tryAcquirePermission()) {
-            log.warn("Bulkhead rejected {} for topic '{}' key '{}': too many concurrent in-flight sends",
-                    eventType, topic, key);
-            return; // fail-open: drop
-        }
-
+    private <T> void executeWithCircuitBreaker(
+            Supplier<CompletionStage<T>> supplier,
+            String eventType,
+            String topic,
+            String key
+    ) {
         try {
-            // CircuitBreaker + Retry for async completion
-            Supplier<CompletionStage<T>> cbDecorated =
+            Supplier<CompletionStage<T>> decoratedSupplier =
                     CircuitBreaker.decorateCompletionStage(circuitBreaker, supplier);
 
-            Supplier<CompletionStage<T>> retryDecorated =
-                    Retry.decorateCompletionStage(retry, retryScheduler, cbDecorated);
+            decoratedSupplier.get()
+                    .toCompletableFuture()
+                    .get(sendTimeoutMs, TimeUnit.MILLISECONDS);
 
-            retryDecorated.get().whenComplete((res, ex) -> {
-                // IMPORTANT: release bulkhead when async completes
-                bulk.releasePermission();
-
-                if (ex != null) {
-                    log.error("Failed to send {} to topic '{}' with key '{}': {} - {}. Event lost (fail-open).",
-                            eventType, topic, key, ex.getClass().getSimpleName(), ex.getMessage(), ex);
-                } else {
-                    log.debug("Successfully sent {} to topic '{}' with key '{}'", eventType, topic, key);
-                }
-            });
-
+            log.debug("Successfully sent {} to topic '{}' with key '{}'", eventType, topic, key);
+        } catch (ExecutionException | TimeoutException | InterruptedException e) {
+            if (e instanceof InterruptedException) {
+                Thread.currentThread().interrupt();
+            }
+            Throwable rootCause = unwrap(e);
+            log.error("Failed to send {} to topic '{}' with key '{}': {} - {}",
+                    eventType, topic, key, rootCause.getClass().getSimpleName(), rootCause.getMessage());
+            throw new IllegalStateException("Kafka send failed for " + eventType, rootCause);
         } catch (Exception e) {
-            // release if starting the async operation throws synchronously
-            bulk.releasePermission();
-            log.error("Failed to start send {} to topic '{}' with key '{}': {} - {}. Event lost (fail-open).",
-                    eventType, topic, key, e.getClass().getSimpleName(), e.getMessage(), e);
+            Throwable rootCause = unwrap(e);
+            log.error("Failed to send {} to topic '{}' with key '{}': {} - {}",
+                    eventType, topic, key, rootCause.getClass().getSimpleName(), rootCause.getMessage());
+            throw new IllegalStateException("Kafka send failed for " + eventType, rootCause);
         }
+    }
+
+    private Throwable unwrap(Throwable throwable) {
+        if (throwable instanceof ExecutionException executionException && executionException.getCause() != null) {
+            return executionException.getCause();
+        }
+        if (throwable.getCause() != null) {
+            return throwable.getCause();
+        }
+        return throwable;
     }
 }

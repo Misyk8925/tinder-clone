@@ -58,7 +58,7 @@ deck:
 kafka:
   topics:
     profile-events: profile.updated
-    swipe-events: swipe.created
+    swipe-events: swipe-created
 
 management:
   endpoints:

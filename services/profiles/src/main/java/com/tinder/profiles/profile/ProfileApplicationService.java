@@ -1,10 +1,10 @@
 package com.tinder.profiles.profile;
 
-import com.tinder.profiles.kafka.ResilientProfileEventProducer;
 import com.tinder.profiles.kafka.dto.ChangeType;
 import com.tinder.profiles.kafka.dto.ProfileCreateEvent;
 import com.tinder.profiles.kafka.dto.ProfileDeleteEvent;
 import com.tinder.profiles.kafka.dto.ProfileUpdatedEvent;
+import com.tinder.profiles.outbox.ProfileOutboxService;
 import com.tinder.profiles.preferences.Preferences;
 import com.tinder.profiles.preferences.PreferencesRepository;
 import com.tinder.profiles.preferences.PreferencesService;
@@ -20,7 +20,6 @@ import com.tinder.profiles.redis.ResilientCacheManager;
 import com.tinder.profiles.security.InputSanitizationService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.cache.Cache;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -43,16 +42,7 @@ public class ProfileApplicationService {
     private final ResilientCacheManager resilientCacheManager;
     private final InputSanitizationService sanitizationService;
     private final PreferencesService preferencesService;
-    private final ResilientProfileEventProducer resilientProfileEventProducer;
-
-    @Value("${kafka.topics.profile-events.updated}")
-    private String profileUpdatedEventsTopic;
-
-    @Value("${kafka.topics.profile-events.created}")
-    private String profileCreatedEventsTopic;
-
-    @Value("${kafka.topics.profile-events.deleted}")
-    private String profileDeletedEventsTopic;
+    private final ProfileOutboxService profileOutboxService;
 
 
     private static final String PROFILE_CACHE_NAME = "PROFILE_ENTITY_CACHE";
@@ -146,22 +136,12 @@ public class ProfileApplicationService {
 
         Profile savedProfile = profileRepository.save(profile);
 
-        try {
-            // Send profile created event
-            resilientProfileEventProducer.sendProfileCreateEvent(
-                    ProfileCreateEvent.builder()
-                            .eventId(UUID.randomUUID())
-                            .profileId(savedProfile.getProfileId())
-                            .timestamp(Instant.now())
-                            .build(),
-                    savedProfile.getProfileId().toString(),
-                    profileCreatedEventsTopic
-            );
-        } catch (Exception e) {
-            log.error("Failed to send ProfileCreateEvent for profile {}: {}",
-                    savedProfile.getProfileId(), e.getMessage(), e);
-            // Don't throw - event sending should not fail the create operation
-        }
+        ProfileCreateEvent event = ProfileCreateEvent.builder()
+                .eventId(UUID.randomUUID())
+                .profileId(savedProfile.getProfileId())
+                .timestamp(Instant.now())
+                .build();
+        profileOutboxService.enqueueProfileCreated(event);
 
         log.info("Profile created successfully for userId: {}", userId);
         return savedProfile;
@@ -207,7 +187,7 @@ public class ProfileApplicationService {
 
         // Determine change type and send event
         ChangeType changeType = determineChangeType(changedFields, preferencesChanged);
-        sendProfileUpdatedEvent(savedProfile, changeType, changedFields);
+        enqueueProfileUpdatedEvent(savedProfile, changeType, changedFields);
 
         // Update cache
         putInCache(savedProfile.getProfileId(), savedProfile);
@@ -282,7 +262,7 @@ public class ProfileApplicationService {
 
         // Determine change type and send event
         ChangeType changeType = determineChangeType(changedFields, preferencesChanged);
-        sendProfileUpdatedEvent(savedProfile, changeType, changedFields);
+        enqueueProfileUpdatedEvent(savedProfile, changeType, changedFields);
 
         // Update cache
         putInCache(savedProfile.getProfileId(), savedProfile);
@@ -306,22 +286,13 @@ public class ProfileApplicationService {
             log.info("Profile deleted successfully: {}", id);
         }
 
-        try {
-            // Send profile deleted event
-            resilientProfileEventProducer.sendProfileDeleteEvent(
-                    ProfileDeleteEvent.builder()
-                            .eventId(UUID.randomUUID())
-                            .profileId(profile.getProfileId())
-                            .timestamp(Instant.now())
-                            .build(),
-                    profile.getProfileId().toString(),
-                    profileDeletedEventsTopic
-            );
-        } catch (Exception e) {
-            log.error("Failed to send ProfileDeleteEvent for profile {}: {}",
-                    profile.getProfileId(), e.getMessage(), e);
-            // Don't throw - event sending should not fail the delete operation
-        }
+        ProfileDeleteEvent event = ProfileDeleteEvent.builder()
+                .eventId(UUID.randomUUID())
+                .profileId(profile.getProfileId())
+                .timestamp(Instant.now())
+                .build();
+        profileOutboxService.enqueueProfileDeleted(event);
+
         return profile;
     }
 
@@ -415,32 +386,21 @@ public class ProfileApplicationService {
     }
 
     /**
-     * Send profile updated event to Kafka
+     * Build and enqueue profile updated event in outbox.
      */
-    private void sendProfileUpdatedEvent(Profile profile, ChangeType changeType, Set<String> changedFields) {
-        try {
-            ProfileUpdatedEvent event = ProfileUpdatedEvent.builder()
-                    .eventId(UUID.randomUUID())
-                    .profileId(profile.getProfileId())
-                    .changeType(changeType)
-                    .changedFields(changedFields)
-                    .timestamp(Instant.now())
-                    .metadata(String.format("Profile updated: %s", changeType))
-                    .build();
+    private void enqueueProfileUpdatedEvent(Profile profile, ChangeType changeType, Set<String> changedFields) {
+        ProfileUpdatedEvent event = ProfileUpdatedEvent.builder()
+                .eventId(UUID.randomUUID())
+                .profileId(profile.getProfileId())
+                .changeType(changeType)
+                .changedFields(changedFields)
+                .timestamp(Instant.now())
+                .metadata(String.format("Profile updated: %s", changeType))
+                .build();
 
-            resilientProfileEventProducer.sendProfileUpdateEvent(
-                    event,
-                    profile.getProfileId().toString(),
-                    profileUpdatedEventsTopic
-            );
+        profileOutboxService.enqueueProfileUpdated(event);
 
-            log.debug("Sent ProfileUpdatedEvent: eventId={}, profileId={}, changeType={}, fields={}",
-                    event.getEventId(), event.getProfileId(), changeType, changedFields);
-
-        } catch (Exception e) {
-            log.error("Failed to send ProfileUpdatedEvent for profile {}: {}",
-                    profile.getProfileId(), e.getMessage(), e);
-            // Don't throw - event sending should not fail the update operation
-        }
+        log.debug("Queued ProfileUpdatedEvent in outbox: eventId={}, profileId={}, changeType={}, fields={}",
+                event.getEventId(), event.getProfileId(), changeType, changedFields);
     }
 }

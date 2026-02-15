@@ -21,7 +21,7 @@ public class SecurityConfig {
                 .oauth2ResourceServer(oauth2 -> oauth2
                         .jwt(Customizer.withDefaults())
                 )
-                .csrf(csrf -> csrf.disable()); // REST API, не нужен
+                .csrf(csrf -> csrf.disable());
 
         return http.build();
     }

@@ -338,6 +338,24 @@ public class DeckCache {
     }
 
     /**
+     * Remove a profile from all cached decks.
+     * Used when a profile is deleted and must disappear from every viewer deck.
+     *
+     * @param profileId The deleted profile ID
+     * @return Mono<Long> number of decks affected
+     */
+    public Mono<Long> removeFromAllDecks(UUID profileId) {
+        String deletedProfile = profileId.toString();
+
+        return redis.keys("deck:*")
+                .filter(key -> DECK_KEY_PATTERN.matcher(key).matches())
+                .flatMap(key -> redis.opsForZSet().remove(key, deletedProfile))
+                .map(removed -> removed > 0 ? 1L : 0L)
+                .reduce(0L, Long::sum)
+                .doOnNext(count -> log.info("Removed deleted profile {} from {} decks", profileId, count));
+    }
+
+    /**
      * Remove multiple profiles from deck in batch
      *
      * @param viewerId The viewer ID

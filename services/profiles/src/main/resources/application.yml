@@ -90,6 +90,18 @@ kafka:
       created: profile.created
       deleted: profile.deleted
 
+outbox:
+  publisher:
+    enabled: true
+    batch-size: 100
+    max-batches-per-run: 5
+    poll-interval-ms: 1000
+    initial-backoff-ms: 1000
+    max-backoff-ms: 60000
+    backoff-multiplier: 2.0
+    send-timeout-ms: 5000
+    max-retries: 10
+
 resilience4j:
   circuitbreaker:
     configs:
@@ -135,9 +147,6 @@ resilience4j:
       redisCache:
         maxConcurrentCalls: 500
         maxWaitDuration: 500ms
-      kafkaProducer:
-        maxConcurrentCalls: 100
-        maxWaitDuration: 500ms
   retry:
     instances:
       nominatimClient:
@@ -148,8 +157,3 @@ resilience4j:
       redisCache:
         maxAttempts: 2
         waitDuration: 100ms
-      kafkaProducer:
-        maxAttempts: 3
-        waitDuration: 1000ms
-        enableExponentialBackoff: true
-        exponentialBackoffMultiplier: 2

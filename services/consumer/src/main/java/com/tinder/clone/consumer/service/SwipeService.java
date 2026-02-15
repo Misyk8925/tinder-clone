@@ -3,7 +3,6 @@ package com.tinder.clone.consumer.service;
 import com.tinder.clone.consumer.kafka.SwipeCreatedEvent;
 import com.tinder.clone.consumer.model.SwipeRecord;
 import com.tinder.clone.consumer.model.embedded.SwipeRecordId;
-import com.tinder.clone.consumer.repository.ProfileCacheRepository;
 import com.tinder.clone.consumer.repository.SwipeRepository;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
@@ -23,7 +22,6 @@ public class SwipeService {
     private static final Duration SWIPE_CACHE_TTL = Duration.ofHours(24);
 
     private final SwipeRepository repo;
-    private final ProfileCacheRepository profileCacheRepository;
 
     private final RedisTemplate<String, Object> redisTemplate;
 
@@ -31,12 +29,6 @@ public class SwipeService {
     public void save(SwipeCreatedEvent swipeRecord) {
         UUID swiperId = UUID.fromString(swipeRecord.getProfile1Id());
         UUID targetId = UUID.fromString(swipeRecord.getProfile2Id());
-
-        if (!profileIdsExist(swiperId, targetId)) {
-            log.warn("Skipping swipe event {} because one or both profiles are missing in cache: profile1Id={}, profile2Id={}",
-                    swipeRecord.getEventId(), swiperId, targetId);
-            return;
-        }
 
         // Try to find existing record in both directions
         SwipeRecordId id1 = new SwipeRecordId(swiperId, targetId);
@@ -55,6 +47,7 @@ public class SwipeService {
                     .decision1(swipeRecord.isDecision())
                     .build();
             repo.save(newSwipeRecord);
+            refreshSwipeCache(swiperId, targetId);
         } else {
             // Record exists - update decision2 if not set
 
@@ -67,16 +60,14 @@ public class SwipeService {
                 existing.setDecision2(decision);
                 log.info("Updated decision 2: {}", existing.getDecision2());
                 repo.save(existing);
+                refreshSwipeCache(swiperId, targetId);
             } else {
                 log.info("decision 2 is not null");
+                refreshSwipeCache(swiperId, targetId);
             }
         }
     }
 
-    private boolean profileIdsExist(UUID profile1Id, UUID profile2Id) {
-        return profileCacheRepository.existsById(profile1Id)
-                && profileCacheRepository.existsById(profile2Id);
-    }
     /**
      * Returns map: candidateId -> true/false (has viewer already swiped on this candidate?)
      * true = viewer already swiped on this candidate → should NOT show in deck
