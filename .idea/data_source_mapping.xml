@@ -2,5 +2,6 @@
 <project version="4">
   <component name="DataSourcePerFileMappings">
     <file url="file://$PROJECT_DIR$/.idea/queries/Query.sql" value="e8fcdac0-85e8-4624-987d-d2a084167db2" />
+    <file url="file://$PROJECT_DIR$/services/consumer/src/main/java/com/tinder/clone/consumer/repository/SwipeRepository.java" value="5e34e6e6-7603-487b-8da0-3ca3b6af6756" />
   </component>
 </project>

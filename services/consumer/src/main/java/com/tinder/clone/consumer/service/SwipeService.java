@@ -1,7 +1,6 @@
 package com.tinder.clone.consumer.service;
 
 import com.tinder.clone.consumer.kafka.SwipeCreatedEvent;
-import com.tinder.clone.consumer.model.SwipeRecord;
 import com.tinder.clone.consumer.model.embedded.SwipeRecordId;
 import com.tinder.clone.consumer.repository.SwipeRepository;
 import jakarta.transaction.Transactional;
@@ -29,43 +28,16 @@ public class SwipeService {
     public void save(SwipeCreatedEvent swipeRecord) {
         UUID swiperId = UUID.fromString(swipeRecord.getProfile1Id());
         UUID targetId = UUID.fromString(swipeRecord.getProfile2Id());
+        SwipeRecordId normalizedId = SwipeRecordId.normalized(swiperId, targetId);
+        boolean swiperIsFirst = swiperId.equals(normalizedId.getProfile1Id());
 
-        // Try to find existing record in both directions
-        SwipeRecordId id1 = new SwipeRecordId(swiperId, targetId);
-        SwipeRecordId id2 = new SwipeRecordId(targetId, swiperId);
-
-        SwipeRecord existing = repo.findBySwipeRecordId(id1);
-        if (existing == null) {
-            existing = repo.findBySwipeRecordId(id2);
-        }
-
-        if (existing == null) {
-            // No existing record in either direction - create new one
-            log.info("record not found, creating new one");
-            SwipeRecord newSwipeRecord = SwipeRecord.builder()
-                    .swipeRecordId(id1)
-                    .decision1(swipeRecord.isDecision())
-                    .build();
-            repo.save(newSwipeRecord);
-            refreshSwipeCache(swiperId, targetId);
-        } else {
-            // Record exists - update decision2 if not set
-
-            log.info("record found, updating existing one");
-
-            if (existing.getDecision2() == null) {
-                log.info("decision 2 is null, updating it");
-                Boolean decision = swipeRecord.isDecision();
-
-                existing.setDecision2(decision);
-                log.info("Updated decision 2: {}", existing.getDecision2());
-                repo.save(existing);
-                refreshSwipeCache(swiperId, targetId);
-            } else {
-                log.info("decision 2 is not null");
-                refreshSwipeCache(swiperId, targetId);
-            }
-        }
+        repo.upsertSwipe(
+                normalizedId.getProfile1Id(),
+                normalizedId.getProfile2Id(),
+                swiperIsFirst,
+                swipeRecord.isDecision()
+        );
+        refreshSwipeCache(swiperId, targetId);
     }
 
     /**
@@ -81,29 +53,12 @@ public class SwipeService {
             return Collections.emptyMap();
         }
 
-        String cacheKey = SWIPE_KEY_PREFIX + ":" + viewerId;
-
-        // Check if cache exists for this viewer
-        Boolean cacheExists = redisTemplate.hasKey(cacheKey);
-
-        if (cacheExists) {
-            // Cache exists, use it
-            Set<Object> cachedMembers = redisTemplate.opsForSet().members(cacheKey);
-
-            Map<UUID, Boolean> result = new HashMap<>();
-            for (UUID cid : candidateIds) {
-                // If EMPTY_MARKER exists and it's the only member, return false for all
-                if (cachedMembers != null && cachedMembers.size() == 1 && cachedMembers.contains("EMPTY_MARKER")) {
-                    result.put(cid, false);
-                } else {
-                    result.put(cid, cachedMembers != null && cachedMembers.contains(cid.toString()));
-                }
-            }
-            return result;
-        } else {
-            // Cache doesn't exist, warm it up
-            return warmUpCacheAndReturn(viewerId, candidateIds);
+        Set<UUID> swipedInBatch = repo.findViewerSwipedCandidates(viewerId, candidateIds);
+        Map<UUID, Boolean> result = new HashMap<>(candidateIds.size());
+        for (UUID cid : candidateIds) {
+            result.put(cid, swipedInBatch.contains(cid));
         }
+        return result;
     }
 
     @Transactional

@@ -36,7 +36,7 @@ public class UserServiceImpl implements UserService {
     @Override
     public void createUser(NewUserRecord newUserRecord) {
 
-        UserRepresentation  userRepresentation= new UserRepresentation();
+        UserRepresentation userRepresentation= new UserRepresentation();
         userRepresentation.setEnabled(true);
         userRepresentation.setFirstName(newUserRecord.firstName());
         userRepresentation.setLastName(newUserRecord.lastName());

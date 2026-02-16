@@ -23,6 +23,12 @@ public class SwipeRecordId implements Serializable {
     @Column(name = "profile2_id", nullable = false)
     private UUID profile2Id;
 
+    public static SwipeRecordId normalized(UUID a, UUID b) {
+        Objects.requireNonNull(a, "a must not be null");
+        Objects.requireNonNull(b, "b must not be null");
+        return a.compareTo(b) < 0 ? new SwipeRecordId(a, b) : new SwipeRecordId(b, a);
+    }
+
     @Override
     public boolean equals(Object o) {
         if (this == o) return true;
