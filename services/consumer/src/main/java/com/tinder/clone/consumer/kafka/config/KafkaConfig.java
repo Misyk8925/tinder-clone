@@ -1,5 +1,9 @@
-package com.tinder.clone.consumer.kafka;
+package com.tinder.clone.consumer.kafka.config;
 
+import com.tinder.clone.consumer.kafka.event.MatchCreateEvent;
+import com.tinder.clone.consumer.kafka.event.ProfileCreateEvent;
+import com.tinder.clone.consumer.kafka.event.ProfileDeleteEvent;
+import com.tinder.clone.consumer.kafka.event.SwipeCreatedEvent;
 import org.apache.kafka.clients.admin.NewTopic;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.common.serialization.StringDeserializer;
@@ -31,6 +35,9 @@ public class KafkaConfig {
 
     @Value("${app.kafka.topic.profile-deleted}")
     private String profileDeletedTopic;
+
+    @Value("${app.kafka.topic.match-created}")
+    private String matchCreatedTopic;
 
     @Value("${spring.kafka.bootstrap-servers}")
     private String bootstrapServers;
@@ -70,6 +77,17 @@ public class KafkaConfig {
                 .config("cleanup.policy", "delete")
                 .build();
     }
+
+    @Bean
+    public NewTopic matchCreatedTopic() {
+        return TopicBuilder.name(matchCreatedTopic)
+                .partitions(10)
+                .replicas(1)
+                .config("retentions.ms", "604800000")
+                .config("cleanup.policy", "delete")
+                .build();
+    }
+
 
     @Bean
     public ConsumerFactory<String, SwipeCreatedEvent> swipeEventConsumerFactory() {

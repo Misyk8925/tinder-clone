@@ -16,6 +16,11 @@
           <package value="com.tinder.clone.consumer" />
         </packages>
       </persistence-unit>
+      <persistence-unit moduleName="match" name="Default">
+        <packages>
+          <package value="com.tinder.match" />
+        </packages>
+      </persistence-unit>
     </persistence-units>
   </component>
 </project>

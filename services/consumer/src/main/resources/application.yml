@@ -27,3 +27,4 @@ app:
       swipe-created: swipe-created
       profile-created: profile.created
       profile-deleted: profile.deleted
+      match-created: match.created

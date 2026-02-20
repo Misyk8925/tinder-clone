@@ -33,6 +33,7 @@
         <option value="$PROJECT_DIR$/services/keycloak-auth-service-spring-boot/pom.xml" />
         <option value="$PROJECT_DIR$/services/swipes-demo/pom.xml" />
         <option value="$PROJECT_DIR$/services/consumer/pom.xml" />
+        <option value="$PROJECT_DIR$/services/match/pom.xml" />
       </list>
     </option>
     <option name="ignoredFiles">

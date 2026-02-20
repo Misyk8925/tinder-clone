@@ -1,5 +1,6 @@
 package com.tinder.clone.consumer.kafka;
 
+import com.tinder.clone.consumer.kafka.event.SwipeCreatedEvent;
 import com.tinder.clone.consumer.service.SwipeService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;

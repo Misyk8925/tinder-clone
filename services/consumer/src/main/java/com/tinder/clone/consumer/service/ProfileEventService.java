@@ -1,8 +1,8 @@
 package com.tinder.clone.consumer.service;
 
 
-import com.tinder.clone.consumer.kafka.ProfileCreateEvent;
-import com.tinder.clone.consumer.kafka.ProfileDeleteEvent;
+import com.tinder.clone.consumer.kafka.event.ProfileCreateEvent;
+import com.tinder.clone.consumer.kafka.event.ProfileDeleteEvent;
 import com.tinder.clone.consumer.model.ProfileCacheModel;
 import com.tinder.clone.consumer.repository.ProfileCacheRepository;
 import jakarta.transaction.Transactional;

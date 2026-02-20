@@ -1,5 +1,7 @@
 package com.tinder.clone.consumer.kafka;
 
+import com.tinder.clone.consumer.kafka.event.ProfileCreateEvent;
+import com.tinder.clone.consumer.kafka.event.ProfileDeleteEvent;
 import com.tinder.clone.consumer.service.ProfileEventService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;

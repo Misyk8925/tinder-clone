@@ -1,6 +1,8 @@
 package com.tinder.clone.consumer.service;
 
-import com.tinder.clone.consumer.kafka.SwipeCreatedEvent;
+import com.tinder.clone.consumer.kafka.MatchEventProducer;
+import com.tinder.clone.consumer.kafka.event.MatchCreateEvent;
+import com.tinder.clone.consumer.kafka.event.SwipeCreatedEvent;
 import com.tinder.clone.consumer.model.embedded.SwipeRecordId;
 import com.tinder.clone.consumer.repository.SwipeRepository;
 import jakarta.transaction.Transactional;
@@ -10,6 +12,7 @@ import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
 
 import java.time.Duration;
+import java.time.Instant;
 import java.util.*;
 
 @Service
@@ -23,6 +26,7 @@ public class SwipeService {
     private final SwipeRepository repo;
 
     private final RedisTemplate<String, Object> redisTemplate;
+    private final MatchEventProducer matchEventProducer;
 
     @Transactional
     public void save(SwipeCreatedEvent swipeRecord) {
@@ -30,6 +34,9 @@ public class SwipeService {
         UUID targetId = UUID.fromString(swipeRecord.getProfile2Id());
         SwipeRecordId normalizedId = SwipeRecordId.normalized(swiperId, targetId);
         boolean swiperIsFirst = swiperId.equals(normalizedId.getProfile1Id());
+        boolean wasMatchBefore = Boolean.TRUE.equals(
+                repo.isMutualMatch(normalizedId.getProfile1Id(), normalizedId.getProfile2Id())
+        );
 
         repo.upsertSwipe(
                 normalizedId.getProfile1Id(),
@@ -38,6 +45,17 @@ public class SwipeService {
                 swipeRecord.isDecision()
         );
         refreshSwipeCache(swiperId, targetId);
+
+        if (!swipeRecord.isDecision() || wasMatchBefore) {
+            return;
+        }
+
+        boolean isMatchNow = Boolean.TRUE.equals(
+                repo.isMutualMatch(normalizedId.getProfile1Id(), normalizedId.getProfile2Id())
+        );
+        if (isMatchNow) {
+            publishMatchCreated(normalizedId, swipeRecord.getTimestamp());
+        }
     }
 
     /**
@@ -98,5 +116,19 @@ public class SwipeService {
         redisTemplate.opsForSet().remove(cacheKey, "EMPTY_MARKER");
         redisTemplate.opsForSet().add(cacheKey, targetId.toString());
         redisTemplate.expire(cacheKey, SWIPE_CACHE_TTL);
+    }
+
+    private void publishMatchCreated(SwipeRecordId swipeRecordId, long swipeTimestamp) {
+        Instant createdAt = swipeTimestamp > 0 ? Instant.ofEpochMilli(swipeTimestamp) : Instant.now();
+        MatchCreateEvent matchEvent = MatchCreateEvent.builder()
+                .eventId(UUID.randomUUID().toString())
+                .profile1Id(swipeRecordId.getProfile1Id().toString())
+                .profile2Id(swipeRecordId.getProfile2Id().toString())
+                .createdAt(createdAt)
+                .build();
+
+        log.info("Mutual match found. Publishing MatchCreateEvent for {} and {}",
+                matchEvent.getProfile1Id(), matchEvent.getProfile2Id());
+        matchEventProducer.send(matchEvent).block();
     }
 }

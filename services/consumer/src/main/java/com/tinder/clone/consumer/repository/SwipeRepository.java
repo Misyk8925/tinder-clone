@@ -65,4 +65,12 @@ public interface SwipeRepository extends JpaRepository<SwipeRecord, SwipeRecordI
             @Param("swiperIsFirst") boolean swiperIsFirst,
             @Param("decision") boolean decision
     );
+
+    @Query(value = """
+       SELECT (decision1 IS TRUE AND decision2 IS TRUE)
+       FROM swipe_records
+       WHERE profile1_id = :p1
+         AND profile2_id = :p2
+       """, nativeQuery = true)
+    Boolean isMutualMatch(@Param("p1") UUID p1, @Param("p2") UUID p2);
 }
