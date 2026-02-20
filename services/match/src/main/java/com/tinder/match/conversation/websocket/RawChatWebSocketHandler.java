@@ -27,17 +27,33 @@ import java.util.concurrent.ConcurrentHashMap;
 public class RawChatWebSocketHandler extends TextWebSocketHandler {
 
     private final ConversationService conversationService;
+    // Keep active raw chat sessions to broadcast newly created messages.
     private final Set<WebSocketSession> sessions = ConcurrentHashMap.newKeySet();
 
     @Override
     public void afterConnectionEstablished(WebSocketSession session) throws Exception {
+        ConnectionContext context = resolveContext(session);
+        if (context == null) {
+            session.sendMessage(new TextMessage("{\"type\":\"ERROR\",\"message\":\"Missing or invalid query params: senderId and conversationId are required\"}"));
+            session.close(CloseStatus.BAD_DATA);
+            return;
+        }
         sessions.add(session);
-        log.info("Raw chat ws connected: {}", session.getId());
-        session.sendMessage(new TextMessage("{\"type\":\"CONNECTED\",\"endpoint\":\"ws-chat\"}"));
+        log.info(
+                "Raw chat ws connected session={} conversationId={} senderId={}",
+                session.getId(),
+                context.conversationId(),
+                context.senderId()
+        );
+        session.sendMessage(new TextMessage(
+                "{\"type\":\"CONNECTED\",\"endpoint\":\"ws-chat\",\"conversationId\":\"" + context.conversationId()
+                        + "\",\"senderId\":\"" + context.senderId() + "\"}"
+        ));
     }
 
     @Override
     protected void handleTextMessage(WebSocketSession session, TextMessage message) throws Exception {
+        // Context is supplied once at connection time via query params.
         ConnectionContext context = resolveContext(session);
         if (context == null) {
             sendError(session, "Missing or invalid query params: senderId and conversationId are required");
@@ -51,6 +67,7 @@ public class RawChatWebSocketHandler extends TextWebSocketHandler {
         }
 
         try {
+            // Raw endpoint accepts plain text, then maps it to existing application DTO/service flow.
             MessageDto request = new MessageDto(
                     context.conversationId(),
                     UUID.randomUUID(),
@@ -59,6 +76,7 @@ public class RawChatWebSocketHandler extends TextWebSocketHandler {
                     List.of()
             );
             MessageDto saved = conversationService.sendMessage(context.senderId(), request);
+            // Ack confirms server accepted and persisted the message request.
             session.sendMessage(new TextMessage(
                     "{\"type\":\"ACK\",\"conversationId\":\"" + saved.conversationId()
                             + "\",\"clientMessageId\":\"" + saved.clientMessageId()
@@ -85,10 +103,15 @@ public class RawChatWebSocketHandler extends TextWebSocketHandler {
     }
 
     public void broadcast(MessageCreatedEvent event) {
+        // Broadcast event only to sessions that belong to the same conversation.
         TextMessage outbound = new TextMessage(serialize(event));
         for (WebSocketSession session : sessions) {
             if (!session.isOpen()) {
                 sessions.remove(session);
+                continue;
+            }
+            ConnectionContext context = resolveContext(session);
+            if (context == null || !event.conversationId().equals(context.conversationId())) {
                 continue;
             }
             try {
@@ -106,6 +129,7 @@ public class RawChatWebSocketHandler extends TextWebSocketHandler {
             return null;
         }
 
+        // Support both camelCase and hyphenated query keys.
         MultiValueMap<String, String> params = UriComponentsBuilder.fromUri(uri).build().getQueryParams();
         String senderRaw = first(params, "senderId", "sender-id");
         String conversationRaw = first(params, "conversationId", "conversation-id");
