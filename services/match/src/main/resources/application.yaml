@@ -20,6 +20,11 @@ spring:
       group-id: consumer-service-group
       auto-offset-reset: earliest
       enable-auto-commit: false
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          jwk-set-uri: ${KEYCLOAK_JWK_SET_URI:http://localhost:9080/realms/spring/protocol/openid-connect/certs}
 
 app:
   kafka:
@@ -41,3 +46,8 @@ cloud:
       session-token: ${AWS_SESSION_TOKEN:}
     s3:
       endpoint: ${AWS_S3_ENDPOINT:}
+
+keycloak:
+  auth-server-url: ${KEYCLOAK_AUTH_SERVER_URL:http://localhost:9080}
+  realm: ${KEYCLOAK_REALM:spring}
+  client-id: ${KEYCLOAK_CLIENT_ID:match-service}

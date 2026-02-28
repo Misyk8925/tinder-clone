@@ -25,10 +25,9 @@ public class ConversationWsController {
     public void send(
             @Valid @Payload MessageDto message,
             Principal principal,
-            @Header(name = "sender-id", required = false) UUID senderIdHeader,
             @Header(name = "simpSessionId", required = false) String sessionId
     ) {
-        UUID senderId = resolveSenderId(principal, senderIdHeader);
+        UUID senderId = resolveSenderId(principal);
         log.info(
                 "STOMP send session={} senderId={} conversationId={} clientMessageId={} type={}",
                 sessionId,
@@ -40,22 +39,15 @@ public class ConversationWsController {
         conversationService.sendMessage(senderId, message);
     }
 
-    private UUID resolveSenderId(Principal principal, UUID senderIdHeader) {
-        if (principal != null) {
-            try {
-                return UUID.fromString(principal.getName());
-            } catch (IllegalArgumentException ignored) {
-                if (senderIdHeader != null) {
-                    return senderIdHeader;
-                }
-                throw new MessagingException("Principal name is not a valid UUID sender id");
-            }
+    private UUID resolveSenderId(Principal principal) {
+        if (principal == null || principal.getName() == null || principal.getName().isBlank()) {
+            throw new MessagingException("Authenticated sender is required");
         }
 
-        if (senderIdHeader != null) {
-            return senderIdHeader;
+        try {
+            return UUID.fromString(principal.getName());
+        } catch (IllegalArgumentException ignored) {
+            throw new MessagingException("Authenticated principal name is not a valid UUID sender id");
         }
-
-        throw new MessagingException("Sender id is required");
     }
 }
