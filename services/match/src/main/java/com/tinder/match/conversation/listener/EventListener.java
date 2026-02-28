@@ -1,9 +1,9 @@
 package com.tinder.match.conversation.listener;
 
 import com.tinder.match.conversation.event.MessageCreatedEvent;
-import com.tinder.match.conversation.websocket.RawChatWebSocketHandler;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.event.TransactionPhase;
 import org.springframework.transaction.event.TransactionalEventListener;
@@ -13,7 +13,7 @@ import org.springframework.transaction.event.TransactionalEventListener;
 @Slf4j
 public class EventListener {
 
-    private final RawChatWebSocketHandler rawChatWebSocketHandler;
+    private final SimpMessagingTemplate messagingTemplate;
 
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
     public void on(MessageCreatedEvent e) {
@@ -23,6 +23,7 @@ public class EventListener {
                 e.conversationId(),
                 e.senderId()
         );
-        rawChatWebSocketHandler.broadcast(e);
+        messagingTemplate.convertAndSend("/topic/conversations/" + e.conversationId(), e);
+        messagingTemplate.convertAndSend("/topic/messages", e);
     }
 }

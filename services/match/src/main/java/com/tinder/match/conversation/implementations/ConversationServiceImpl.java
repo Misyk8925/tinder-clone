@@ -18,7 +18,9 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.messaging.MessagingException;
 import org.springframework.stereotype.Service;
+import org.springframework.web.multipart.MultipartFile;
 
+import java.net.URI;
 import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
@@ -32,6 +34,7 @@ public class ConversationServiceImpl implements ConversationService {
     private final ApplicationEventPublisher eventPublisher;
     private final ConversationRepository conversationRepository;
     private final MessageRepository messageRepository;
+    private final ConversationPhotoStorageService conversationPhotoStorageService;
 
     @Override
     @Transactional
@@ -114,36 +117,69 @@ public class ConversationServiceImpl implements ConversationService {
                 .text(msg.text())
                 .build();
 
-        if (msg.messageType() !=MessageType.TEXT) {
-            // TODO implement for aws
+        if (msg.messageType() != MessageType.TEXT) {
+            for (MessageAttachmentDto attachment : msg.attachments()) {
+                message.addAttachment(toAttachmentEntity(attachment));
+            }
         }
 
-        Message saved = messageRepository.save(message);
-        log.info(
-                "Send message persisted messageId={} conversationId={} senderId={} clientMessageId={}",
-                saved.getMessageId(),
-                saved.getConversation().getConversationId(),
-                saved.getSenderId(),
-                saved.getClientMessageId()
-        );
-        eventPublisher.publishEvent(new MessageCreatedEvent(
-                UUID.randomUUID(),
-                Instant.now(),
-                saved.getMessageId(),
-                saved.getConversation().getConversationId(),
-                saved.getSenderId(),
-                saved.getClientMessageId(),
-                0L,
-                saved.getType(),
-                saved.getText()
-        ));
-        log.info(
-                "Send message published event messageId={} conversationId={} senderId={}",
-                saved.getMessageId(),
-                saved.getConversation().getConversationId(),
-                saved.getSenderId()
-        );
+        Message saved = persistAndPublish(message);
 
+        return toDto(saved);
+    }
+
+    @Override
+    @Transactional
+    public MessageDto sendPhotoMessage(UUID senderId, UUID conversationId, UUID clientMessageId, MultipartFile file) {
+        log.info(
+                "Send photo message requested senderId={} conversationId={} clientMessageId={}",
+                senderId,
+                conversationId,
+                clientMessageId
+        );
+        if (senderId == null) {
+            throw new MessagingException("Sender id is required");
+        }
+        if (conversationId == null) {
+            throw new MessagingException("Conversation id is required");
+        }
+        if (clientMessageId == null) {
+            throw new MessagingException("Client message id is required");
+        }
+
+        Conversation conversation = conversationRepository.findById(conversationId)
+                .orElseThrow(() -> new MessagingException("Conversation not found"));
+        validateConversationAccess(conversation, senderId);
+
+        Optional<Message> duplicate = messageRepository.findBySenderIdAndClientMessageId(senderId, clientMessageId);
+        if (duplicate.isPresent()) {
+            log.info("Duplicate photo message ignored for sender={} clientMessageId={}", senderId, clientMessageId);
+            return toDto(duplicate.get());
+        }
+
+        ConversationPhotoStorageService.UploadedPhoto uploadedPhoto =
+                conversationPhotoStorageService.uploadPhoto(file, conversationId, senderId, clientMessageId);
+
+        Message message = Message.builder()
+                .clientMessageId(clientMessageId)
+                .conversation(conversation)
+                .senderId(senderId)
+                .type(MessageType.IMAGE)
+                .text(null)
+                .build();
+
+        message.addAttachment(MessageAttachment.builder()
+                .storageKey(uploadedPhoto.storageKey())
+                .url(uploadedPhoto.url())
+                .mimeType(uploadedPhoto.mimeType())
+                .sizeBytes(uploadedPhoto.sizeBytes())
+                .originalName(uploadedPhoto.originalName())
+                .width(uploadedPhoto.width())
+                .height(uploadedPhoto.height())
+                .sha256(uploadedPhoto.sha256())
+                .build());
+
+        Message saved = persistAndPublish(message);
         return toDto(saved);
     }
 
@@ -173,6 +209,92 @@ public class ConversationServiceImpl implements ConversationService {
         if (msg.attachments() == null || msg.attachments().isEmpty()) {
             throw new MessagingException("Media message requires at least one attachment");
         }
+
+        for (MessageAttachmentDto attachment : msg.attachments()) {
+            validateAttachmentPayload(attachment);
+        }
+    }
+
+    private void validateAttachmentPayload(MessageAttachmentDto attachment) {
+        if (attachment == null) {
+            throw new MessagingException("Attachment payload is required");
+        }
+        if (attachment.url() == null || attachment.url().isBlank()) {
+            throw new MessagingException("Attachment URL is required");
+        }
+        if (attachment.mimeType() == null || attachment.mimeType().isBlank()) {
+            throw new MessagingException("Attachment mimeType is required");
+        }
+        if (attachment.sizeBytes() == null || attachment.sizeBytes() <= 0) {
+            throw new MessagingException("Attachment sizeBytes must be greater than zero");
+        }
+    }
+
+    private MessageAttachment toAttachmentEntity(MessageAttachmentDto attachment) {
+        return MessageAttachment.builder()
+                .storageKey(resolveStorageKey(attachment))
+                .url(attachment.url())
+                .mimeType(attachment.mimeType())
+                .sizeBytes(attachment.sizeBytes())
+                .originalName(attachment.originalName())
+                .width(attachment.width())
+                .height(attachment.height())
+                .durationMs(attachment.durationMs())
+                .build();
+    }
+
+    private String resolveStorageKey(MessageAttachmentDto attachment) {
+        if (attachment.storageKey() != null && !attachment.storageKey().isBlank()) {
+            return attachment.storageKey();
+        }
+
+        try {
+            URI uri = URI.create(attachment.url());
+            String path = uri.getPath();
+            if (path != null && !path.isBlank()) {
+                return path.startsWith("/") ? path.substring(1) : path;
+            }
+        } catch (IllegalArgumentException ignored) {
+            // URL may already be a plain storage key.
+        }
+
+        return attachment.url();
+    }
+
+    private Message persistAndPublish(Message message) {
+        Message saved = messageRepository.save(message);
+        log.info(
+                "Send message persisted messageId={} conversationId={} senderId={} clientMessageId={}",
+                saved.getMessageId(),
+                saved.getConversation().getConversationId(),
+                saved.getSenderId(),
+                saved.getClientMessageId()
+        );
+
+        publishMessageCreatedEvent(saved);
+        return saved;
+    }
+
+    private void publishMessageCreatedEvent(Message message) {
+        MessageDto dto = toDto(message);
+        eventPublisher.publishEvent(new MessageCreatedEvent(
+                UUID.randomUUID(),
+                Instant.now(),
+                message.getMessageId(),
+                message.getConversation().getConversationId(),
+                message.getSenderId(),
+                message.getClientMessageId(),
+                0L,
+                message.getType(),
+                message.getText(),
+                dto.attachments()
+        ));
+        log.info(
+                "Send message published event messageId={} conversationId={} senderId={}",
+                message.getMessageId(),
+                message.getConversation().getConversationId(),
+                message.getSenderId()
+        );
     }
 
     private MessageDto toDto(Message message) {
@@ -180,6 +302,7 @@ public class ConversationServiceImpl implements ConversationService {
                 ? List.of()
                 : message.getAttachments().stream()
                 .map(attachment -> new MessageAttachmentDto(
+                        attachment.getStorageKey(),
                         attachment.getUrl(),
                         attachment.getMimeType(),
                         attachment.getSizeBytes(),

@@ -1,6 +1,7 @@
 package com.tinder.match.conversation.dto;
 
 public record MessageAttachmentDto(
+        String storageKey,
         String url,
         String mimeType,
         Long sizeBytes,

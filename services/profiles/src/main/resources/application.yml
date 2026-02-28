@@ -55,7 +55,7 @@ spring:
       enabled: false
 app:
   s3:
-    bucket: ${AWS_S3_BUCKET:placeholder-bucket}
+    bucket: ${AWS_S3_BUCKET:}
     presign-exp-seconds: 300
   cloudfront:
     domain: ${CLOUDFRONT_DOMAIN:d123example.cloudfront.net}
@@ -70,7 +70,7 @@ app:
 
 cloud:
   aws:
-    region: eu-north-1
+    region: ${AWS_REGION:${AWS_DEFAULT_REGION:eu-north-1}}
     credentials:
       access-key: ${AWS_ACCESS_KEY_ID:placeholder-access-key}
       secret-key: ${AWS_SECRET_ACCESS_KEY:placeholder-secret-key}
@@ -81,6 +81,12 @@ keycloak:
   auth-server-url: http://localhost:6700
   realm: spring
   client-id: profiles-service
+
+media:
+  service:
+    base-url: ${MEDIA_SERVICE_BASE_URL:http://localhost:8040}
+    ready-poll-max-attempts: ${MEDIA_READY_POLL_MAX_ATTEMPTS:30}
+    ready-poll-interval-ms: ${MEDIA_READY_POLL_INTERVAL_MS:200}
 
 # Kafka topics
 kafka:

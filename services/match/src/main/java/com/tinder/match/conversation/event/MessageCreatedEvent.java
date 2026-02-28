@@ -1,8 +1,10 @@
 package com.tinder.match.conversation.event;
 
+import com.tinder.match.conversation.dto.MessageAttachmentDto;
 import com.tinder.match.conversation.model.MessageType;
 
 import java.time.Instant;
+import java.util.List;
 import java.util.UUID;
 
 public record MessageCreatedEvent(
@@ -14,6 +16,7 @@ public record MessageCreatedEvent(
         UUID clientMessageId,
         long conversationSeq,
         MessageType type,
-        String text
+        String text,
+        List<MessageAttachmentDto> attachments
 ) {
 }

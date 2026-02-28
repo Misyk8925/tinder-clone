@@ -1,4 +1,6 @@
 spring:
+  config:
+    import: "optional:file:services/match/.env.properties,optional:file:.env.properties"
   datasource:
     url: jdbc:postgresql://127.0.0.1:54322/postgres
     username: postgres
@@ -23,3 +25,19 @@ app:
   kafka:
     topic:
       match-created: match.created
+  s3:
+    bucket: ${AWS_S3_BUCKET:match-conversation-photos}
+    presign-exp-seconds: 300
+  cloudfront:
+    domain: ${CLOUDFRONT_DOMAIN:d123example.cloudfront.net}
+    enabled: ${CDN_ENABLED:false}
+
+cloud:
+  aws:
+    region: ${AWS_REGION:${AWS_DEFAULT_REGION:eu-north-1}}
+    credentials:
+      access-key: ${AWS_ACCESS_KEY_ID:}
+      secret-key: ${AWS_SECRET_ACCESS_KEY:}
+      session-token: ${AWS_SESSION_TOKEN:}
+    s3:
+      endpoint: ${AWS_S3_ENDPOINT:}
