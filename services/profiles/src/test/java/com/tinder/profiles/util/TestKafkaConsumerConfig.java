@@ -1,5 +1,6 @@
 package com.tinder.profiles.util;
 
+import com.tinder.profiles.kafka.dto.MatchCreateEvent;
 import com.tinder.profiles.kafka.dto.ProfileCreateEvent;
 import com.tinder.profiles.kafka.dto.ProfileDeleteEvent;
 import com.tinder.profiles.kafka.dto.ProfileUpdatedEvent;
@@ -138,6 +139,11 @@ public class TestKafkaConsumerConfig {
     }
 
     @Bean
+    public ConsumerFactory<String, MatchCreateEvent> testMatchCreateEventConsumerFactory(String testConsumerGroupId) {
+        return createConsumerFactory(MatchCreateEvent.class, testConsumerGroupId);
+    }
+
+    @Bean
     public ConcurrentKafkaListenerContainerFactory<String, ProfileCreateEvent> testProfileCreateKafkaListenerContainerFactory(String testConsumerGroupId) {
         return createListenerFactory(testProfileCreateEventConsumerFactory(testConsumerGroupId));
     }
@@ -150,6 +156,11 @@ public class TestKafkaConsumerConfig {
     @Bean
     public ConcurrentKafkaListenerContainerFactory<String, ProfileDeleteEvent> testProfileDeleteKafkaListenerContainerFactory(String testConsumerGroupId) {
         return createListenerFactory(testProfileDeleteEventConsumerFactory(testConsumerGroupId));
+    }
+
+    @Bean
+    public ConcurrentKafkaListenerContainerFactory<String, MatchCreateEvent> testMatchCreateKafkaListenerContainerFactory(String testConsumerGroupId) {
+        return createListenerFactory(testMatchCreateEventConsumerFactory(testConsumerGroupId));
     }
 
     /**
@@ -165,6 +176,8 @@ public class TestKafkaConsumerConfig {
         private final List<ProfileUpdatedEvent> profileUpdatedEvents =
             Collections.synchronizedList(new ArrayList<>());
         private final List<ProfileDeleteEvent> profileDeletedEvents =
+            Collections.synchronizedList(new ArrayList<>());
+        private final List<MatchCreateEvent> matchCreatedEvents =
             Collections.synchronizedList(new ArrayList<>());
 
         @KafkaListener(
@@ -231,6 +244,27 @@ public class TestKafkaConsumerConfig {
             }
         }
 
+        @KafkaListener(
+            topics = "${kafka.topics.match-events.created:match.created}",
+            containerFactory = "testMatchCreateKafkaListenerContainerFactory",
+            autoStartup = "true"
+        )
+        public void consumeMatchCreated(
+                MatchCreateEvent event,
+                org.springframework.kafka.support.Acknowledgment acknowledgment) {
+            try {
+                log.info("Test consumer received MatchCreateEvent: eventId={}, profile1Id={}, profile2Id={}",
+                        event.getEventId(), event.getProfile1Id(), event.getProfile2Id());
+                matchCreatedEvents.add(event);
+
+                if (acknowledgment != null) {
+                    acknowledgment.acknowledge();
+                }
+            } catch (Exception e) {
+                log.error("Error processing MatchCreateEvent: {}", event, e);
+            }
+        }
+
         /**
          * Reset all collected events (call before each test)
          */
@@ -238,6 +272,7 @@ public class TestKafkaConsumerConfig {
             profileCreatedEvents.clear();
             profileUpdatedEvents.clear();
             profileDeletedEvents.clear();
+            matchCreatedEvents.clear();
             log.info("Test Kafka event collector reset");
         }
 
@@ -247,7 +282,8 @@ public class TestKafkaConsumerConfig {
         public int getTotalEventsCount() {
             return profileCreatedEvents.size() +
                    profileUpdatedEvents.size() +
-                   profileDeletedEvents.size();
+                   profileDeletedEvents.size() +
+                   matchCreatedEvents.size();
         }
 
         /**
@@ -274,6 +310,15 @@ public class TestKafkaConsumerConfig {
         public List<ProfileDeleteEvent> getProfileDeletedEvents() {
             synchronized (profileDeletedEvents) {
                 return new ArrayList<>(profileDeletedEvents);
+            }
+        }
+
+        /**
+         * Get collected MatchCreateEvent events (thread-safe copy)
+         */
+        public List<MatchCreateEvent> getMatchCreatedEvents() {
+            synchronized (matchCreatedEvents) {
+                return new ArrayList<>(matchCreatedEvents);
             }
         }
     }

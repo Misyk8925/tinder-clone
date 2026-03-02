@@ -1,9 +1,31 @@
 spring:
-
+  jpa:
+    hibernate:
+      ddl-auto: create-drop
+    show-sql: true
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+  datasource:
+    url: jdbc:postgresql://127.0.0.1:54322/postgres
+    username: postgres
+    password: postgres
+    driver-class-name: org.postgresql.Driver
+    hikari:
+      maximum-pool-size: 50
+      minimum-idle: 10
+      connection-timeout: 30000
+      idle-timeout: 600000
+      max-lifetime: 1800000
 
   codec:
     max-in-memory-size: 2MB
 
+  data:
+    redis:
+      host: localhost
+      port: 6379
+      timeout: 2s
 
   security:
     oauth2:
@@ -20,6 +42,12 @@ spring:
       buffer-memory: 67108864  # 64MB
       key-serializer: org.apache.kafka.common.serialization.StringSerializer
       value-serializer: org.apache.kafka.common.serialization.StringSerializer
+
 server:
   port: 8040
+
+kafka:
+  topics:
+    profile-created: profile.created
+    profile-deleted: profile.deleted
 

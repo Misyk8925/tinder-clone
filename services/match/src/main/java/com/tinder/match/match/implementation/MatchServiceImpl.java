@@ -34,31 +34,29 @@ public class MatchServiceImpl implements MatchService {
 
         MatchId matchId = MatchId.normalized(profile1Id, profile2Id);
 
-        Instant matchedAt = event.getCreatedAt();
+        Instant matchedAt = event.getCreatedAt() != null ? event.getCreatedAt() : Instant.now();
 
         Match match = Match.builder()
                 .id(matchId)
                 .status(MatchStatus.ACTIVE)
                 .createdAt(matchedAt)
+                .matchedAt(matchedAt)
                 .updatedAt(matchedAt)
                 .build();
 
-        try {
-            matchRepository.save(match);
+        matchRepository.save(match);
+        log.info("Created match profile1Id={} profile2Id={} matchedAt={}",
+                matchId.getProfile1Id(),
+                matchId.getProfile2Id(),
+                matchedAt);
 
-            NewMatchEvent newMatchEvent = new NewMatchEvent(
-                    UUID.randomUUID(),
-                    matchId.getProfile1Id(),
-                    matchId.getProfile2Id(),
-                    matchedAt
-            );
-            applicationEventPublisher.publishEvent(newMatchEvent);
-        } catch (Exception e) {
-            log.error("Failed to save match: {}", match, e);
-        }
-
-
-
+        NewMatchEvent newMatchEvent = new NewMatchEvent(
+                UUID.randomUUID(),
+                matchId.getProfile1Id(),
+                matchId.getProfile2Id(),
+                matchedAt
+        );
+        applicationEventPublisher.publishEvent(newMatchEvent);
     }
 
     @Override
@@ -72,6 +70,7 @@ public class MatchServiceImpl implements MatchService {
                 .id(matchId)
                 .status(MatchStatus.ACTIVE)
                 .createdAt(matchedAt)
+                .matchedAt(matchedAt)
                 .updatedAt(matchedAt)
                 .build();
         matchRepository.save(match);

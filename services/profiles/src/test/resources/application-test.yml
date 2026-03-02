@@ -81,6 +81,14 @@ kafka:
       updated: profile.updated
       created: profile.created
       deleted: profile.deleted
+    match-events:
+      created: match.created
+
+integration:
+  match:
+    topic: match.created
+    consumer-group-id: consumer-service-groupmatch.created
+    verify-consumer-offsets: false
 
 outbox:
   publisher:

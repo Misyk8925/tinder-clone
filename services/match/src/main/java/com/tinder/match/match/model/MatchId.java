@@ -41,7 +41,7 @@ public class MatchId {
         if (this == other) {
             return true;
         }
-        if (!(other instanceof MatchChatAnalyticsId that)) {
+        if (!(other instanceof MatchId that)) {
             return false;
         }
         return Objects.equals(profile1Id, that.getProfile1Id()) && Objects.equals(profile2Id, that.getProfile2Id());

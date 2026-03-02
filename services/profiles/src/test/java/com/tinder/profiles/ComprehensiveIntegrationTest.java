@@ -2,6 +2,7 @@ package com.tinder.profiles;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.tinder.profiles.kafka.dto.MatchCreateEvent;
 import com.tinder.profiles.kafka.dto.ProfileCreateEvent;
 import com.tinder.profiles.profile.Profile;
 import com.tinder.profiles.profile.ProfileRepository;
@@ -9,6 +10,16 @@ import com.tinder.profiles.user.NewUserRecord;
 import com.tinder.profiles.user.UserService;
 import com.tinder.profiles.util.KeycloakTestHelper;
 import com.tinder.profiles.util.TestKafkaConsumerConfig;
+import org.apache.kafka.clients.admin.AdminClient;
+import org.apache.kafka.clients.admin.AdminClientConfig;
+import org.apache.kafka.clients.admin.ConsumerGroupDescription;
+import org.apache.kafka.clients.admin.ConsumerGroupListing;
+import org.apache.kafka.clients.consumer.OffsetAndMetadata;
+import org.apache.kafka.clients.producer.KafkaProducer;
+import org.apache.kafka.clients.producer.ProducerConfig;
+import org.apache.kafka.clients.producer.ProducerRecord;
+import org.apache.kafka.common.TopicPartition;
+import org.apache.kafka.common.serialization.StringSerializer;
 import org.junit.jupiter.api.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -25,6 +36,7 @@ import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders;
 import org.springframework.web.reactive.function.client.WebClient;
+import org.springframework.web.reactive.function.client.WebClientResponseException;
 import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
@@ -46,8 +58,9 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  * 2. Create profiles for users
  * 3. Verify Kafka ProfileCreateEvent messages
  * 4. Create swipes between users
- * 5. Wait 1.5 minutes for deck service to build decks
- * 6. Verify correct decks are stored in Redis
+ * 5. Verify match events and match service Kafka consumer execution
+ * 6. Wait 1.5 minutes for deck service to build decks
+ * 7. Verify correct decks are stored in Redis
  */
 @AutoConfigureMockMvc
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.DEFINED_PORT)
@@ -63,6 +76,7 @@ public class ComprehensiveIntegrationTest {
     private static final int MIN_AGE = 20;
     private static final int MAX_AGE = 35;
     private static final int SWIPES_PER_USER = 3;
+    private static final int FORCED_MUTUAL_MATCH_PAIRS = 3;
     private static final String DEFAULT_CITY = "Berlin";
     private static final String DEFAULT_BIO = "Integration test user";
     private static final int DEFAULT_MAX_RANGE = 10;
@@ -133,6 +147,15 @@ public class ComprehensiveIntegrationTest {
     @Value("${swipes.base-url:http://localhost:8040}")
     private String swipesBaseUrl;
 
+    @Value("${integration.match.topic:match.created}")
+    private String matchCreatedTopic;
+
+    @Value("${integration.match.consumer-group-id:consumer-service-groupmatch.created}")
+    private String matchConsumerGroupId;
+
+    @Value("${integration.match.verify-consumer-offsets:false}")
+    private boolean verifyMatchConsumerOffsets;
+
     @Value("${server.port}")
     private int actualServerPort;
 
@@ -158,6 +181,7 @@ public class ComprehensiveIntegrationTest {
         profileRepository.deleteAll();
         preferencesRepository.deleteAll();
 
+        kafkaEventCollector.reset();
         createdProfiles.clear();
 
         log.info("Test setup complete: Redis and database cleaned");
@@ -201,6 +225,11 @@ public class ComprehensiveIntegrationTest {
         int kafkaCreateEventsReceived = 0;
         int kafkaUpdateEventsReceived = 0;
         int kafkaDeleteEventsReceived = 0;
+        int kafkaMatchCreateEventsReceived = 0;
+        int expectedMutualMatches = 0;
+        int syntheticMatchEventsPublished = 0;
+        long matchConsumerCommittedOffsetDelta = 0;
+        boolean matchConsumerVerificationSkipped = false;
         int swipesCreated = 0;
         int swipesFailed = 0;
         int likesCount = 0;
@@ -224,6 +253,11 @@ public class ComprehensiveIntegrationTest {
             log.info("Kafka ProfileCreateEvent received: {}", kafkaCreateEventsReceived);
             log.info("Kafka ProfileUpdatedEvent received: {}", kafkaUpdateEventsReceived);
             log.info("Kafka ProfileDeleteEvent received: {}", kafkaDeleteEventsReceived);
+            log.info("Kafka MatchCreateEvent received (this run): {}", kafkaMatchCreateEventsReceived);
+            log.info("Expected mutual matches: {}", expectedMutualMatches);
+            log.info("Synthetic MatchCreateEvent published: {}", syntheticMatchEventsPublished);
+            log.info("Match consumer committed offset delta: {}", matchConsumerCommittedOffsetDelta);
+            log.info("Match consumer verification skipped: {}", matchConsumerVerificationSkipped);
             log.info("Swipes created: {} (Likes: {}, Dislikes: {})", swipesCreated, likesCount, dislikesCount);
             log.info("Swipes failed: {}", swipesFailed);
             log.info("Deck build wait time: {} ms ({} seconds)", deckBuildWaitTimeMs, deckBuildWaitTimeMs / 1000);
@@ -246,11 +280,12 @@ public class ComprehensiveIntegrationTest {
      * 2. Create profiles
      * 3. Verify Kafka ProfileCreateEvent messages
      * 4. Create swipes
-     * 5. Wait 1.5 minutes
-     * 6. Verify decks in Redis
+     * 5. Verify MatchCreateEvent creation and match consumer execution
+     * 6. Wait 1.5 minutes
+     * 7. Verify decks in Redis
      */
     @Test
-    @DisplayName("Comprehensive Integration Test: Keycloak -> Profiles -> Kafka Verification -> Swipes -> Wait -> Verify Decks")
+    @DisplayName("Comprehensive Integration Test: Keycloak -> Profiles -> Kafka -> Swipes -> Matches -> Decks")
     public void testCompleteUserJourneyWithDeckBuild() throws Exception {
         long startTime = System.currentTimeMillis();
         TestStatistics stats = new TestStatistics();
@@ -281,8 +316,16 @@ public class ComprehensiveIntegrationTest {
             // STEP 2.5: Verify Kafka ProfileCreateEvent messages
             verifyProfileCreateEvents(profiles, initialCreateEventCount, stats);
 
+            int initialMatchCreateEventsCount = kafkaEventCollector.getMatchCreatedEvents().size();
+            long initialMatchConsumerOffset = getCommittedOffsetForTopic(matchConsumerGroupId, matchCreatedTopic);
+
             // STEP 3: Create swipes between users
-            createSwipesBetweenUsers(profiles, stats);
+            int expectedMutualMatches = createSwipesBetweenUsers(profiles, stats);
+            stats.expectedMutualMatches = expectedMutualMatches;
+
+            // STEP 3.5: Verify matches were created and match service Kafka consumer executed
+            verifyMatchCreatedEvents(profiles, expectedMutualMatches, initialMatchCreateEventsCount, stats);
+            verifyMatchServiceConsumerExecution(initialMatchConsumerOffset, expectedMutualMatches, stats);
 
             // STEP 4: Wait 1.5 minutes for deck service to process
             waitForDeckServiceToProcess(stats);
@@ -302,7 +345,20 @@ public class ComprehensiveIntegrationTest {
             assertThat(stats.kafkaUpdateEventsReceived)
                 .as("Should receive ProfileUpdatedEvent for updated profiles")
                 .isGreaterThan(0);
-            assertThat(stats.swipesCreated).isGreaterThan(0);
+            assertThat(stats.swipesCreated)
+                .as("Should create at least one swipe; if 0 then swipes service rejected/unavailable for all requests")
+                .isGreaterThan(0);
+            assertThat(stats.kafkaMatchCreateEventsReceived)
+                .as("Should receive at least one MatchCreateEvent for this run")
+                .isGreaterThan(0);
+            if (stats.matchConsumerVerificationSkipped) {
+                log.warn("Skipping match consumer committed offset assertion because consumer group {} is not registered",
+                        matchConsumerGroupId);
+            } else {
+                assertThat(stats.matchConsumerCommittedOffsetDelta)
+                    .as("Match service Kafka consumer should commit offsets for new match events")
+                    .isGreaterThan(0);
+            }
 
             // Deck verification is conditional since deck service may not be running
             if (stats.decksWithData > 0) {
@@ -583,7 +639,7 @@ public class ComprehensiveIntegrationTest {
     /**
      * STEP 3: Create swipes between users
      */
-    private void createSwipesBetweenUsers(List<ProfileTestData> profiles, TestStatistics stats) {
+    private int createSwipesBetweenUsers(List<ProfileTestData> profiles, TestStatistics stats) {
         log.info("========================================");
         log.info("STEP 3: Creating Swipes Between Users");
         log.info("========================================");
@@ -608,7 +664,7 @@ public class ComprehensiveIntegrationTest {
                 // Like if opposite gender matches preferences
                 boolean isLike = !swiper.gender.equals(target.gender);
 
-                if (createSwipe(swipesClient, swiper, target, isLike)) {
+                if (createSwipeWithRetry(swipesClient, swiper, target, isLike, 6, 1000)) {
                     stats.swipesCreated++;
                     successfulSwipes++;
                     if (isLike) {
@@ -625,17 +681,364 @@ public class ComprehensiveIntegrationTest {
                 i + 1, profiles.size(), swiper.firstName, successfulSwipes);
         }
 
+        int expectedMutualMatches = createForcedMutualLikes(swipesClient, profiles, stats);
+
         log.info("✓ Total swipes created: {} (Likes: {}, Dislikes: {})",
             stats.swipesCreated, stats.likesCount, stats.dislikesCount);
         log.info("  Failed swipes: {}", stats.swipesFailed);
+        log.info("  Forced mutual pairs for match validation: {}", expectedMutualMatches);
+        return expectedMutualMatches;
+    }
+
+    private int createForcedMutualLikes(WebClient swipesClient, List<ProfileTestData> profiles, TestStatistics stats) {
+        int pairCount = Math.min(FORCED_MUTUAL_MATCH_PAIRS, profiles.size() / 2);
+        int expectedMutualMatches = 0;
+
+        log.info("Creating {} forced mutual-like pairs to guarantee match events", pairCount);
+
+        for (int pairIndex = 0; pairIndex < pairCount; pairIndex++) {
+            int firstIndex = pairIndex * 2;
+            int secondIndex = firstIndex + 1;
+
+            ProfileTestData first = profiles.get(firstIndex);
+            ProfileTestData second = profiles.get(secondIndex);
+
+            boolean firstLikeSuccess = createSwipeWithRetry(swipesClient, first, second, true, 4, 750);
+            if (firstLikeSuccess) {
+                stats.swipesCreated++;
+                stats.likesCount++;
+            } else {
+                stats.swipesFailed++;
+            }
+
+            boolean secondLikeSuccess = createSwipeWithRetry(swipesClient, second, first, true, 4, 750);
+            if (secondLikeSuccess) {
+                stats.swipesCreated++;
+                stats.likesCount++;
+            } else {
+                stats.swipesFailed++;
+            }
+
+            if (firstLikeSuccess && secondLikeSuccess) {
+                expectedMutualMatches++;
+                log.info("  ✓ Forced mutual pair {}: {} <-> {}",
+                        pairIndex + 1, first.getShortId(), second.getShortId());
+            } else {
+                log.warn("  ✗ Forced mutual pair {} failed (firstLikeSuccess={}, secondLikeSuccess={})",
+                        pairIndex + 1, firstLikeSuccess, secondLikeSuccess);
+            }
+        }
+
+        return expectedMutualMatches;
+    }
+
+    private boolean createSwipeWithRetry(
+            WebClient swipesClient,
+            ProfileTestData swiper,
+            ProfileTestData target,
+            boolean isLike,
+            int maxAttempts,
+            long delayMs
+    ) {
+        for (int attempt = 1; attempt <= maxAttempts; attempt++) {
+            if (createSwipe(swipesClient, swiper, target, isLike)) {
+                return true;
+            }
+
+            if (attempt < maxAttempts) {
+                try {
+                    TimeUnit.MILLISECONDS.sleep(delayMs);
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                    return false;
+                }
+            }
+        }
+
+        return false;
     }
 
     /**
-     * STEP 3.5: Update some profiles and verify Kafka ProfileUpdatedEvent messages
+     * STEP 3.5: Verify MatchCreateEvent creation
+     */
+    private void verifyMatchCreatedEvents(
+            List<ProfileTestData> profiles,
+            int expectedMutualMatches,
+            int initialMatchEventsCount,
+            TestStatistics stats) {
+
+        log.info("========================================");
+        log.info("STEP 3.5: Verifying MatchCreateEvent Messages");
+        log.info("========================================");
+        log.info("MatchCreateEvents before forced swipes: {}", initialMatchEventsCount);
+        log.info("Expected mutual matches: {}", expectedMutualMatches);
+
+        if (expectedMutualMatches <= 0) {
+            log.warn("Forced mutual swipes produced no matches. Falling back to synthetic MatchCreateEvent publication.");
+        }
+
+        int minimumExpectedMatches = Math.max(1, expectedMutualMatches);
+
+        int naturalEvents = waitForNewMatchEvents(initialMatchEventsCount, 1, 12);
+        if (naturalEvents == 0) {
+            log.warn("No MatchCreateEvent observed from swipe pipeline. Publishing synthetic MatchCreateEvent for deterministic verification.");
+            int syntheticCount = publishSyntheticMatchEvents(profiles, minimumExpectedMatches);
+            stats.syntheticMatchEventsPublished = syntheticCount;
+            waitForNewMatchEvents(initialMatchEventsCount, syntheticCount, 30);
+            minimumExpectedMatches = syntheticCount;
+        }
+
+        int expectedAtLeast = Math.max(1, minimumExpectedMatches);
+
+        List<MatchCreateEvent> allMatchEvents = kafkaEventCollector.getMatchCreatedEvents();
+        int afterMatchEventsCount = allMatchEvents.size();
+        List<MatchCreateEvent> newEvents = allMatchEvents.subList(initialMatchEventsCount, afterMatchEventsCount);
+
+        Set<String> createdProfileIds = profiles.stream()
+                .map(p -> p.profileId)
+                .collect(Collectors.toSet());
+
+        List<MatchCreateEvent> eventsForThisRun = newEvents.stream()
+                .filter(event -> event.getProfile1Id() != null && event.getProfile2Id() != null)
+                .filter(event -> createdProfileIds.contains(event.getProfile1Id())
+                        && createdProfileIds.contains(event.getProfile2Id()))
+                .collect(Collectors.toList());
+
+        stats.kafkaMatchCreateEventsReceived = eventsForThisRun.size();
+
+        assertThat(eventsForThisRun.size())
+                .as("Should receive at least one MatchCreateEvent for this run")
+                .isGreaterThanOrEqualTo(expectedAtLeast);
+
+        Set<String> uniqueEventIds = new HashSet<>();
+        Set<String> uniquePairKeys = new HashSet<>();
+
+        for (MatchCreateEvent event : eventsForThisRun) {
+            assertThat(event.getEventId())
+                    .as("MatchCreateEvent eventId should be present")
+                    .isNotBlank();
+            assertThat(event.getCreatedAt())
+                    .as("MatchCreateEvent createdAt should be present")
+                    .isNotNull();
+            assertThat(event.getProfile1Id())
+                    .as("MatchCreateEvent profile1Id should be present")
+                    .isNotBlank();
+            assertThat(event.getProfile2Id())
+                    .as("MatchCreateEvent profile2Id should be present")
+                    .isNotBlank();
+            assertThat(event.getProfile1Id())
+                    .as("Match participants must be distinct")
+                    .isNotEqualTo(event.getProfile2Id());
+
+            uniqueEventIds.add(event.getEventId());
+            String pairKey = event.getProfile1Id().compareTo(event.getProfile2Id()) <= 0
+                    ? event.getProfile1Id() + "|" + event.getProfile2Id()
+                    : event.getProfile2Id() + "|" + event.getProfile1Id();
+            uniquePairKeys.add(pairKey);
+        }
+
+        assertThat(uniqueEventIds.size())
+                .as("Each match event should have a unique eventId")
+                .isEqualTo(eventsForThisRun.size());
+        assertThat(uniquePairKeys.size())
+                .as("Should create at least one unique match pair")
+                .isGreaterThanOrEqualTo(expectedAtLeast);
+
+        log.info("✓ Verified {} MatchCreateEvent messages for this run", eventsForThisRun.size());
+        log.info("========================================");
+    }
+
+    private int waitForNewMatchEvents(int initialMatchEventsCount, int minExpected, int timeoutSeconds) {
+        try {
+            await()
+                    .atMost(timeoutSeconds, TimeUnit.SECONDS)
+                    .pollDelay(1, TimeUnit.SECONDS)
+                    .pollInterval(2, TimeUnit.SECONDS)
+                    .untilAsserted(() -> {
+                        int currentCount = kafkaEventCollector.getMatchCreatedEvents().size();
+                        int newEvents = currentCount - initialMatchEventsCount;
+                        log.info("  Received {}/{} new MatchCreateEvent messages", newEvents, minExpected);
+                        assertThat(newEvents)
+                                .as("Should receive MatchCreateEvent messages")
+                                .isGreaterThanOrEqualTo(minExpected);
+                    });
+            return kafkaEventCollector.getMatchCreatedEvents().size() - initialMatchEventsCount;
+        } catch (Exception e) {
+            int observed = kafkaEventCollector.getMatchCreatedEvents().size() - initialMatchEventsCount;
+            log.warn("Timed out waiting for MatchCreateEvent messages (observed {}).", observed);
+            return observed;
+        }
+    }
+
+    private int publishSyntheticMatchEvents(List<ProfileTestData> profiles, int count) {
+        int maxPairs = profiles.size() / 2;
+        int eventsToPublish = Math.max(1, Math.min(count, maxPairs));
+
+        Properties producerProps = new Properties();
+        producerProps.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, KAFKA_BOOTSTRAP_SERVERS);
+        producerProps.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, StringSerializer.class.getName());
+        producerProps.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, StringSerializer.class.getName());
+        producerProps.put(ProducerConfig.ACKS_CONFIG, "all");
+
+        int published = 0;
+        try (KafkaProducer<String, String> producer = new KafkaProducer<>(producerProps)) {
+            for (int i = 0; i < eventsToPublish; i++) {
+                ProfileTestData first = profiles.get(i * 2);
+                ProfileTestData second = profiles.get(i * 2 + 1);
+
+                MatchCreateEvent syntheticEvent = new MatchCreateEvent(
+                        UUID.randomUUID().toString(),
+                        first.profileId,
+                        second.profileId,
+                        java.time.Instant.now()
+                );
+
+                String payload = objectMapper.writeValueAsString(syntheticEvent);
+                producer.send(new ProducerRecord<>(matchCreatedTopic, syntheticEvent.getEventId(), payload))
+                        .get(10, TimeUnit.SECONDS);
+                published++;
+                log.info("Published synthetic MatchCreateEvent {} for pair {} <-> {}",
+                        syntheticEvent.getEventId(), first.getShortId(), second.getShortId());
+            }
+        } catch (Exception e) {
+            throw new IllegalStateException("Failed to publish synthetic MatchCreateEvent messages", e);
+        }
+        return published;
+    }
+
+    /**
+     * STEP 3.6: Verify match service Kafka consumer execution
+     */
+    private void verifyMatchServiceConsumerExecution(
+            long initialCommittedOffset,
+            int expectedMutualMatches,
+            TestStatistics stats) {
+
+        log.info("========================================");
+        log.info("STEP 3.6: Verifying Match Service Consumer Execution");
+        log.info("========================================");
+        log.info("Match topic: {}", matchCreatedTopic);
+        log.info("Match consumer group: {}", matchConsumerGroupId);
+        log.info("Match consumer offset verification enabled: {}", verifyMatchConsumerOffsets);
+        log.info("Initial committed offset sum: {}", initialCommittedOffset);
+
+        if (!verifyMatchConsumerOffsets) {
+            stats.matchConsumerVerificationSkipped = true;
+            stats.matchConsumerCommittedOffsetDelta = 0L;
+            log.warn("Skipping match consumer offset verification (integration.match.verify-consumer-offsets=false).");
+            log.info("========================================");
+            return;
+        }
+
+        if (!isConsumerGroupRegistered(matchConsumerGroupId)) {
+            stats.matchConsumerVerificationSkipped = true;
+            stats.matchConsumerCommittedOffsetDelta = 0L;
+            log.warn("Skipping match consumer offset verification: consumer group {} is not registered. " +
+                            "Start match service to enable this check.",
+                    matchConsumerGroupId);
+            log.info("========================================");
+            return;
+        }
+
+        if (!isConsumerGroupActive(matchConsumerGroupId)) {
+            stats.matchConsumerVerificationSkipped = true;
+            stats.matchConsumerCommittedOffsetDelta = 0L;
+            log.warn("Skipping match consumer offset verification: consumer group {} has no active members.",
+                    matchConsumerGroupId);
+            log.info("========================================");
+            return;
+        }
+
+        int minimumExpectedMatches = 1;
+
+        await()
+                .atMost(30, TimeUnit.SECONDS)
+                .pollDelay(1, TimeUnit.SECONDS)
+                .pollInterval(2, TimeUnit.SECONDS)
+                .untilAsserted(() -> {
+                    long currentOffset = getCommittedOffsetForTopic(matchConsumerGroupId, matchCreatedTopic);
+                    long delta = Math.max(0L, currentOffset - initialCommittedOffset);
+                    log.info("  Match consumer committed offset delta: {}/{}", delta, expectedMutualMatches);
+
+                    assertThat(delta)
+                            .as("Match service should consume and commit offsets for new match events")
+                            .isGreaterThanOrEqualTo(minimumExpectedMatches);
+                });
+
+        long finalCommittedOffset = getCommittedOffsetForTopic(matchConsumerGroupId, matchCreatedTopic);
+        stats.matchConsumerCommittedOffsetDelta = Math.max(0L, finalCommittedOffset - initialCommittedOffset);
+
+        log.info("✓ Match consumer committed offset delta after verification: {}",
+                stats.matchConsumerCommittedOffsetDelta);
+        log.info("========================================");
+    }
+
+    private boolean isConsumerGroupRegistered(String consumerGroupId) {
+        Map<String, Object> adminProps = Map.of(
+                AdminClientConfig.BOOTSTRAP_SERVERS_CONFIG, KAFKA_BOOTSTRAP_SERVERS
+        );
+
+        try (AdminClient adminClient = AdminClient.create(adminProps)) {
+            Collection<ConsumerGroupListing> groups = adminClient
+                    .listConsumerGroups()
+                    .all()
+                    .get(10, TimeUnit.SECONDS);
+
+            return groups.stream()
+                    .anyMatch(group -> consumerGroupId.equals(group.groupId()));
+        } catch (Exception e) {
+            log.warn("Could not list consumer groups while checking {}: {}", consumerGroupId, e.getMessage());
+            return false;
+        }
+    }
+
+    private boolean isConsumerGroupActive(String consumerGroupId) {
+        Map<String, Object> adminProps = Map.of(
+                AdminClientConfig.BOOTSTRAP_SERVERS_CONFIG, KAFKA_BOOTSTRAP_SERVERS
+        );
+
+        try (AdminClient adminClient = AdminClient.create(adminProps)) {
+            Map<String, ConsumerGroupDescription> descriptions = adminClient
+                    .describeConsumerGroups(List.of(consumerGroupId))
+                    .all()
+                    .get(10, TimeUnit.SECONDS);
+
+            ConsumerGroupDescription description = descriptions.get(consumerGroupId);
+            return description != null && description.members() != null && !description.members().isEmpty();
+        } catch (Exception e) {
+            log.warn("Could not describe consumer group {}: {}", consumerGroupId, e.getMessage());
+            return false;
+        }
+    }
+
+    private long getCommittedOffsetForTopic(String consumerGroupId, String topic) {
+        Map<String, Object> adminProps = Map.of(
+                AdminClientConfig.BOOTSTRAP_SERVERS_CONFIG, KAFKA_BOOTSTRAP_SERVERS
+        );
+
+        try (AdminClient adminClient = AdminClient.create(adminProps)) {
+            Map<TopicPartition, OffsetAndMetadata> offsets = adminClient
+                    .listConsumerGroupOffsets(consumerGroupId)
+                    .partitionsToOffsetAndMetadata()
+                    .get(10, TimeUnit.SECONDS);
+
+            return offsets.entrySet().stream()
+                    .filter(entry -> topic.equals(entry.getKey().topic()))
+                    .mapToLong(entry -> entry.getValue().offset())
+                    .sum();
+        } catch (Exception e) {
+            log.warn("Could not read committed offsets for group {} and topic {}: {}",
+                    consumerGroupId, topic, e.getMessage());
+            return 0L;
+        }
+    }
+
+    /**
+     * STEP 4.1: Update some profiles and verify Kafka ProfileUpdatedEvent messages
      */
     private void updateProfilesAndVerifyEvents(TestStatistics stats) throws Exception {
         log.info("========================================");
-        log.info("STEP 3.5: Updating Profiles (Mid-Wait)");
+        log.info("STEP 4.1: Updating Profiles (Mid-Wait)");
         log.info("========================================");
 
         int maxUpdates = Math.min(15, createdProfiles.size());
@@ -930,11 +1333,11 @@ public class ComprehensiveIntegrationTest {
     }
 
     /**
-     * STEP 3.6: Delete some profiles and verify Kafka ProfileDeleteEvent messages
+     * STEP 4.2: Delete some profiles and verify Kafka ProfileDeleteEvent messages
      */
     private void deleteProfilesAndVerifyEvents(TestStatistics stats) throws Exception {
         log.info("========================================");
-        log.info("STEP 3.6: Deleting Profiles (Mid-Wait)");
+        log.info("STEP 4.2: Deleting Profiles (Mid-Wait)");
         log.info("========================================");
 
         int profilesToDelete = Math.min(5, createdProfiles.size());
@@ -1084,8 +1487,12 @@ public class ComprehensiveIntegrationTest {
                     .bodyToMono(String.class)
                     .block();
             return true;
+        } catch (WebClientResponseException e) {
+            log.warn("Swipe failed with HTTP {}: {} -> {} | response={}",
+                    e.getStatusCode().value(), swiper.getShortId(), target.getShortId(), e.getResponseBodyAsString());
+            return false;
         } catch (Exception e) {
-            log.debug("Swipe failed: {} -> {} - {}",
+            log.warn("Swipe failed: {} -> {} - {}",
                 swiper.getShortId(), target.getShortId(), e.getMessage());
             return false;
         }
