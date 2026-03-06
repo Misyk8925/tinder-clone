@@ -27,3 +27,13 @@ spring:
     password: postgres
   config:
     import: "optional:file:services/subscriptions/.env.properties"
+
+resilience4j:
+  circuitbreaker:
+    instances:
+      profiles-grpc:
+        slidingWindowSize: 5
+        failureRateThreshold: 50
+        waitDurationInOpenState: 10s
+        permittedNumberOfCallsInHalfOpenState: 2
+        registerHealthIndicator: true
