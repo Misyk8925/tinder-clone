@@ -76,6 +76,10 @@ public class Profile {
     @JoinColumn(name = "location_id", nullable = false)
     private Location location;
 
+    @Column(name = "is_premium", nullable = false)
+    @ColumnDefault("false")
+    private boolean isPremium;
+
     @JsonIgnore
     @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "preferences_id", nullable = false)

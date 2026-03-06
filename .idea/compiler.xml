@@ -29,11 +29,12 @@
         <outputRelativeToContentRoot value="true" />
         <processorPath useClasspath="false">
           <entry name="$MAVEN_REPOSITORY$/org/projectlombok/lombok/1.18.40/lombok-1.18.40.jar" />
+          <entry name="$MAVEN_REPOSITORY$/org/projectlombok/lombok/1.18.40/lombok-1.18.40.jar" />
         </processorPath>
         <module name="swipes" />
         <module name="deck" />
       </profile>
-      <profile name="Annotation profile for swipes-demo" enabled="true">
+      <profile name="Annotation profile for subscriptions" enabled="true">
         <sourceOutputDir name="target/generated-sources/annotations" />
         <sourceTestOutputDir name="target/generated-test-sources/test-annotations" />
         <outputRelativeToContentRoot value="true" />
@@ -41,6 +42,7 @@
           <entry name="$MAVEN_REPOSITORY$/org/projectlombok/lombok/1.18.42/lombok-1.18.42.jar" />
         </processorPath>
         <module name="match" />
+        <module name="subscriptions" />
         <module name="consumer" />
         <module name="swipes-demo" />
         <module name="media-service" />
@@ -64,6 +66,7 @@
       <module name="match" options="-parameters" />
       <module name="media-service" options="-parameters" />
       <module name="profiles" options="-parameters" />
+      <module name="subscriptions" options="-parameters" />
       <module name="swipes" options="-parameters" />
       <module name="swipes-demo" options="-parameters" />
     </option>

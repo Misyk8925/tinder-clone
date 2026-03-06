@@ -6,6 +6,7 @@ import com.tinder.profiles.profile.dto.profileData.CreateProfileDtoV1;
 import com.tinder.profiles.profile.dto.profileData.PatchProfileDto;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -15,6 +16,7 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 import java.util.UUID;
 
+@Slf4j
 @RestController
 @RequestMapping
 @RequiredArgsConstructor
@@ -24,9 +26,8 @@ public class ProfileController {
 
     @GetMapping("/{id}")
     public ResponseEntity<GetProfileDto> getOne(@PathVariable UUID id) {
-        return ResponseEntity
-                .status(HttpStatus.OK)
-                .body(applicationService.getOne(id));
+        log.info("getOne called with id: {}", id);
+        return ResponseEntity.ok(applicationService.getOne(id));
     }
 
     @PostMapping("/")

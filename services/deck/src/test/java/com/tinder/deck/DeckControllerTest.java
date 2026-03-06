@@ -1,7 +1,7 @@
 // java
     package com.tinder.deck;
 
-    import com.tinder.deck.controlller.DeckController;
+    import com.tinder.deck.controller.DeckController;
     import com.tinder.deck.adapters.ProfilesHttp;
     import com.tinder.deck.service.DeckCache;
     import com.tinder.deck.service.DeckScheduler;

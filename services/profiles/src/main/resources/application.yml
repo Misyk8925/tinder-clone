@@ -7,6 +7,11 @@ server:
   servlet:
     context-path: /api/v1/profiles
 spring:
+  grpc:
+    server:
+      port: 9010
+      servlet:
+        enabled: false   # run gRPC on its own port (Netty), not embedded in Servlet
   config:
     import: "optional:file:services/profiles/.env.properties"
   kafka:
@@ -49,6 +54,10 @@ spring:
       max-request-size: 60MB
   application:
     name: profiles-service
+  autoconfigure:
+    # Disable gRPC JWT security auto-config — gRPC endpoints are internal only, no JWT required
+    exclude:
+      - org.springframework.grpc.autoconfigure.server.security.OAuth2ResourceServerAutoConfiguration
   cloud:
     config:
       enabled: false

@@ -1,0 +1,29 @@
+stripe:
+  secret-key: ${STRIPE_SECRET_KEY:placeholder}
+  webhook-secret: ${STRIPE_WEBHOOK_SECRET:placeholder}
+  success-url: ${STRIPE_SUCCESS_URL:http://localhost:8095/success}
+  cancel-url: ${STRIPE_CANCEL_URL:http://localhost:8095/cancel}
+  price-id: ${STRIPE_PRICE_ID:placeholder}
+
+grpc:
+  # gRPC server port (other services connect to this port)
+  server:
+    port: 9095
+  client:
+    profiles-service:
+      address: ${PROFILES_GRPC_ADDRESS:static://localhost:9010}
+      negotiation-type: plaintext
+profiles:
+  base-url: ${PROFILES_BASE_URL:placeholder}
+server:
+  port: 8095
+spring:
+  jpa:
+    hibernate:
+      ddl-auto: create-drop
+  datasource:
+    url: jdbc:postgresql://127.0.0.1:54322/postgres
+    username: postgres
+    password: postgres
+  config:
+    import: "optional:file:services/subscriptions/.env.properties"

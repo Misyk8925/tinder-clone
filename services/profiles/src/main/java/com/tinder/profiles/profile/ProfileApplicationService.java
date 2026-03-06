@@ -302,6 +302,16 @@ public class ProfileApplicationService {
         ids.forEach(this::evictFromCache);
     }
 
+    @Transactional
+    public void updatePremiumStatus(String userId, boolean isPremium) {
+        Profile profile = profileRepository.findByUserId(userId);
+        if (profile == null) {
+            throw new ProfileNotFoundException(userId);
+        }
+        profile.setPremium(isPremium);
+        profileRepository.save(profile);
+    }
+
     // Cache management methods
 
     private void putInCache(UUID profileId, Profile profile) {

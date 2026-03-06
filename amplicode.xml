@@ -26,6 +26,11 @@
           <package value="com.example.swipes_demo" />
         </packages>
       </persistence-unit>
+      <persistence-unit moduleName="subscriptions" name="Default">
+        <packages>
+          <package value="com.tinder.subscriptions" />
+        </packages>
+      </persistence-unit>
     </persistence-units>
   </component>
 </project>

@@ -1,4 +1,4 @@
-package com.tinder.deck.controlller;
+package com.tinder.deck.controller;
 
 import com.tinder.deck.adapters.ProfilesHttp;
 import com.tinder.deck.service.DeckCache;

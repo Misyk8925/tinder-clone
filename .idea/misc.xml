@@ -35,6 +35,7 @@
         <option value="$PROJECT_DIR$/services/consumer/pom.xml" />
         <option value="$PROJECT_DIR$/services/match/pom.xml" />
         <option value="$PROJECT_DIR$/services/media-service/pom.xml" />
+        <option value="$PROJECT_DIR$/services/subscriptions/pom.xml" />
       </list>
     </option>
     <option name="ignoredFiles">

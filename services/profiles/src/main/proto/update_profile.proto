@@ -1,0 +1,22 @@
+syntax = "proto3";
+
+option java_package = "com.tinder.profiles.grpc";
+option java_multiple_files = true;
+option java_outer_classname = "UpdateProfileProto";
+
+package subscriptions;
+
+// Request message for updating premium user
+message UpdatePremiumUserRequest {
+  string user_id = 1;
+}
+
+// Response message after updating premium user
+message UpdatePremiumUserResponse {
+  bool success = 1;
+}
+
+// gRPC service definition
+service SubscriptionsService {
+  rpc UpdatePremiumUser (UpdatePremiumUserRequest) returns (UpdatePremiumUserResponse);
+}
