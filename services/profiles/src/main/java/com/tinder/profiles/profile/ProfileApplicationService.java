@@ -17,7 +17,6 @@ import com.tinder.profiles.profile.exception.PatchOperationException;
 import com.tinder.profiles.profile.mapper.CreateProfileMapper;
 import com.tinder.profiles.profile.mapper.GetProfileMapper;
 import com.tinder.profiles.redis.ResilientCacheManager;
-import com.tinder.profiles.security.InputSanitizationService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.cache.Cache;
@@ -40,7 +39,6 @@ public class ProfileApplicationService {
     private final CreateProfileMapper createMapper;
     private final GetProfileMapper getMapper;
     private final ResilientCacheManager resilientCacheManager;
-    private final InputSanitizationService sanitizationService;
     private final PreferencesService preferencesService;
     private final ProfileOutboxService profileOutboxService;
 
@@ -54,7 +52,6 @@ public class ProfileApplicationService {
 
     public GetProfileDto getOne(UUID id) {
         try {
-            // Try to get from cache first using resilient cache manager
             Cache.ValueWrapper profileCache = resilientCacheManager.get(PROFILE_CACHE_NAME, id);
 
             if (profileCache != null) {
@@ -71,7 +68,6 @@ public class ProfileApplicationService {
                 }
             }
 
-            // Load from database if not in cache or cache unavailable
             Optional<Profile> profileOptional = profileRepository.findById(id);
             if (profileOptional.isEmpty()) {
                 throw new ProfileNotFoundException(id.toString(), "id");
@@ -82,13 +78,11 @@ public class ProfileApplicationService {
                 return null;
             }
 
-            // Cache the profile using resilient cache manager
             putInCache(id, profile);
             return getMapper.toGetProfileDto(profile);
 
         } catch (Exception e) {
             log.error("Error retrieving profile {}: {}. Loading from database.", id, e.getMessage());
-            // Continue without cache - load from database
             Optional<Profile> profileOptional = profileRepository.findById(id);
             if (profileOptional.isEmpty()) {
                 throw new ProfileNotFoundException(id.toString(), "id");
@@ -108,31 +102,25 @@ public class ProfileApplicationService {
 
     @Transactional
     public Profile create(CreateProfileDtoV1 profileDto, String userId) {
-        // Check if profile already exists
         Profile existing = profileRepository.findByUserId(userId);
         if (existing != null) {
             throw new ProfileAlreadyExistsException(userId);
         }
 
-        // Validate cross-field business rules (Bean Validation handles basic constraints)
         if (profileDto.preferences() != null) {
             domainService.validatePreferencesBusinessRules(profileDto.preferences());
         }
 
-        // Sanitize input data
         CreateProfileDtoV1 sanitizedProfile = domainService.sanitizeProfileData(profileDto);
 
-        // Map to entity
         Profile profile = createMapper.toEntity(sanitizedProfile);
         profile.setUserId(userId);
 
-        // Handle preferences
         Preferences preferences = preferencesService.findOrCreate(sanitizedProfile.preferences());
         if (preferences.getId() == null) {
             preferences = preferencesRepository.save(preferences);
         }
         profile.setPreferences(preferences);
-
 
         Profile savedProfile = profileRepository.save(profile);
 
@@ -149,7 +137,6 @@ public class ProfileApplicationService {
 
     @Transactional
     public Profile update(CreateProfileDtoV1 profileDto, String userId) {
-
         Profile existingProfile = profileRepository.findByUserId(userId);
         if (existingProfile == null) {
             throw new ProfileNotFoundException(userId);
@@ -161,35 +148,34 @@ public class ProfileApplicationService {
 
         CreateProfileDtoV1 sanitizedProfile = domainService.sanitizeProfileData(profileDto);
 
-        // Track changed fields before update
+        // Detect field changes before applying the update
         Set<String> changedFields = detectChangedFields(existingProfile, sanitizedProfile);
-        boolean preferencesChanged = false;
 
-        // Update profile fields
-        domainService.updateProfileFromDto(existingProfile, sanitizedProfile);
+        existingProfile.updateBasicInfo(
+                sanitizedProfile.name(),
+                sanitizedProfile.age(),
+                sanitizedProfile.gender(),
+                sanitizedProfile.bio(),
+                sanitizedProfile.city()
+        );
 
-        // Handle preferences
         Preferences oldPreferences = existingProfile.getPreferences();
         Preferences preferences = preferencesService.findOrCreate(sanitizedProfile.preferences());
         if (preferences.getId() == null) {
             preferences = preferencesRepository.save(preferences);
         }
 
-        // Check if preferences changed
-        if (!preferencesEqual(oldPreferences, preferences)) {
-            preferencesChanged = true;
+        boolean preferencesChanged = !Objects.equals(oldPreferences, preferences);
+        if (preferencesChanged) {
             changedFields.add("preferences");
+            existingProfile.setPreferences(preferences);
         }
-
-        existingProfile.setPreferences(preferences);
 
         Profile savedProfile = profileRepository.save(existingProfile);
 
-        // Determine change type and send event
-        ChangeType changeType = determineChangeType(changedFields, preferencesChanged);
+        ChangeType changeType = domainService.determineChangeType(changedFields, preferencesChanged);
         enqueueProfileUpdatedEvent(savedProfile, changeType, changedFields);
 
-        // Update cache
         putInCache(savedProfile.getProfileId(), savedProfile);
 
         log.info("Profile updated successfully for userId: {} with changeType: {} and fields: {}",
@@ -204,54 +190,33 @@ public class ProfileApplicationService {
             throw new ProfileNotFoundException(userId);
         }
 
-        // Check if at least one field is provided
         if (!patchDto.hasAnyField()) {
             throw PatchOperationException.noFieldsProvided();
         }
 
-        // Track changed fields
-        Set<String> changedFields = new HashSet<>();
+        PatchProfileDto sanitizedPatch = domainService.sanitizePatchData(patchDto);
+
+        // applyPatch() sets only non-null fields and returns which ones actually changed
+        Set<String> changedFields = existingProfile.applyPatch(
+                sanitizedPatch.name(),
+                sanitizedPatch.age(),
+                sanitizedPatch.gender(),
+                sanitizedPatch.bio(),
+                sanitizedPatch.city()
+        );
+
         boolean preferencesChanged = false;
-
-        // Apply patches (Bean Validation already validated the format)
-        if (patchDto.name() != null) {
-            existingProfile.setName(sanitizationService.sanitizePlainText(patchDto.name()));
-            changedFields.add("name");
-        }
-
-        if (patchDto.age() != null) {
-            existingProfile.setAge(patchDto.age());
-            changedFields.add("age");
-        }
-
-        if (patchDto.gender() != null) {
-            existingProfile.setGender(sanitizationService.sanitizePlainText(patchDto.gender()));
-            changedFields.add("gender");
-        }
-
-        if (patchDto.bio() != null) {
-            existingProfile.setBio(sanitizationService.sanitizePlainText(patchDto.bio()));
-            changedFields.add("bio");
-        }
-
-        if (patchDto.city() != null) {
-            existingProfile.setCity(sanitizationService.sanitizePlainText(patchDto.city()));
-            changedFields.add("city");
-        }
-
-        // Handle preferences update
-        if (patchDto.preferences() != null) {
-            domainService.validatePreferencesBusinessRules(patchDto.preferences());
+        if (sanitizedPatch.preferences() != null) {
+            domainService.validatePreferencesBusinessRules(sanitizedPatch.preferences());
 
             Preferences oldPreferences = existingProfile.getPreferences();
-            Preferences newPreferences = preferencesService.findOrCreate(patchDto.preferences());
+            Preferences newPreferences = preferencesService.findOrCreate(sanitizedPatch.preferences());
 
             if (newPreferences.getId() == null) {
                 newPreferences = preferencesRepository.save(newPreferences);
             }
 
-            // Check if preferences actually changed
-            if (!preferencesEqual(oldPreferences, newPreferences)) {
+            if (!Objects.equals(oldPreferences, newPreferences)) {
                 existingProfile.setPreferences(newPreferences);
                 preferencesChanged = true;
                 changedFields.add("preferences");
@@ -260,11 +225,9 @@ public class ProfileApplicationService {
 
         Profile savedProfile = profileRepository.save(existingProfile);
 
-        // Determine change type and send event
-        ChangeType changeType = determineChangeType(changedFields, preferencesChanged);
+        ChangeType changeType = domainService.determineChangeType(changedFields, preferencesChanged);
         enqueueProfileUpdatedEvent(savedProfile, changeType, changedFields);
 
-        // Update cache
         putInCache(savedProfile.getProfileId(), savedProfile);
 
         log.info("Profile patched successfully for userId: {} with changeType: {} and fields: {}",
@@ -273,14 +236,14 @@ public class ProfileApplicationService {
     }
 
     @Transactional
-    public Profile delete( String userId) {
+    public Profile delete(String userId) {
         Profile profile = profileRepository.findByUserId(userId);
         UUID id = profile != null ? profile.getProfileId() : null;
         if (profile == null || profile.isDeleted()) {
             throw new ProfileNotFoundException(String.valueOf(id), "id");
         }
         if (domainService.canDeleteProfile(profile)) {
-            domainService.markAsDeleted(profile);
+            profile.markAsDeleted();
             profileRepository.save(profile);
             evictFromCache(profile.getProfileId());
             log.info("Profile deleted successfully: {}", id);
@@ -302,7 +265,7 @@ public class ProfileApplicationService {
         ids.forEach(this::evictFromCache);
     }
 
-    // Cache management methods
+    // Cache management
 
     private void putInCache(UUID profileId, Profile profile) {
         resilientCacheManager.put(PROFILE_CACHE_NAME, profileId, profile);
@@ -312,82 +275,18 @@ public class ProfileApplicationService {
         resilientCacheManager.evict(PROFILE_CACHE_NAME, profileId);
     }
 
-    // Event handling helper methods
+    // Helper methods
 
-    /**
-     * Detect which fields changed between existing profile and new DTO
-     */
     private Set<String> detectChangedFields(Profile existing, CreateProfileDtoV1 newDto) {
         Set<String> changed = new HashSet<>();
-
-        if (!Objects.equals(existing.getName(), newDto.name())) {
-            changed.add("name");
-        }
-        if (!Objects.equals(existing.getAge(), newDto.age())) {
-            changed.add("age");
-        }
-        if (!Objects.equals(existing.getGender(), newDto.gender())) {
-            changed.add("gender");
-        }
-        if (!Objects.equals(existing.getBio(), newDto.bio())) {
-            changed.add("bio");
-        }
-        if (!Objects.equals(existing.getCity(), newDto.city())) {
-            changed.add("city");
-        }
-
+        if (!Objects.equals(existing.getName(), newDto.name())) changed.add("name");
+        if (!Objects.equals(existing.getAge(), newDto.age())) changed.add("age");
+        if (!Objects.equals(existing.getGender(), newDto.gender())) changed.add("gender");
+        if (!Objects.equals(existing.getBio(), newDto.bio())) changed.add("bio");
+        if (!Objects.equals(existing.getCity(), newDto.city())) changed.add("city");
         return changed;
     }
 
-    /**
-     * Check if preferences are equal
-     */
-    private boolean preferencesEqual(Preferences old, Preferences newPrefs) {
-        if (old == null && newPrefs == null) {
-            return true;
-        }
-        if (old == null || newPrefs == null) {
-            return false;
-        }
-
-        return Objects.equals(old.getMinAge(), newPrefs.getMinAge())
-                && Objects.equals(old.getMaxAge(), newPrefs.getMaxAge())
-                && Objects.equals(old.getGender(), newPrefs.getGender())
-                && Objects.equals(old.getMaxRange(), newPrefs.getMaxRange());
-    }
-
-    /**
-     * Determine the type of change based on changed fields
-     *
-     * Priority order:
-     * 1. LOCATION_CHANGE - if city changed (superset: affects both the owner's deck and viewers' decks)
-     * 2. PREFERENCES - if preferences changed
-     * 3. CRITICAL_FIELDS - if age or gender changed
-     * 4. NON_CRITICAL - for name, bio changes
-     */
-    private ChangeType determineChangeType(Set<String> changedFields, boolean preferencesChanged) {
-        if (changedFields.contains("city")) {
-            return ChangeType.LOCATION_CHANGE;
-        }
-
-        if (preferencesChanged) {
-            return ChangeType.PREFERENCES;
-        }
-
-        // Critical fields that affect matching
-        Set<String> criticalFields = Set.of("age", "gender");
-        for (String field : changedFields) {
-            if (criticalFields.contains(field)) {
-                return ChangeType.CRITICAL_FIELDS;
-            }
-        }
-
-        return ChangeType.NON_CRITICAL;
-    }
-
-    /**
-     * Build and enqueue profile updated event in outbox.
-     */
     private void enqueueProfileUpdatedEvent(Profile profile, ChangeType changeType, Set<String> changedFields) {
         ProfileUpdatedEvent event = ProfileUpdatedEvent.builder()
                 .eventId(UUID.randomUUID())

@@ -54,11 +54,14 @@ public class Preferences {
         if (this == o) return true;
         if (o == null || getClass() != o.getClass()) return false;
         Preferences that = (Preferences) o;
-        return Objects.equals(id, that.id);
+        return Objects.equals(minAge, that.minAge)
+                && Objects.equals(maxAge, that.maxAge)
+                && Objects.equals(gender, that.gender)
+                && Objects.equals(maxRange, that.maxRange);
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(id);
+        return Objects.hash(minAge, maxAge, gender, maxRange);
     }
 }

@@ -15,7 +15,10 @@ import org.springframework.data.annotation.LastModifiedDate;
 import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 
 import java.time.LocalDateTime;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Objects;
+import java.util.Set;
 import java.util.UUID;
 
 @Builder
@@ -129,6 +132,32 @@ public class Profile {
         this.updatedAt = LocalDateTime.now();
     }
 
-
-
+    /**
+     * Applies a partial update, setting only non-null fields.
+     * Returns the set of field names that actually changed.
+     */
+    public Set<String> applyPatch(String name, Integer age, String gender, String bio, String city) {
+        Set<String> changed = new HashSet<>();
+        if (name != null && !Objects.equals(this.name, name)) {
+            this.name = name;
+            changed.add("name");
+        }
+        if (age != null && !Objects.equals(this.age, age)) {
+            this.age = age;
+            changed.add("age");
+        }
+        if (gender != null && !Objects.equals(this.gender, gender)) {
+            this.gender = gender;
+            changed.add("gender");
+        }
+        if (bio != null && !Objects.equals(this.bio, bio)) {
+            this.bio = bio;
+            changed.add("bio");
+        }
+        if (city != null && !Objects.equals(this.city, city)) {
+            this.city = city;
+            changed.add("city");
+        }
+        return changed;
+    }
 }
