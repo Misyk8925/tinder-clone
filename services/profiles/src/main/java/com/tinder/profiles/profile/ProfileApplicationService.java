@@ -18,6 +18,7 @@ import com.tinder.profiles.profile.mapper.CreateProfileMapper;
 import com.tinder.profiles.profile.mapper.GetProfileMapper;
 import com.tinder.profiles.redis.ResilientCacheManager;
 import com.tinder.profiles.security.InputSanitizationService;
+import com.tinder.profiles.user.KeycloakConfig;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.cache.Cache;
@@ -43,6 +44,7 @@ public class ProfileApplicationService {
     private final InputSanitizationService sanitizationService;
     private final PreferencesService preferencesService;
     private final ProfileOutboxService profileOutboxService;
+    private final KeycloakConfig keycloakConfig;
 
 
     private static final String PROFILE_CACHE_NAME = "PROFILE_ENTITY_CACHE";

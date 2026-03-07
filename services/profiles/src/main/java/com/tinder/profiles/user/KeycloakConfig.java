@@ -15,4 +15,13 @@ public class KeycloakConfig {
                 .baseUrl(keycloakUrl)
                 .build();
     }
+
+    @Bean("selfHostedKeycloakWebClient")
+    public WebClient selfHostedKeycloakWebClient(
+            @Value("${keycloak.keycloakUrl}") String keycloakUrl
+    ) {
+        return WebClient.builder()
+                .baseUrl(keycloakUrl)
+                .build();
+    }
 }

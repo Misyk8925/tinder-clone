@@ -87,8 +87,11 @@ cloud:
 
 keycloak:
   auth-server-url: http://localhost:6700
+  keycloakUrl: ${KEYCLOAK_URL:http://localhost:9080}
   realm: spring
-  client-id: profiles-service
+  client-id: spring-app
+  admin-username: ${KEYCLOAK_ADMIN_USERNAME:admin}
+  admin-password: ${KEYCLOAK_ADMIN_PASSWORD:admin@1234}
 
 media:
   service:
