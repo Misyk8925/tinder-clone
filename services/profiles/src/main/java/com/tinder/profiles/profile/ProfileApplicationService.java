@@ -44,7 +44,6 @@ public class ProfileApplicationService {
     private final InputSanitizationService sanitizationService;
     private final PreferencesService preferencesService;
     private final ProfileOutboxService profileOutboxService;
-    private final KeycloakConfig keycloakConfig;
 
 
     private static final String PROFILE_CACHE_NAME = "PROFILE_ENTITY_CACHE";
