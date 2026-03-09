@@ -1,9 +1,11 @@
 package com.tinder.profiles.profile;
 
+import com.tinder.profiles.deck.DeckService;
 import com.tinder.profiles.profile.dto.profileData.GetProfileDto;
 import com.tinder.profiles.profile.dto.success.ApiResponse;
 import com.tinder.profiles.profile.dto.profileData.CreateProfileDtoV1;
 import com.tinder.profiles.profile.dto.profileData.PatchProfileDto;
+import com.tinder.profiles.profile.dto.profileData.shared.SharedProfileDto;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -23,6 +25,26 @@ import java.util.UUID;
 public class ProfileController {
 
     private final ProfileApplicationService applicationService;
+    private final DeckService deckService;
+
+    @GetMapping("/deck")
+    public ResponseEntity<List<SharedProfileDto>> getDeck(
+            @AuthenticationPrincipal Jwt jwt,
+            @RequestParam(defaultValue = "0") int offset,
+            @RequestParam(defaultValue = "20") int limit) {
+
+        // Resolve profileId from the authenticated user's JWT subject (Keycloak userId)
+        Profile viewer = applicationService.getByUserId(jwt.getSubject());
+        if (viewer == null) {
+            return ResponseEntity.notFound().build();
+        }
+
+        log.info("GET /deck called for userId={}, profileId={}, offset={}, limit={}",
+                jwt.getSubject(), viewer.getProfileId(), offset, limit);
+
+        List<SharedProfileDto> deck = deckService.listWithProfiles(viewer.getProfileId(), offset, limit);
+        return ResponseEntity.ok(deck);
+    }
 
     @GetMapping("/{id}")
     public ResponseEntity<GetProfileDto> getOne(@PathVariable UUID id) {
