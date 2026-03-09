@@ -6,6 +6,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Optional;
+import java.util.concurrent.ConcurrentHashMap;
 
 @RequiredArgsConstructor
 @Service
@@ -14,6 +15,9 @@ public class PreferencesService {
 
     private final PreferencesRepository repo;
 
+    /** In-memory cache keyed by "minAge:maxAge:gender:maxRange" to avoid redundant DB lookups. */
+    private final ConcurrentHashMap<String, Preferences> preferencesCache = new ConcurrentHashMap<>();
+
     @Transactional
     public Preferences findOrCreate(PreferencesDto preferences) {
         Integer minAge = preferences.getMinAge();
@@ -21,12 +25,22 @@ public class PreferencesService {
         String gender = preferences.getGender();
         Integer maxRange = preferences.getMaxRange() != null ? preferences.getMaxRange() : 50;
 
-        // Try to find existing preferences with the same values
+        String cacheKey = minAge + ":" + maxAge + ":" + gender + ":" + maxRange;
+
+        // L1: In-memory cache check
+        Preferences cached = preferencesCache.get(cacheKey);
+        if (cached != null) {
+            log.debug("Preferences cache hit for key '{}'", cacheKey);
+            return cached;
+        }
+
+        // L2: Database lookup
         Optional<Preferences> existing = repo.findByValues(minAge, maxAge, gender, maxRange);
 
         if (existing.isPresent()) {
             log.debug("Reusing existing preferences: minAge={}, maxAge={}, gender={}, maxRange={}",
                      minAge, maxAge, gender, maxRange);
+            preferencesCache.put(cacheKey, existing.get());
             return existing.get();
         }
 
@@ -41,6 +55,7 @@ public class PreferencesService {
         Preferences saved = repo.save(newPreferences);
         log.info("Created new preferences: id={}, minAge={}, maxAge={}, gender={}, maxRange={}",
                 saved.getId(), minAge, maxAge, gender, maxRange);
+        preferencesCache.put(cacheKey, saved);
         return saved;
     }
 }

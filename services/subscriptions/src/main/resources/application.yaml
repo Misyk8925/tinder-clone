@@ -18,7 +18,12 @@ profiles:
 server:
   port: 8095
 spring:
+  application:
+    name: subscriptions-service
   jpa:
+    properties:
+      hibernate:
+        dialect: org.hibernate.ad.PostgreSQLDialect
     hibernate:
       ddl-auto: create-drop
   datasource:
@@ -27,6 +32,11 @@ spring:
     password: postgres
   config:
     import: "optional:file:services/subscriptions/.env.properties"
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          jwk-set-uri: ${KEYCLOAK_JWK_SET_URI:http://localhost:9080/realms/spring/protocol/openid-connect/certs}
 
 resilience4j:
   circuitbreaker:

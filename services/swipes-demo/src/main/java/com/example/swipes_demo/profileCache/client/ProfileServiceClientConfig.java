@@ -8,6 +8,15 @@ import org.springframework.web.reactive.function.client.WebClient;
 @Configuration
 public class ProfileServiceClientConfig {
 
+    /**
+     * Explicitly declare WebClient.Builder bean,
+     * since auto-configuration may not register it in all contexts.
+     */
+    @Bean
+    public WebClient.Builder webClientBuilder() {
+        return WebClient.builder();
+    }
+
     @Bean
     public WebClient profilesWebClient(
             @Value("${services.profiles.base-url}") String baseUrl,

@@ -34,15 +34,6 @@ public class SecurityConfig {
         return new JwtAuthConverter();
     }
 
-    @Bean
-    public JwtDecoder jwtDecoder(
-            @Value("${spring.security.oauth2.resourceserver.jwt.jwk-set-uri}") String jwkSetUri,
-            StringRedisTemplate stringRedisTemplate
-    ) {
-        NimbusJwtDecoder nimbusJwtDecoder = NimbusJwtDecoder.withJwkSetUri(jwkSetUri).build();
-        return new CachedJwtDecoder(nimbusJwtDecoder, stringRedisTemplate);
-    }
-
     // TODO delete or secure internal endpoints
     @Bean
     public WebSecurityCustomizer webSecurityCustomizer() {

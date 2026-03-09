@@ -1,9 +1,10 @@
 package com.tinder.clone.consumer.service;
 
-import com.tinder.clone.consumer.kafka.MatchEventProducer;
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.tinder.clone.consumer.kafka.event.MatchCreateEvent;
 import com.tinder.clone.consumer.kafka.event.SwipeCreatedEvent;
 import com.tinder.clone.consumer.model.embedded.SwipeRecordId;
+import com.tinder.clone.consumer.outbox.MatchOutboxService;
 import com.tinder.clone.consumer.repository.SwipeRepository;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
@@ -26,7 +27,7 @@ public class SwipeService {
     private final SwipeRepository repo;
 
     private final RedisTemplate<String, Object> redisTemplate;
-    private final MatchEventProducer matchEventProducer;
+    private final MatchOutboxService matchOutboxService;
 
     @Transactional
     public void save(SwipeCreatedEvent swipeRecord) {
@@ -54,7 +55,7 @@ public class SwipeService {
                 repo.isMutualMatch(normalizedId.getProfile1Id(), normalizedId.getProfile2Id())
         );
         if (isMatchNow) {
-            publishMatchCreated(normalizedId, swipeRecord.getTimestamp());
+            enqueueMatchCreated(normalizedId, swipeRecord.getTimestamp());
         }
     }
 
@@ -79,31 +80,6 @@ public class SwipeService {
         return result;
     }
 
-    @Transactional
-    protected Map<UUID, Boolean> warmUpCacheAndReturn(UUID viewerId, List<UUID> candidateIds) {
-        // Find all profiles that viewer has swiped on (outgoing swipes only, not incoming)
-        Set<UUID> allSwipesInDb = repo.findProfilesViewerSwipedOn(viewerId);
-
-
-        String cacheKey = SWIPE_KEY_PREFIX + ":" + viewerId;
-        if (!allSwipesInDb.isEmpty()) {
-            String[] idsToCache = allSwipesInDb.stream().map(UUID::toString).toArray(String[]::new);
-            redisTemplate.opsForSet().add(cacheKey, idsToCache);
-
-            redisTemplate.expire(cacheKey, SWIPE_CACHE_TTL);
-        } else {
-            // No swipes found, store EMPTY_MARKER
-            redisTemplate.opsForSet().add(cacheKey, "EMPTY_MARKER");
-            // TODO check time duration
-            redisTemplate.expire(cacheKey, Duration.ofMinutes(5));
-        }
-
-        Map<UUID, Boolean> result = new HashMap<>();
-        for (UUID cid : candidateIds) {
-            result.put(cid, allSwipesInDb.contains(cid));
-        }
-        return result;
-    }
 
     private void refreshSwipeCache(UUID swiperId, UUID targetId) {
         String cacheKey = SWIPE_KEY_PREFIX + ":" + swiperId;
@@ -118,7 +94,7 @@ public class SwipeService {
         redisTemplate.expire(cacheKey, SWIPE_CACHE_TTL);
     }
 
-    private void publishMatchCreated(SwipeRecordId swipeRecordId, long swipeTimestamp) {
+    private void enqueueMatchCreated(SwipeRecordId swipeRecordId, long swipeTimestamp) {
         Instant createdAt = swipeTimestamp > 0 ? Instant.ofEpochMilli(swipeTimestamp) : Instant.now();
         MatchCreateEvent matchEvent = MatchCreateEvent.builder()
                 .eventId(UUID.randomUUID().toString())
@@ -127,8 +103,8 @@ public class SwipeService {
                 .createdAt(createdAt)
                 .build();
 
-        log.info("Mutual match found. Publishing MatchCreateEvent for {} and {}",
+        log.info("Mutual match found. Enqueueing MatchCreateEvent for {} and {}",
                 matchEvent.getProfile1Id(), matchEvent.getProfile2Id());
-        matchEventProducer.send(matchEvent).block();
+        matchOutboxService.enqueue(matchEvent);
     }
 }

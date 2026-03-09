@@ -27,6 +27,11 @@ spring:
     multipart:
       max-file-size: 50MB
       max-request-size: 60MB
+  datasource:
+    hikari:
+      maximum-pool-size: 60
+      minimum-idle: 20
+      connection-timeout: 30000
   application:
     name: profiles-service
   kafka:
@@ -93,13 +98,13 @@ integration:
 outbox:
   publisher:
     enabled: true
-    batch-size: 50
-    max-batches-per-run: 5
-    poll-interval-ms: 250
-    initial-backoff-ms: 200
-    max-backoff-ms: 5000
-    backoff-multiplier: 2.0
-    send-timeout-ms: 3000
+    batch-size: 200
+    max-batches-per-run: 10
+    poll-interval-ms: 100
+    initial-backoff-ms: 100
+    max-backoff-ms: 2000
+    backoff-multiplier: 1.5
+    send-timeout-ms: 5000
     max-retries: 3
 
 # Resilience4j configuration for tests
@@ -146,8 +151,8 @@ resilience4j:
         maxConcurrentCalls: 20
         maxWaitDuration: 0
       redisCache:
-        maxConcurrentCalls: 50
-        maxWaitDuration: 100ms
+        maxConcurrentCalls: 200
+        maxWaitDuration: 500ms
   retry:
     instances:
       nominatimClient:

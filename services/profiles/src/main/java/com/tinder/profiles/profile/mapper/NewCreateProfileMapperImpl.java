@@ -27,8 +27,6 @@ public class NewCreateProfileMapperImpl implements CreateProfileMapper {
 
         Profile.ProfileBuilder profile = Profile.builder();
 
-        System.out.println(createProfileDtoV1.city());
-
         profile.name( createProfileDtoV1.name() );
         profile.age( createProfileDtoV1.age() );
         profile.bio( createProfileDtoV1.bio() );

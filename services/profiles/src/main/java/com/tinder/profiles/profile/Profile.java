@@ -72,7 +72,9 @@ public class Profile {
     @ColumnDefault("true")
     private boolean isActive;
 
-    @ManyToOne(fetch = FetchType.EAGER, cascade = {CascadeType.PERSIST, CascadeType.MERGE}, optional = false)
+    // No cascade — Location is an independently managed entity (owned by LocationService).
+    // Cascading PERSIST on a detached cached Location causes "detached entity passed to persist".
+    @ManyToOne(fetch = FetchType.EAGER, optional = false)
     @JoinColumn(name = "location_id", nullable = false)
     private Location location;
 
