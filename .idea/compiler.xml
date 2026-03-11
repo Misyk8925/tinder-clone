@@ -23,18 +23,16 @@
         </processorPath>
         <module name="profiles" />
       </profile>
-      <profile name="Annotation profile for swipes" enabled="true">
+      <profile name="Annotation profile for deck" enabled="true">
         <sourceOutputDir name="target/generated-sources/annotations" />
         <sourceTestOutputDir name="target/generated-test-sources/test-annotations" />
         <outputRelativeToContentRoot value="true" />
         <processorPath useClasspath="false">
           <entry name="$MAVEN_REPOSITORY$/org/projectlombok/lombok/1.18.40/lombok-1.18.40.jar" />
-          <entry name="$MAVEN_REPOSITORY$/org/projectlombok/lombok/1.18.40/lombok-1.18.40.jar" />
         </processorPath>
-        <module name="swipes" />
         <module name="deck" />
       </profile>
-      <profile name="Annotation profile for subscriptions" enabled="true">
+      <profile name="Annotation profile for consumer" enabled="true">
         <sourceOutputDir name="target/generated-sources/annotations" />
         <sourceTestOutputDir name="target/generated-test-sources/test-annotations" />
         <outputRelativeToContentRoot value="true" />
@@ -45,12 +43,13 @@
         <module name="subscriptions" />
         <module name="consumer" />
         <module name="swipes-demo" />
-        <module name="media-service" />
       </profile>
     </annotationProcessing>
     <bytecodeTargetLevel>
       <module name="config-server" target="24" />
       <module name="gateway-service" target="21" />
+      <module name="media-service" target="21" />
+      <module name="swipes" target="21" />
     </bytecodeTargetLevel>
   </component>
   <component name="JavacSettings">

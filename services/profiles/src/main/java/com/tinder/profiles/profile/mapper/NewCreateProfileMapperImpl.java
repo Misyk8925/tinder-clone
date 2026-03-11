@@ -34,6 +34,9 @@ public class NewCreateProfileMapperImpl implements CreateProfileMapper {
         profile.city( createProfileDtoV1.city() );
         profile.location( locationService.create(createProfileDtoV1.city()) );
         profile.preferences( preferencesDtoToPreferences( createProfileDtoV1.preferences() ) );
+        profile.hobbies( createProfileDtoV1.hobbies() != null
+                ? new java.util.ArrayList<>(createProfileDtoV1.hobbies())
+                : new java.util.ArrayList<>() );
         profile.isActive( true );
         profile.createdAt(LocalDateTime.now());
         profile.updatedAt( LocalDateTime.now() );
@@ -61,7 +64,7 @@ public class NewCreateProfileMapperImpl implements CreateProfileMapper {
         city = profile.getCity();
         preferences = preferencesToPreferencesDto( profile.getPreferences() );
 
-        CreateProfileDtoV1 createProfileDtoV1 = new CreateProfileDtoV1( name, age, gender, bio, city, preferences );
+        CreateProfileDtoV1 createProfileDtoV1 = new CreateProfileDtoV1( name, age, gender, bio, city, preferences, profile.getHobbies() );
 
         return createProfileDtoV1;
     }

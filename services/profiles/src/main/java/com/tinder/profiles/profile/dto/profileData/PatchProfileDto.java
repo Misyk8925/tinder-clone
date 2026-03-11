@@ -1,10 +1,13 @@
 package com.tinder.profiles.profile.dto.profileData;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import com.tinder.profiles.hobbies.Hobby;
 import com.tinder.profiles.preferences.PreferencesDto;
 import com.tinder.profiles.profile.Profile;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.*;
+
+import java.util.List;
 
 /**
  * DTO for partial updates (PATCH) of {@link Profile}
@@ -37,13 +40,17 @@ public record PatchProfileDto(
         String city,
 
         @Valid
-        PreferencesDto preferences
+        PreferencesDto preferences,
+
+        @Size(max = 10, message = "you can select at most 10 hobbies")
+        List<Hobby> hobbies
 ) {
     /**
      * Checks if any field is provided
      */
     public boolean hasAnyField() {
-        return name != null || age != null || gender != null || bio != null || city != null || preferences != null;
+        return name != null || age != null || gender != null || bio != null
+                || city != null || preferences != null || hobbies != null;
     }
 }
 

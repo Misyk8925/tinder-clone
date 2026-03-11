@@ -371,6 +371,15 @@ public class DemoIntegrationTest {
      * Build JSON for profile creation request
      */
     private String buildProfileJson(String name, int age, String gender, String preferredGender) {
+        // Deterministic hobby set: pick 3 hobbies based on index derived from age
+        String[] hobbySets = {
+            "[\"HIKING\", \"PHOTOGRAPHY\", \"GAMING\"]",
+            "[\"READING\", \"COOKING\", \"YOGA\"]",
+            "[\"MUSIC\", \"TRAVELING\", \"CYCLING\"]",
+            "[\"DANCING\", \"PAINTING\", \"RUNNING\"]",
+            "[\"MOVIES\", \"GYM\", \"MEDITATION\"]"
+        };
+        String hobbies = hobbySets[age % hobbySets.length];
         return String.format("""
                 {
                     "name": "%s",
@@ -383,9 +392,10 @@ public class DemoIntegrationTest {
                         "maxAge": %d,
                         "gender": "%s",
                         "maxRange": %d
-                    }
+                    },
+                    "hobbies": %s
                 }""", name, age, gender, DEFAULT_BIO, DEFAULT_CITY,
-                MIN_AGE, MAX_AGE, preferredGender, DEFAULT_MAX_RANGE);
+                MIN_AGE, MAX_AGE, preferredGender, DEFAULT_MAX_RANGE, hobbies);
     }
 
     /**

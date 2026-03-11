@@ -23,7 +23,7 @@ spring:
   jpa:
     properties:
       hibernate:
-        dialect: org.hibernate.ad.PostgreSQLDialect
+        dialect: org.hibernate.dialect.PostgreSQLDialect
     hibernate:
       ddl-auto: create-drop
   datasource:

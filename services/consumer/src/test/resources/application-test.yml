@@ -1,0 +1,35 @@
+# Test profile — real values are injected via @DynamicPropertySource from Testcontainers
+spring:
+  jpa:
+    hibernate:
+      ddl-auto: create-drop
+    properties:
+      dialect: org.hibernate.dialect.PostgreSQLDialect
+    show-sql: false
+  kafka:
+    consumer:
+      group-id: consumer-test-group
+      auto-offset-reset: earliest
+      enable-auto-commit: false
+
+app:
+  kafka:
+    topic:
+      swipe-created: swipe-created
+      profile-created: profile.created
+      profile-deleted: profile.deleted
+      match-created: match.created
+
+outbox:
+  publisher:
+    enabled: false
+    batch-size: 50
+    max-batches-per-run: 5
+    poll-interval-ms: 1000
+    initial-backoff-ms: 1000
+    max-backoff-ms: 60000
+    backoff-multiplier: 2.0
+    send-timeout-ms: 5000
+    max-error-length: 1000
+    max-retries: 10
+

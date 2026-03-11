@@ -37,7 +37,8 @@ public class ProfileDomainService {
                 sanitizationService.sanitizePlainText(profile.gender()),
                 profile.bio() != null ? sanitizationService.sanitizePlainText(profile.bio()) : null,
                 sanitizationService.sanitizePlainText(profile.city()),
-                profile.preferences()
+                profile.preferences(),
+                profile.hobbies()
         );
     }
 

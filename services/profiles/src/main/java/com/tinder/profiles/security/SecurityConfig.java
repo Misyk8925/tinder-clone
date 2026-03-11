@@ -1,28 +1,21 @@
 package com.tinder.profiles.security;
 
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.core.annotation.Order;
 import org.springframework.core.convert.converter.Converter;
-import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.security.authentication.AbstractAuthenticationToken;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
-import org.springframework.security.config.annotation.web.configuration.WebSecurityCustomizer;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.config.http.SessionCreationPolicy;
-import org.springframework.security.core.GrantedAuthority;
-import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.security.oauth2.jwt.JwtDecoder;
-import org.springframework.security.oauth2.jwt.NimbusJwtDecoder;
-import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken;
-import org.springframework.security.oauth2.server.resource.authentication.JwtGrantedAuthoritiesConverter;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.util.matcher.RequestMatcher;
 
-import java.util.Collection;
-import java.util.HashSet;
+import jakarta.servlet.http.HttpServletRequest;
 
 @Configuration("ProfilesSecurityConfig")
 @EnableMethodSecurity
@@ -34,25 +27,45 @@ public class SecurityConfig {
         return new JwtAuthConverter();
     }
 
-    // TODO delete or secure internal endpoints
+    /**
+     * Security chain for internal endpoints (/internal/**).
+     * mTLS is enforced at the Tomcat connector level (port 8011, clientAuth=need).
+     * Here we additionally verify the client CN matches expected service identity.
+     * Runs before the public chain (higher @Order).
+     */
     @Bean
-    public WebSecurityCustomizer webSecurityCustomizer() {
-        return (web -> {
-            web.ignoring().requestMatchers(
-                    "/internal/**"
-            );
-        });
+    @Order(1)
+    public SecurityFilterChain internalSecurityFilterChain(HttpSecurity http) throws Exception {
+        // Match requests to /internal/** path prefix
+        RequestMatcher internalMatcher = request -> {
+            String path = request.getServletPath();
+            return path != null && path.startsWith("/internal/");
+        };
+        return http
+                .securityMatcher(internalMatcher)
+                .csrf(AbstractHttpConfigurer::disable)
+                .sessionManagement(sess -> sess.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+                // X.509 client-cert auth: principal CN must match "deck-service"
+                .x509(x509 -> x509
+                        .userDetailsService(new MtlsUserDetailsService())
+                )
+                .authorizeHttpRequests(auth -> auth
+                        .requestMatchers("/internal/**").hasRole("INTERNAL_CLIENT")
+                        .anyRequest().denyAll()
+                )
+                .build();
     }
 
-
+    /**
+     * Security chain for all public endpoints (JWT bearer token).
+     */
     @Bean
-    public SecurityFilterChain securityFilterChain(HttpSecurity httpSecurity, JwtDecoder jwtDecoder) throws Exception {
-
-        return httpSecurity
+    @Order(2)
+    public SecurityFilterChain publicSecurityFilterChain(HttpSecurity http, JwtDecoder jwtDecoder) throws Exception {
+        return http
                 .csrf(AbstractHttpConfigurer::disable)
                 .authorizeHttpRequests(auth -> auth
-                        .anyRequest()
-                        .authenticated()
+                        .anyRequest().authenticated()
                 )
                 .oauth2ResourceServer(oauth2 -> oauth2
                         .jwt(jwt -> jwt

@@ -29,9 +29,13 @@ spring:
       max-request-size: 60MB
   datasource:
     hikari:
-      maximum-pool-size: 60
+      # Must be > max parallel threads (100) + background workers (outbox, etc.)
+      # Each request uses exactly 1 connection — no REQUIRES_NEW overhead.
+      maximum-pool-size: 200
       minimum-idle: 20
-      connection-timeout: 30000
+      connection-timeout: 10000   # 10 s — fail fast
+      idle-timeout: 300000
+      max-lifetime: 1200000
   application:
     name: profiles-service
   kafka:
@@ -54,9 +58,28 @@ spring:
         spring.json.trusted.packages: "com.tinder.*"
 
 server:
-  port: 8011
+  # Main servlet port — must NOT conflict with the mTLS connector port (8011)
+  port: 8010
   servlet:
     context-path: /api/v1/profiles
+
+# Disable the second mTLS Tomcat connector in tests.
+# Step 9 of ComprehensiveIntegrationTest probes port 8011 via isPortOpen()
+# and skips live-TLS assertions when it is not reachable.
+# To run live mTLS tests: start the full stack with docker-compose and set
+# internal.server.ssl.enabled=true via env var or a separate test profile.
+internal:
+  server:
+    port: 8011
+    ssl:
+      enabled: false
+      key-store: classpath:profiles-service.p12
+      key-store-password: changeit
+      key-store-type: PKCS12
+      client-auth: need
+      trust-store: classpath:truststore-test.jks
+      trust-store-password: changeit
+      trust-store-type: JKS
 
 app:
   s3:
@@ -75,7 +98,8 @@ cloud:
 
 
 keycloak:
-  auth-server-url: http://localhost:6700
+  # Direct Keycloak URL — used by UserService and KeycloakAdminClient for Admin REST API calls
+  keycloakUrl: ${KEYCLOAK_URL:http://localhost:9080}
   realm: spring
   client-id: profiles-service
 

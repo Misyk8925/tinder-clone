@@ -1,10 +1,13 @@
 package com.tinder.profiles.profile.dto.profileData;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import com.tinder.profiles.hobbies.Hobby;
 import com.tinder.profiles.preferences.PreferencesDto;
 import com.tinder.profiles.profile.Profile;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.*;
+
+import java.util.List;
 
 /**
  * DTO for {@link Profile}
@@ -41,5 +44,9 @@ public record CreateProfileDtoV1(
 
         @NotNull(message = "preferences are required")
         @Valid
-        PreferencesDto preferences) {
+        PreferencesDto preferences,
+
+        @Size(max = 10, message = "you can select at most 10 hobbies")
+        List<Hobby> hobbies) {
 }
+

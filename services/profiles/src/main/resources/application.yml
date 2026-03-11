@@ -6,6 +6,22 @@ server:
   port: 8010
   servlet:
     context-path: /api/v1/profiles
+
+# Dedicated internal HTTPS port with mTLS (used by deck service)
+internal:
+  server:
+    port: 8011
+    ssl:
+      enabled: true
+      # Override with env var PROFILES_KEYSTORE_PATH for Docker/production
+      key-store: ${PROFILES_KEYSTORE_PATH:classpath:profiles-service.p12}
+      key-store-password: ${PROFILES_KEYSTORE_PASSWORD:changeit}
+      key-store-type: PKCS12
+      # Require client certificate (mTLS)
+      client-auth: need
+      trust-store: ${PROFILES_TRUSTSTORE_PATH:classpath:truststore.jks}
+      trust-store-password: ${PROFILES_TRUSTSTORE_PASSWORD:changeit}
+      trust-store-type: JKS
 spring:
   grpc:
     server:
@@ -31,6 +47,14 @@ spring:
     url: jdbc:postgresql://127.0.0.1:54322/postgres
     username: postgres
     password: postgres
+    hikari:
+      # Each parallel request needs exactly 1 connection (no REQUIRES_NEW anymore).
+      # Set to 150 to comfortably handle peak concurrency of 100 + outbox poller overhead.
+      maximum-pool-size: 150
+      minimum-idle: 10
+      connection-timeout: 10000   # 10 s — fail fast rather than queue for 30 s
+      idle-timeout: 300000        # 5 min
+      max-lifetime: 1200000       # 20 min
   security:
     oauth2:
       resourceserver:
@@ -86,7 +110,7 @@ cloud:
       endpoint: ${AWS_S3_ENDPOINT:}
 
 keycloak:
-  auth-server-url: http://localhost:6700
+  # Direct Keycloak URL — used by KeycloakAdminClient and UserService for Admin REST API calls
   keycloakUrl: ${KEYCLOAK_URL:http://localhost:9080}
   realm: spring
   client-id: spring-app

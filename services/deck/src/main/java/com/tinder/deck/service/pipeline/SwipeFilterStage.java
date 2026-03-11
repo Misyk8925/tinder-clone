@@ -35,25 +35,7 @@ public class SwipeFilterStage extends BasicStage {
                     if (batch.isEmpty()) {
                         return Flux.empty();
                     }
-
-                    List<UUID> candidateIds = batch.stream()
-                            .map(SharedProfileDto::id)
-                            .toList();
-
-                    return swipesHttp.betweenBatch(viewer.id(), candidateIds)
-                            .timeout(Duration.ofMillis(timeoutMs))
-                            .retry(retries)
-                            .onErrorResume(error -> {
-                                // Fail-open: if swipes service fails, return empty map (don't filter)
-                                log.warn("Swipes service error, continuing without filtering: {}", error.getMessage());
-                                return Mono.just(Collections.emptyMap());
-                            })
-                            .flatMapMany(swipeMap -> {
-                                List<SharedProfileDto> filtered = batch.stream()
-                                        .filter(candidate -> !swipeMap.getOrDefault(candidate.id(), false))
-                                        .toList();
-                                return Flux.fromIterable(filtered);
-                            });
+                    return filterBatch(viewer.id(), batch);
                 });
     }
 
@@ -66,8 +48,25 @@ public class SwipeFilterStage extends BasicStage {
                 candidateIds.size(), viewerId);
 
         return swipesHttp.betweenBatch(viewerId, candidateIds)
-                .flatMapMany(swipeMap -> Flux.fromIterable(batch)
-                        .filter(candidate -> !hasSwipeHistory(candidate.id(), swipeMap)));
+                .timeout(Duration.ofMillis(timeoutMs))
+                .retry(retries)
+                .onErrorResume(error -> {
+                    // Fail-open: if swipes service is unavailable, skip filtering for this batch.
+                    // Candidates are NOT excluded — this is intentional to keep decks populated
+                    // even when the swipes service is temporarily down.
+                    log.warn("Swipes service error for viewer {} (batch size {}), skipping filter (fail-open): {}",
+                            viewerId, candidateIds.size(), error.getMessage());
+                    return Mono.just(Collections.emptyMap());
+                })
+                .flatMapMany(swipeMap -> {
+                    long before = batch.size();
+                    List<SharedProfileDto> filtered = batch.stream()
+                            .filter(candidate -> !swipeMap.getOrDefault(candidate.id(), false))
+                            .toList();
+                    log.debug("Swipe filter: viewer={} batch={} kept={} excluded={}",
+                            viewerId, before, filtered.size(), before - filtered.size());
+                    return Flux.fromIterable(filtered);
+                });
     }
 
     private boolean hasSwipeHistory(UUID candidateId, Map<UUID, Boolean> swipeMap) {

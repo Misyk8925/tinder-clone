@@ -42,7 +42,8 @@ public class CustomSharedProfileMapper implements SharedProfileMapper {
                 locationToSharedLocationDto(profile.getLocation()),
                 preferencesToSharedPreferencesDto(profile.getPreferences()),
                 profile.isDeleted(),
-                profile.getPhotos()
+                profile.getPhotos(),
+                profile.getHobbies()
         );
     }
 

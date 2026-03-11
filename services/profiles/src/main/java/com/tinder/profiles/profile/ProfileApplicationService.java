@@ -6,7 +6,6 @@ import com.tinder.profiles.kafka.dto.ProfileDeleteEvent;
 import com.tinder.profiles.kafka.dto.ProfileUpdatedEvent;
 import com.tinder.profiles.outbox.ProfileOutboxService;
 import com.tinder.profiles.preferences.Preferences;
-import com.tinder.profiles.preferences.PreferencesRepository;
 import com.tinder.profiles.preferences.PreferencesService;
 import com.tinder.profiles.profile.dto.profileData.CreateProfileDtoV1;
 import com.tinder.profiles.profile.dto.profileData.GetProfileDto;
@@ -18,7 +17,6 @@ import com.tinder.profiles.profile.mapper.CreateProfileMapper;
 import com.tinder.profiles.profile.mapper.GetProfileMapper;
 import com.tinder.profiles.redis.ResilientCacheManager;
 import com.tinder.profiles.security.InputSanitizationService;
-import com.tinder.profiles.user.KeycloakConfig;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.cache.Cache;
@@ -36,7 +34,6 @@ import java.util.*;
 public class ProfileApplicationService {
 
     private final ProfileRepository profileRepository;
-    private final PreferencesRepository preferencesRepository;
     private final ProfileDomainService domainService;
     private final CreateProfileMapper createMapper;
     private final GetProfileMapper getMapper;
@@ -127,13 +124,15 @@ public class ProfileApplicationService {
         Profile profile = createMapper.toEntity(sanitizedProfile);
         profile.setUserId(userId);
 
-        // Handle preferences
+        // Handle preferences — findOrCreate commits in its own transaction (REQUIRES_NEW),
+        // so the preferences row is visible to PostgreSQL's FK check on profile INSERT.
         Preferences preferences = preferencesService.findOrCreate(sanitizedProfile.preferences());
-        if (preferences.getId() == null) {
-            preferences = preferencesRepository.save(preferences);
-        }
         profile.setPreferences(preferences);
 
+        // Set hobbies if provided
+        if (sanitizedProfile.hobbies() != null) {
+            profile.setHobbies(sanitizedProfile.hobbies());
+        }
 
         Profile savedProfile = profileRepository.save(profile);
 
@@ -169,12 +168,9 @@ public class ProfileApplicationService {
         // Update profile fields
         domainService.updateProfileFromDto(existingProfile, sanitizedProfile);
 
-        // Handle preferences
+        // Handle preferences — findOrCreate commits in its own transaction (REQUIRES_NEW)
         Preferences oldPreferences = existingProfile.getPreferences();
         Preferences preferences = preferencesService.findOrCreate(sanitizedProfile.preferences());
-        if (preferences.getId() == null) {
-            preferences = preferencesRepository.save(preferences);
-        }
 
         // Check if preferences changed
         if (!preferencesEqual(oldPreferences, preferences)) {
@@ -183,6 +179,12 @@ public class ProfileApplicationService {
         }
 
         existingProfile.setPreferences(preferences);
+
+        // Update hobbies if provided
+        if (sanitizedProfile.hobbies() != null) {
+            existingProfile.setHobbies(sanitizedProfile.hobbies());
+            changedFields.add("hobbies");
+        }
 
         Profile savedProfile = profileRepository.save(existingProfile);
 
@@ -245,11 +247,9 @@ public class ProfileApplicationService {
             domainService.validatePreferencesBusinessRules(patchDto.preferences());
 
             Preferences oldPreferences = existingProfile.getPreferences();
+            // findOrCreate commits in its own transaction (REQUIRES_NEW) — always returns persisted entity
             Preferences newPreferences = preferencesService.findOrCreate(patchDto.preferences());
 
-            if (newPreferences.getId() == null) {
-                newPreferences = preferencesRepository.save(newPreferences);
-            }
 
             // Check if preferences actually changed
             if (!preferencesEqual(oldPreferences, newPreferences)) {
@@ -257,6 +257,12 @@ public class ProfileApplicationService {
                 preferencesChanged = true;
                 changedFields.add("preferences");
             }
+        }
+
+        // Handle hobbies update — replace the entire list when provided
+        if (patchDto.hobbies() != null) {
+            existingProfile.setHobbies(patchDto.hobbies());
+            changedFields.add("hobbies");
         }
 
         Profile savedProfile = profileRepository.save(existingProfile);

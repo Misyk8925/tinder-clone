@@ -30,8 +30,6 @@ public class KeycloakTestHelper {
     private final String clientId;
     private final RestTemplate restTemplate;
 
-    @Value("${keycloak.auth-server-url}")
-    private String authServiceUrl;
 
     // ── Token cache ──────────────────────────────────────────────────────────
 
@@ -253,15 +251,4 @@ public class KeycloakTestHelper {
         return "Bearer " + token;
     }
 
-    public int getUsersCount() {
-        WebClient webClient = WebClient.builder()
-                .baseUrl(authServiceUrl + "/api/users/count")
-                .defaultHeader(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE)
-                .build();
-        Integer count = webClient.get()
-                .retrieve()
-                .bodyToMono(Integer.class)
-                .block();
-        return count != null ? count : 0;
-    }
 }

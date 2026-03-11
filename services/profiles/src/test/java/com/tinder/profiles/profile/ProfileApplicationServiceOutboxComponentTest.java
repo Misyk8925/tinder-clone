@@ -1,9 +1,9 @@
 package com.tinder.profiles.profile;
 
+import com.tinder.profiles.hobbies.Hobby;
 import com.tinder.profiles.outbox.ProfileOutboxService;
 import com.tinder.profiles.preferences.Preferences;
 import com.tinder.profiles.preferences.PreferencesDto;
-import com.tinder.profiles.preferences.PreferencesRepository;
 import com.tinder.profiles.preferences.PreferencesService;
 import com.tinder.profiles.profile.dto.profileData.CreateProfileDtoV1;
 import com.tinder.profiles.profile.mapper.CreateProfileMapper;
@@ -16,6 +16,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import java.util.List;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -33,8 +34,6 @@ class ProfileApplicationServiceOutboxComponentTest {
 
     @Mock
     private ProfileRepository profileRepository;
-    @Mock
-    private PreferencesRepository preferencesRepository;
     @Mock
     private ProfileDomainService domainService;
     @Mock
@@ -56,7 +55,6 @@ class ProfileApplicationServiceOutboxComponentTest {
     void setUp() {
         service = new ProfileApplicationService(
                 profileRepository,
-                preferencesRepository,
                 domainService,
                 createMapper,
                 getMapper,
@@ -150,7 +148,8 @@ class ProfileApplicationServiceOutboxComponentTest {
                 "female",
                 "bio",
                 "Berlin",
-                new PreferencesDto(null, 24, 40, "male", 30)
+                new PreferencesDto(null, 24, 40, "male", 30),
+                List.of(Hobby.HIKING, Hobby.PHOTOGRAPHY, Hobby.GAMING)
         );
     }
 }

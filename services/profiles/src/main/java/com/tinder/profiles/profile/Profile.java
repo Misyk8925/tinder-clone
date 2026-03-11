@@ -3,6 +3,7 @@ package com.tinder.profiles.profile;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonManagedReference;
+import com.tinder.profiles.hobbies.Hobby;
 import com.tinder.profiles.location.Location;
 import com.tinder.profiles.photos.Photo;
 import com.tinder.profiles.preferences.Preferences;
@@ -95,6 +96,16 @@ public class Profile {
     @OneToMany(mappedBy = "profile", fetch = FetchType.LAZY, cascade = CascadeType.ALL, orphanRemoval = true)
     @BatchSize(size = 10)
     private List<Photo> photos;
+
+    /**
+     * Hobbies selected by the user from a predefined enum set.
+     * Stored in a separate join table "profile_hobbies" with string representation.
+     */
+    @ElementCollection(targetClass = Hobby.class, fetch = FetchType.EAGER)
+    @CollectionTable(name = "profile_hobbies", joinColumns = @JoinColumn(name = "profile_id"))
+    @Column(name = "hobby")
+    @Enumerated(EnumType.STRING)
+    private List<Hobby> hobbies = new java.util.ArrayList<>();
 
     @CreatedDate
     @Column(name = "created_at")

@@ -4,15 +4,18 @@ import com.tinder.deck.adapters.ProfilesHttp;
 import com.tinder.deck.dto.SharedProfileDto;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Flux;
+import reactor.core.publisher.Mono;
 
 import java.time.Duration;
+import java.util.concurrent.atomic.AtomicInteger;
 
 /**
- * Background scheduler that rebuilds decks for active users
- * Runs periodically to keep decks fresh in Redis cache
+ * Background scheduler that rebuilds decks for active users.
+ * Runs periodically to keep decks fresh in Redis cache.
  */
 @Service
 @RequiredArgsConstructor
@@ -22,58 +25,73 @@ public class DeckScheduler {
     private final DeckService deckService;
     private final ProfilesHttp profilesHttp;
 
-    /**
-     * Rebuild decks for all active users
-     * Runs every hour (reduced from every minute for efficiency)
-     *
-     * Note: With Preferences Cache enabled, this is much more efficient:
-     * - Groups users by preferences (10-15 groups typically)
-     * - Shares candidate queries across users with same preferences
-     * - 100x fewer database queries compared to individual rebuilds
-     */
+    /** Maximum number of deck rebuilds to run in parallel */
+    @Value("${deck.scheduler.max-concurrent-rebuilds:10}")
+    private int maxConcurrentRebuilds;
 
+    /** Per-user rebuild timeout in seconds */
+    @Value("${deck.scheduler.user-rebuild-timeout-seconds:30}")
+    private int userRebuildTimeoutSeconds;
+
+    /**
+     * Rebuild decks for all active users in parallel.
+     * Uses flatMap with a concurrency cap so we never overwhelm downstream services.
+     *
+     * <p>With Preferences Cache enabled this is much more efficient:
+     * <ul>
+     *   <li>Groups users by preferences (10–15 groups typically)</li>
+     *   <li>Shares candidate queries across users with same preferences</li>
+     *   <li>~100x fewer database queries vs individual rebuilds</li>
+     * </ul>
+     */
     @Scheduled(cron = "${deck.scheduler.cron:0 0/1 * * * *}")
     public void rebuildAllDecks() {
+        log.info("Starting scheduled batch deck rebuild (concurrency={})", maxConcurrentRebuilds);
 
-        log.info("Starting scheduled batch deck rebuild");
-        log.info("Preferences cache enabled - efficient batch processing mode");
+        AtomicInteger success = new AtomicInteger(0);
+        AtomicInteger failure = new AtomicInteger(0);
 
-        Flux<SharedProfileDto> activeUsers = profilesHttp.getActiveUsers();
-
-        if (activeUsers == null){
-            log.error("Failed to fetch active users - aborting scheduled rebuild");
-            return;
-        }
-
-        activeUsers
-            .timeout(Duration.ofSeconds(60))
-            .doOnError(e -> log.error("Error during scheduled deck rebuild", e))
-            .doOnNext(viewer -> this.rebuildDeckForUser(viewer))
-            .doOnComplete(() -> log.info("Scheduled batch deck rebuild completed successfully"))
-            .subscribe();
+        // getActiveUsers() always returns a Flux (never null) — start the reactive pipeline
+        profilesHttp.getActiveUsers()
+                .timeout(Duration.ofSeconds(60))
+                .onErrorResume(e -> {
+                    log.error("Failed to fetch active users — aborting scheduled rebuild: {}", e.getMessage());
+                    return Flux.empty();
+                })
+                // Parallel rebuild: up to maxConcurrentRebuilds in-flight at once
+                .flatMap(viewer -> rebuildDeckForUserReactive(viewer)
+                        .doOnSuccess(v -> success.incrementAndGet())
+                        .doOnError(e -> failure.incrementAndGet())
+                        .onErrorResume(e -> Mono.empty()), // keep stream alive on per-user error
+                        maxConcurrentRebuilds)
+                .doOnComplete(() ->
+                        log.info("Scheduled batch deck rebuild completed — success={}, failed={}",
+                                success.get(), failure.get()))
+                .subscribe();
     }
 
     /**
-     * Rebuild deck for a single user
-     * Can be called manually or from a queue
+     * Rebuild deck for a single user (reactive, for use in the scheduler pipeline).
+     */
+    public Mono<Void> rebuildDeckForUserReactive(SharedProfileDto viewer) {
+        if (viewer == null || viewer.id() == null) {
+            log.error("Cannot rebuild deck: viewer or viewer ID is null");
+            return Mono.empty();
+        }
+
+        log.debug("Rebuilding deck for user: {} (name: {})", viewer.id(), viewer.name());
+
+        return deckService.rebuildOneDeck(viewer)
+                .timeout(Duration.ofSeconds(userRebuildTimeoutSeconds))
+                .doOnSuccess(v -> log.debug("Successfully rebuilt deck for user: {}", viewer.id()))
+                .doOnError(e -> log.error("Failed to rebuild deck for user: {} — {}",
+                        viewer.id(), e.getMessage()));
+    }
+
+    /**
+     * Rebuild deck for a single user (fire-and-forget, for external callers).
      */
     public void rebuildDeckForUser(SharedProfileDto viewer) {
-        if (viewer == null) {
-            log.error("Cannot rebuild deck: viewer is null");
-            return;
-        }
-
-        if (viewer.id() == null) {
-            log.error("Cannot rebuild deck: viewer ID is null for viewer: {}", viewer);
-            return;
-        }
-
-        log.info("Rebuilding deck for user: {} (name: {})", viewer.id(), viewer.name());
-
-        deckService.rebuildOneDeck(viewer)
-                .timeout(Duration.ofSeconds(30))
-                .doOnSuccess(v -> log.info("Successfully rebuilt deck for user: {}", viewer.id()))
-                .doOnError(e -> log.error("Failed to rebuild deck for user: {}", viewer.id(), e))
-                .subscribe();
+        rebuildDeckForUserReactive(viewer).subscribe();
     }
 }

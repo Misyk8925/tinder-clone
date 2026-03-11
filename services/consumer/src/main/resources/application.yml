@@ -21,6 +21,26 @@ spring:
 server:
   port: 8050
 
+# Internal mTLS HTTPS port — deck connects here for swipe history checks
+internal:
+  server:
+    port: 8051
+    ssl:
+      enabled: true
+      # Override with env var CONSUMER_KEYSTORE_PATH for Docker/production
+      key-store: ${CONSUMER_KEYSTORE_PATH:classpath:consumer-service.p12}
+      key-store-password: ${CONSUMER_KEYSTORE_PASSWORD:changeit}
+      key-store-type: PKCS12
+      client-auth: need
+      trust-store: ${CONSUMER_TRUSTSTORE_PATH:classpath:truststore.jks}
+      trust-store-password: ${CONSUMER_TRUSTSTORE_PASSWORD:changeit}
+      trust-store-type: JKS
+
+# mTLS for /between/batch endpoint: only deck-service CN is allowed
+mtls:
+  allowed-client-cns:
+    - deck-service
+
 app:
   kafka:
     topic:

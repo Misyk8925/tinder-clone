@@ -1,6 +1,7 @@
 package com.tinder.profiles.profile.dto.profileData.shared;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.tinder.profiles.hobbies.Hobby;
 import com.tinder.profiles.photos.Photo;
 
 import java.util.List;
@@ -15,5 +16,7 @@ public record SharedProfileDto(@JsonProperty("profileId") UUID id,
                                SharedLocationDto location,
                                SharedPreferencesDto preferences,
                                boolean isDeleted,
-                               List<Photo> photos) {
+                               List<Photo> photos,
+                               List<Hobby> hobbies) {
 }
+
