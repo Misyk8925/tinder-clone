@@ -1,19 +1,5 @@
 services:
 
-  localstack:
-    image: localstack/localstack:latest
-    ports:
-      - "4566:4566"  # All AWS services
-      - "4510-4559:4510-4559"  # External services
-    environment:
-      - SERVICES=s3  # Only enable what you need
-      - DEBUG=1
-      - DATA_DIR=/tmp/localstack/data
-      - DOCKER_HOST=unix:///var/run/docker.sock
-    volumes:
-      - "./localstack-data:/tmp/localstack"
-      - "/var/run/docker.sock:/var/run/docker.sock"
-
   postgres:
     image: postgres:16-alpine
     restart: unless-stopped
@@ -74,6 +60,7 @@ services:
   elasticsearch:
       image: docker.elastic.co/elasticsearch/elasticsearch:8.12.0
       container_name: elasticsearch
+      restart: unless-stopped
       environment:
         - discovery.type=single-node
         - xpack.security.enabled=false
@@ -82,22 +69,29 @@ services:
         - "9200:9200"
       volumes:
         - elasticsearch-data:/usr/share/elasticsearch/data
+      networks:
+        - elk
       healthcheck:
-        test: [ "CMD-SHELL", "curl -f http://localhost:9200/_cluster/health || exit 1" ]
-        interval: 30s
+        test: [ "CMD-SHELL", "curl -sf http://localhost:9200/_cluster/health?wait_for_status=yellow&timeout=5s || exit 1" ]
+        interval: 15s
         timeout: 10s
-        retries: 5
+        start_period: 60s
+        retries: 10
 
     # NEW: Logstash for collecting logs
   logstash:
       image: docker.elastic.co/logstash/logstash:8.12.0
       container_name: logstash
+      restart: unless-stopped
       ports:
         - "5010:5000/tcp"
       environment:
         - "LS_JAVA_OPTS=-Xmx256m -Xms256m"
+      networks:
+        - elk
       depends_on:
-        - elasticsearch
+        elasticsearch:
+          condition: service_healthy
       command: |
         bash -c "
         cat > /usr/share/logstash/pipeline/logstash.conf <<EOF
@@ -122,15 +116,21 @@ services:
   kibana:
       image: docker.elastic.co/kibana/kibana:8.12.0
       container_name: kibana
+      restart: unless-stopped
       ports:
         - "5601:5601"
       environment:
         - ELASTICSEARCH_HOSTS=http://elasticsearch:9200
+      networks:
+        - elk
       depends_on:
-        - elasticsearch
+        elasticsearch:
+          condition: service_healthy
 
 
 networks:
+  elk:
+    driver: bridge
   supabase_network_michael:
     external: true
 

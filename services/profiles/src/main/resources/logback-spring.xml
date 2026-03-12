@@ -2,6 +2,8 @@
 <configuration>
     <!-- Keep console logs for development -->
     <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
+        <!-- Suppress the high-frequency outbox polling SQL (runs every 100 ms) -->
+        <filter class="com.tinder.profiles.logging.OutboxSqlFilter"/>
         <encoder>
             <pattern>%d{HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n</pattern>
         </encoder>
@@ -10,6 +12,8 @@
     <!-- Send logs to Logstash -->
     <appender name="LOGSTASH" class="net.logstash.logback.appender.LogstashTcpSocketAppender">
         <destination>localhost:5010</destination>
+        <!-- Suppress outbox noise in ELK as well -->
+        <filter class="com.tinder.profiles.logging.OutboxSqlFilter"/>
         <encoder class="net.logstash.logback.encoder.LogstashEncoder">
             <customFields>{"service":"profiles"}</customFields>
         </encoder>

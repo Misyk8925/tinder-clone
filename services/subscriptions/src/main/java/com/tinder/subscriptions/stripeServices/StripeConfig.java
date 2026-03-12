@@ -4,6 +4,7 @@ import com.stripe.Stripe;
 import jakarta.annotation.PostConstruct;
 import lombok.Getter;
 import lombok.Setter;
+import lombok.extern.slf4j.Slf4j;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.boot.context.properties.ConfigurationProperties;
@@ -14,8 +15,8 @@ import org.springframework.util.StringUtils;
 @ConfigurationProperties(prefix = "stripe")
 @Getter
 @Setter
+@Slf4j
 public class StripeConfig {
-    private static final Logger log = LoggerFactory.getLogger(StripeConfig.class);
 
     private String secretKey;
     private String webhookSecret;
