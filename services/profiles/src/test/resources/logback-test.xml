@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<configuration>
+
+    <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder>
+            <pattern>%d{HH:mm:ss.SSS} [%thread] %-5level %logger{36} -- %msg%n</pattern>
+        </encoder>
+    </appender>
+
+    <!-- Suppress expected error logs produced by tests that deliberately trigger failure paths -->
+    <logger name="com.tinder.profiles.grpc.SubscriptionsGrpcService"     level="OFF" />
+    <logger name="com.tinder.profiles.grpc.PremiumExpirationScheduler"    level="OFF" />
+    <logger name="com.tinder.profiles.profile.DeletedProfileCleanupScheduler" level="OFF" />
+
+    <!-- Keep general application logs at WARN to avoid test noise -->
+    <logger name="com.tinder.profiles" level="WARN" />
+
+    <!-- Silence noisy framework loggers during tests -->
+    <logger name="org.springframework"          level="WARN" />
+    <logger name="org.hibernate"                level="WARN" />
+    <logger name="io.grpc"                      level="WARN" />
+    <logger name="com.zaxxer.hikari"            level="WARN" />
+    <logger name="org.testcontainers"           level="WARN" />
+    <logger name="tc"                           level="WARN" />
+
+    <root level="WARN">
+        <appender-ref ref="CONSOLE" />
+    </root>
+
+</configuration>
+
+
