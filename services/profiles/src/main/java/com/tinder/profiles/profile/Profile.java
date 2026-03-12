@@ -83,6 +83,9 @@ public class Profile {
     @ColumnDefault("false")
     private boolean isPremium;
 
+    @Column(name = "premium_expires_at")
+    private LocalDateTime premiumExpiresAt;
+
     @JsonIgnore
     @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "preferences_id", nullable = false)
@@ -91,6 +94,10 @@ public class Profile {
     @Column(name = "is_deleted", nullable = false)
     @ColumnDefault("false")
     private boolean isDeleted;
+
+    /** Timestamp when the profile was soft-deleted. Used by the cleanup scheduler. */
+    @Column(name = "deleted_at")
+    private LocalDateTime deletedAt;
 
 
     @OneToMany(mappedBy = "profile", fetch = FetchType.LAZY, cascade = CascadeType.ALL, orphanRemoval = true)
@@ -130,6 +137,7 @@ public class Profile {
     public void markAsDeleted() {
         this.isDeleted = true;
         this.isActive = false;
+        this.deletedAt = LocalDateTime.now();
         this.updatedAt = LocalDateTime.now();
     }
 

@@ -98,7 +98,7 @@ spring:
               ############################## SWIPES ROUTES
 
             - id: swipes
-              uri: http://localhost:8020
+              uri: http://localhost:8040  # swipes-demo service port (was wrong: 8020)
               predicates:
                 - Path=/api/v1/swipes/**
               filters:
@@ -112,6 +112,82 @@ spring:
                     basicPeriodInSeconds: 3600
                     anonCapacity: 10
                     anonPeriodInSeconds: 3600
+
+              ############################## DECK ROUTES (admin / monitoring)
+
+            - id: deck-admin
+              uri: http://localhost:8030
+              predicates:
+                - Path=/api/v1/admin/deck/**
+              filters:
+                - name: RoleBasedRateLimitFilter
+                  args:
+                    adminCapacity:  1000000000
+                    adminPeriodInSeconds: 3600
+                    premiumCapacity: 0
+                    premiumPeriodInSeconds: 3600
+                    basicCapacity: 0
+                    basicPeriodInSeconds: 3600
+                    anonCapacity: 0
+                    anonPeriodInSeconds: 3600
+
+              ############################## MATCH ROUTES
+
+            - id: match-conversations
+              uri: http://localhost:8080
+              predicates:
+                - Path=/rest/conversations/**
+              filters:
+                - name: RoleBasedRateLimitFilter
+                  args:
+                    adminCapacity:  1000000000
+                    adminPeriodInSeconds: 3600
+                    premiumCapacity: 300
+                    premiumPeriodInSeconds: 3600
+                    basicCapacity: 100
+                    basicPeriodInSeconds: 3600
+                    anonCapacity: 0
+                    anonPeriodInSeconds: 3600
+
+            - id: match-other
+              uri: http://localhost:8080
+              predicates:
+                - Path=/match/**
+              filters:
+                - name: RoleBasedRateLimitFilter
+                  args:
+                    adminCapacity:  1000000000
+                    adminPeriodInSeconds: 3600
+                    premiumCapacity: 200
+                    premiumPeriodInSeconds: 3600
+                    basicCapacity: 50
+                    basicPeriodInSeconds: 3600
+                    anonCapacity: 0
+                    anonPeriodInSeconds: 3600
+
+              ############################## SUBSCRIPTIONS ROUTES
+
+            - id: subscriptions-billing
+              uri: http://localhost:8095
+              predicates:
+                - Path=/api/v1/billing/**
+              filters:
+                - name: RoleBasedRateLimitFilter
+                  args:
+                    adminCapacity:  1000000000
+                    adminPeriodInSeconds: 3600
+                    premiumCapacity: 20
+                    premiumPeriodInSeconds: 3600
+                    basicCapacity: 10
+                    basicPeriodInSeconds: 3600
+                    anonCapacity: 0
+                    anonPeriodInSeconds: 3600
+
+            - id: subscriptions-webhook
+              uri: http://localhost:8095
+              predicates:
+                - Path=/api/v1/webhook/**
+              # No rate-limit filter — Stripe webhook must not be blocked by JWT rate-limiting
 
 
 custom:

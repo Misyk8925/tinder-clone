@@ -51,6 +51,23 @@ public class KeycloakAdminClient {
         log.info("Keycloak role '{}' successfully assigned to user '{}'", roleName, userId);
     }
 
+    /**
+     * Removes a realm role from the given Keycloak user.
+     * Safe to call even if the user does not have the role assigned.
+     *
+     * @param userId   Keycloak user ID (same as JWT subject)
+     * @param roleName Keycloak realm role name (e.g. "USER_PREMIUM")
+     */
+    public void removeRealmRole(String userId, String roleName) {
+        log.info("Removing Keycloak role '{}' from user '{}'", roleName, userId);
+
+        String token = fetchAdminToken();
+        KeycloakRoleRepresentation role = fetchRoleRepresentation(token, roleName);
+        deleteRoleMapping(token, userId, role);
+
+        log.info("Keycloak role '{}' successfully removed from user '{}'", roleName, userId);
+    }
+
     // ── private helpers ──────────────────────────────────────────────────────
 
     @SuppressWarnings("unchecked")
@@ -93,6 +110,17 @@ public class KeycloakAdminClient {
 
     private void postRoleMapping(String token, String userId, KeycloakRoleRepresentation role) {
         keycloakWebClient.post()
+                .uri("/admin/realms/{realm}/users/{userId}/role-mappings/realm", realm, userId)
+                .header("Authorization", "Bearer " + token)
+                .contentType(MediaType.APPLICATION_JSON)
+                .bodyValue(List.of(role))
+                .retrieve()
+                .bodyToMono(Void.class)
+                .block();
+    }
+
+    private void deleteRoleMapping(String token, String userId, KeycloakRoleRepresentation role) {
+        keycloakWebClient.method(org.springframework.http.HttpMethod.DELETE)
                 .uri("/admin/realms/{realm}/users/{userId}/role-mappings/realm", realm, userId)
                 .header("Authorization", "Bearer " + token)
                 .contentType(MediaType.APPLICATION_JSON)

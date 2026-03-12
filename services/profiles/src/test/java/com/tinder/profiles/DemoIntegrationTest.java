@@ -154,7 +154,7 @@ public class DemoIntegrationTest {
     @Autowired
     private ObjectMapper objectMapper;
 
-    @Value("${swipes.base-url:http://localhost:8020}")
+    @Value("${swipes.base-url:http://localhost:8222}")
     private String swipesBaseUrl;
 
     @Value("${deck.base-url:http://127.0.0.1:8030}")

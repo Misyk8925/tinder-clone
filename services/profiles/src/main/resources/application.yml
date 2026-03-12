@@ -27,12 +27,30 @@ spring:
     server:
       port: 9010
       servlet:
-        enabled: false   # run gRPC on its own port (Netty), not embedded in Servlet
+        enabled: false   # run gRPC on its own Netty port, not embedded in Servlet
+      ssl:
+        # Wire the SSL bundle defined below — spring-grpc creates TlsServerCredentials from it
+        bundle: grpc-server-tls
+        # REQUIRE means every gRPC client must present a valid certificate (mTLS)
+        client-auth: REQUIRE
+  ssl:
+    bundle:
+      jks:
+        grpc-server-tls:
+          keystore:
+            location: ${PROFILES_GRPC_KEYSTORE_PATH:classpath:profiles-service.p12}
+            password: ${PROFILES_GRPC_KEYSTORE_PASSWORD:changeit}
+            type: PKCS12
+          truststore:
+            location: ${PROFILES_GRPC_TRUSTSTORE_PATH:classpath:truststore.jks}
+            password: ${PROFILES_GRPC_TRUSTSTORE_PASSWORD:changeit}
+            type: JKS
   config:
-    import: "optional:file:services/profiles/.env.properties"
+    import:
+      - "optional:file:services/profiles/.env.properties"
+      - "optional:configserver:"   # suppress Spring Cloud Config check when no server is available
   kafka:
     bootstrap-servers: localhost:9092
-
     producer:
       key-serializer: org.apache.kafka.common.serialization.StringSerializer
       value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
@@ -42,24 +60,21 @@ spring:
         max.in.flight.requests.per.connection: 5
         enable.idempotence: true
         spring.json.add.type.headers: false
-
   datasource:
     url: jdbc:postgresql://127.0.0.1:54322/postgres
     username: postgres
     password: postgres
     hikari:
-      # Each parallel request needs exactly 1 connection (no REQUIRES_NEW anymore).
-      # Set to 150 to comfortably handle peak concurrency of 100 + outbox poller overhead.
       maximum-pool-size: 150
       minimum-idle: 10
-      connection-timeout: 10000   # 10 s — fail fast rather than queue for 30 s
-      idle-timeout: 300000        # 5 min
-      max-lifetime: 1200000       # 20 min
+      connection-timeout: 10000
+      idle-timeout: 300000
+      max-lifetime: 1200000
   security:
     oauth2:
       resourceserver:
         jwt:
-          jwk-set-uri:  http://localhost:9080/realms/spring/protocol/openid-connect/certs
+          jwk-set-uri: http://localhost:9080/realms/spring/protocol/openid-connect/certs
   jpa:
     hibernate:
       ddl-auto: create-drop
@@ -85,6 +100,7 @@ spring:
   cloud:
     config:
       enabled: false
+
 app:
   s3:
     bucket: ${AWS_S3_BUCKET:}

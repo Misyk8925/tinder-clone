@@ -6,13 +6,24 @@ stripe:
   price-id: ${STRIPE_PRICE_ID:placeholder}
 
 grpc:
-  # gRPC server port (other services connect to this port)
-  server:
-    port: 9095
+  # gRPC client — subscriptions-service calls profiles-service to promote users to premium
   client:
     profiles-service:
       address: ${PROFILES_GRPC_ADDRESS:static://localhost:9010}
-      negotiation-type: plaintext
+      # Use TLS — mTLS SslContext is wired in GrpcMtlsConfig
+      negotiation-type: tls
+    mtls:
+      enabled: ${GRPC_MTLS_ENABLED:true}
+      # Client identity: subscriptions-service presents this keystore to profiles-service
+      key-store: ${SUBSCRIPTIONS_GRPC_KEYSTORE_PATH:classpath:subscriptions-service.p12}
+      key-store-password: ${SUBSCRIPTIONS_GRPC_KEYSTORE_PASSWORD:changeit}
+      key-store-type: PKCS12
+      # Truststore used to verify profiles-service server certificate
+      trust-store: ${SUBSCRIPTIONS_GRPC_TRUSTSTORE_PATH:classpath:truststore.jks}
+      trust-store-password: ${SUBSCRIPTIONS_GRPC_TRUSTSTORE_PASSWORD:changeit}
+      trust-store-type: JKS
+      # Must match CN / SAN in profiles-service.p12 (required for hostname verification over IP)
+      override-authority: ${GRPC_OVERRIDE_AUTHORITY:profiles-service}
 profiles:
   base-url: ${PROFILES_BASE_URL:placeholder}
 server:

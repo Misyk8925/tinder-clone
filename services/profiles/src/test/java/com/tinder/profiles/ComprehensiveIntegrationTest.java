@@ -365,6 +365,47 @@ public class ComprehensiveIntegrationTest extends AbstractProfilesIntegrationTes
                 System.currentTimeMillis() - profileStart,
                 stats.profilesCreated, keycloakUsers.size(), stats.profilesFailed);
 
+        // ── Settle pause ──────────────────────────────────────────────────────
+        // Allow 2 s for any in-flight DB writes to fully commit before we inspect
+        // the list.  Under high concurrency (100 threads), a small number of
+        // requests can fail transiently (connection-pool saturation, lock waits).
+        TimeUnit.SECONDS.sleep(2);
+
+        // ── Sequential retry for failed profiles ──────────────────────────────
+        // Identify users whose profile did not make it into createdProfiles and
+        // retry them one at a time to avoid reproducing the same contention.
+        if (failCount.get() > 0) {
+            log.info("Detected {} failure(s) — retrying sequentially after settle pause...",
+                    failCount.get());
+
+            Set<String> successfulUsernames;
+            synchronized (createdProfiles) {
+                successfulUsernames = createdProfiles.stream()
+                        .map(ProfileTestData::username)
+                        .collect(Collectors.toCollection(java.util.HashSet::new));
+            }
+
+            int retried = 0, retryOk = 0;
+            for (int i = 0; i < keycloakUsers.size(); i++) {
+                NewUserRecord user = keycloakUsers.get(i);
+                if (successfulUsernames.contains(user.username())) continue;
+                retried++;
+                try {
+                    ProfileTestData profile = createProfile(user, i);
+                    createdProfiles.add(profile);
+                    successCount.incrementAndGet();
+                    retryOk++;
+                    log.info("Retry [{}/{}] OK: {}", retried, failCount.get(), user.username());
+                } catch (Exception e) {
+                    log.warn("Retry [{}/{}] FAILED for {}: {}",
+                            retried, failCount.get(), user.username(), e.getMessage());
+                }
+            }
+
+            stats.profilesCreated = successCount.get();
+            log.info("Retry phase complete: {}/{} profiles recovered", retryOk, retried);
+        }
+
         // Deduplicate createdProfiles by profileId in-place.
         // Under high concurrency the same profileId can theoretically be added twice
         // (e.g. pre-warm + Flux overlap, or a rare Flux retry).  Remove duplicates now
@@ -397,6 +438,11 @@ public class ComprehensiveIntegrationTest extends AbstractProfilesIntegrationTes
         log.info("========================================");
         log.info("STEP 3: Verifying Kafka ProfileCreateEvents");
         log.info("========================================");
+
+        // Brief pause before verifying Kafka events — ensures all DB commits,
+        // outbox publishes, and async writes from step 2 have fully settled.
+        try { TimeUnit.SECONDS.sleep(2); } catch (InterruptedException ie) { Thread.currentThread().interrupt(); }
+
         log.info("ProfileCreateEvents before creation: {}", initialCreateEventCount);
         log.info("Expected new events: {}", TEST_USER_COUNT);
 

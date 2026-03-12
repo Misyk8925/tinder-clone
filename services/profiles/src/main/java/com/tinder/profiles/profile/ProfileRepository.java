@@ -5,6 +5,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.UUID;
 
@@ -13,6 +14,17 @@ public interface ProfileRepository extends JpaRepository<Profile, UUID> {
     Profile findByUserId(String userId);
 
     List<Profile> findAllByIsDeletedFalse();
+
+    /**
+     * Find all premium profiles whose subscription has expired.
+     */
+    List<Profile> findAllByIsPremiumTrueAndPremiumExpiresAtBefore(LocalDateTime now);
+
+    /**
+     * Find all soft-deleted profiles that were deleted before the given cutoff date.
+     * Used by the cleanup scheduler to permanently purge stale records.
+     */
+    List<Profile> findAllByIsDeletedTrueAndDeletedAtBefore(LocalDateTime cutoff);
 
     /**
      * Search profiles by age and gender preferences.

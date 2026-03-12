@@ -26,6 +26,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
+import java.time.LocalDateTime;
 import java.util.*;
 
 @Service
@@ -311,11 +312,18 @@ public class ProfileApplicationService {
 
     @Transactional
     public void updatePremiumStatus(String userId, boolean isPremium) {
+        updatePremiumStatus(userId, isPremium, null);
+    }
+
+    @Transactional
+    public void updatePremiumStatus(String userId, boolean isPremium, LocalDateTime expiresAt) {
         Profile profile = profileRepository.findByUserId(userId);
         if (profile == null) {
             throw new ProfileNotFoundException(userId);
         }
         profile.setPremium(isPremium);
+        // Store expiry only when activating; clear it when revoking
+        profile.setPremiumExpiresAt(isPremium ? expiresAt : null);
         profileRepository.save(profile);
     }
 

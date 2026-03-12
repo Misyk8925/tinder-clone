@@ -119,6 +119,11 @@ integration:
     consumer-group-id: consumer-service-groupmatch.created
     verify-consumer-offsets: false
 
+# Swipes service is reached via the API gateway.
+# Override with swipes.base-url=http://localhost:8040 to hit swipes-demo directly.
+swipes:
+  base-url: http://localhost:8222
+
 outbox:
   publisher:
     enabled: true
