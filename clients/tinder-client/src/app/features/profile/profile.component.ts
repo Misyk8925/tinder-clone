@@ -359,7 +359,8 @@ export class ProfileComponent implements OnInit {
   uploadPhoto(e: Event): void {
     const file = (e.target as HTMLInputElement).files?.[0];
     if (!file) return;
-    this.profileService.uploadPhoto(file).subscribe({
+    const position = this.profile()?.photos?.length ?? 0;
+    this.profileService.uploadPhoto(file, position).subscribe({
       next: () => this.ngOnInit(),
       error: () => alert('Photo upload failed')
     });

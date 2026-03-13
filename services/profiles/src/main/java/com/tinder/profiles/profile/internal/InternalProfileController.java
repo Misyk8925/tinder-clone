@@ -21,7 +21,7 @@ import java.util.UUID;
  */
 @Slf4j
 @RestController
-@RequestMapping("/internal")
+@RequestMapping("/api/v1/profiles/internal")
 @RequiredArgsConstructor
 public class InternalProfileController {
 

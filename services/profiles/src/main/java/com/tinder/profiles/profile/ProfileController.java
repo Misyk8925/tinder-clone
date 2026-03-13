@@ -20,7 +20,7 @@ import java.util.UUID;
 
 @Slf4j
 @RestController
-@RequestMapping
+@RequestMapping("/api/v1/profiles")
 @RequiredArgsConstructor
 public class ProfileController {
 

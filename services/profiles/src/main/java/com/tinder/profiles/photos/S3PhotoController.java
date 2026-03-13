@@ -19,7 +19,7 @@ import java.util.UUID;
 
 @Slf4j
 @RestController
-@RequestMapping("/photos")
+@RequestMapping("/api/v1/profiles/photos")
 @RequiredArgsConstructor
 public class S3PhotoController {
 

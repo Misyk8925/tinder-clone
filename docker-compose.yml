@@ -1,17 +1,5 @@
 services:
 
-  postgres:
-    image: postgres:16-alpine
-    restart: unless-stopped
-    ports:
-      - "5432:5432"
-    environment:
-      POSTGRES_DB: profiles
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
-    volumes:
-      - profiles-pgdata:/var/lib/postgresql/data
-
 
   redis:
     image: redis:8.2.1-alpine

@@ -39,9 +39,11 @@ export class ProfileService {
     return this.http.delete<void>(`${this.base}/`);
   }
 
-  uploadPhoto(file: File): Observable<{ url: string }> {
+  uploadPhoto(file: File, position: number): Observable<{ url: string }> {
     const form = new FormData();
     form.append('file', file);
-    return this.http.post<{ url: string }>(`${environment.apiGatewayUrl}/photos/upload`, form);
+    return this.http.post<{ url: string }>(`${this.base}/photos/upload`, form, {
+      params: { position }
+    });
   }
 }
