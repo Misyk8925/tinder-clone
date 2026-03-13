@@ -14,7 +14,7 @@ services:
 
   keycloak:
     image: quay.io/keycloak/keycloak:26.3.5
-    command: [ "start","--http-enabled=true","--http-port=9080" ]
+    command: [ "start", "--http-enabled=true", "--http-port=9080", "--import-realm" ]
     ports:
       - "9080:9080"
       - "9000:9000"
@@ -30,10 +30,12 @@ services:
       KC_DB_URL_PORT: 5432
       KC_DB_URL_DATABASE: keycloak
       KC_FEATURES: token-exchange,admin-fine-grained-authz
-      KC_HOSTNAME_URL: "https://localhost:8443"
+      KC_HOSTNAME_URL: "http://localhost:9080"
       KC_HOSTNAME_STRICT: "false"
       KC_HTTP_ENABLED: "true"
       KC_PROXY_HEADERS: "xforwarded"
+    volumes:
+      - ./realm-import:/opt/keycloak/data/import:ro
 
 
 volumes:

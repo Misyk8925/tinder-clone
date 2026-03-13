@@ -1,0 +1,82 @@
+{
+  "realm": "spring",
+  "enabled": true,
+  "displayName": "Tinder Clone",
+  "registrationAllowed": true,
+  "loginWithEmailAllowed": true,
+  "duplicateEmailsAllowed": false,
+  "resetPasswordAllowed": true,
+  "editUsernameAllowed": false,
+  "accessTokenLifespan": 300,
+  "ssoSessionMaxLifespan": 36000,
+  "roles": {
+    "realm": [
+      { "name": "USER",         "description": "Regular authenticated user" },
+      { "name": "USER_PREMIUM", "description": "Premium subscriber" },
+      { "name": "ADMIN",        "description": "Administrator" }
+    ]
+  },
+  "defaultRoles": ["USER"],
+  "clients": [
+    {
+      "clientId": "tinder-client",
+      "name": "Tinder Angular Client",
+      "enabled": true,
+      "publicClient": true,
+      "standardFlowEnabled": true,
+      "implicitFlowEnabled": false,
+      "directAccessGrantsEnabled": true,
+      "serviceAccountsEnabled": false,
+      "protocol": "openid-connect",
+      "redirectUris": [
+        "http://localhost:4200/*",
+        "http://localhost:4200"
+      ],
+      "webOrigins": [
+        "http://localhost:4200",
+        "+"
+      ],
+      "postLogoutRedirectUris": [
+        "http://localhost:4200",
+        "http://localhost:4200/*"
+      ],
+      "attributes": {
+        "pkce.code.challenge.method": "S256"
+      },
+      "defaultClientScopes": [
+        "openid",
+        "profile",
+        "email",
+        "roles"
+      ]
+    },
+    {
+      "clientId": "spring-app",
+      "name": "Profiles Backend Service",
+      "enabled": true,
+      "publicClient": false,
+      "standardFlowEnabled": false,
+      "implicitFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "serviceAccountsEnabled": true,
+      "protocol": "openid-connect",
+      "secret": "spring-app-secret",
+      "redirectUris": [],
+      "webOrigins": []
+    },
+    {
+      "clientId": "admin-cli",
+      "name": "Admin CLI",
+      "enabled": true,
+      "publicClient": false,
+      "standardFlowEnabled": false,
+      "implicitFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "serviceAccountsEnabled": true,
+      "protocol": "openid-connect",
+      "secret": "uM2tKm8emqRY2oUpciMYl5swaDvMFPJb",
+      "redirectUris": [],
+      "webOrigins": []
+    }
+  ]
+}
