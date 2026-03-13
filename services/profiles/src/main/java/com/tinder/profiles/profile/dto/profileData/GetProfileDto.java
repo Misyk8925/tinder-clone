@@ -1,8 +1,10 @@
 package com.tinder.profiles.profile.dto.profileData;
 
+import com.tinder.profiles.photos.Photo;
 import com.tinder.profiles.profile.Profile;
 
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.UUID;
 
 /**
@@ -16,5 +18,6 @@ public record GetProfileDto(
         String bio,
         String city,
         boolean isActive,
-        LocalDateTime createdAt) {
+        LocalDateTime createdAt,
+        List<Photo> photos) {
 }

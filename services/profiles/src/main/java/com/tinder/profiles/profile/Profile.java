@@ -100,6 +100,7 @@ public class Profile {
     private LocalDateTime deletedAt;
 
 
+    @JsonManagedReference
     @OneToMany(mappedBy = "profile", fetch = FetchType.LAZY, cascade = CascadeType.ALL, orphanRemoval = true)
     @BatchSize(size = 10)
     private List<Photo> photos;

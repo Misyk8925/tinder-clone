@@ -1,5 +1,6 @@
 package com.tinder.profiles.photos;
 
+import com.fasterxml.jackson.annotation.JsonBackReference;
 import com.tinder.profiles.profile.Profile;
 import jakarta.persistence.*;
 import lombok.Builder;
@@ -48,6 +49,7 @@ public class Photo {
     @Column(name = "created_at")
     private LocalDateTime createdAt;
 
+    @JsonBackReference
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "profile_id", nullable = false)
     private Profile profile;
