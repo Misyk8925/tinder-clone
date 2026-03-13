@@ -10,7 +10,7 @@ export class ProfileService {
   private base = `${environment.apiGatewayUrl}/api/v1/profiles`;
 
   getMyDeck(offset = 0, limit = 20): Observable<Profile[]> {
-    return this.http.get<Profile[]>(`${environment.apiGatewayUrl}/deck`, {
+    return this.http.get<Profile[]>(`${this.base}/deck`, {
       params: { offset, limit }
     });
   }
@@ -35,9 +35,11 @@ export class ProfileService {
     return this.http.delete<void>(`${this.base}/`);
   }
 
-  uploadPhoto(file: File): Observable<{ url: string }> {
+  uploadPhoto(file: File, position = 0): Observable<{ url: string }> {
     const form = new FormData();
     form.append('file', file);
-    return this.http.post<{ url: string }>(`${environment.apiGatewayUrl}/photos/upload`, form);
+    return this.http.post<{ url: string }>(`${this.base}/photos/upload`, form, {
+      params: { position }
+    });
   }
 }
