@@ -5,17 +5,33 @@
         <!-- Suppress the high-frequency outbox polling SQL (runs every 100 ms) -->
         <filter class="com.tinder.profiles.logging.OutboxSqlFilter"/>
         <encoder>
-            <pattern>%d{HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n</pattern>
+            <!--
+              Pattern includes:
+                %X{traceId}       — Micrometer Tracing trace identifier (groups all spans of one request)
+                %X{spanId}        — Micrometer Tracing span identifier
+                %X{userId}        — Keycloak subject from JWT (set by UserContextMdcFilter)
+                %X{correlationId} — session-level ID propagated via X-Correlation-ID header
+            -->
+            <pattern>%d{HH:mm:ss.SSS} [%thread] %-5level %logger{36} trace=%X{traceId} span=%X{spanId} user=%X{userId} corr=%X{correlationId} %X{httpMethod} %X{httpUrl} %X{httpStatus} - %msg%n</pattern>
         </encoder>
     </appender>
 
-    <!-- Send logs to Logstash -->
+    <!-- Send structured JSON logs to Logstash / ELK -->
     <appender name="LOGSTASH" class="net.logstash.logback.appender.LogstashTcpSocketAppender">
         <destination>localhost:5010</destination>
         <!-- Suppress outbox noise in ELK as well -->
         <filter class="com.tinder.profiles.logging.OutboxSqlFilter"/>
         <encoder class="net.logstash.logback.encoder.LogstashEncoder">
             <customFields>{"service":"profiles"}</customFields>
+            <!-- Include all MDC fields as top-level JSON fields for easy Kibana filtering -->
+            <includeMdcKeyName>traceId</includeMdcKeyName>
+            <includeMdcKeyName>spanId</includeMdcKeyName>
+            <includeMdcKeyName>userId</includeMdcKeyName>
+            <includeMdcKeyName>correlationId</includeMdcKeyName>
+            <includeMdcKeyName>httpMethod</includeMdcKeyName>
+            <includeMdcKeyName>httpUrl</includeMdcKeyName>
+            <includeMdcKeyName>httpQuery</includeMdcKeyName>
+            <includeMdcKeyName>httpStatus</includeMdcKeyName>
         </encoder>
     </appender>
 

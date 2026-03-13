@@ -4,6 +4,6 @@ export const environment = {
   keycloak: {
     url: 'http://localhost:9080',
     realm: 'spring',
-    clientId: 'tinder-client'
+    clientId: 'test client'
   }
 };

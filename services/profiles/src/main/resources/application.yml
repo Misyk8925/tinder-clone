@@ -101,6 +101,21 @@ spring:
     config:
       enabled: false
 
+# ----- Micrometer Tracing -----
+# traceId / spanId are automatically written to MDC (visible in every log line)
+# and exported to Zipkin when zipkin.tracing.endpoint is reachable.
+management:
+  tracing:
+    sampling:
+      probability: 1.0   # 100% sampling — reduce to 0.1 (10%) in production
+  zipkin:
+    tracing:
+      endpoint: ${ZIPKIN_ENDPOINT:http://localhost:9411/api/v2/spans}
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus,metrics
+
 app:
   s3:
     bucket: ${AWS_S3_BUCKET:}

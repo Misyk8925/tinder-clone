@@ -19,12 +19,16 @@ export class ProfileService {
     return this.http.get<Profile>(`${this.base}/${id}`);
   }
 
+  getMe(): Observable<Profile> {
+    return this.http.get<Profile>(`${this.base}/me`);
+  }
+
   createProfile(data: CreateProfileRequest): Observable<{ message: string; id: string }> {
     return this.http.post<{ message: string; id: string }>(`${this.base}`, data);
   }
 
   updateProfile(data: CreateProfileRequest): Observable<{ message: string; id: string }> {
-    return this.http.put<{ message: string; id: string }>(`${this.base}/`, data);
+    return this.http.put<{ message: string; id: string }>(`${this.base}`, data);
   }
 
   patchProfile(data: Partial<CreateProfileRequest>): Observable<Profile> {

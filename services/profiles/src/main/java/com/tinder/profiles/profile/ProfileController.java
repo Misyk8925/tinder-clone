@@ -52,7 +52,17 @@ public class ProfileController {
         return ResponseEntity.ok(applicationService.getOne(id));
     }
 
-    @PostMapping("/")
+    @GetMapping("/me")
+    public ResponseEntity<GetProfileDto> getMe(@AuthenticationPrincipal Jwt jwt) {
+        log.info("getMe called for userId: {}", jwt.getSubject());
+        GetProfileDto profileDto = applicationService.getMyProfile(jwt.getSubject());
+        if (profileDto == null) {
+            return ResponseEntity.notFound().build();
+        }
+        return ResponseEntity.ok(profileDto);
+    }
+
+    @PostMapping({"", "/"})
     public ResponseEntity<Object> create(@RequestBody @Valid CreateProfileDtoV1 profile,
                                          @AuthenticationPrincipal Jwt jwt) {
         Profile newProfile = applicationService.create(profile, jwt.getSubject());
@@ -61,7 +71,7 @@ public class ProfileController {
                 .body(ApiResponse.created("Profile created successfully", newProfile.getProfileId()));
     }
 
-    @PutMapping("/")
+    @PutMapping({"", "/"})
     public ResponseEntity<Object> update(@RequestBody @Valid CreateProfileDtoV1 profile,
                                          @AuthenticationPrincipal Jwt jwt) {
         Profile updatedProfile = applicationService.update(profile, jwt.getSubject());
@@ -70,14 +80,14 @@ public class ProfileController {
                 .body(ApiResponse.success("Profile updated successfully", updatedProfile.getProfileId()));
     }
 
-    @PatchMapping("/")
+    @PatchMapping({"", "/"})
     public Profile patch(@AuthenticationPrincipal Jwt jwt,
                         @RequestBody @Valid PatchProfileDto patchDto) {
         return applicationService.patch(jwt.getSubject(), patchDto);
     }
 
 
-    @DeleteMapping("/")
+    @DeleteMapping({"", "/"})
     public ResponseEntity<Void> delete(
                                        @AuthenticationPrincipal Jwt jwt) {
         applicationService.delete(jwt.getSubject());

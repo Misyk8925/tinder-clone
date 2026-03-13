@@ -3,7 +3,6 @@ import { Router } from '@angular/router';
 import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { NgClass } from '@angular/common';
 import { ProfileService } from '../../../core/services/profile.service';
-import { KeycloakService } from '../../../core/services/keycloak.service';
 import { Profile, Hobby } from '../../../core/models/profile.model';
 
 const ALL_HOBBIES: Hobby[] = [
@@ -39,6 +38,15 @@ const ALL_HOBBIES: Hobby[] = [
           <div class="form-group">
             <label>Age *</label>
             <input type="number" formControlName="age" placeholder="18" min="18" max="130" />
+            @if (form.get('age')?.invalid && form.get('age')?.touched) {
+              @if (form.get('age')?.hasError('required')) {
+                <span class="error">Age is required</span>
+              } @else if (form.get('age')?.hasError('min')) {
+                <span class="error">Must be at least 18</span>
+              } @else if (form.get('age')?.hasError('max')) {
+                <span class="error">Must be at most 130</span>
+              }
+            }
           </div>
           <div class="form-group">
             <label>Gender *</label>
@@ -48,12 +56,18 @@ const ALL_HOBBIES: Hobby[] = [
               <option value="female">Female</option>
               <option value="other">Other</option>
             </select>
+            @if (form.get('gender')?.invalid && form.get('gender')?.touched) {
+              <span class="error">Gender is required</span>
+            }
           </div>
         </div>
 
         <div class="form-group">
           <label>City *</label>
           <input type="text" formControlName="city" placeholder="Your city" />
+          @if (form.get('city')?.invalid && form.get('city')?.touched) {
+            <span class="error">City is required</span>
+          }
         </div>
 
         <div class="form-group">
@@ -252,7 +266,6 @@ const ALL_HOBBIES: Hobby[] = [
 export class ProfileEditComponent implements OnInit {
   private fb = inject(FormBuilder);
   private profileService = inject(ProfileService);
-  private keycloak = inject(KeycloakService);
   private router = inject(Router);
 
   allHobbies = ALL_HOBBIES;
@@ -277,10 +290,7 @@ export class ProfileEditComponent implements OnInit {
       })
     });
 
-    const info = this.keycloak.getUserInfo();
-    if (!info) return;
-
-    this.profileService.getProfile(info.id).subscribe({
+    this.profileService.getMe().subscribe({
       next: (profile: Profile) => {
         this.isNew.set(false);
         this.form.patchValue({

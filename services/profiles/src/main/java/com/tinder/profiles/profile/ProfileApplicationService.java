@@ -105,6 +105,10 @@ public class ProfileApplicationService {
         return profileRepository.findByUserId(userId);
     }
 
+    public GetProfileDto getMyProfile(String userID){
+        return getMapper.toGetProfileDto(getByUserId(userID));
+    }
+
     @Transactional
     public Profile create(CreateProfileDtoV1 profileDto, String userId) {
         // Check if profile already exists

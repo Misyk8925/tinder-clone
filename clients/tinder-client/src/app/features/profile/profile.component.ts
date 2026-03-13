@@ -329,10 +329,7 @@ export class ProfileComponent implements OnInit {
   loading = signal(true);
 
   ngOnInit(): void {
-    const info = this.keycloak.getUserInfo();
-    if (!info) return;
-
-    this.profileService.getProfile(info.id).subscribe({
+    this.profileService.getMe().subscribe({
       next: (p) => { this.profile.set(p); this.loading.set(false); },
       error: () => { this.profile.set(null); this.loading.set(false); }
     });

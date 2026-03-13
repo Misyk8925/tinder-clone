@@ -27,10 +27,10 @@ public class GlobalExceptionHandler {
 
         ErrorDetails details = new ErrorDetails(errors.toArray(new Violations[0]));
 
-        ErrorSummary summary = new ErrorSummary(
-                "Request validation failed",
-                "VALIDATION_ERROR"
-        );
+        ErrorSummary summary = ErrorSummary.builder()
+                .message("Request validation failed")
+                .code("VALIDATION_ERROR")
+                .build();
 
         CustomErrorResponse errorResponse = new CustomErrorResponse(summary, details);
 
