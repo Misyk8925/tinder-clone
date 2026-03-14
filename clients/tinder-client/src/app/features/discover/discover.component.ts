@@ -3,7 +3,6 @@ import { NgClass } from '@angular/common';
 import { Profile } from '../../core/models/profile.model';
 import { ProfileService } from '../../core/services/profile.service';
 import { SwipeService } from '../../core/services/swipe.service';
-import { KeycloakService } from '../../core/services/keycloak.service';
 import { SwipeCardComponent } from '../../shared/components/swipe-card/swipe-card.component';
 import { Router } from '@angular/router';
 
@@ -298,7 +297,6 @@ import { Router } from '@angular/router';
 export class DiscoverComponent implements OnInit {
   private profileService = inject(ProfileService);
   private swipeService = inject(SwipeService);
-  private keycloak = inject(KeycloakService);
   private router = inject(Router);
 
   profiles = signal<Profile[]>([]);
@@ -315,6 +313,10 @@ export class DiscoverComponent implements OnInit {
   private myProfileId: string | null = null;
 
   ngOnInit(): void {
+    this.profileService.getMe().subscribe({
+      next: (p) => { this.myProfileId = p.profileId; },
+      error: () => { this.router.navigate(['/profile/edit']); }
+    });
     this.loadDeck();
   }
 
@@ -337,12 +339,7 @@ export class DiscoverComponent implements OnInit {
   }
 
   onSwipe(direction: 'left' | 'right', profile: Profile): void {
-    const userInfo = this.keycloak.getUserInfo();
-    if (!userInfo) return;
-
-    if (!this.myProfileId) {
-      this.myProfileId = userInfo.id;
-    }
+    if (!this.myProfileId) return;
 
     const swipeData = {
       profile1Id: this.myProfileId,

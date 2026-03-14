@@ -2,6 +2,7 @@ package com.tinder.match.conversation.controller;
 
 import com.tinder.match.conversation.ConversationService;
 import com.tinder.match.conversation.dto.MessageDto;
+import com.tinder.match.security.UserProfileMappingService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -20,6 +21,7 @@ import java.util.UUID;
 public class ConversationWsController {
 
     private final ConversationService conversationService;
+    private final UserProfileMappingService userProfileMappingService;
 
     @MessageMapping("/chat.send")
     public void send(
@@ -44,10 +46,25 @@ public class ConversationWsController {
             throw new MessagingException("Authenticated sender is required");
         }
 
+        String userId = principal.getName();
+
+        // Primary: look up the profile UUID registered when the user called the REST layer.
+        // Conversations store participant IDs as profile UUIDs, while the JWT sub is the
+        // Keycloak user ID — a different UUID.  UserProfileMappingService bridges the two.
+        UUID profileId = userProfileMappingService.resolve(userId);
+        if (profileId != null) {
+            return profileId;
+        }
+
+        // Fallback: the JWT sub might already be a profile UUID (e.g. in test scenarios
+        // where Keycloak user IDs happen to equal profile IDs).
         try {
-            return UUID.fromString(principal.getName());
+            return UUID.fromString(userId);
         } catch (IllegalArgumentException ignored) {
-            throw new MessagingException("Authenticated principal name is not a valid UUID sender id");
+            throw new MessagingException(
+                    "Cannot resolve sender profile ID for user: " + userId
+                    + ". Call GET /rest/conversations/{id}?callerProfileId=<profileId> before connecting STOMP."
+            );
         }
     }
 }

@@ -100,7 +100,7 @@ spring:
             - id: swipes
               uri: http://localhost:8040  # swipes-demo service port (was wrong: 8020)
               predicates:
-                - Path=/api/v1/swipes/**
+                - Path=/api/v1/swipes
               filters:
                 - name: RoleBasedRateLimitFilter
                   args:

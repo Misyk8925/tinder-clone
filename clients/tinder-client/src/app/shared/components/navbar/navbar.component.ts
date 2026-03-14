@@ -1,11 +1,13 @@
 import { Component, inject } from '@angular/core';
-import { RouterLink, RouterLinkActive } from '@angular/router';
+import { RouterLink, RouterLinkActive, Router, NavigationEnd } from '@angular/router';
 import { KeycloakService } from '../../../core/services/keycloak.service';
+import { filter } from 'rxjs/operators';
 
 @Component({
   selector: 'app-navbar',
   imports: [RouterLink, RouterLinkActive],
   template: `
+    @if (!hidden) {
     <nav class="navbar">
       <a routerLink="/discover" routerLinkActive="active" class="nav-item">
         <svg viewBox="0 0 24 24" fill="currentColor">
@@ -27,6 +29,7 @@ import { KeycloakService } from '../../../core/services/keycloak.service';
         <span>Profile</span>
       </a>
     </nav>
+    }
   `,
   styles: [`
     .navbar {
@@ -74,6 +77,17 @@ import { KeycloakService } from '../../../core/services/keycloak.service';
 })
 export class NavbarComponent {
   private keycloak = inject(KeycloakService);
+  private router = inject(Router);
+
+  hidden = false;
+
+  constructor() {
+    this.router.events.pipe(
+      filter(e => e instanceof NavigationEnd)
+    ).subscribe((e: NavigationEnd) => {
+      this.hidden = e.urlAfterRedirects.includes('/chat/');
+    });
+  }
 
   get isAuthenticated(): boolean {
     return this.keycloak.isAuthenticated();

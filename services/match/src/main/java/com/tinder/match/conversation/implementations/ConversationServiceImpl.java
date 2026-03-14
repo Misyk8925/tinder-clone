@@ -2,8 +2,10 @@ package com.tinder.match.conversation.implementations;
 
 import com.tinder.match.conversation.ConversationService;
 import com.tinder.match.conversation.dto.ConversationDto;
+import com.tinder.match.conversation.dto.ConversationWithMessagesDto;
 import com.tinder.match.conversation.dto.MessageAttachmentDto;
 import com.tinder.match.conversation.dto.MessageDto;
+import com.tinder.match.conversation.dto.MessageHistoryDto;
 import com.tinder.match.conversation.event.MessageCreatedEvent;
 import com.tinder.match.conversation.model.Conversation;
 import com.tinder.match.conversation.model.ConversationStatus;
@@ -74,6 +76,29 @@ public class ConversationServiceImpl implements ConversationService {
                 saved.getParticipant2Id()
         );
         return toConversationDto(saved);
+    }
+
+    @Override
+    @Transactional
+    public ConversationWithMessagesDto getConversation(UUID conversationId) {
+        log.info("Get conversation requested conversationId={}", conversationId);
+        Conversation conversation = conversationRepository.findById(conversationId)
+                .orElseThrow(() -> new MessagingException("Conversation not found"));
+
+        List<MessageHistoryDto> messages = messageRepository
+                .findByConversationConversationIdOrderByCreatedAtAsc(conversationId)
+                .stream()
+                .map(this::toHistoryDto)
+                .toList();
+
+        log.info("Get conversation found {} messages for conversationId={}", messages.size(), conversationId);
+        return new ConversationWithMessagesDto(
+                conversation.getConversationId(),
+                conversation.getParticipant1Id(),
+                conversation.getParticipant2Id(),
+                conversation.getStatus(),
+                messages
+        );
     }
 
     @Override
@@ -181,6 +206,15 @@ public class ConversationServiceImpl implements ConversationService {
 
         Message saved = persistAndPublish(message);
         return toDto(saved);
+    }
+
+    public List<ConversationDto> getMyChats(UUID profileId) {
+        log.info("Get my chats requested profile id={}", profileId);
+        List<Conversation> conversations = conversationRepository.findAllByParticipant1IdOrParticipant2Id(profileId, profileId);
+        log.info("Get my chats found {} conversations for profile id={}", conversations.size(), profileId);
+        return conversations.stream()
+                .map(this::toConversationDto)
+                .toList();
     }
 
     private void validateConversationAccess(Conversation conversation, UUID senderId) {
@@ -294,6 +328,32 @@ public class ConversationServiceImpl implements ConversationService {
                 message.getMessageId(),
                 message.getConversation().getConversationId(),
                 message.getSenderId()
+        );
+    }
+
+    private MessageHistoryDto toHistoryDto(Message message) {
+        List<MessageAttachmentDto> attachments = message.getAttachments() == null
+                ? List.of()
+                : message.getAttachments().stream()
+                .map(attachment -> new MessageAttachmentDto(
+                        attachment.getStorageKey(),
+                        attachment.getUrl(),
+                        attachment.getMimeType(),
+                        attachment.getSizeBytes(),
+                        attachment.getOriginalName(),
+                        attachment.getWidth(),
+                        attachment.getHeight(),
+                        attachment.getDurationMs()
+                ))
+                .toList();
+
+        return new MessageHistoryDto(
+                message.getMessageId(),
+                message.getSenderId(),
+                message.getType(),
+                message.getText(),
+                attachments,
+                message.getCreatedAt()
         );
     }
 

@@ -32,7 +32,7 @@
         </processorPath>
         <module name="deck" />
       </profile>
-      <profile name="Annotation profile for swipes-demo" enabled="true">
+      <profile name="Annotation profile for match" enabled="true">
         <sourceOutputDir name="target/generated-sources/annotations" />
         <sourceTestOutputDir name="target/generated-test-sources/test-annotations" />
         <outputRelativeToContentRoot value="true" />

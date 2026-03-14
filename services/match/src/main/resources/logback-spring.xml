@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<configuration>
+    <!-- Keep console logs for development -->
+    <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
+        <!-- Suppress the high-frequency outbox polling SQL (runs every 100 ms) -->
+
+        <encoder>
+            <!--
+              Pattern includes:
+                %X{traceId}       — Micrometer Tracing trace identifier (groups all spans of one request)
+                %X{spanId}        — Micrometer Tracing span identifier
+                %X{userId}        — Keycloak subject from JWT (set by UserContextMdcFilter)
+                %X{correlationId} — session-level ID propagated via X-Correlation-ID header
+            -->
+            <pattern>%d{HH:mm:ss.SSS} [%thread] %-5level %logger{36} trace=%X{traceId} span=%X{spanId} user=%X{userId} corr=%X{correlationId} %X{httpMethod} %X{httpUrl} %X{httpStatus} - %msg%n</pattern>
+        </encoder>
+    </appender>
+
+    <!-- Send structured JSON logs to Logstash / ELK -->
+    <appender name="LOGSTASH" class="net.logstash.logback.appender.LogstashTcpSocketAppender">
+        <destination>localhost:5010</destination>
+        <!-- Suppress outbox noise in ELK as well -->
+
+        <encoder class="net.logstash.logback.encoder.LogstashEncoder">
+            <customFields>{"service":"matches"}</customFields>
+            <!-- Include all MDC fields as top-level JSON fields for easy Kibana filtering -->
+            <includeMdcKeyName>traceId</includeMdcKeyName>
+            <includeMdcKeyName>spanId</includeMdcKeyName>
+            <includeMdcKeyName>userId</includeMdcKeyName>
+            <includeMdcKeyName>correlationId</includeMdcKeyName>
+            <includeMdcKeyName>httpMethod</includeMdcKeyName>
+            <includeMdcKeyName>httpUrl</includeMdcKeyName>
+            <includeMdcKeyName>httpQuery</includeMdcKeyName>
+            <includeMdcKeyName>httpStatus</includeMdcKeyName>
+        </encoder>
+    </appender>
+
+    <root level="INFO">
+        <appender-ref ref="CONSOLE" />   <!-- Still see logs in console -->
+        <appender-ref ref="LOGSTASH" />  <!-- ALSO send to ELK -->
+    </root>
+</configuration>

@@ -3,6 +3,7 @@ package com.tinder.match.match.model;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
+import lombok.Getter;
 import lombok.NoArgsConstructor;
 
 import java.time.Instant;
@@ -10,6 +11,7 @@ import java.time.Instant;
 @Entity
 @Table(name = "matches")
 @Builder
+@Getter
 @AllArgsConstructor
 @NoArgsConstructor
 public class Match {

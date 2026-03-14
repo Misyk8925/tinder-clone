@@ -1,6 +1,7 @@
 export const environment = {
   production: true,
   apiGatewayUrl: 'http://localhost:8222',
+  wsUrl: 'ws://localhost:8080/ws',
   keycloak: {
     url: 'http://localhost:9080',
     realm: 'spring',

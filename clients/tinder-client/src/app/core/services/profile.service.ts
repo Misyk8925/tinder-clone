@@ -10,7 +10,7 @@ export class ProfileService {
   private base = `${environment.apiGatewayUrl}/api/v1/profiles`;
 
   getMyDeck(offset = 0, limit = 20): Observable<Profile[]> {
-    return this.http.get<Profile[]>(`${environment.apiGatewayUrl}/deck`, {
+    return this.http.get<Profile[]>(`${this.base}/deck`, {
       params: { offset, limit }
     });
   }

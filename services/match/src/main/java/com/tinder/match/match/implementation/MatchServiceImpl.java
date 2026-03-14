@@ -2,6 +2,7 @@ package com.tinder.match.match.implementation;
 
 import com.tinder.match.match.NewMatchEvent;
 import com.tinder.match.match.dto.MatchRequestDto;
+import com.tinder.match.match.dto.MatchResponseDto;
 import com.tinder.match.match.kafka.MatchCreateEvent;
 import com.tinder.match.match.MatchService;
 import com.tinder.match.match.model.Match;
@@ -15,6 +16,7 @@ import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 
 import java.time.Instant;
+import java.util.List;
 import java.util.UUID;
 
 @Service
@@ -57,6 +59,18 @@ public class MatchServiceImpl implements MatchService {
                 matchedAt
         );
         applicationEventPublisher.publishEvent(newMatchEvent);
+    }
+
+    @Override
+    public List<MatchResponseDto> getMyMatches(UUID profileId) {
+        return matchRepository.findByProfileId(profileId).stream()
+                .map(m -> new MatchResponseDto(
+                        m.getId().getProfile1Id() + "_" + m.getId().getProfile2Id(),
+                        m.getId().getProfile1Id(),
+                        m.getId().getProfile2Id(),
+                        m.getMatchedAt()
+                ))
+                .toList();
     }
 
     @Override
