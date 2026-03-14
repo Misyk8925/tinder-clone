@@ -37,7 +37,7 @@ mtls:
     key-store-type: PKCS12
     trust-store: ${DECK_TRUSTSTORE_PATH:classpath:truststore.jks}
     trust-store-password: ${DECK_TRUSTSTORE_PASSWORD:changeit}
-    trust-store-type: JKS
+    trust-store-type: PKCS12
 
 server:
   port: 8030

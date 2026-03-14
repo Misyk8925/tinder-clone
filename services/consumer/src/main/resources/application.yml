@@ -34,7 +34,7 @@ internal:
       client-auth: need
       trust-store: ${CONSUMER_TRUSTSTORE_PATH:classpath:truststore.jks}
       trust-store-password: ${CONSUMER_TRUSTSTORE_PASSWORD:changeit}
-      trust-store-type: JKS
+      trust-store-type: PKCS12
 
 # mTLS for /between/batch endpoint: only deck-service CN is allowed
 mtls:

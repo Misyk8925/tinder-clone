@@ -39,7 +39,7 @@ public class SecurityConfig {
         // Match requests to /internal/** path prefix
         RequestMatcher internalMatcher = request -> {
             String path = request.getServletPath();
-            return path != null && path.startsWith("/internal/");
+            return path != null && path.contains("/internal/");
         };
         return http
                 .securityMatcher(internalMatcher)
@@ -50,8 +50,7 @@ public class SecurityConfig {
                         .userDetailsService(new MtlsUserDetailsService())
                 )
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/internal/**").hasRole("INTERNAL_CLIENT")
-                        .anyRequest().denyAll()
+                        .anyRequest().hasRole("INTERNAL_CLIENT")
                 )
                 .build();
     }

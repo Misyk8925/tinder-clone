@@ -21,7 +21,7 @@ internal:
       client-auth: need
       trust-store: ${PROFILES_TRUSTSTORE_PATH:classpath:truststore.jks}
       trust-store-password: ${PROFILES_TRUSTSTORE_PASSWORD:changeit}
-      trust-store-type: JKS
+      trust-store-type: PKCS12
 spring:
   grpc:
     server:
@@ -44,7 +44,7 @@ spring:
           truststore:
             location: ${PROFILES_GRPC_TRUSTSTORE_PATH:classpath:truststore.jks}
             password: ${PROFILES_GRPC_TRUSTSTORE_PASSWORD:changeit}
-            type: JKS
+            type: PKCS12
   config:
     import:
       - "optional:file:services/profiles/.env.properties"

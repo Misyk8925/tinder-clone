@@ -42,6 +42,7 @@
       <set>
         <option value="$PROJECT_DIR$/services/config-server/pom.xml" />
         <option value="$PROJECT_DIR$/services/gateway-service/pom.xml" />
+        <option value="$PROJECT_DIR$/services/keycloak-auth-service-spring-boot/pom.xml" />
         <option value="$PROJECT_DIR$/services/media-service/pom.xml" />
         <option value="$PROJECT_DIR$/services/swipes/pom.xml" />
       </set>

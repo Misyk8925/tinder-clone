@@ -49,8 +49,8 @@ public class Photo {
     @Column(name = "created_at")
     private LocalDateTime createdAt;
 
-    @JsonBackReference
     @ManyToOne(fetch = FetchType.LAZY)
+    @JsonBackReference
     @JoinColumn(name = "profile_id", nullable = false)
     private Profile profile;
 

@@ -40,7 +40,8 @@ class PremiumExpirationSchedulerTest {
         scheduler = new PremiumExpirationScheduler(
                 profileRepository,
                 profileApplicationService,
-                keycloakAdminClient
+                keycloakAdminClient,
+                null
         );
     }
 

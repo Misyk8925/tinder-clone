@@ -7,7 +7,6 @@
         <sourceOutputDir name="target/generated-sources/annotations" />
         <sourceTestOutputDir name="target/generated-test-sources/test-annotations" />
         <outputRelativeToContentRoot value="true" />
-        <module name="keycloak-auth-service" />
         <module name="config-server2" />
         <module name="discovery" />
         <module name="gateway" />
@@ -32,7 +31,7 @@
         </processorPath>
         <module name="deck" />
       </profile>
-      <profile name="Annotation profile for match" enabled="true">
+      <profile name="Annotation profile for swipes-demo" enabled="true">
         <sourceOutputDir name="target/generated-sources/annotations" />
         <sourceTestOutputDir name="target/generated-test-sources/test-annotations" />
         <outputRelativeToContentRoot value="true" />
@@ -48,6 +47,7 @@
     <bytecodeTargetLevel>
       <module name="config-server" target="24" />
       <module name="gateway-service" target="21" />
+      <module name="keycloak-auth-service" target="21" />
       <module name="media-service" target="21" />
       <module name="swipes" target="21" />
     </bytecodeTargetLevel>

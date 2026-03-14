@@ -132,12 +132,12 @@ public class S3PhotoService {
 
         log.info("Uploaded 4 versions of photo {} for user {}", photoId, profileId);
 
-        // 5. Save metadata to database (using medium as primary reference)
+        // 5. Save metadata to database (using original as primary reference)
         Photo photo = new Photo();
-        photo.setS3Key(mediumKey); // Use medium as default reference
+        photo.setS3Key(originalKey);
         photo.setContentType("image/jpeg");
-        photo.setSize(processed.medium().length);
-        photo.setUrl(getPublicUrl(mediumKey));
+        photo.setSize(processed.original().length);
+        photo.setUrl(getPublicUrl(originalKey));
         photo.setPrimary(iPosition==0);
         photo.setCreatedAt(LocalDateTime.now());
         photo.setPosition(iPosition);

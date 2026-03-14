@@ -8,25 +8,24 @@ import org.apache.kafka.clients.admin.NewTopic;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.clients.producer.ProducerConfig;
 import org.apache.kafka.common.serialization.StringSerializer;
-import org.apache.kafka.common.serialization.StringDeserializer;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.context.annotation.Primary;
 import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Primary;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.kafka.annotation.EnableKafka;
 import org.springframework.kafka.config.ConcurrentKafkaListenerContainerFactory;
 import org.springframework.kafka.config.TopicBuilder;
 import org.springframework.kafka.core.ConsumerFactory;
 import org.springframework.kafka.core.DefaultKafkaConsumerFactory;
+import org.springframework.kafka.listener.ContainerProperties;
 import org.springframework.kafka.core.DefaultKafkaProducerFactory;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.kafka.core.ProducerFactory;
-import org.springframework.kafka.listener.ContainerProperties;
 import org.springframework.kafka.listener.DefaultErrorHandler;
 import org.springframework.kafka.support.serializer.ErrorHandlingDeserializer;
 import org.springframework.kafka.support.serializer.JacksonJsonDeserializer;
-import org.springframework.kafka.support.serializer.JacksonJsonSerializer;
 
+import org.springframework.kafka.support.serializer.JacksonJsonSerializer;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -93,8 +92,9 @@ public class KafkaConfig {
                 .config("retentions.ms", "604800000")
                 .config("cleanup.policy", "delete")
                 .build();
-    }
 
+    @Bean
+    public ConsumerFactory<String, SwipeCreatedEvent> swipeEventConsumerFactory() {
     @Bean
     @Primary
     public ProducerFactory<String, MatchCreateEvent> matchEventProducerFactory() {
@@ -113,9 +113,6 @@ public class KafkaConfig {
         return new KafkaTemplate<>(matchEventProducerFactory());
     }
 
-
-    @Bean
-    public ConsumerFactory<String, SwipeCreatedEvent> swipeEventConsumerFactory() {
         Map<String, Object> props = baseConsumerProps(groupId, SwipeCreatedEvent.class);
         return new DefaultKafkaConsumerFactory<>(props);
     }
