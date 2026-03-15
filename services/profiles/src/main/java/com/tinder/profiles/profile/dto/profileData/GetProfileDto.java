@@ -1,7 +1,9 @@
 package com.tinder.profiles.profile.dto.profileData;
 
+import com.tinder.profiles.hobbies.Hobby;
 import com.tinder.profiles.photos.Photo;
 import com.tinder.profiles.profile.Profile;
+import com.tinder.profiles.profile.dto.profileData.shared.SharedPreferencesDto;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -15,9 +17,12 @@ public record GetProfileDto(
         String userId,
         String name,
         Integer age,
+        String gender,
         String bio,
         String city,
         boolean isActive,
         LocalDateTime createdAt,
-        List<Photo> photos) {
+        SharedPreferencesDto preferences,
+        List<Photo> photos,
+        List<Hobby> hobbies) {
 }

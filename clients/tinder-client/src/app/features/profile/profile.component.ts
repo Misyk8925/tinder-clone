@@ -50,7 +50,9 @@ import { Photo, Profile } from '../../core/models/profile.model';
                 <span class="badge active">Active</span>
               }
             </div>
-            <p class="city">📍 {{ profile()!.city }}</p>
+            @if (profile()!.city && profile()!.city !== 'Unknown') {
+              <p class="city">📍 {{ profile()!.city }}</p>
+            }
 
             @if (profile()!.bio) {
               <div class="section">
@@ -89,40 +91,70 @@ import { Photo, Profile } from '../../core/models/profile.model';
             }
           </div>
 
-          <div class="subscription-section">
-            @if (isPremium()) {
-              <div class="premium-badge-row">
-                <span class="premium-badge">⭐ Premium</span>
-                <span class="premium-label">You're a Premium member</span>
-              </div>
-              <button class="btn-manage-sub" (click)="manageSubscription()" [disabled]="subLoading()">
-                {{ subLoading() ? 'Loading...' : 'Manage Subscription' }}
-              </button>
-            } @else {
-              <div class="premium-card">
-                <div class="premium-card-header">
-                  <span class="crown">👑</span>
-                  <div>
-                    <h3>Get Premium</h3>
-                    <p>Unlock unlimited swipes & more</p>
-                  </div>
-                  <span class="price">€10<small>/mo</small></span>
+          @if (isPremium()) {
+            <div class="premium-banner">
+              <div class="premium-banner-left">
+                <span class="premium-banner-icon">👑</span>
+                <div>
+                  <span class="premium-banner-title">Premium</span>
+                  <span class="premium-banner-sub">Active membership</span>
                 </div>
-                <ul class="perks">
-                  <li>Unlimited swipes per day</li>
-                  <li>See who liked you</li>
-                  <li>Priority in discovery</li>
-                </ul>
-                <button class="btn-subscribe" (click)="subscribe()" [disabled]="subLoading()">
-                  {{ subLoading() ? 'Loading...' : 'Subscribe Now' }}
-                </button>
               </div>
-            }
-          </div>
+              <button class="premium-banner-btn" (click)="manageSubscription()" [disabled]="subLoading()">
+                {{ subLoading() ? '...' : 'Manage' }}
+              </button>
+            </div>
+          } @else {
+            <div class="premium-card">
+              <div class="premium-card-header">
+                <span class="crown">👑</span>
+                <div>
+                  <h3>Get Premium</h3>
+                  <p>Unlock unlimited swipes & more</p>
+                </div>
+                <span class="price">€10<small>/mo</small></span>
+              </div>
+              <ul class="perks">
+                <li>Unlimited swipes per day</li>
+                <li>See who liked you</li>
+                <li>Priority in discovery</li>
+              </ul>
+              <button class="btn-subscribe" (click)="subscribe()" [disabled]="subLoading()">
+                {{ subLoading() ? 'Loading...' : 'Subscribe Now' }}
+              </button>
+            </div>
+          }
 
-          <div class="danger-section">
-            <button class="btn-logout" (click)="logout()">Logout</button>
-            <button class="btn-delete" (click)="deleteProfile()">Delete Account</button>
+          <div class="account-section">
+            <p class="account-section-label">Account</p>
+            <div class="account-list">
+              <button class="account-row" (click)="goEdit()">
+                <span class="account-row-icon">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                </span>
+                <span class="account-row-label">Edit Profile</span>
+                <span class="account-row-chevron">›</span>
+              </button>
+              <div class="account-divider"></div>
+              <button class="account-row" (click)="logout()">
+                <span class="account-row-icon logout">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+                </span>
+                <span class="account-row-label">Log Out</span>
+                <span class="account-row-chevron">›</span>
+              </button>
+            </div>
+
+            <p class="account-section-label danger-label">Danger Zone</p>
+            <div class="account-list">
+              <button class="account-row danger" (click)="deleteProfile()">
+                <span class="account-row-icon danger">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>
+                </span>
+                <span class="account-row-label">Delete Account</span>
+                <span class="account-row-chevron">›</span>
+              </button>
+            </div>
           </div>
         </div>
       } @else {
@@ -355,51 +387,61 @@ import { Photo, Profile } from '../../core/models/profile.model';
       font-weight: 500;
     }
 
-    .subscription-section {
-      padding: 0 0 16px;
+    /* ── Premium banner (active subscriber) ── */
+    .premium-banner {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background: linear-gradient(135deg, #7b2ff7, #f107a3);
+      border-radius: 16px;
+      padding: 12px 16px;
+      margin-bottom: 16px;
     }
 
-    .premium-badge-row {
+    .premium-banner-left {
       display: flex;
       align-items: center;
       gap: 10px;
-      background: linear-gradient(135deg, #7b2ff7, #f107a3);
-      border-radius: 16px;
-      padding: 14px 18px;
-      margin-bottom: 10px;
     }
 
-    .premium-badge {
-      font-size: 20px;
-    }
+    .premium-banner-icon { font-size: 22px; }
 
-    .premium-label {
-      flex: 1;
+    .premium-banner-title {
+      display: block;
       color: #fff;
-      font-weight: 600;
       font-size: 15px;
+      font-weight: 700;
+      line-height: 1.2;
     }
 
-    .btn-manage-sub {
-      width: 100%;
-      padding: 12px;
-      border-radius: 14px;
-      border: 2px solid #7b2ff7;
-      background: var(--surface);
-      color: #7b2ff7;
-      font-size: 15px;
+    .premium-banner-sub {
+      display: block;
+      color: rgba(255,255,255,0.72);
+      font-size: 12px;
+    }
+
+    .premium-banner-btn {
+      background: rgba(255,255,255,0.18);
+      border: 1px solid rgba(255,255,255,0.35);
+      color: #fff;
+      border-radius: 20px;
+      padding: 6px 16px;
+      font-size: 13px;
       font-weight: 600;
       cursor: pointer;
+      backdrop-filter: blur(4px);
 
-      &:disabled { opacity: 0.6; cursor: default; }
+      &:disabled { opacity: 0.5; cursor: default; }
     }
 
+    /* ── Premium upsell card (non-subscriber) ── */
     .premium-card {
       background: var(--surface);
       border-radius: 20px;
       padding: 20px;
       box-shadow: 0 2px 12px rgba(123,47,247,0.12);
       border: 1.5px solid #ede5ff;
+      margin-bottom: 16px;
     }
 
     .premium-card-header {
@@ -409,7 +451,6 @@ import { Photo, Profile } from '../../core/models/profile.model';
       margin-bottom: 16px;
 
       .crown { font-size: 32px; }
-
       div { flex: 1; }
       h3 { margin: 0; font-size: 18px; font-weight: 700; color: var(--text-primary); }
       p { margin: 2px 0 0; font-size: 13px; color: var(--text-muted); }
@@ -462,35 +503,81 @@ import { Photo, Profile } from '../../core/models/profile.model';
       &:disabled { opacity: 0.6; cursor: default; }
     }
 
-    .danger-section {
-      display: flex;
-      flex-direction: column;
-      gap: 10px;
-      padding: 16px;
+    /* ── Account / Danger zone ── */
+    .account-section {
+      margin-top: 8px;
     }
 
-    .btn-logout {
-      width: 100%;
-      padding: 14px;
-      border-radius: 14px;
-      border: 2px solid var(--border);
+    .account-section-label {
+      margin: 0 0 6px 4px;
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.6px;
+      color: var(--text-muted);
+
+      &.danger-label { margin-top: 20px; color: #fd5564; }
+    }
+
+    .account-list {
       background: var(--surface);
-      color: var(--text-secondary);
-      font-size: 16px;
-      font-weight: 600;
-      cursor: pointer;
+      border-radius: 16px;
+      overflow: hidden;
+      box-shadow: 0 1px 4px var(--shadow-sm);
     }
 
-    .btn-delete {
+    .account-row {
       width: 100%;
-      padding: 14px;
-      border-radius: 14px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 14px 16px;
+      background: none;
       border: none;
-      background: #fff0f1;
-      color: #fd5564;
-      font-size: 16px;
-      font-weight: 600;
       cursor: pointer;
+      text-align: left;
+      transition: background 0.15s;
+
+      &:hover { background: var(--surface-2); }
+      &:active { background: var(--border-light); }
+
+      &.danger .account-row-label { color: #fd5564; }
+    }
+
+    .account-row-icon {
+      width: 32px;
+      height: 32px;
+      border-radius: 8px;
+      background: var(--surface-2);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      color: var(--text-secondary);
+
+      svg { width: 16px; height: 16px; }
+
+      &.logout { background: #fff8e1; color: #f59e0b; }
+      &.danger { background: #fff0f1; color: #fd5564; }
+    }
+
+    .account-row-label {
+      flex: 1;
+      font-size: 15px;
+      font-weight: 500;
+      color: var(--text-primary);
+    }
+
+    .account-row-chevron {
+      font-size: 20px;
+      color: var(--text-muted);
+      line-height: 1;
+    }
+
+    .account-divider {
+      height: 1px;
+      background: var(--border-light);
+      margin-left: 60px;
     }
 
     .toast-msg {

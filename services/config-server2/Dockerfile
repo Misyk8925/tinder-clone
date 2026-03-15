@@ -1,32 +1,24 @@
-FROM bellsoft/liberica-openjre-alpine:24-cds AS layers
-WORKDIR /application
-COPY target/*.jar app.jar
-RUN java -Djarmode=tools -jar app.jar extract --layers --destination extracted
+FROM maven:3.9.9-eclipse-temurin-21 AS build
+WORKDIR /workspace
 
-FROM bellsoft/liberica-openjre-alpine:24-cds
-VOLUME /tmp
-RUN adduser -S spring-user
-USER spring-user
+COPY pom.xml .
+RUN --mount=type=cache,target=/root/.m2 mvn -B -e -ntp dependency:go-offline
 
-WORKDIR /application
+COPY src ./src
+RUN --mount=type=cache,target=/root/.m2 mvn -B -e -ntp package -DskipTests && \
+    find target -maxdepth 1 -name "*.jar" ! -name "*-plain.jar" -exec mv {} target/app.jar \;
 
-COPY --from=layers /application/extracted/dependencies/ ./
-COPY --from=layers /application/extracted/spring-boot-loader/ ./
-COPY --from=layers /application/extracted/snapshot-dependencies/ ./
-COPY --from=layers /application/extracted/application/ ./
+FROM eclipse-temurin:17-jre-alpine
+RUN addgroup -S appgroup && adduser -S appuser -G appgroup
 
-RUN java -XX:ArchiveClassesAtExit=app.jsa -Dspring.context.exit=onRefresh -jar app.jar & exit 0
+WORKDIR /app
+COPY --from=build /workspace/target/app.jar app.jar
 
-ENV JAVA_CDS_OPTS="-XX:SharedArchiveFile=app.jsa -Xlog:class+load:file=/tmp/classload.log"
-ENV JAVA_ERROR_FILE_OPTS="-XX:ErrorFile=/tmp/java_error.log"
-ENV JAVA_HEAP_DUMP_OPTS="-XX:+HeapDumpOnOutOfMemoryError -XX:HeapDumpPath=/tmp"
-ENV JAVA_ON_OUT_OF_MEMORY_OPTS="-XX:+ExitOnOutOfMemoryError"
-ENV JAVA_NATIVE_MEMORY_TRACKING_OPTS="-XX:NativeMemoryTracking=summary -XX:+UnlockDiagnosticVMOptions -XX:+PrintNMTStatistics"
+ENV TZ=UTC \
+    JAVA_TOOL_OPTIONS="-XX:+UseContainerSupport -XX:+UseZGC -XX:MaxRAMPercentage=75.0 -Dfile.encoding=UTF-8 -Dsun.net.inetaddr.ttl=60 -Djava.io.tmpdir=/tmp" \
+    SPRING_PROFILES_ACTIVE=prod
 
-ENTRYPOINT java \
-    $JAVA_HEAP_DUMP_OPTS \
-    $JAVA_ON_OUT_OF_MEMORY_OPTS \
-    $JAVA_ERROR_FILE_OPTS \
-    $JAVA_NATIVE_MEMORY_TRACKING_OPTS \
-    $JAVA_CDS_OPTS \
-    -jar app.jar
+USER appuser
+EXPOSE 8888
+
+ENTRYPOINT ["java", "-jar", "/app/app.jar"]

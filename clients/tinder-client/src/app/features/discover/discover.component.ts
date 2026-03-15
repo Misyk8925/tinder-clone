@@ -569,7 +569,7 @@ export class DiscoverComponent implements OnInit {
   visibleProfiles = () => {
     const all = this.profiles();
     const idx = this.currentIndex();
-    return all.slice(idx, idx + 3).reverse();
+    return all.slice(idx, idx + 3);
   };
 
   private myProfileId: string | null = null;
