@@ -73,10 +73,12 @@ export class MatchService {
   }
 
   createConversation(participant1Id: string, participant2Id: string): Observable<Conversation> {
-    return this.http.post<Conversation>(`${environment.apiGatewayUrl}/rest/conversations`, {
+    return this.http.post<{ conversationId: string }>(`${environment.apiGatewayUrl}/rest/conversations`, {
       participant1Id,
       participant2Id
-    });
+    }).pipe(
+      map(r => ({ id: r.conversationId, participant1Id, participant2Id, createdAt: '', messages: [] }))
+    );
   }
 
   /**

@@ -36,14 +36,14 @@ class SwipeServiceTest {
     void sendSwipeShouldRejectWhenProfilesDoNotExist() {
         String profile1Id = UUID.randomUUID().toString();
         String profile2Id = UUID.randomUUID().toString();
-        SwipeDto dto = new SwipeDto(profile1Id, profile2Id, true);
+        SwipeDto dto = new SwipeDto(profile1Id, profile2Id, true, null);
 
         when(profileCacheService.existsAll(UUID.fromString(profile1Id), UUID.fromString(profile2Id)))
                 .thenReturn(Mono.just(false));
 
         ResponseStatusException exception = assertThrows(
                 ResponseStatusException.class,
-                () -> swipeService.sendSwipe(dto).block()
+                () -> swipeService.sendSwipe(dto, false).block()
         );
 
         assertThat(exception.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
@@ -55,13 +55,13 @@ class SwipeServiceTest {
     void sendSwipeShouldPublishEventWhenProfilesExist() {
         String profile1Id = UUID.randomUUID().toString();
         String profile2Id = UUID.randomUUID().toString();
-        SwipeDto dto = new SwipeDto(profile1Id, profile2Id, false);
+        SwipeDto dto = new SwipeDto(profile1Id, profile2Id, false, null);
 
         when(profileCacheService.existsAll(UUID.fromString(profile1Id), UUID.fromString(profile2Id)))
                 .thenReturn(Mono.just(true));
         when(swipeProducer.send(any())).thenReturn(Mono.empty());
 
-        swipeService.sendSwipe(dto).block();
+        swipeService.sendSwipe(dto, false).block();
 
         ArgumentCaptor<SwipeCreatedEvent> eventCaptor = ArgumentCaptor.forClass(SwipeCreatedEvent.class);
         verify(swipeProducer).send(eventCaptor.capture());
@@ -77,11 +77,11 @@ class SwipeServiceTest {
     @Test
     void sendSwipeShouldRejectWhenProfileIdsAreEqual() {
         String sameId = UUID.randomUUID().toString();
-        SwipeDto dto = new SwipeDto(sameId, sameId, true);
+        SwipeDto dto = new SwipeDto(sameId, sameId, true, null);
 
         ResponseStatusException exception = assertThrows(
                 ResponseStatusException.class,
-                () -> swipeService.sendSwipe(dto).block()
+                () -> swipeService.sendSwipe(dto, false).block()
         );
 
         assertThat(exception.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);

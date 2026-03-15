@@ -5,6 +5,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 import software.amazon.awssdk.core.sync.RequestBody;
 import software.amazon.awssdk.services.s3.S3Client;
@@ -277,6 +278,27 @@ public class S3PhotoService {
                 .build();
 
         return s3Presigner.presignGetObject(presignRequest).url();
+    }
+
+    /**
+     * Delete a photo by its database UUID: removes all S3 versions and the DB record.
+     * Verifies the photo belongs to the requesting user before deleting.
+     */
+    @Transactional
+    public void deletePhotoRecord(UUID photoDbId, UUID userId) {
+        Photo photo = photoRepository.findById(photoDbId)
+                .orElseThrow(() -> new IllegalArgumentException("Photo not found: " + photoDbId));
+
+        if (!photo.getProfile().getUserId().equals(userId.toString())) {
+            throw new SecurityException("Unauthorized to delete this photo");
+        }
+
+        // s3Key format: photos/{profileId}/{s3PhotoId}/original.jpg
+        String s3PhotoId = extractPhotoIdFromS3Key(photo.getS3Key());
+        UUID profileId = photo.getProfile().getProfileId();
+
+        delete(s3PhotoId, profileId);
+        photoRepository.delete(photo);
     }
 
     /**

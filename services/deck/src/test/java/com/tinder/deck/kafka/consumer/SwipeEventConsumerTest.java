@@ -1,6 +1,6 @@
 package com.tinder.deck.kafka.consumer;
 
-import com.tinder.deck.kafka.dto.SwipeCreatedEvent;
+import com.tinder.deck.kafka.dto.SwipeSavedEvent;
 import com.tinder.deck.service.DeckCache;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
@@ -35,7 +35,7 @@ class SwipeEventConsumerTest {
         UUID profile1Id = UUID.randomUUID();
         UUID profile2Id = UUID.randomUUID();
 
-        SwipeCreatedEvent event = SwipeCreatedEvent.builder()
+        SwipeSavedEvent event = SwipeSavedEvent.builder()
                 .eventId(UUID.randomUUID().toString())
                 .profile1Id(profile1Id.toString())
                 .profile2Id(profile2Id.toString())
@@ -53,7 +53,7 @@ class SwipeEventConsumerTest {
     @Test
     @DisplayName("Invalid UUIDs propagate (to allow retry/DLT)")
     void invalidUuidPropagates() {
-        SwipeCreatedEvent event = SwipeCreatedEvent.builder()
+        SwipeSavedEvent event = SwipeSavedEvent.builder()
                 .eventId(UUID.randomUUID().toString())
                 .profile1Id("invalid-uuid")
                 .profile2Id(UUID.randomUUID().toString())
@@ -67,7 +67,7 @@ class SwipeEventConsumerTest {
     @Test
     @DisplayName("DeckCache failures propagate (to allow retry/DLT)")
     void deckCacheFailurePropagates() {
-        SwipeCreatedEvent event = SwipeCreatedEvent.builder()
+        SwipeSavedEvent event = SwipeSavedEvent.builder()
                 .eventId(UUID.randomUUID().toString())
                 .profile1Id(UUID.randomUUID().toString())
                 .profile2Id(UUID.randomUUID().toString())

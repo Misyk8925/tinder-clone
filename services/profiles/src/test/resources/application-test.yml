@@ -57,6 +57,11 @@ spring:
       properties:
         spring.json.trusted.packages: "com.tinder.*"
 
+spring:
+  grpc:
+    server:
+      port: 0
+
 server:
   # Main servlet port — must NOT conflict with the mTLS connector port (8011)
   port: 8010

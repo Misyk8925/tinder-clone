@@ -144,6 +144,7 @@ export function markConversationRead(conversationId: string): void {
         </div>
       }
     </div>
+
   `,
   styles: [`
     .matches-page {
@@ -516,6 +517,7 @@ export function markConversationRead(conversationId: string): void {
       flex-shrink: 0;
       margin-left: auto;
     }
+
   `]
 })
 export class MatchesComponent implements OnInit, OnDestroy {

@@ -79,6 +79,12 @@ spring:
                     anonCapacity: 1
                     anonPeriodInSeconds: 3600
 
+            - id: profile-me
+              uri: http://localhost:8010
+              predicates:
+                - Path=/api/v1/profiles/me
+                - Method=GET
+
             - id: profile-other
               uri: http://localhost:8010
               predicates:
@@ -155,33 +161,11 @@ spring:
               uri: http://localhost:8080
               predicates:
                 - Path=/rest/conversations/**
-              filters:
-                - name: RoleBasedRateLimitFilter
-                  args:
-                    adminCapacity:  1000000000
-                    adminPeriodInSeconds: 3600
-                    premiumCapacity: 300
-                    premiumPeriodInSeconds: 3600
-                    basicCapacity: 100
-                    basicPeriodInSeconds: 3600
-                    anonCapacity: 0
-                    anonPeriodInSeconds: 3600
 
             - id: match-other
               uri: http://localhost:8080
               predicates:
                 - Path=/match/**
-              filters:
-                - name: RoleBasedRateLimitFilter
-                  args:
-                    adminCapacity:  1000000000
-                    adminPeriodInSeconds: 3600
-                    premiumCapacity: 200
-                    premiumPeriodInSeconds: 3600
-                    basicCapacity: 50
-                    basicPeriodInSeconds: 3600
-                    anonCapacity: 0
-                    anonPeriodInSeconds: 3600
 
               ############################## SUBSCRIPTIONS ROUTES
 

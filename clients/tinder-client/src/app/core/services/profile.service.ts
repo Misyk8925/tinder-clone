@@ -46,4 +46,8 @@ export class ProfileService {
       params: { position }
     });
   }
+
+  deletePhoto(photoId: string): Observable<void> {
+    return this.http.delete<void>(`${this.base}/photos/${photoId}`);
+  }
 }

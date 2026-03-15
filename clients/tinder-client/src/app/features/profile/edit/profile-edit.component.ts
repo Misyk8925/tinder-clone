@@ -1,8 +1,10 @@
 import { Component, inject, OnInit, signal } from '@angular/core';
 import { Router } from '@angular/router';
+import { HttpErrorResponse } from '@angular/common/http';
 import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { NgClass } from '@angular/common';
 import { ProfileService } from '../../../core/services/profile.service';
+import { GeoLocationService } from '../../../core/services/geo-location.service';
 import { Profile, Hobby } from '../../../core/models/profile.model';
 
 const ALL_HOBBIES: Hobby[] = [
@@ -63,35 +65,19 @@ const ALL_HOBBIES: Hobby[] = [
         </div>
 
         <div class="form-group">
-          <label>City *</label>
-          <div class="city-row">
-            <input type="text" formControlName="city" placeholder="Your city" />
-            <button type="button" class="location-btn"
-              [class.granted]="locationStatus() === 'granted'"
-              [class.denied]="locationStatus() === 'denied'"
-              [disabled]="locationStatus() === 'requesting'"
-              (click)="requestLocation()"
-              [title]="locationBtnTitle()">
-              @if (locationStatus() === 'requesting') {
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="spin">
-                  <circle cx="12" cy="12" r="10"/><path d="M12 2a10 10 0 0 1 10 10"/>
-                </svg>
-              } @else {
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <circle cx="12" cy="12" r="3"/><path d="M12 1v4M12 19v4M1 12h4M19 12h4"/>
-                  <path d="M4.22 4.22l2.83 2.83M16.95 16.95l2.83 2.83M4.22 19.78l2.83-2.83M16.95 7.05l2.83-2.83"/>
-                </svg>
-              }
-            </button>
-          </div>
+          <label>City {{ hasGps() ? '(optional)' : '*' }}</label>
+          <input type="text" formControlName="city"
+            [placeholder]="hasGps() ? 'Leave blank to use GPS location' : 'Your city'" />
           @if (form.get('city')?.invalid && form.get('city')?.touched) {
             <span class="error">City is required</span>
           }
-          @if (locationStatus() === 'granted') {
-            <span class="location-hint">GPS location captured</span>
-          }
-          @if (locationStatus() === 'denied') {
-            <span class="error">Location access denied</span>
+          @if (hasGps()) {
+            <span class="gps-hint">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="12" cy="12" r="3"/><path d="M12 1v4M12 19v4M1 12h4M19 12h4"/>
+              </svg>
+              Using GPS location
+            </span>
           }
         </div>
 
@@ -142,6 +128,9 @@ const ALL_HOBBIES: Hobby[] = [
         </div>
 
         <div class="form-actions">
+          @if (saveError()) {
+            <div class="save-error">{{ saveError() }}</div>
+          }
           <button type="submit" class="btn-primary" [disabled]="form.invalid || saving()">
             {{ saving() ? 'Saving...' : (isNew() ? 'Create Profile' : 'Save Changes') }}
           </button>
@@ -156,7 +145,7 @@ const ALL_HOBBIES: Hobby[] = [
       height: 100vh;
       background: var(--bg);
       overflow-y: auto;
-      padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 187px);
+      padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 90px);
     }
 
     .header {
@@ -221,41 +210,14 @@ const ALL_HOBBIES: Hobby[] = [
       textarea { resize: none; }
     }
 
-    .city-row {
-      display: flex;
-      gap: 8px;
-      align-items: stretch;
-
-      input { flex: 1; }
-    }
-
-    .location-btn {
-      flex-shrink: 0;
-      width: 48px;
-      border: 1.5px solid var(--border);
-      border-radius: 12px;
-      background: var(--surface);
-      color: var(--text-secondary);
-      cursor: pointer;
+    .gps-hint {
       display: flex;
       align-items: center;
-      justify-content: center;
-      transition: all 0.2s;
-
-      svg { width: 18px; height: 18px; }
-
-      &:hover:not(:disabled) { border-color: #fd5564; color: #fd5564; }
-      &.granted { border-color: #22c55e; color: #22c55e; background: #f0fdf4; }
-      &.denied { border-color: #ef4444; color: #ef4444; }
-      &:disabled { opacity: 0.5; cursor: not-allowed; }
-    }
-
-    @keyframes spin { to { transform: rotate(360deg); } }
-    .spin { animation: spin 1s linear infinite; }
-
-    .location-hint {
+      gap: 4px;
       font-size: 12px;
       color: #22c55e;
+
+      svg { width: 12px; height: 12px; }
     }
 
     .form-row {
@@ -310,6 +272,18 @@ const ALL_HOBBIES: Hobby[] = [
       padding-top: 8px;
     }
 
+    .save-error {
+      background: #fff0f1;
+      color: #fd5564;
+      border: 1px solid #ffd0d4;
+      border-radius: 12px;
+      padding: 12px 14px;
+      font-size: 14px;
+      font-weight: 500;
+      margin-bottom: 12px;
+      text-align: center;
+    }
+
     .btn-primary {
       width: 100%;
       padding: 16px;
@@ -330,50 +304,31 @@ export class ProfileEditComponent implements OnInit {
   private fb = inject(FormBuilder);
   private profileService = inject(ProfileService);
   private router = inject(Router);
+  private geo = inject(GeoLocationService);
 
   allHobbies = ALL_HOBBIES;
   isNew = signal(true);
   saving = signal(false);
+  saveError = signal<string | null>(null);
   selectedHobbies = signal<Set<Hobby>>(new Set());
-  locationStatus = signal<'idle' | 'requesting' | 'granted' | 'denied'>('idle');
-  userCoords = signal<{ latitude: number; longitude: number } | null>(null);
 
-  locationBtnTitle(): string {
-    switch (this.locationStatus()) {
-      case 'granted': return 'GPS location captured';
-      case 'denied': return 'Location access denied';
-      case 'requesting': return 'Requesting location...';
-      default: return 'Use my location';
-    }
-  }
-
-  requestLocation(): void {
-    if (!navigator.geolocation) {
-      this.locationStatus.set('denied');
-      return;
-    }
-    this.locationStatus.set('requesting');
-    navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        this.userCoords.set({ latitude: pos.coords.latitude, longitude: pos.coords.longitude });
-        this.locationStatus.set('granted');
-      },
-      () => {
-        this.locationStatus.set('denied');
-      },
-      { timeout: 10000 }
-    );
+  hasGps(): boolean {
+    return this.geo.hasCoords();
   }
 
   form!: FormGroup;
 
   ngOnInit(): void {
+    const cityValidators = this.hasGps()
+      ? [Validators.maxLength(100)]
+      : [Validators.required, Validators.maxLength(100)];
+
     this.form = this.fb.group({
       name: ['', [Validators.required, Validators.minLength(2), Validators.maxLength(50)]],
       age: [null, [Validators.required, Validators.min(18), Validators.max(130)]],
       gender: ['', Validators.required],
       bio: ['', Validators.maxLength(1023)],
-      city: ['', [Validators.required, Validators.maxLength(100)]],
+      city: ['', cityValidators],
       preferences: this.fb.group({
         minAge: [18, [Validators.required, Validators.min(18), Validators.max(130)]],
         maxAge: [50, [Validators.required, Validators.min(18), Validators.max(130)]],
@@ -424,11 +379,14 @@ export class ProfileEditComponent implements OnInit {
 
   save(): void {
     if (this.form.invalid) return;
+    this.saveError.set(null);
     this.saving.set(true);
 
-    const coords = this.userCoords();
+    const coords = this.geo.getCoords();
+    const rawCity: string = this.form.value.city ?? '';
     const value = {
       ...this.form.value,
+      city: rawCity.trim() || null,
       hobbies: Array.from(this.selectedHobbies()),
       ...(coords ? { latitude: coords.latitude, longitude: coords.longitude } : {}),
     };
@@ -442,9 +400,13 @@ export class ProfileEditComponent implements OnInit {
         this.saving.set(false);
         this.router.navigate(['/profile']);
       },
-      error: () => {
+      error: (err: HttpErrorResponse) => {
         this.saving.set(false);
-        alert('Failed to save profile');
+        if (err.status === 429) {
+          this.saveError.set('Too many requests. Please wait a moment before trying again.');
+        } else {
+          this.saveError.set('Failed to save profile. Please try again.');
+        }
       }
     });
   }

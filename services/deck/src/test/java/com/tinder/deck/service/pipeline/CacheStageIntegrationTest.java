@@ -7,6 +7,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.data.redis.core.ReactiveStringRedisTemplate;
@@ -67,6 +68,9 @@ class CacheStageIntegrationTest {
 
     @Autowired
     private ReactiveStringRedisTemplate redisTemplate;
+
+    @Autowired
+    private ObjectMapper objectMapper;
 
     private CacheStage cacheStage;
 
@@ -250,7 +254,7 @@ class CacheStageIntegrationTest {
     void shouldPropagateRedisErrors() {
         // Given: Create a CacheStage with a mock DeckCache that simulates Redis error
         DeckResilience resilience = DeckResilience.from(new DeckResilienceProperties());
-        DeckCache failingCache = new DeckCache(redisTemplate) {
+        DeckCache failingCache = new DeckCache(redisTemplate, objectMapper) {
             @Override
             public Mono<Void> writeDeck(UUID viewerId, List<Map.Entry<UUID, Double>> deck, Duration ttl) {
                 return Mono.error(new RuntimeException("Simulated Redis connection failure"));

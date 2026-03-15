@@ -1,10 +1,11 @@
-import { Component, inject, OnInit, signal } from '@angular/core';
+import { Component, ElementRef, inject, OnInit, signal, ViewChild } from '@angular/core';
 import { Router } from '@angular/router';
+import { HttpErrorResponse } from '@angular/common/http';
 import { ProfileService } from '../../core/services/profile.service';
 import { KeycloakService } from '../../core/services/keycloak.service';
 import { SubscriptionService } from '../../core/services/subscription.service';
 import { ThemeService } from '../../core/services/theme.service';
-import { Profile } from '../../core/models/profile.model';
+import { Photo, Profile } from '../../core/models/profile.model';
 
 @Component({
   selector: 'app-profile',
@@ -24,18 +25,21 @@ import { Profile } from '../../core/models/profile.model';
         <div class="loading"><div class="spinner"></div></div>
       } @else if (profile()) {
         <div class="profile-content">
-          <div class="photo-section">
-            @if (profile()!.photos?.length) {
-              <img [src]="profile()!.photos[0].url" class="main-photo" [alt]="profile()!.name" />
-            } @else {
-              <div class="no-photo-placeholder">
-                <span>{{ profile()!.name[0] }}</span>
+          <div class="photo-gallery">
+            @for (slot of photoSlots(); track $index) {
+              <div class="photo-slot" [class.slot-0]="$index === 0"
+                   [class.slot-1]="$index === 1" [class.slot-2]="$index === 2"
+                   [class.slot-3]="$index === 3" [class.slot-4]="$index === 4">
+                @if (slot) {
+                  <img [src]="slot.url" class="slot-img" [alt]="'Photo ' + ($index + 1)" />
+                  <button class="slot-delete" (click)="deletePhoto(slot.photoID)" title="Remove photo">✕</button>
+                } @else if ($index === (profile()!.photos?.length ?? 0)) {
+                  <button class="slot-add" (click)="triggerUploadAt($index)">
+                    <svg viewBox="0 0 24 24" fill="currentColor"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>
+                  </button>
+                }
               </div>
             }
-            <button class="upload-btn" (click)="triggerUpload()">
-              <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 9a3 3 0 0 0-3 3 3 3 0 0 0 3 3 3 3 0 0 0 3-3 3 3 0 0 0-3-3m0 8a5 5 0 0 1-5-5 5 5 0 0 1 5-5 5 5 0 0 1 5 5 5 5 0 0 1-5 5M3 5h2.5L7 3h10l1.5 2H21c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H3c-1.1 0-2-.9-2-2V7c0-1.1.9-2 2-2z"/></svg>
-              Add Photo
-            </button>
             <input type="file" accept="image/*" (change)="uploadPhoto($event)" hidden #fileInput />
           </div>
 
@@ -127,9 +131,14 @@ import { Profile } from '../../core/models/profile.model';
           <h3>No profile yet</h3>
           <p>Create your profile to start swiping!</p>
           <button class="btn-primary" (click)="goEdit()">Create Profile</button>
+          <button class="btn-logout-text" (click)="logout()">Logout</button>
         </div>
       }
     </div>
+
+    @if (toast()) {
+      <div class="toast-msg">{{ toast() }}</div>
+    }
   `,
   styles: [`
     .profile-page {
@@ -209,50 +218,74 @@ import { Profile } from '../../core/models/profile.model';
       padding: 16px;
     }
 
-    .photo-section {
-      position: relative;
-      width: 100%;
-      height: 300px;
+    .photo-gallery {
+      display: grid;
+      grid-template-columns: 2fr 1fr;
+      grid-template-rows: 108px 108px 90px;
+      gap: 4px;
       border-radius: 20px;
       overflow: hidden;
       margin-bottom: 16px;
-      background: var(--border);
     }
 
-    .main-photo {
+    .photo-slot {
+      position: relative;
+      background: var(--surface-2);
+      border-radius: 4px;
+      overflow: hidden;
+    }
+
+    .slot-0 {
+      grid-column: 1;
+      grid-row: 1 / 3;
+      border-radius: 0;
+    }
+
+    .slot-1 { grid-column: 2; grid-row: 1; }
+    .slot-2 { grid-column: 2; grid-row: 2; }
+    .slot-3 { grid-column: 1; grid-row: 3; }
+    .slot-4 { grid-column: 2; grid-row: 3; }
+
+    .slot-img {
       width: 100%;
       height: 100%;
       object-fit: cover;
+      display: block;
     }
 
-    .no-photo-placeholder {
-      width: 100%;
-      height: 100%;
-      background: linear-gradient(135deg, #fd5564, #ff8a00);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-
-      span { font-size: 100px; color: rgba(255,255,255,0.5); font-weight: 700; }
-    }
-
-    .upload-btn {
+    .slot-delete {
       position: absolute;
-      bottom: 12px;
-      right: 12px;
-      background: rgba(0,0,0,0.6);
+      top: 5px;
+      right: 5px;
+      background: rgba(0,0,0,0.55);
       color: #fff;
       border: none;
-      border-radius: 20px;
-      padding: 8px 14px;
-      font-size: 13px;
+      border-radius: 50%;
+      width: 24px;
+      height: 24px;
+      font-size: 12px;
       cursor: pointer;
       display: flex;
       align-items: center;
-      gap: 6px;
-      backdrop-filter: blur(4px);
+      justify-content: center;
+      backdrop-filter: blur(3px);
+      line-height: 1;
+    }
 
-      svg { width: 18px; height: 18px; }
+    .slot-add {
+      width: 100%;
+      height: 100%;
+      background: none;
+      border: 2px dashed var(--border);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--text-muted);
+      transition: background 0.15s;
+
+      svg { width: 28px; height: 28px; }
+      &:hover { background: var(--border-light); }
     }
 
     .info-section {
@@ -460,6 +493,31 @@ import { Profile } from '../../core/models/profile.model';
       cursor: pointer;
     }
 
+    .toast-msg {
+      position: fixed;
+      bottom: 180px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(30, 30, 30, 0.92);
+      color: #fff;
+      padding: 12px 20px;
+      border-radius: 24px;
+      font-size: 14px;
+      font-weight: 500;
+      z-index: 2000;
+      white-space: nowrap;
+      max-width: 90vw;
+      text-align: center;
+      animation: fadeIn 0.2s ease;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.3);
+      backdrop-filter: blur(8px);
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateX(-50%) translateY(6px); }
+      to { opacity: 1; transform: translateX(-50%) translateY(0); }
+    }
+
     .no-profile {
       flex: 1;
       display: flex;
@@ -473,6 +531,17 @@ import { Profile } from '../../core/models/profile.model';
       .empty-icon { font-size: 64px; }
       h3 { margin: 0; font-size: 22px; color: var(--text-primary); }
       p { margin: 0; color: var(--text-muted); }
+
+      .btn-logout-text {
+        background: none;
+        border: none;
+        color: var(--text-muted);
+        font-size: 14px;
+        cursor: pointer;
+        padding: 4px 8px;
+        text-decoration: underline;
+        text-underline-offset: 3px;
+      }
     }
 
     .btn-primary {
@@ -488,6 +557,8 @@ import { Profile } from '../../core/models/profile.model';
   `]
 })
 export class ProfileComponent implements OnInit {
+  @ViewChild('fileInput') private fileInputRef!: ElementRef<HTMLInputElement>;
+
   private profileService = inject(ProfileService);
   private keycloak = inject(KeycloakService);
   private subscriptionService = inject(SubscriptionService);
@@ -498,6 +569,23 @@ export class ProfileComponent implements OnInit {
   loading = signal(true);
   subLoading = signal(false);
   isPremium = signal(false);
+  toast = signal<string | null>(null);
+  private toastTimer: ReturnType<typeof setTimeout> | null = null;
+
+  private uploadPosition = 0;
+
+  private showToast(msg: string): void {
+    if (this.toastTimer) clearTimeout(this.toastTimer);
+    this.toast.set(msg);
+    this.toastTimer = setTimeout(() => this.toast.set(null), 4000);
+  }
+
+  photoSlots(): (Photo | null)[] {
+    const photos = this.profile()?.photos ?? [];
+    const slots: (Photo | null)[] = Array(5).fill(null);
+    photos.forEach((p, i) => { if (i < 5) slots[i] = p; });
+    return slots;
+  }
 
   ngOnInit(): void {
     this.isPremium.set(this.keycloak.hasRole('premium'));
@@ -511,7 +599,14 @@ export class ProfileComponent implements OnInit {
     this.subLoading.set(true);
     this.subscriptionService.createCheckoutSession().subscribe({
       next: (url) => { window.location.href = url; },
-      error: () => { alert('Failed to start checkout. Please try again.'); this.subLoading.set(false); }
+      error: (err: HttpErrorResponse) => {
+        this.subLoading.set(false);
+        if (err.status === 429) {
+          this.showToast('Too many requests. Please wait before trying again.');
+        } else {
+          this.showToast('Failed to start checkout. Please try again.');
+        }
+      }
     });
   }
 
@@ -519,7 +614,14 @@ export class ProfileComponent implements OnInit {
     this.subLoading.set(true);
     this.subscriptionService.createPortalSession().subscribe({
       next: (url) => { window.location.href = url; },
-      error: () => { alert('Failed to open billing portal. Please try again.'); this.subLoading.set(false); }
+      error: (err: HttpErrorResponse) => {
+        this.subLoading.set(false);
+        if (err.status === 429) {
+          this.showToast('Too many requests. Please wait before trying again.');
+        } else {
+          this.showToast('Failed to open billing portal. Please try again.');
+        }
+      }
     });
   }
 
@@ -535,22 +637,48 @@ export class ProfileComponent implements OnInit {
     if (!confirm('Are you sure? This cannot be undone.')) return;
     this.profileService.deleteProfile().subscribe({
       next: () => this.keycloak.logout(),
-      error: () => alert('Failed to delete profile')
+      error: (err: HttpErrorResponse) => {
+        if (err.status === 429) {
+          this.showToast('Too many requests. Please wait before trying again.');
+        } else {
+          this.showToast('Failed to delete profile. Please try again.');
+        }
+      }
     });
   }
 
-  triggerUpload(): void {
-    const input = document.querySelector('input[type="file"]') as HTMLInputElement;
-    input?.click();
+  triggerUploadAt(position: number): void {
+    this.uploadPosition = position;
+    this.fileInputRef.nativeElement.value = '';
+    this.fileInputRef.nativeElement.click();
   }
 
   uploadPhoto(e: Event): void {
     const file = (e.target as HTMLInputElement).files?.[0];
     if (!file) return;
-    const position = this.profile()?.photos?.length ?? 0;
-    this.profileService.uploadPhoto(file, position).subscribe({
+    this.profileService.uploadPhoto(file, this.uploadPosition).subscribe({
       next: () => this.ngOnInit(),
-      error: () => alert('Photo upload failed')
+      error: (err: HttpErrorResponse) => {
+        if (err.status === 429) {
+          this.showToast('Too many uploads. Please wait before uploading again.');
+        } else {
+          this.showToast('Photo upload failed. Please try again.');
+        }
+      }
+    });
+  }
+
+  deletePhoto(photoId: string): void {
+    if (!confirm('Remove this photo?')) return;
+    this.profileService.deletePhoto(photoId).subscribe({
+      next: () => this.ngOnInit(),
+      error: (err: HttpErrorResponse) => {
+        if (err.status === 429) {
+          this.showToast('Too many requests. Please wait before trying again.');
+        } else {
+          this.showToast('Failed to delete photo. Please try again.');
+        }
+      }
     });
   }
 

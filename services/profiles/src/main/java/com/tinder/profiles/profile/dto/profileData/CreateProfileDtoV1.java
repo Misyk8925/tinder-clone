@@ -34,10 +34,9 @@ public record CreateProfileDtoV1(
         @Size(max = 1023, message = "bio must be less than 1000 characters")
         String bio,
 
-        @NotBlank(message = "city is required")
         @Size(max = 100, message = "city name too long")
         @Pattern(
-                regexp = "^[a-zA-ZÀ-ÿ\\s-]+$",
+                regexp = "^[a-zA-ZÀ-ÿ\\s-]*$",
                 message = "city can only contain letters, spaces, and hyphens"
         )
         String city,

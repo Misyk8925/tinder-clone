@@ -14,6 +14,7 @@ import com.tinder.profiles.profile.dto.profileData.PatchProfileDto;
 import com.tinder.profiles.profile.exception.ProfileAlreadyExistsException;
 import com.tinder.profiles.profile.exception.ProfileNotFoundException;
 import com.tinder.profiles.profile.exception.PatchOperationException;
+import com.tinder.profiles.profile.exception.ProfileValidationException;
 import com.tinder.profiles.profile.mapper.CreateProfileMapper;
 import com.tinder.profiles.profile.mapper.GetProfileMapper;
 import com.tinder.profiles.redis.ResilientCacheManager;
@@ -119,6 +120,13 @@ public class ProfileApplicationService {
             throw new ProfileAlreadyExistsException(userId);
         }
 
+        // Require either city or GPS coordinates
+        boolean hasCity = profileDto.city() != null && !profileDto.city().isBlank();
+        boolean hasCoordinates = profileDto.latitude() != null && profileDto.longitude() != null;
+        if (!hasCity && !hasCoordinates) {
+            throw new ProfileValidationException("Either city or GPS coordinates must be provided");
+        }
+
         // Validate cross-field business rules (Bean Validation handles basic constraints)
         if (profileDto.preferences() != null) {
             domainService.validatePreferencesBusinessRules(profileDto.preferences());
@@ -161,6 +169,12 @@ public class ProfileApplicationService {
         Profile existingProfile = profileRepository.findByUserId(userId);
         if (existingProfile == null) {
             throw new ProfileNotFoundException(userId);
+        }
+
+        boolean hasCity = profileDto.city() != null && !profileDto.city().isBlank();
+        boolean hasCoordinates = profileDto.latitude() != null && profileDto.longitude() != null;
+        if (!hasCity && !hasCoordinates) {
+            throw new ProfileValidationException("Either city or GPS coordinates must be provided");
         }
 
         if (profileDto.preferences() != null) {

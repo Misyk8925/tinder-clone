@@ -31,12 +31,13 @@ public class NewCreateProfileMapperImpl implements CreateProfileMapper {
         profile.age( createProfileDtoV1.age() );
         profile.bio( createProfileDtoV1.bio() );
         profile.gender( createProfileDtoV1.gender() );
-        profile.city( createProfileDtoV1.city() );
+        String city = createProfileDtoV1.city();
+        profile.city( city != null && !city.isBlank() ? city : "Unknown" );
         if (createProfileDtoV1.latitude() != null && createProfileDtoV1.longitude() != null) {
             profile.location( locationService.createFromCoordinates(
-                    createProfileDtoV1.latitude(), createProfileDtoV1.longitude(), createProfileDtoV1.city()) );
+                    createProfileDtoV1.latitude(), createProfileDtoV1.longitude(), city) );
         } else {
-            profile.location( locationService.create(createProfileDtoV1.city()) );
+            profile.location( locationService.create(city) );
         }
         profile.preferences( preferencesDtoToPreferences( createProfileDtoV1.preferences() ) );
         profile.hobbies( createProfileDtoV1.hobbies() != null

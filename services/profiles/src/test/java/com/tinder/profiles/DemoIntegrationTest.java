@@ -3,6 +3,7 @@ package com.tinder.profiles;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.tinder.profiles.deck.DeckCacheReader;
+import com.tinder.profiles.location.LocationService;
 import com.tinder.profiles.profile.Profile;
 import com.tinder.profiles.profile.ProfileRepository;
 import com.tinder.profiles.user.NewUserRecord;
@@ -142,6 +143,9 @@ public class DemoIntegrationTest {
 
     @Autowired
     private com.tinder.profiles.preferences.PreferencesRepository preferencesRepository;
+
+    @Autowired
+    private LocationService locationService;
 
     @Autowired
     private DeckCacheReader deckCacheReader;
@@ -1024,15 +1028,8 @@ public class DemoIntegrationTest {
                 return preferencesRepository.save(newPrefs);
             });
 
-        // Create location
-        com.tinder.profiles.location.Location location = com.tinder.profiles.location.Location.builder()
-            .city(DEFAULT_CITY)
-            .geo(new org.locationtech.jts.geom.GeometryFactory(
-                new org.locationtech.jts.geom.PrecisionModel(), 4326
-            ).createPoint(new org.locationtech.jts.geom.Coordinate(14.8743, 48.1183)))
-            .createdAt(java.time.LocalDateTime.now())
-            .updatedAt(java.time.LocalDateTime.now())
-            .build();
+        // Create location (persisted so it is managed when Profile is saved)
+        com.tinder.profiles.location.Location location = locationService.create(DEFAULT_CITY);
 
         // Create profile
         Profile profile = Profile.builder()

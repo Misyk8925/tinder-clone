@@ -1,6 +1,7 @@
 import { Component, inject, OnInit, signal } from '@angular/core';
 import { NgClass } from '@angular/common';
 import { Router } from '@angular/router';
+import { HttpErrorResponse } from '@angular/common/http';
 import { forkJoin, of } from 'rxjs';
 import { catchError, map } from 'rxjs/operators';
 
@@ -115,6 +116,10 @@ interface LikerCard {
         </div>
       }
     </div>
+
+    @if (toast()) {
+      <div class="toast-msg">{{ toast() }}</div>
+    }
   `,
   styles: [`
     .likes-page {
@@ -397,6 +402,31 @@ interface LikerCard {
         }
       }
     }
+
+    .toast-msg {
+      position: fixed;
+      bottom: 180px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(30, 30, 30, 0.92);
+      color: #fff;
+      padding: 12px 20px;
+      border-radius: 24px;
+      font-size: 14px;
+      font-weight: 500;
+      z-index: 2000;
+      white-space: nowrap;
+      max-width: 90vw;
+      text-align: center;
+      animation: fadeIn 0.2s ease;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.3);
+      backdrop-filter: blur(8px);
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateX(-50%) translateY(6px); }
+      to { opacity: 1; transform: translateX(-50%) translateY(0); }
+    }
   `]
 })
 export class LikesComponent implements OnInit {
@@ -409,9 +439,17 @@ export class LikesComponent implements OnInit {
   likers = signal<LikerCard[]>([]);
   loading = signal(true);
   forbidden = signal(false);
+  toast = signal<string | null>(null);
   readonly placeholders = [0, 1, 2, 3];
+  private toastTimer: ReturnType<typeof setTimeout> | null = null;
 
   private myProfileId: string | null = null;
+
+  private showToast(msg: string): void {
+    if (this.toastTimer) clearTimeout(this.toastTimer);
+    this.toast.set(msg);
+    this.toastTimer = setTimeout(() => this.toast.set(null), 4000);
+  }
 
   ngOnInit(): void {
     this.profileService.getMe().subscribe({
@@ -444,9 +482,11 @@ export class LikesComponent implements OnInit {
           }
         });
       },
-      error: (err) => {
+      error: (err: HttpErrorResponse) => {
         if (err.status === 403) {
           this.forbidden.set(true);
+        } else if (err.status === 429) {
+          this.showToast('Too many requests. Please wait before refreshing.');
         }
         this.loading.set(false);
       }
@@ -456,14 +496,26 @@ export class LikesComponent implements OnInit {
   like(card: LikerCard): void {
     if (!this.myProfileId) return;
     this.swipeService.swipe({ profile1Id: this.myProfileId, profile2Id: card.likerProfileId, decision: true })
-      .subscribe();
+      .subscribe({
+        error: (err: HttpErrorResponse) => {
+          if (err.status === 429) {
+            this.showToast("You're acting too fast! Please slow down.");
+          }
+        }
+      });
     this.removeCard(card.likerProfileId);
   }
 
   pass(card: LikerCard): void {
     if (!this.myProfileId) return;
     this.swipeService.swipe({ profile1Id: this.myProfileId, profile2Id: card.likerProfileId, decision: false })
-      .subscribe();
+      .subscribe({
+        error: (err: HttpErrorResponse) => {
+          if (err.status === 429) {
+            this.showToast("You're acting too fast! Please slow down.");
+          }
+        }
+      });
     this.removeCard(card.likerProfileId);
   }
 

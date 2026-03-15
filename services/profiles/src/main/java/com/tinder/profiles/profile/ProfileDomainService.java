@@ -36,7 +36,7 @@ public class ProfileDomainService {
                 profile.age(),
                 sanitizationService.sanitizePlainText(profile.gender()),
                 profile.bio() != null ? sanitizationService.sanitizePlainText(profile.bio()) : null,
-                sanitizationService.sanitizePlainText(profile.city()),
+                profile.city() != null ? sanitizationService.sanitizePlainText(profile.city()) : null,
                 profile.preferences(),
                 profile.hobbies(),
                 profile.latitude(),
@@ -46,12 +46,16 @@ public class ProfileDomainService {
 
 
     public void updateProfileFromDto(@NonNull Profile profile, @NonNull CreateProfileDtoV1 dto) {
+        // When city is null (GPS-only flow), fall back to the existing city value
+        String effectiveCity = (dto.city() != null && !dto.city().isBlank())
+                ? dto.city()
+                : profile.getCity();
         profile.updateBasicInfo(
                 dto.name(),
                 dto.age(),
                 dto.gender(),
                 dto.bio(),
-                dto.city()
+                effectiveCity
         );
     }
 

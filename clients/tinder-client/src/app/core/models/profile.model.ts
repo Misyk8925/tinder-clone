@@ -14,9 +14,10 @@ export type Hobby =
   | 'VOLUNTEERING' | 'PETS' | 'GARDENING' | 'MEDITATION' | 'ASTROLOGY';
 
 export interface Photo {
-  id: string;
+  photoID: string;
   url: string;
-  order?: number;
+  position: number;
+  isPrimary?: boolean;
 }
 
 export interface Profile {

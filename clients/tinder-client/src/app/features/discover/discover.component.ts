@@ -1,4 +1,5 @@
 import { Component, inject, OnInit, signal } from '@angular/core';
+import { HttpErrorResponse } from '@angular/common/http';
 import { NgClass } from '@angular/common';
 import { Profile } from '../../core/models/profile.model';
 import { ProfileService } from '../../core/services/profile.service';
@@ -74,6 +75,30 @@ import { Router } from '@angular/router';
           </div>
         }
       </div>
+
+      @if (showPremiumModal()) {
+        <div class="match-overlay" (click)="dismissPremiumModal()">
+          <div class="match-content premium-modal" (click)="$event.stopPropagation()">
+            <div class="premium-icon">
+              <svg viewBox="0 0 24 24" fill="#00b4cc" width="56" height="56">
+                <path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z"/>
+              </svg>
+            </div>
+            <div class="premium-title">Super Like is Premium</div>
+            <p class="premium-sub">Upgrade to Tinder Gold to send Super Likes and stand out from the crowd.</p>
+            <div class="match-actions">
+              <button class="btn-send-msg btn-upgrade" (click)="dismissPremiumModal()">
+                Upgrade to Gold
+              </button>
+              <button class="btn-keep-swiping" (click)="dismissPremiumModal()">Maybe Later</button>
+            </div>
+          </div>
+        </div>
+      }
+
+      @if (toast()) {
+        <div class="toast-msg">{{ toast() }}</div>
+      }
 
       @if (matchedProfile()) {
         <div class="match-overlay" (click)="dismissMatch()">
@@ -466,6 +491,60 @@ import { Router } from '@angular/router';
 
       &:active { border-color: rgba(255,255,255,0.6); }
     }
+
+    /* ── Premium Modal ── */
+    .premium-modal {
+      gap: 0;
+    }
+
+    .premium-icon {
+      margin-bottom: 16px;
+      filter: drop-shadow(0 0 16px rgba(0,180,204,0.5));
+    }
+
+    .premium-title {
+      font-size: 28px;
+      font-weight: 800;
+      background: linear-gradient(135deg, #00b4cc, #a78bfa);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      margin-bottom: 12px;
+      text-align: center;
+    }
+
+    .premium-sub {
+      margin: 0 0 32px;
+      font-size: 15px;
+      color: rgba(255,255,255,0.75);
+      text-align: center;
+      line-height: 1.5;
+    }
+
+    .btn-upgrade {
+      background: linear-gradient(135deg, #00b4cc, #a78bfa);
+      box-shadow: 0 4px 20px rgba(0,180,204,0.4);
+    }
+
+    .toast-msg {
+      position: fixed;
+      bottom: 180px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(30, 30, 30, 0.92);
+      color: #fff;
+      padding: 12px 20px;
+      border-radius: 24px;
+      font-size: 14px;
+      font-weight: 500;
+      z-index: 2000;
+      white-space: nowrap;
+      max-width: 90vw;
+      text-align: center;
+      animation: fadeIn 0.2s ease;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.3);
+      backdrop-filter: blur(8px);
+    }
   `]
 })
 export class DiscoverComponent implements OnInit {
@@ -477,6 +556,15 @@ export class DiscoverComponent implements OnInit {
   currentIndex = signal(0);
   loading = signal(true);
   matchedProfile = signal<Profile | null>(null);
+  showPremiumModal = signal(false);
+  toast = signal<string | null>(null);
+  private toastTimer: ReturnType<typeof setTimeout> | null = null;
+
+  private showToast(msg: string): void {
+    if (this.toastTimer) clearTimeout(this.toastTimer);
+    this.toast.set(msg);
+    this.toastTimer = setTimeout(() => this.toast.set(null), 4000);
+  }
 
   visibleProfiles = () => {
     const all = this.profiles();
@@ -489,7 +577,13 @@ export class DiscoverComponent implements OnInit {
   ngOnInit(): void {
     this.profileService.getMe().subscribe({
       next: (p) => { this.myProfileId = p.profileId; },
-      error: () => { this.router.navigate(['/profile/edit']); }
+      error: (err: HttpErrorResponse) => {
+        if (err.status === 429) {
+          this.showToast('Too many requests. Please wait a moment.');
+        } else {
+          this.router.navigate(['/profile/edit']);
+        }
+      }
     });
     this.loadDeck();
   }
@@ -502,10 +596,12 @@ export class DiscoverComponent implements OnInit {
         this.currentIndex.set(0);
         this.loading.set(false);
       },
-      error: (err) => {
+      error: (err: HttpErrorResponse) => {
         console.error('Failed to load deck', err);
         this.loading.set(false);
-        if (err.status === 404) {
+        if (err.status === 429) {
+          this.showToast('Too many requests. Please wait before refreshing.');
+        } else if (err.status === 404) {
           this.router.navigate(['/profile/edit']);
         }
       }
@@ -522,8 +618,20 @@ export class DiscoverComponent implements OnInit {
       isSuper
     }).subscribe({
       next: () => { this.currentIndex.update(v => v + 1); },
-      error: () => { this.currentIndex.update(v => v + 1); }
+      error: (err: HttpErrorResponse) => {
+        if (isSuper && err.status === 403) {
+          this.showPremiumModal.set(true);
+        } else if (err.status === 429) {
+          this.showToast("You're swiping too fast! Please slow down.");
+        } else {
+          this.currentIndex.update(v => v + 1);
+        }
+      }
     });
+  }
+
+  dismissPremiumModal(): void {
+    this.showPremiumModal.set(false);
   }
 
   swipeLeft(): void {

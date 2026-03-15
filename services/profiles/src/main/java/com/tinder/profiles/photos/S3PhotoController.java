@@ -92,10 +92,28 @@ public class S3PhotoController {
 
         try {
             UUID userId = UUID.fromString(jwt.getSubject());
-            photoService.delete(photoId, userId);
+            photoService.deletePhotoRecord(UUID.fromString(photoId), userId);
 
             return ResponseEntity
                     .ok(ApiResponse.success("Photo deleted successfully"));
+
+        } catch (IllegalArgumentException e) {
+            log.warn("Photo not found for deletion: {}", photoId);
+            return ResponseEntity
+                    .status(HttpStatus.NOT_FOUND)
+                    .body(ErrorSummary.builder()
+                            .code("PHOTO_NOT_FOUND")
+                            .message(e.getMessage())
+                            .build());
+
+        } catch (SecurityException e) {
+            log.warn("Unauthorized photo deletion attempt for photo: {}", photoId);
+            return ResponseEntity
+                    .status(HttpStatus.FORBIDDEN)
+                    .body(ErrorSummary.builder()
+                            .code("FORBIDDEN")
+                            .message("You are not authorized to delete this photo")
+                            .build());
 
         } catch (Exception e) {
             log.error("Failed to delete photo: {}", photoId, e);

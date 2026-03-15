@@ -34,7 +34,7 @@ public record PatchProfileDto(
 
         @Size(max = 100, message = "city name too long")
         @Pattern(
-                regexp = "^[a-zA-ZÀ-ÿ\\s-]+$",
+                regexp = "^[a-zA-ZÀ-ÿ\\s-]*$",
                 message = "city can only contain letters, spaces, and hyphens"
         )
         String city,

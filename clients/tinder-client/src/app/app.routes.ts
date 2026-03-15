@@ -12,6 +12,10 @@ export const routes: Routes = [
     loadComponent: () => import('./features/login/login.component').then(m => m.LoginComponent)
   },
   {
+    path: 'location-permission',
+    loadComponent: () => import('./features/location-permission/location-permission.component').then(m => m.LocationPermissionComponent)
+  },
+  {
     path: 'discover',
     canActivate: [authGuard],
     loadComponent: () => import('./features/discover/discover.component').then(m => m.DiscoverComponent)
