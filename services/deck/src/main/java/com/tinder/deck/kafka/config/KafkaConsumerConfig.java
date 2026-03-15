@@ -2,7 +2,7 @@ package com.tinder.deck.kafka.config;
 
 import com.tinder.deck.kafka.dto.ProfileDeleteEvent;
 import com.tinder.deck.kafka.dto.ProfileUpdateEvent;
-import com.tinder.deck.kafka.dto.SwipeCreatedEvent;
+import com.tinder.deck.kafka.dto.SwipeSavedEvent;
 import java.time.Duration;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.common.serialization.StringDeserializer;
@@ -95,17 +95,18 @@ public class KafkaConsumerConfig {
     }
 
     /**
-     * Consumer factory for SwipeCreatedEvent deserialization
+     * Consumer factory for SwipeSavedEvent deserialization
      */
     @Bean
-    public ConsumerFactory<String, SwipeCreatedEvent> swipeEventConsumerFactory() {
+    public ConsumerFactory<String, SwipeSavedEvent> swipeEventConsumerFactory() {
         Map<String, Object> props = new HashMap<>();
         props.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers);
         props.put(ConsumerConfig.GROUP_ID_CONFIG, groupId + "-swipe");
         props.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class);
         props.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, JsonDeserializer.class);
         props.put(JsonDeserializer.TRUSTED_PACKAGES, "com.tinder.deck.kafka.dto");
-        props.put(JsonDeserializer.VALUE_DEFAULT_TYPE, SwipeCreatedEvent.class.getName());
+        props.put(JsonDeserializer.VALUE_DEFAULT_TYPE, SwipeSavedEvent.class.getName());
+        props.put(JsonDeserializer.USE_TYPE_INFO_HEADERS, false);
         props.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest");
 
         // Performance tuning
@@ -156,12 +157,12 @@ public class KafkaConsumerConfig {
     }
 
     /**
-     * Listener container factory for SwipeCreatedEvent with manual acknowledgment
+     * Listener container factory for SwipeSavedEvent with manual acknowledgment
      */
     @Bean
-    public ConcurrentKafkaListenerContainerFactory<String, SwipeCreatedEvent> swipeKafkaListenerContainerFactory(
+    public ConcurrentKafkaListenerContainerFactory<String, SwipeSavedEvent> swipeKafkaListenerContainerFactory(
             DefaultErrorHandler kafkaErrorHandler) {
-        ConcurrentKafkaListenerContainerFactory<String, SwipeCreatedEvent> factory =
+        ConcurrentKafkaListenerContainerFactory<String, SwipeSavedEvent> factory =
                 new ConcurrentKafkaListenerContainerFactory<>();
         factory.setConsumerFactory(swipeEventConsumerFactory());
         factory.setConcurrency(concurrency);

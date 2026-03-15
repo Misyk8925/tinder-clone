@@ -1,16 +1,13 @@
 package com.tinder.clone.consumer.kafka.config;
 
-import com.tinder.clone.consumer.kafka.event.MatchCreateEvent;
 import com.tinder.clone.consumer.kafka.event.ProfileCreateEvent;
 import com.tinder.clone.consumer.kafka.event.ProfileDeleteEvent;
 import com.tinder.clone.consumer.kafka.event.SwipeCreatedEvent;
 import org.apache.kafka.clients.admin.NewTopic;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
-import org.apache.kafka.clients.producer.ProducerConfig;
-import org.apache.kafka.common.serialization.StringSerializer;
+import org.apache.kafka.common.serialization.StringDeserializer;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.Primary;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.kafka.annotation.EnableKafka;
 import org.springframework.kafka.config.ConcurrentKafkaListenerContainerFactory;
@@ -18,14 +15,10 @@ import org.springframework.kafka.config.TopicBuilder;
 import org.springframework.kafka.core.ConsumerFactory;
 import org.springframework.kafka.core.DefaultKafkaConsumerFactory;
 import org.springframework.kafka.listener.ContainerProperties;
-import org.springframework.kafka.core.DefaultKafkaProducerFactory;
-import org.springframework.kafka.core.KafkaTemplate;
-import org.springframework.kafka.core.ProducerFactory;
 import org.springframework.kafka.listener.DefaultErrorHandler;
 import org.springframework.kafka.support.serializer.ErrorHandlingDeserializer;
 import org.springframework.kafka.support.serializer.JacksonJsonDeserializer;
 
-import org.springframework.kafka.support.serializer.JacksonJsonSerializer;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -44,6 +37,9 @@ public class KafkaConfig {
 
     @Value("${app.kafka.topic.match-created}")
     private String matchCreatedTopic;
+
+    @Value("${app.kafka.topic.swipe-saved}")
+    private String swipeSavedTopic;
 
     @Value("${spring.kafka.bootstrap-servers}")
     private String bootstrapServers;
@@ -92,27 +88,20 @@ public class KafkaConfig {
                 .config("retentions.ms", "604800000")
                 .config("cleanup.policy", "delete")
                 .build();
+    }
+
+    @Bean
+    public NewTopic swipeSavedTopic() {
+        return TopicBuilder.name(swipeSavedTopic)
+                .partitions(10)
+                .replicas(1)
+                .config("retention.ms", "604800000")
+                .config("cleanup.policy", "delete")
+                .build();
+    }
 
     @Bean
     public ConsumerFactory<String, SwipeCreatedEvent> swipeEventConsumerFactory() {
-    @Bean
-    @Primary
-    public ProducerFactory<String, MatchCreateEvent> matchEventProducerFactory() {
-        Map<String, Object> props = new HashMap<>();
-        props.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers);
-        props.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, StringSerializer.class);
-        props.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, JacksonJsonSerializer.class);
-        props.put(ProducerConfig.ACKS_CONFIG, "all");
-        props.put(JacksonJsonSerializer.ADD_TYPE_INFO_HEADERS, false);
-        return new DefaultKafkaProducerFactory<>(props);
-    }
-
-    @Bean
-    @Primary
-    public KafkaTemplate<String, MatchCreateEvent> matchKafkaTemplate() {
-        return new KafkaTemplate<>(matchEventProducerFactory());
-    }
-
         Map<String, Object> props = baseConsumerProps(groupId, SwipeCreatedEvent.class);
         return new DefaultKafkaConsumerFactory<>(props);
     }

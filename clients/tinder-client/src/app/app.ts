@@ -1,6 +1,7 @@
-import { Component } from '@angular/core';
+import { Component, inject } from '@angular/core';
 import { RouterOutlet } from '@angular/router';
 import { NavbarComponent } from './shared/components/navbar/navbar.component';
+import { ThemeService } from './core/services/theme.service';
 
 @Component({
   selector: 'app-root',
@@ -16,10 +17,14 @@ import { NavbarComponent } from './shared/components/navbar/navbar.component';
       height: 100vh;
       display: flex;
       flex-direction: column;
-      background: #f5f5f5;
+      background: var(--bg);
       position: relative;
       overflow: hidden;
     }
   `]
 })
-export class App {}
+export class App {
+  // Injecting ThemeService here ensures it is instantiated at startup,
+  // applying the saved/preferred theme before any component renders.
+  private theme = inject(ThemeService);
+}

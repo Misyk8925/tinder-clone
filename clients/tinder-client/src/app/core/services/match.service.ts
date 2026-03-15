@@ -25,11 +25,20 @@ export interface Conversation {
   messages: Message[];
 }
 
+export interface LastMessagePreview {
+  messageId: string;
+  senderId: string;
+  messageType: string;
+  text: string | null;
+  createdAt: string;
+}
+
 export interface ConversationDto {
   conversationId: string;
   participant1Id: string;
   participant2Id: string;
   status: string;
+  lastMessage: LastMessagePreview | null;
 }
 
 export interface Message {
@@ -92,7 +101,7 @@ export class MatchService {
         messages: (r.messages ?? []).map(m => ({
           id: m.messageId,
           senderId: m.senderId,
-          content: m.text ?? '',
+          content: m.messageType === 'IMAGE' ? (m.attachments?.[0]?.url ?? '') : (m.text ?? ''),
           type: m.messageType === 'IMAGE' ? 'photo' as const : 'text' as const,
           sentAt: m.createdAt
         }))

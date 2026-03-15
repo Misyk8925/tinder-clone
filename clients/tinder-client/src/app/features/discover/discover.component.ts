@@ -87,7 +87,7 @@ import { Router } from '@angular/router';
       display: flex;
       flex-direction: column;
       height: 100vh;
-      background: #f5f5f5;
+      background: var(--bg);
       padding-bottom: 70px;
     }
 
@@ -96,8 +96,8 @@ import { Router } from '@angular/router';
       justify-content: center;
       align-items: center;
       padding: 14px 20px;
-      background: #fff;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+      background: var(--surface);
+      box-shadow: 0 2px 8px var(--shadow-sm);
 
       .logo {
         display: flex;
@@ -155,7 +155,7 @@ import { Router } from '@angular/router';
       display: flex;
       align-items: center;
       justify-content: center;
-      box-shadow: 0 4px 16px rgba(0,0,0,0.12);
+      box-shadow: 0 4px 16px var(--shadow-lg);
       transition: transform 0.15s, box-shadow 0.15s;
 
       &:active { transform: scale(0.92); }
@@ -164,14 +164,14 @@ import { Router } from '@angular/router';
 
       &.nope {
         width: 60px; height: 60px;
-        background: #fff;
+        background: var(--surface);
         color: #fd5564;
         border: 2px solid #fd5564;
       }
 
       &.superlike {
         width: 52px; height: 52px;
-        background: #fff;
+        background: var(--surface);
         color: #1da1f2;
         border: 2px solid #1da1f2;
         svg { width: 22px; height: 22px; }
@@ -179,7 +179,7 @@ import { Router } from '@angular/router';
 
       &.like {
         width: 60px; height: 60px;
-        background: #fff;
+        background: var(--surface);
         color: #00d26a;
         border: 2px solid #00d26a;
       }
@@ -195,13 +195,13 @@ import { Router } from '@angular/router';
       text-align: center;
 
       .empty-icon { font-size: 64px; }
-      h3 { margin: 0; font-size: 22px; color: #333; }
-      p { margin: 0; color: #888; }
+      h3 { margin: 0; font-size: 22px; color: var(--text-primary); }
+      p { margin: 0; color: var(--text-muted); }
     }
 
     .spinner {
       width: 48px; height: 48px;
-      border: 4px solid #f0f0f0;
+      border: 4px solid var(--border-light);
       border-top: 4px solid #fd5564;
       border-radius: 50%;
       animation: spin 0.8s linear infinite;
@@ -349,12 +349,6 @@ export class DiscoverComponent implements OnInit {
 
     this.swipeService.swipe(swipeData).subscribe({
       next: () => {
-        if (direction === 'right') {
-          // Simulate match probability for demo
-          if (Math.random() > 0.6) {
-            this.matchedProfile.set(profile);
-          }
-        }
         this.currentIndex.update(v => v + 1);
       },
       error: () => {

@@ -1,8 +1,8 @@
-import { Component, inject, OnInit, signal } from '@angular/core';
+import { Component, inject, OnInit, OnDestroy, signal } from '@angular/core';
 import { Router } from '@angular/router';
 import { forkJoin, of, switchMap } from 'rxjs';
 import { catchError, map } from 'rxjs/operators';
-import { MatchService, Match } from '../../core/services/match.service';
+import { MatchService, Match, ConversationDto } from '../../core/services/match.service';
 import { ProfileService } from '../../core/services/profile.service';
 import { Profile } from '../../core/models/profile.model';
 
@@ -16,6 +16,19 @@ interface NewMatch {
 interface ConversationWithProfile {
   conversationId: string;
   otherProfile: Profile | null;
+  lastMessageText: string | null;
+  lastMessageAt: string | null;
+  unread: boolean;
+}
+
+const LAST_READ_PREFIX = 'lastRead_';
+
+function getLastRead(conversationId: string): string | null {
+  return localStorage.getItem(LAST_READ_PREFIX + conversationId);
+}
+
+export function markConversationRead(conversationId: string): void {
+  localStorage.setItem(LAST_READ_PREFIX + conversationId, new Date().toISOString());
 }
 
 @Component({
@@ -77,7 +90,7 @@ interface ConversationWithProfile {
               <h2 class="section-title">Messages</h2>
               <div class="conversations-list">
                 @for (item of conversations(); track item.conversationId) {
-                  <div class="conv-item" (click)="openChat(item.conversationId)">
+                  <div class="conv-item" [class.unread]="item.unread" (click)="openChat(item.conversationId)">
                     <div class="conv-avatar">
                       @if (item.otherProfile?.photos?.length) {
                         <img [src]="item.otherProfile!.photos[0].url" [alt]="item.otherProfile!.name" />
@@ -86,10 +99,21 @@ interface ConversationWithProfile {
                       }
                     </div>
                     <div class="conv-info">
-                      <h3>{{ item.otherProfile?.name ?? 'User' }}</h3>
-                      <p>Tap to open chat</p>
+                      <div class="conv-name-row">
+                        <h3>{{ item.otherProfile?.name ?? 'User' }}</h3>
+                        @if (item.lastMessageAt) {
+                          <span class="conv-time">{{ formatTime(item.lastMessageAt) }}</span>
+                        }
+                      </div>
+                      <div class="conv-preview-row">
+                        <p [class.unread-text]="item.unread">
+                          {{ item.lastMessageText ?? 'Tap to open chat' }}
+                        </p>
+                        @if (item.unread) {
+                          <span class="unread-dot"></span>
+                        }
+                      </div>
                     </div>
-                    <div class="conv-arrow">›</div>
                   </div>
                 }
               </div>
@@ -105,22 +129,22 @@ interface ConversationWithProfile {
       display: flex;
       flex-direction: column;
       height: 100vh;
-      background: #f5f5f5;
+      background: var(--bg);
       padding-bottom: 70px;
       overflow: hidden;
     }
 
     .header {
       padding: 20px 20px 16px;
-      background: #fff;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+      background: var(--surface);
+      box-shadow: 0 2px 8px var(--shadow-sm);
       flex-shrink: 0;
 
       h1 {
         margin: 0;
         font-size: 24px;
         font-weight: 700;
-        color: #333;
+        color: var(--text-primary);
       }
     }
 
@@ -134,7 +158,7 @@ interface ConversationWithProfile {
     .spinner {
       width: 40px;
       height: 40px;
-      border: 3px solid #f0f0f0;
+      border: 3px solid var(--border-light);
       border-top: 3px solid #fd5564;
       border-radius: 50%;
       animation: spin 0.8s linear infinite;
@@ -153,8 +177,8 @@ interface ConversationWithProfile {
       padding: 40px;
 
       .empty-icon { font-size: 64px; }
-      h3 { margin: 0; font-size: 20px; color: #333; }
-      p { margin: 0; color: #888; }
+      h3 { margin: 0; font-size: 20px; color: var(--text-primary); }
+      p { margin: 0; color: var(--text-muted); }
     }
 
     .btn-primary {
@@ -174,7 +198,7 @@ interface ConversationWithProfile {
     }
 
     .section {
-      background: #fff;
+      background: var(--surface);
       margin-bottom: 8px;
     }
 
@@ -185,7 +209,7 @@ interface ConversationWithProfile {
       font-weight: 700;
       text-transform: uppercase;
       letter-spacing: 0.5px;
-      color: #999;
+      color: var(--text-muted);
       display: flex;
       align-items: center;
       gap: 8px;
@@ -243,14 +267,14 @@ interface ConversationWithProfile {
       height: 70px;
       border-radius: 50%;
       overflow: hidden;
-      background: #e0e0e0;
-      border: 2px solid #fff;
+      background: var(--border);
+      border: 2px solid var(--surface);
       display: flex;
       align-items: center;
       justify-content: center;
       font-size: 24px;
       font-weight: 700;
-      color: #666;
+      color: var(--text-secondary);
 
       img {
         width: 100%;
@@ -283,7 +307,7 @@ interface ConversationWithProfile {
       margin: 0;
       font-size: 12px;
       font-weight: 600;
-      color: #333;
+      color: var(--text-primary);
       max-width: 76px;
       text-align: center;
       overflow: hidden;
@@ -304,7 +328,7 @@ interface ConversationWithProfile {
       cursor: pointer;
       transition: background 0.15s;
 
-      &:active { background: #f9f9f9; }
+      &:active { background: var(--surface-2); }
     }
 
     .conv-avatar {
@@ -331,33 +355,63 @@ interface ConversationWithProfile {
     .conv-info {
       flex: 1;
       min-width: 0;
+    }
+
+    .conv-name-row {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 8px;
+      margin-bottom: 3px;
 
       h3 {
-        margin: 0 0 3px;
+        margin: 0;
         font-size: 16px;
         font-weight: 600;
-        color: #222;
+        color: var(--text-primary);
         white-space: nowrap;
         overflow: hidden;
         text-overflow: ellipsis;
       }
+    }
+
+    .conv-time {
+      font-size: 12px;
+      color: var(--text-muted);
+      flex-shrink: 0;
+    }
+
+    .conv-preview-row {
+      display: flex;
+      align-items: center;
+      gap: 6px;
 
       p {
         margin: 0;
         font-size: 14px;
-        color: #aaa;
+        color: var(--text-muted);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+
+        &.unread-text {
+          color: var(--text-primary);
+          font-weight: 600;
+        }
       }
     }
 
-    .conv-arrow {
-      color: #ddd;
-      font-size: 22px;
-      font-weight: 300;
+    .unread-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, #fd5564, #ff8a00);
       flex-shrink: 0;
+      margin-left: auto;
     }
   `]
 })
-export class MatchesComponent implements OnInit {
+export class MatchesComponent implements OnInit, OnDestroy {
   private matchService = inject(MatchService);
   private profileService = inject(ProfileService);
   private router = inject(Router);
@@ -367,15 +421,30 @@ export class MatchesComponent implements OnInit {
   loading = signal(true);
   startingChat = signal<string | null>(null);
 
+  private myId: string | null = null;
+  private pollInterval: ReturnType<typeof setInterval> | null = null;
+
   ngOnInit(): void {
+    this.loadData(true);
+    this.pollInterval = setInterval(() => this.loadData(false), 8000);
+  }
+
+  ngOnDestroy(): void {
+    if (this.pollInterval !== null) {
+      clearInterval(this.pollInterval);
+    }
+  }
+
+  private loadData(showSpinner: boolean): void {
+    if (showSpinner) this.loading.set(true);
     this.profileService.getMe().pipe(
-      switchMap(me =>
-        forkJoin({
+      switchMap(me => {
+        this.myId = me.profileId;
+        return forkJoin({
           matches: this.matchService.getMatches(me.profileId).pipe(catchError(() => of([] as Match[]))),
-          chats: this.matchService.getMyChats(me.profileId).pipe(catchError(() => of([])))
+          chats: this.matchService.getMyChats(me.profileId).pipe(catchError(() => of([] as ConversationDto[])))
         }).pipe(
           switchMap(({ matches, chats }) => {
-            // Build a set of participant pairs that already have conversations
             const chattedPairs = new Set(
               chats.map(c => [c.participant1Id, c.participant2Id].sort().join('|'))
             );
@@ -388,7 +457,7 @@ export class MatchesComponent implements OnInit {
             const otherMatchId = (m: Match) =>
               m.profile1Id === me.profileId ? m.profile2Id : m.profile1Id;
 
-            const otherChatId = (c: { participant1Id: string; participant2Id: string }) =>
+            const otherChatId = (c: ConversationDto) =>
               c.participant1Id === me.profileId ? c.participant2Id : c.participant1Id;
 
             const newMatchObs = unmatchedMatches.length
@@ -413,16 +482,16 @@ export class MatchesComponent implements OnInit {
             const chatObs = chats.length
               ? forkJoin(chats.map(conv =>
                   this.profileService.getProfile(otherChatId(conv)).pipe(
-                    map(profile => ({ conversationId: conv.conversationId, otherProfile: profile })),
-                    catchError(() => of({ conversationId: conv.conversationId, otherProfile: null }))
+                    map(profile => this.buildConversationItem(conv, profile, me.profileId)),
+                    catchError(() => of(this.buildConversationItem(conv, null, me.profileId)))
                   )
                 ))
               : of([] as ConversationWithProfile[]);
 
             return forkJoin({ newMatches: newMatchObs, conversations: chatObs });
           })
-        )
-      )
+        );
+      })
     ).subscribe({
       next: ({ newMatches, conversations }) => {
         this.newMatches.set(newMatches);
@@ -431,6 +500,35 @@ export class MatchesComponent implements OnInit {
       },
       error: () => this.loading.set(false)
     });
+  }
+
+  private buildConversationItem(
+    conv: ConversationDto,
+    profile: Profile | null,
+    myProfileId: string
+  ): ConversationWithProfile {
+    const lm = conv.lastMessage;
+    let lastMessageText: string | null = null;
+    let unread = false;
+
+    if (lm) {
+      lastMessageText = lm.messageType === 'IMAGE' ? '📷 Photo' : (lm.text ?? null);
+
+      // Unread if: the last message was sent by the other person AND
+      // it arrived after the last time the user opened this conversation.
+      if (lm.senderId !== myProfileId) {
+        const lastRead = getLastRead(conv.conversationId);
+        unread = !lastRead || new Date(lm.createdAt) > new Date(lastRead);
+      }
+    }
+
+    return {
+      conversationId: conv.conversationId,
+      otherProfile: profile,
+      lastMessageText,
+      lastMessageAt: lm?.createdAt ?? null,
+      unread
+    };
   }
 
   startChat(match: NewMatch): void {
@@ -443,6 +541,7 @@ export class MatchesComponent implements OnInit {
   }
 
   openChat(conversationId: string): void {
+    markConversationRead(conversationId);
     this.router.navigate(['/chat', conversationId]);
   }
 
@@ -452,5 +551,15 @@ export class MatchesComponent implements OnInit {
 
   firstName(name: string | undefined): string {
     return name?.split(' ')[0] ?? 'User';
+  }
+
+  formatTime(dateStr: string): string {
+    if (!dateStr) return '';
+    const date = new Date(dateStr);
+    const now = new Date();
+    const isToday = date.toDateString() === now.toDateString();
+    return isToday
+      ? date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+      : date.toLocaleDateString([], { month: 'short', day: 'numeric' });
   }
 }

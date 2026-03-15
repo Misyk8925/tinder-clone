@@ -2,6 +2,8 @@ import { Component, inject, OnInit, signal } from '@angular/core';
 import { Router } from '@angular/router';
 import { ProfileService } from '../../core/services/profile.service';
 import { KeycloakService } from '../../core/services/keycloak.service';
+import { SubscriptionService } from '../../core/services/subscription.service';
+import { ThemeService } from '../../core/services/theme.service';
 import { Profile } from '../../core/models/profile.model';
 
 @Component({
@@ -10,7 +12,12 @@ import { Profile } from '../../core/models/profile.model';
     <div class="profile-page">
       <header class="header">
         <h1>My Profile</h1>
-        <button class="edit-btn" (click)="goEdit()">Edit</button>
+        <div class="header-actions">
+          <button class="theme-toggle" (click)="theme.toggle()" [title]="theme.isDark() ? 'Switch to light mode' : 'Switch to dark mode'">
+            {{ theme.isDark() ? '☀️' : '🌙' }}
+          </button>
+          <button class="edit-btn" (click)="goEdit()">Edit</button>
+        </div>
       </header>
 
       @if (loading()) {
@@ -78,6 +85,37 @@ import { Profile } from '../../core/models/profile.model';
             }
           </div>
 
+          <div class="subscription-section">
+            @if (isPremium()) {
+              <div class="premium-badge-row">
+                <span class="premium-badge">⭐ Premium</span>
+                <span class="premium-label">You're a Premium member</span>
+              </div>
+              <button class="btn-manage-sub" (click)="manageSubscription()" [disabled]="subLoading()">
+                {{ subLoading() ? 'Loading...' : 'Manage Subscription' }}
+              </button>
+            } @else {
+              <div class="premium-card">
+                <div class="premium-card-header">
+                  <span class="crown">👑</span>
+                  <div>
+                    <h3>Get Premium</h3>
+                    <p>Unlock unlimited swipes & more</p>
+                  </div>
+                  <span class="price">€10<small>/mo</small></span>
+                </div>
+                <ul class="perks">
+                  <li>Unlimited swipes per day</li>
+                  <li>See who liked you</li>
+                  <li>Priority in discovery</li>
+                </ul>
+                <button class="btn-subscribe" (click)="subscribe()" [disabled]="subLoading()">
+                  {{ subLoading() ? 'Loading...' : 'Subscribe Now' }}
+                </button>
+              </div>
+            }
+          </div>
+
           <div class="danger-section">
             <button class="btn-logout" (click)="logout()">Logout</button>
             <button class="btn-delete" (click)="deleteProfile()">Delete Account</button>
@@ -98,7 +136,7 @@ import { Profile } from '../../core/models/profile.model';
       display: flex;
       flex-direction: column;
       height: 100vh;
-      background: #f5f5f5;
+      background: var(--bg);
       padding-bottom: 70px;
       overflow-y: auto;
     }
@@ -108,13 +146,35 @@ import { Profile } from '../../core/models/profile.model';
       align-items: center;
       justify-content: space-between;
       padding: 20px;
-      background: #fff;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+      background: var(--surface);
+      box-shadow: 0 2px 8px var(--shadow-sm);
       position: sticky;
       top: 0;
       z-index: 10;
 
-      h1 { margin: 0; font-size: 24px; font-weight: 700; color: #333; }
+      h1 { margin: 0; font-size: 24px; font-weight: 700; color: var(--text-primary); }
+    }
+
+    .header-actions {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .theme-toggle {
+      background: var(--surface-2);
+      border: 1px solid var(--border);
+      border-radius: 50%;
+      width: 38px;
+      height: 38px;
+      font-size: 18px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: background 0.2s;
+
+      &:hover { background: var(--border); }
     }
 
     .edit-btn {
@@ -137,7 +197,7 @@ import { Profile } from '../../core/models/profile.model';
 
     .spinner {
       width: 40px; height: 40px;
-      border: 3px solid #f0f0f0;
+      border: 3px solid var(--border-light);
       border-top: 3px solid #fd5564;
       border-radius: 50%;
       animation: spin 0.8s linear infinite;
@@ -156,7 +216,7 @@ import { Profile } from '../../core/models/profile.model';
       border-radius: 20px;
       overflow: hidden;
       margin-bottom: 16px;
-      background: #e8e8e8;
+      background: var(--border);
     }
 
     .main-photo {
@@ -196,11 +256,11 @@ import { Profile } from '../../core/models/profile.model';
     }
 
     .info-section {
-      background: #fff;
+      background: var(--surface);
       border-radius: 20px;
       padding: 20px;
       margin-bottom: 16px;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+      box-shadow: 0 2px 8px var(--shadow-sm);
     }
 
     .name-row {
@@ -209,7 +269,7 @@ import { Profile } from '../../core/models/profile.model';
       gap: 10px;
       margin-bottom: 4px;
 
-      h2 { margin: 0; font-size: 24px; font-weight: 700; color: #333; }
+      h2 { margin: 0; font-size: 24px; font-weight: 700; color: var(--text-primary); }
     }
 
     .badge {
@@ -221,13 +281,13 @@ import { Profile } from '../../core/models/profile.model';
       &.active { background: #e8fdf1; color: #00a84f; }
     }
 
-    .city { margin: 0 0 16px; color: #666; font-size: 15px; }
+    .city { margin: 0 0 16px; color: var(--text-secondary); font-size: 15px; }
 
     .section {
       margin-bottom: 16px;
 
-      h4 { margin: 0 0 8px; font-size: 13px; text-transform: uppercase; letter-spacing: 0.5px; color: #aaa; }
-      p { margin: 0; color: #555; font-size: 15px; line-height: 1.5; }
+      h4 { margin: 0 0 8px; font-size: 13px; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-muted); }
+      p { margin: 0; color: var(--text-secondary); font-size: 15px; line-height: 1.5; }
     }
 
     .pref-grid {
@@ -237,13 +297,13 @@ import { Profile } from '../../core/models/profile.model';
     }
 
     .pref-item {
-      background: #f8f8f8;
+      background: var(--surface-2);
       border-radius: 12px;
       padding: 10px;
       text-align: center;
 
-      .pref-label { display: block; font-size: 11px; color: #aaa; margin-bottom: 4px; }
-      .pref-value { display: block; font-size: 14px; font-weight: 600; color: #333; }
+      .pref-label { display: block; font-size: 11px; color: var(--text-muted); margin-bottom: 4px; }
+      .pref-value { display: block; font-size: 14px; font-weight: 600; color: var(--text-primary); }
     }
 
     .hobbies {
@@ -262,6 +322,113 @@ import { Profile } from '../../core/models/profile.model';
       font-weight: 500;
     }
 
+    .subscription-section {
+      padding: 0 0 16px;
+    }
+
+    .premium-badge-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      background: linear-gradient(135deg, #7b2ff7, #f107a3);
+      border-radius: 16px;
+      padding: 14px 18px;
+      margin-bottom: 10px;
+    }
+
+    .premium-badge {
+      font-size: 20px;
+    }
+
+    .premium-label {
+      flex: 1;
+      color: #fff;
+      font-weight: 600;
+      font-size: 15px;
+    }
+
+    .btn-manage-sub {
+      width: 100%;
+      padding: 12px;
+      border-radius: 14px;
+      border: 2px solid #7b2ff7;
+      background: var(--surface);
+      color: #7b2ff7;
+      font-size: 15px;
+      font-weight: 600;
+      cursor: pointer;
+
+      &:disabled { opacity: 0.6; cursor: default; }
+    }
+
+    .premium-card {
+      background: var(--surface);
+      border-radius: 20px;
+      padding: 20px;
+      box-shadow: 0 2px 12px rgba(123,47,247,0.12);
+      border: 1.5px solid #ede5ff;
+    }
+
+    .premium-card-header {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      margin-bottom: 16px;
+
+      .crown { font-size: 32px; }
+
+      div { flex: 1; }
+      h3 { margin: 0; font-size: 18px; font-weight: 700; color: var(--text-primary); }
+      p { margin: 2px 0 0; font-size: 13px; color: var(--text-muted); }
+    }
+
+    .price {
+      font-size: 24px;
+      font-weight: 800;
+      color: #7b2ff7;
+
+      small { font-size: 13px; font-weight: 500; color: var(--text-muted); }
+    }
+
+    .perks {
+      list-style: none;
+      padding: 0;
+      margin: 0 0 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+
+      li {
+        font-size: 14px;
+        color: var(--text-secondary);
+        padding-left: 20px;
+        position: relative;
+
+        &::before {
+          content: '✓';
+          position: absolute;
+          left: 0;
+          color: #7b2ff7;
+          font-weight: 700;
+        }
+      }
+    }
+
+    .btn-subscribe {
+      width: 100%;
+      padding: 14px;
+      border-radius: 14px;
+      border: none;
+      background: linear-gradient(135deg, #7b2ff7, #f107a3);
+      color: #fff;
+      font-size: 16px;
+      font-weight: 700;
+      cursor: pointer;
+      letter-spacing: 0.3px;
+
+      &:disabled { opacity: 0.6; cursor: default; }
+    }
+
     .danger-section {
       display: flex;
       flex-direction: column;
@@ -273,9 +440,9 @@ import { Profile } from '../../core/models/profile.model';
       width: 100%;
       padding: 14px;
       border-radius: 14px;
-      border: 2px solid #e8e8e8;
-      background: #fff;
-      color: #555;
+      border: 2px solid var(--border);
+      background: var(--surface);
+      color: var(--text-secondary);
       font-size: 16px;
       font-weight: 600;
       cursor: pointer;
@@ -304,8 +471,8 @@ import { Profile } from '../../core/models/profile.model';
       padding: 40px;
 
       .empty-icon { font-size: 64px; }
-      h3 { margin: 0; font-size: 22px; color: #333; }
-      p { margin: 0; color: #888; }
+      h3 { margin: 0; font-size: 22px; color: var(--text-primary); }
+      p { margin: 0; color: var(--text-muted); }
     }
 
     .btn-primary {
@@ -323,15 +490,36 @@ import { Profile } from '../../core/models/profile.model';
 export class ProfileComponent implements OnInit {
   private profileService = inject(ProfileService);
   private keycloak = inject(KeycloakService);
+  private subscriptionService = inject(SubscriptionService);
   private router = inject(Router);
+  theme = inject(ThemeService);
 
   profile = signal<Profile | null>(null);
   loading = signal(true);
+  subLoading = signal(false);
+  isPremium = signal(false);
 
   ngOnInit(): void {
+    this.isPremium.set(this.keycloak.hasRole('premium'));
     this.profileService.getMe().subscribe({
       next: (p) => { this.profile.set(p); this.loading.set(false); },
       error: () => { this.profile.set(null); this.loading.set(false); }
+    });
+  }
+
+  subscribe(): void {
+    this.subLoading.set(true);
+    this.subscriptionService.createCheckoutSession().subscribe({
+      next: (url) => { window.location.href = url; },
+      error: () => { alert('Failed to start checkout. Please try again.'); this.subLoading.set(false); }
+    });
+  }
+
+  manageSubscription(): void {
+    this.subLoading.set(true);
+    this.subscriptionService.createPortalSession().subscribe({
+      next: (url) => { window.location.href = url; },
+      error: () => { alert('Failed to open billing portal. Please try again.'); this.subLoading.set(false); }
     });
   }
 

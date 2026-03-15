@@ -12,4 +12,6 @@ public interface MessageRepository extends JpaRepository<Message, UUID> {
     List<Message> findByConversationConversationIdOrderByCreatedAtAsc(UUID conversationId);
 
     Optional<Message> findBySenderIdAndClientMessageId(UUID senderId, UUID clientMessageId);
+
+    Optional<Message> findTopByConversationConversationIdOrderByCreatedAtDesc(UUID conversationId);
 }

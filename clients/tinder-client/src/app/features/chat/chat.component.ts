@@ -1,6 +1,6 @@
 import {
   Component, inject, OnInit, OnDestroy, signal,
-  ViewChild, ElementRef, AfterViewChecked
+  ViewChild, ElementRef, AfterViewChecked, HostListener
 } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
 import { FormsModule } from '@angular/forms';
@@ -8,6 +8,7 @@ import { NgClass } from '@angular/common';
 import { HttpClient } from '@angular/common/http';
 import { firstValueFrom } from 'rxjs';
 import { MatchService, Message } from '../../core/services/match.service';
+import { markConversationRead } from '../matches/matches.component';
 import { KeycloakService } from '../../core/services/keycloak.service';
 import { ProfileService } from '../../core/services/profile.service';
 import { MinimalStompClient } from '../../core/stomp-client';
@@ -16,6 +17,7 @@ import { environment } from '../../../environments/environment';
 interface StompMessageEvent {
   occurredAt?: string;
   messageId?: string;
+  clientMessageId?: string;
   senderId?: string;
   type?: string;
   text?: string | null;
@@ -58,7 +60,7 @@ interface StompMessageEvent {
             <div class="message" [ngClass]="{ 'mine': msg.senderId === myId() }">
               <div class="bubble">
                 @if (msg.type === 'photo') {
-                  <img [src]="msg.content" class="msg-photo" alt="Photo" />
+                  <img [src]="msg.content" class="msg-photo" alt="Photo" (click)="openPreview(msg.content)" />
                 } @else {
                   {{ msg.content }}
                 }
@@ -91,13 +93,24 @@ interface StompMessageEvent {
         </button>
       </div>
     </div>
+
+    @if (previewUrl()) {
+      <div class="lightbox" (click)="closePreview()">
+        <button class="lightbox-close" (click)="closePreview()">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+            <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+          </svg>
+        </button>
+        <img [src]="previewUrl()!" class="lightbox-img" alt="Photo preview" (click)="$event.stopPropagation()" />
+      </div>
+    }
   `,
   styles: [`
     .chat-page {
       display: flex;
       flex-direction: column;
       height: 100vh;
-      background: #f5f5f5;
+      background: var(--bg);
     }
 
     .chat-header {
@@ -105,8 +118,8 @@ interface StompMessageEvent {
       align-items: center;
       gap: 12px;
       padding: 12px 16px;
-      background: #fff;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+      background: var(--surface);
+      box-shadow: 0 2px 8px var(--shadow-sm);
       z-index: 10;
     }
 
@@ -137,7 +150,7 @@ interface StompMessageEvent {
         font-size: 14px;
       }
 
-      h2 { margin: 0; font-size: 16px; color: #333; }
+      h2 { margin: 0; font-size: 16px; color: var(--text-primary); }
     }
 
     .online {
@@ -167,7 +180,7 @@ interface StompMessageEvent {
 
     .spinner {
       width: 36px; height: 36px;
-      border: 3px solid #f0f0f0;
+      border: 3px solid var(--border-light);
       border-top: 3px solid #fd5564;
       border-radius: 50%;
       animation: spin 0.8s linear infinite;
@@ -180,7 +193,7 @@ interface StompMessageEvent {
       display: flex;
       align-items: center;
       justify-content: center;
-      p { color: #aaa; font-size: 16px; }
+      p { color: var(--text-muted); font-size: 16px; }
     }
 
     .message {
@@ -201,8 +214,8 @@ interface StompMessageEvent {
     }
 
     .bubble {
-      background: #fff;
-      color: #333;
+      background: var(--surface);
+      color: var(--text-primary);
       padding: 10px 14px;
       border-radius: 18px 18px 18px 4px;
       max-width: 70%;
@@ -216,11 +229,66 @@ interface StompMessageEvent {
       max-width: 200px;
       border-radius: 12px;
       display: block;
+      cursor: zoom-in;
+      transition: opacity 0.15s;
+
+      &:active { opacity: 0.85; }
+    }
+
+    .lightbox {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.92);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 2000;
+      animation: fade-in 0.18s ease;
+    }
+
+    @keyframes fade-in {
+      from { opacity: 0; }
+      to   { opacity: 1; }
+    }
+
+    .lightbox-img {
+      max-width: 92vw;
+      max-height: 88vh;
+      border-radius: 12px;
+      object-fit: contain;
+      box-shadow: 0 8px 40px rgba(0,0,0,0.6);
+      animation: zoom-in 0.18s ease;
+    }
+
+    @keyframes zoom-in {
+      from { transform: scale(0.88); opacity: 0; }
+      to   { transform: scale(1);    opacity: 1; }
+    }
+
+    .lightbox-close {
+      position: absolute;
+      top: 16px;
+      right: 16px;
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      border: none;
+      background: rgba(255,255,255,0.15);
+      color: #fff;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      backdrop-filter: blur(4px);
+      transition: background 0.15s;
+
+      svg { width: 20px; height: 20px; }
+      &:hover { background: rgba(255,255,255,0.25); }
     }
 
     .msg-time {
       font-size: 11px;
-      color: #aaa;
+      color: var(--text-muted);
       padding: 0 4px;
     }
 
@@ -229,13 +297,13 @@ interface StompMessageEvent {
       align-items: center;
       gap: 10px;
       padding: 12px 16px;
-      background: #fff;
-      border-top: 1px solid #f0f0f0;
+      background: var(--surface);
+      border-top: 1px solid var(--border-light);
       padding-bottom: calc(12px + env(safe-area-inset-bottom, 0px));
     }
 
     .photo-btn {
-      color: #aaa;
+      color: var(--text-muted);
       cursor: pointer;
       padding: 4px;
 
@@ -244,15 +312,16 @@ interface StompMessageEvent {
 
     .msg-input {
       flex: 1;
-      border: 1.5px solid #e8e8e8;
+      border: 1.5px solid var(--border);
       border-radius: 24px;
       padding: 10px 16px;
       font-size: 15px;
       outline: none;
-      background: #f8f8f8;
+      background: var(--surface-2);
+      color: var(--text-primary);
       transition: border-color 0.2s;
 
-      &:focus { border-color: #fd5564; background: #fff; }
+      &:focus { border-color: #fd5564; background: var(--surface); }
     }
 
     .send-btn {
@@ -287,6 +356,7 @@ export class ChatComponent implements OnInit, OnDestroy, AfterViewChecked {
   messages = signal<Message[]>([]);
   loading = signal(true);
   wsState = signal<'disconnected' | 'connecting' | 'connected'>('disconnected');
+  previewUrl = signal<string | null>(null);
   messageText = '';
   myId = signal('');  // profile UUID — used to distinguish own vs other messages
 
@@ -314,6 +384,7 @@ export class ChatComponent implements OnInit, OnDestroy, AfterViewChecked {
   }
 
   private loadHistory(id: string, profileId: string | undefined): void {
+    markConversationRead(id);
     // Passing callerProfileId registers the JWT sub → profileId mapping on the backend,
     // which the WS controller uses to validate STOMP send access.
     this.matchService.getConversation(id, profileId).subscribe({
@@ -327,7 +398,7 @@ export class ChatComponent implements OnInit, OnDestroy, AfterViewChecked {
       },
       error: () => {
         this.loading.set(false);
-        this.connectStomp(id);
+        this.router.navigate(['/matches']);
       }
     });
   }
@@ -376,6 +447,17 @@ export class ChatComponent implements OnInit, OnDestroy, AfterViewChecked {
       const event = JSON.parse(body) as StompMessageEvent;
       const id = event.messageId;
       if (!id || this.seenIds.has(id)) return;
+
+      // If the backend echoes back our optimistically-added message (matched by clientMessageId),
+      // replace the temporary local id with the server-assigned id instead of duplicating.
+      if (event.clientMessageId && this.seenIds.has(event.clientMessageId)) {
+        this.messages.update(msgs =>
+          msgs.map(m => m.id === event.clientMessageId ? { ...m, id } : m)
+        );
+        this.seenIds.add(id);
+        return;
+      }
+
       this.seenIds.add(id);
 
       const isPhoto = event.type === 'IMAGE';
@@ -402,9 +484,23 @@ export class ChatComponent implements OnInit, OnDestroy, AfterViewChecked {
     const text = this.messageText.trim();
     if (!text || !this.stomp || this.wsState() !== 'connected') return;
 
+    const clientMessageId = crypto.randomUUID();
+
+    // Optimistic update — show message immediately without waiting for STOMP echo.
+    const optimisticMsg: Message = {
+      id: clientMessageId,
+      senderId: this.myId(),
+      content: text,
+      type: 'text',
+      sentAt: new Date().toISOString()
+    };
+    this.seenIds.add(clientMessageId);
+    this.messages.update(msgs => [...msgs, optimisticMsg]);
+    this.shouldScroll = true;
+
     this.stomp.send('/app/chat.send', {
       conversationId: this.conversationId(),
-      clientMessageId: crypto.randomUUID(),
+      clientMessageId,
       messageType: 'TEXT',
       text,
       attachments: []
@@ -438,6 +534,19 @@ export class ChatComponent implements OnInit, OnDestroy, AfterViewChecked {
     ).catch(() => null);
 
     // Photo arrives via STOMP broadcast — no local push needed
+  }
+
+  openPreview(url: string): void {
+    this.previewUrl.set(url);
+  }
+
+  closePreview(): void {
+    this.previewUrl.set(null);
+  }
+
+  @HostListener('document:keydown.escape')
+  onEscape(): void {
+    this.closePreview();
   }
 
   goBack(): void {

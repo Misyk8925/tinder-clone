@@ -3,6 +3,7 @@ package com.tinder.match.conversation.implementations;
 import com.tinder.match.conversation.ConversationService;
 import com.tinder.match.conversation.dto.ConversationDto;
 import com.tinder.match.conversation.dto.ConversationWithMessagesDto;
+import com.tinder.match.conversation.dto.LastMessagePreviewDto;
 import com.tinder.match.conversation.dto.MessageAttachmentDto;
 import com.tinder.match.conversation.dto.MessageDto;
 import com.tinder.match.conversation.dto.MessageHistoryDto;
@@ -213,7 +214,7 @@ public class ConversationServiceImpl implements ConversationService {
         List<Conversation> conversations = conversationRepository.findAllByParticipant1IdOrParticipant2Id(profileId, profileId);
         log.info("Get my chats found {} conversations for profile id={}", conversations.size(), profileId);
         return conversations.stream()
-                .map(this::toConversationDto)
+                .map(conv -> toConversationDtoWithPreview(conv))
                 .toList();
     }
 
@@ -387,7 +388,29 @@ public class ConversationServiceImpl implements ConversationService {
                 conversation.getConversationId(),
                 conversation.getParticipant1Id(),
                 conversation.getParticipant2Id(),
-                conversation.getStatus()
+                conversation.getStatus(),
+                null
+        );
+    }
+
+    private ConversationDto toConversationDtoWithPreview(Conversation conversation) {
+        LastMessagePreviewDto lastMessage = messageRepository
+                .findTopByConversationConversationIdOrderByCreatedAtDesc(conversation.getConversationId())
+                .map(m -> new LastMessagePreviewDto(
+                        m.getMessageId(),
+                        m.getSenderId(),
+                        m.getType(),
+                        m.getText(),
+                        m.getCreatedAt()
+                ))
+                .orElse(null);
+
+        return new ConversationDto(
+                conversation.getConversationId(),
+                conversation.getParticipant1Id(),
+                conversation.getParticipant2Id(),
+                conversation.getStatus(),
+                lastMessage
         );
     }
 }

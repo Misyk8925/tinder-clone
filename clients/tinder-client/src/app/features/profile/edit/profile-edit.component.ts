@@ -129,9 +129,9 @@ const ALL_HOBBIES: Hobby[] = [
       display: flex;
       flex-direction: column;
       height: 100vh;
-      background: #f5f5f5;
+      background: var(--bg);
       overflow-y: auto;
-      padding-bottom: 20px;
+      padding-bottom: 90px;
     }
 
     .header {
@@ -139,13 +139,13 @@ const ALL_HOBBIES: Hobby[] = [
       align-items: center;
       gap: 12px;
       padding: 14px 16px;
-      background: #fff;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+      background: var(--surface);
+      box-shadow: 0 2px 8px var(--shadow-sm);
       position: sticky;
       top: 0;
       z-index: 10;
 
-      h1 { margin: 0; font-size: 20px; font-weight: 700; color: #333; }
+      h1 { margin: 0; font-size: 20px; font-weight: 700; color: var(--text-primary); }
     }
 
     .back-btn {
@@ -174,18 +174,19 @@ const ALL_HOBBIES: Hobby[] = [
       label {
         font-size: 13px;
         font-weight: 600;
-        color: #555;
+        color: var(--text-secondary);
         text-transform: uppercase;
         letter-spacing: 0.4px;
       }
 
       input, select, textarea {
-        border: 1.5px solid #e8e8e8;
+        border: 1.5px solid var(--border);
         border-radius: 12px;
         padding: 12px 14px;
         font-size: 15px;
         outline: none;
-        background: #fff;
+        background: var(--surface);
+        color: var(--text-primary);
         transition: border-color 0.2s;
         font-family: inherit;
 
@@ -202,7 +203,7 @@ const ALL_HOBBIES: Hobby[] = [
 
     .char-count {
       font-size: 11px;
-      color: #aaa;
+      color: var(--text-muted);
       text-align: right;
     }
 
@@ -214,8 +215,8 @@ const ALL_HOBBIES: Hobby[] = [
     .section-title {
       font-size: 16px;
       font-weight: 700;
-      color: #333;
-      border-bottom: 2px solid #f0f0f0;
+      color: var(--text-primary);
+      border-bottom: 2px solid var(--border-light);
       padding-bottom: 8px;
     }
 
@@ -228,9 +229,9 @@ const ALL_HOBBIES: Hobby[] = [
     .hobby-chip {
       padding: 7px 14px;
       border-radius: 20px;
-      border: 1.5px solid #e8e8e8;
-      background: #fff;
-      color: #666;
+      border: 1.5px solid var(--border);
+      background: var(--surface);
+      color: var(--text-secondary);
       font-size: 13px;
       font-weight: 500;
       cursor: pointer;

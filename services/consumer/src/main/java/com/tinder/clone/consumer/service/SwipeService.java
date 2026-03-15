@@ -1,10 +1,10 @@
 package com.tinder.clone.consumer.service;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
 import com.tinder.clone.consumer.kafka.event.MatchCreateEvent;
 import com.tinder.clone.consumer.kafka.event.SwipeCreatedEvent;
 import com.tinder.clone.consumer.model.embedded.SwipeRecordId;
 import com.tinder.clone.consumer.outbox.MatchOutboxService;
+import com.tinder.clone.consumer.outbox.SwipeOutboxService;
 import com.tinder.clone.consumer.repository.SwipeRepository;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
@@ -28,6 +28,7 @@ public class SwipeService {
 
     private final RedisTemplate<String, Object> redisTemplate;
     private final MatchOutboxService matchOutboxService;
+    private final SwipeOutboxService swipeOutboxService;
 
     @Transactional
     public void save(SwipeCreatedEvent swipeRecord) {
@@ -46,6 +47,7 @@ public class SwipeService {
                 swipeRecord.isDecision()
         );
         refreshSwipeCache(swiperId, targetId);
+        swipeOutboxService.enqueueSwipeSaved(swipeRecord);
 
         if (!swipeRecord.isDecision() || wasMatchBefore) {
             return;

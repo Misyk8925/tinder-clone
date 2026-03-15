@@ -1,11 +1,15 @@
 package com.tinder.deck.service;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.tinder.deck.dto.DeckEntry;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.redis.core.ReactiveStringRedisTemplate;
 import org.springframework.data.redis.core.ReactiveZSetOperations;
 import org.springframework.data.redis.core.ZSetOperations;
+import org.springframework.data.redis.core.ScanOptions;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
@@ -23,6 +27,7 @@ import java.util.regex.Pattern;
 public class DeckCache {
 
     private final ReactiveStringRedisTemplate redis;
+    private final ObjectMapper objectMapper;
 
     // Redis key patterns
     private static String deckKey(UUID id)        { return "deck:" + id; }
@@ -56,14 +61,14 @@ public class DeckCache {
         ReactiveZSetOperations<String, String> z = redis.opsForZSet();
 
         Mono<Long> addAll = Flux.fromIterable(deck)
-                .map(e -> ZSetOperations.TypedTuple.of(e.getKey().toString(), e.getValue()))
+                .map(e -> ZSetOperations.TypedTuple.of(serializeEntry(DeckEntry.fresh(e.getKey())), e.getValue()))
                 .collect(Collectors.toSet())
                 .flatMap(tuples -> z.addAll(key, tuples));
 
-        return redis.delete(key, tsKey)     // fast delete старых данных
-                .then(addAll)                               // ZADD all
-                .then(redis.expire(key, ttl))               // TTL
-                .then(redis.opsForValue().set(tsKey, String.valueOf(System.currentTimeMillis()))) // TS
+        return redis.delete(key, tsKey)
+                .then(addAll)
+                .then(redis.expire(key, ttl))
+                .then(redis.opsForValue().set(tsKey, String.valueOf(System.currentTimeMillis())))
                 .then();
     }
 
@@ -72,7 +77,7 @@ public class DeckCache {
         long end = offset + Math.max(limit, 1) - 1;
         return redis.opsForZSet()
                 .reverseRange(key, org.springframework.data.domain.Range.closed((long)offset, end))
-                .map(UUID::fromString);
+                .map(member -> deserializeEntry(member).profileId());
     }
 
     public Mono<Long> size(UUID viewerId) {
@@ -96,7 +101,7 @@ public class DeckCache {
     public Flux<Entry<UUID, Double>> readRangeWithScores(UUID viewerId, long start, long end) {
         return redis.opsForZSet()
                 .reverseRangeWithScores(deckKey(viewerId), org.springframework.data.domain.Range.closed(start, end))
-                .map(t -> Map.entry(UUID.fromString(Objects.requireNonNull(t.getValue())),
+                .map(t -> Map.entry(deserializeEntry(Objects.requireNonNull(t.getValue())).profileId(),
                         Objects.requireNonNull(t.getScore())));
     }
 
@@ -333,8 +338,34 @@ public class DeckCache {
         String key = deckKey(viewerId);
         log.debug("Removing profile {} from deck of viewer {}", profileId, viewerId);
 
+        return findMemberByProfileId(key, profileId)
+                .flatMap(member -> redis.opsForZSet().remove(key, member))
+                .defaultIfEmpty(0L);
+    }
+
+    /**
+     * Marks a profile as swiped in the viewer's deck without removing it.
+     * Used when a swipe-saved event arrives before the scheduler rebuilds the deck.
+     * The profiles service reads isSwiped=true and excludes this profile from results.
+     */
+    public Mono<Void> markAsSwiped(UUID swiperId, UUID swipedId) {
+        String key = deckKey(swiperId);
+        log.debug("Marking profile {} as swiped in deck of viewer {}", swipedId, swiperId);
+
         return redis.opsForZSet()
-                .remove(key, profileId.toString());
+                .scan(key, ScanOptions.scanOptions().match("*" + swipedId + "*").build())
+                .next()
+                .flatMap(tuple -> {
+                    String oldMember = tuple.getValue();
+                    Double score = tuple.getScore();
+                    if (oldMember == null || score == null) {
+                        return Mono.empty();
+                    }
+                    DeckEntry updated = deserializeEntry(oldMember).withSwiped();
+                    return redis.opsForZSet().remove(key, oldMember)
+                            .then(redis.opsForZSet().add(key, serializeEntry(updated), score));
+                })
+                .then();
     }
 
     /**
@@ -345,11 +376,11 @@ public class DeckCache {
      * @return Mono<Long> number of decks affected
      */
     public Mono<Long> removeFromAllDecks(UUID profileId) {
-        String deletedProfile = profileId.toString();
-
         return redis.keys("deck:*")
                 .filter(key -> DECK_KEY_PATTERN.matcher(key).matches())
-                .flatMap(key -> redis.opsForZSet().remove(key, deletedProfile))
+                .flatMap(key -> findMemberByProfileId(key, profileId)
+                        .flatMap(member -> redis.opsForZSet().remove(key, member))
+                        .defaultIfEmpty(0L))
                 .map(removed -> removed > 0 ? 1L : 0L)
                 .reduce(0L, Long::sum)
                 .doOnNext(count -> log.info("Removed deleted profile {} from {} decks", profileId, count));
@@ -370,12 +401,13 @@ public class DeckCache {
         String key = deckKey(viewerId);
         log.debug("Removing {} profiles from deck of viewer {}", profileIds.size(), viewerId);
 
-        String[] profileStrings = profileIds.stream()
-                .map(UUID::toString)
-                .toArray(String[]::new);
-
-        return redis.opsForZSet()
-                .remove(key, (Object[]) profileStrings);
+        return Flux.fromIterable(profileIds)
+                .flatMap(profileId -> findMemberByProfileId(key, profileId))
+                .collect(Collectors.toSet())
+                .flatMap(members -> {
+                    if (members.isEmpty()) return Mono.just(0L);
+                    return redis.opsForZSet().remove(key, members.toArray(new Object[0]));
+                });
     }
 
     /**
@@ -488,5 +520,31 @@ public class DeckCache {
     public Mono<Long> getPreferencesCacheSize(int minAge, int maxAge, String gender) {
         return redis.opsForSet()
                 .size(preferencesKey(minAge, maxAge, gender));
+    }
+
+    // ==================== Serialization Helpers ====================
+
+    private String serializeEntry(DeckEntry entry) {
+        try {
+            return objectMapper.writeValueAsString(entry);
+        } catch (JsonProcessingException e) {
+            throw new IllegalStateException("Failed to serialize DeckEntry for profileId=" + entry.profileId(), e);
+        }
+    }
+
+    private DeckEntry deserializeEntry(String json) {
+        try {
+            return objectMapper.readValue(json, DeckEntry.class);
+        } catch (JsonProcessingException e) {
+            throw new IllegalStateException("Failed to deserialize DeckEntry from: " + json, e);
+        }
+    }
+
+    private Mono<String> findMemberByProfileId(String deckKey, UUID profileId) {
+        return redis.opsForZSet()
+                .scan(deckKey, ScanOptions.scanOptions().match("*" + profileId + "*").build())
+                .map(ZSetOperations.TypedTuple::getValue)
+                .filter(Objects::nonNull)
+                .next();
     }
 }
