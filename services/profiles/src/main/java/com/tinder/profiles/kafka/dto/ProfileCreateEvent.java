@@ -15,17 +15,20 @@ public class ProfileCreateEvent {
 
     UUID eventId;
     UUID profileId;
+    String userId;
     Instant timestamp;
 
     @JsonCreator
     public ProfileCreateEvent(
             @JsonProperty ("eventId") UUID eventId,
             @JsonProperty ("profileId") UUID profileId,
+            @JsonProperty ("userId") String userId,
             @JsonProperty ("timestamp") Instant timestamp
     )
     {
         this.eventId = eventId;
         this.profileId = profileId;
+        this.userId = userId;
         this.timestamp = timestamp;
     }
 }

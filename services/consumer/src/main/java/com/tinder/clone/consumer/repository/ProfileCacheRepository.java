@@ -8,4 +8,6 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import java.util.UUID;
 
 public interface ProfileCacheRepository extends JpaRepository<ProfileCacheModel, UUID> {
+
+    java.util.Optional<ProfileCacheModel> findByUserId(String userId);
 }

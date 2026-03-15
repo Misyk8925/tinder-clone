@@ -19,6 +19,10 @@ public class ProfileCacheModel {
     @Id
     private UUID profileId;
 
+    /** Keycloak user ID — used to resolve profileId from JWT sub in the liked-me endpoint. */
+    @Column(name = "user_id", unique = true)
+    private String userId;
+
     @Column(nullable = false)
     private Instant createdAt;
 }

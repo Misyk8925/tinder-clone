@@ -113,6 +113,16 @@ spring:
                     anonCapacity: 10
                     anonPeriodInSeconds: 3600
 
+              ############################## LIKES YOU (premium + admin only)
+
+            - id: consumer-liked-me
+              uri: http://localhost:8050
+              predicates:
+                - Path=/api/v1/swipes/liked-me
+                - Method=GET
+              filters:
+                - PremiumOrAdminFilter
+
               ############################## DECK ROUTES (admin / monitoring)
 
             - id: deck-admin

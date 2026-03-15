@@ -24,6 +24,7 @@ public class ProfileEventService {
     public void saveProfileCache(ProfileCreateEvent event) {
         ProfileCacheModel profileCacheModel = ProfileCacheModel.builder()
                 .profileId(event.getProfileId())
+                .userId(event.getUserId())
                 .createdAt(event.getTimestamp() == null ? Instant.now() : event.getTimestamp())
                 .build();
         log.info("Saving profile cache for profileId: {}", profileCacheModel.getProfileId());

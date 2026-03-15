@@ -144,6 +144,7 @@ public class ProfileApplicationService {
         ProfileCreateEvent event = ProfileCreateEvent.builder()
                 .eventId(UUID.randomUUID())
                 .profileId(savedProfile.getProfileId())
+                .userId(savedProfile.getUserId())
                 .timestamp(Instant.now())
                 .build();
         profileOutboxService.enqueueProfileCreated(event);

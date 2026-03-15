@@ -2,9 +2,11 @@ package com.tinder.clone.consumer.service;
 
 import com.tinder.clone.consumer.kafka.event.MatchCreateEvent;
 import com.tinder.clone.consumer.kafka.event.SwipeCreatedEvent;
+import com.tinder.clone.consumer.model.dto.LikedMeDto;
 import com.tinder.clone.consumer.model.embedded.SwipeRecordId;
 import com.tinder.clone.consumer.outbox.MatchOutboxService;
 import com.tinder.clone.consumer.outbox.SwipeOutboxService;
+import com.tinder.clone.consumer.repository.PendingLikeRepository;
 import com.tinder.clone.consumer.repository.SwipeRepository;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
@@ -25,6 +27,7 @@ public class SwipeService {
     private static final Duration SWIPE_CACHE_TTL = Duration.ofHours(24);
 
     private final SwipeRepository repo;
+    private final PendingLikeRepository pendingLikeRepo;
 
     private final RedisTemplate<String, Object> redisTemplate;
     private final MatchOutboxService matchOutboxService;
@@ -49,6 +52,9 @@ public class SwipeService {
         refreshSwipeCache(swiperId, targetId);
         swipeOutboxService.enqueueSwipeSaved(swipeRecord);
 
+        // swiper is now responding to targetId's possible previous like — clear it
+        pendingLikeRepo.deleteByPair(swiperId, targetId);
+
         if (!swipeRecord.isDecision() || wasMatchBefore) {
             return;
         }
@@ -58,7 +64,19 @@ public class SwipeService {
         );
         if (isMatchNow) {
             enqueueMatchCreated(normalizedId, swipeRecord.getTimestamp());
+        } else {
+            // Right swipe, no match yet — notify target that swiper liked them
+            pendingLikeRepo.upsertIgnore(targetId, swiperId, Instant.now());
         }
+    }
+
+    @Transactional
+    public List<LikedMeDto> getLikedMe(UUID profileId) {
+        log.info("Fetching 'liked me' list for profileId={}", profileId);
+        return pendingLikeRepo.findByLikedUserIdOrderByLikedAtDesc(profileId)
+                .stream()
+                .map(p -> new LikedMeDto(p.getLikerProfileId(), p.getLikedAt()))
+                .toList();
     }
 
     /**

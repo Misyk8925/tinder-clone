@@ -27,6 +27,11 @@ export const routes: Routes = [
     loadComponent: () => import('./features/chat/chat.component').then(m => m.ChatComponent)
   },
   {
+    path: 'likes',
+    canActivate: [authGuard],
+    loadComponent: () => import('./features/likes/likes.component').then(m => m.LikesComponent)
+  },
+  {
     path: 'profile',
     canActivate: [authGuard],
     loadComponent: () => import('./features/profile/profile.component').then(m => m.ProfileComponent)
