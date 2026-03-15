@@ -4,6 +4,7 @@ import com.tinder.profiles.kafka.dto.ChangeType;
 import com.tinder.profiles.kafka.dto.ProfileCreateEvent;
 import com.tinder.profiles.kafka.dto.ProfileDeleteEvent;
 import com.tinder.profiles.kafka.dto.ProfileUpdatedEvent;
+import com.tinder.profiles.location.LocationService;
 import com.tinder.profiles.outbox.ProfileOutboxService;
 import com.tinder.profiles.preferences.Preferences;
 import com.tinder.profiles.preferences.PreferencesService;
@@ -42,6 +43,7 @@ public class ProfileApplicationService {
     private final InputSanitizationService sanitizationService;
     private final PreferencesService preferencesService;
     private final ProfileOutboxService profileOutboxService;
+    private final LocationService locationService;
 
 
     private static final String PROFILE_CACHE_NAME = "PROFILE_ENTITY_CACHE";
@@ -174,6 +176,17 @@ public class ProfileApplicationService {
         // Update profile fields
         domainService.updateProfileFromDto(existingProfile, sanitizedProfile);
 
+        // Update Location entity when city changed or GPS coordinates provided
+        boolean hasCoords = sanitizedProfile.latitude() != null && sanitizedProfile.longitude() != null;
+        if (changedFields.contains("city") || hasCoords) {
+            if (hasCoords) {
+                existingProfile.setLocation(locationService.createFromCoordinates(
+                        sanitizedProfile.latitude(), sanitizedProfile.longitude(), sanitizedProfile.city()));
+            } else {
+                existingProfile.setLocation(locationService.create(sanitizedProfile.city()));
+            }
+        }
+
         // Handle preferences — findOrCreate commits in its own transaction (REQUIRES_NEW)
         Preferences oldPreferences = existingProfile.getPreferences();
         Preferences preferences = preferencesService.findOrCreate(sanitizedProfile.preferences());
@@ -245,6 +258,21 @@ public class ProfileApplicationService {
 
         if (patchDto.city() != null) {
             existingProfile.setCity(sanitizationService.sanitizePlainText(patchDto.city()));
+            changedFields.add("city");
+        }
+
+        // Update Location entity when city changed or GPS coordinates provided
+        boolean hasCoords = patchDto.latitude() != null && patchDto.longitude() != null;
+        if (hasCoords || changedFields.contains("city")) {
+            String cityForLocation = patchDto.city() != null
+                    ? sanitizationService.sanitizePlainText(patchDto.city())
+                    : existingProfile.getCity();
+            if (hasCoords) {
+                existingProfile.setLocation(locationService.createFromCoordinates(
+                        patchDto.latitude(), patchDto.longitude(), cityForLocation));
+            } else {
+                existingProfile.setLocation(locationService.create(cityForLocation));
+            }
             changedFields.add("city");
         }
 

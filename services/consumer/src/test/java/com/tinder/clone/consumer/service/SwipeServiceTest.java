@@ -51,7 +51,7 @@ class SwipeServiceTest {
 
     @BeforeEach
     void setUp() {
-        swipeService = new SwipeService(repo, redisTemplate, matchOutboxService);
+
         // Default: cache key is absent → no cache refresh (lenient to avoid UnnecessaryStubbingException
         // in tests that don't invoke the Redis cache path, e.g. existsBetweenBatch tests)
         lenient().when(redisTemplate.hasKey(anyString())).thenReturn(false);

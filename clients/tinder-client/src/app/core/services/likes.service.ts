@@ -6,6 +6,7 @@ import { environment } from '../../../environments/environment';
 export interface LikedMe {
   likerProfileId: string;
   likedAt: string;
+  isSuper: boolean;
 }
 
 @Injectable({ providedIn: 'root' })

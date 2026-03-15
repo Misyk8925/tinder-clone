@@ -43,14 +43,23 @@ public record PatchProfileDto(
         PreferencesDto preferences,
 
         @Size(max = 10, message = "you can select at most 10 hobbies")
-        List<Hobby> hobbies
+        List<Hobby> hobbies,
+
+        @DecimalMin(value = "-90.0", message = "latitude must be between -90 and 90")
+        @DecimalMax(value = "90.0", message = "latitude must be between -90 and 90")
+        Double latitude,
+
+        @DecimalMin(value = "-180.0", message = "longitude must be between -180 and 180")
+        @DecimalMax(value = "180.0", message = "longitude must be between -180 and 180")
+        Double longitude
 ) {
     /**
      * Checks if any field is provided
      */
     public boolean hasAnyField() {
         return name != null || age != null || gender != null || bio != null
-                || city != null || preferences != null || hobbies != null;
+                || city != null || preferences != null || hobbies != null
+                || latitude != null || longitude != null;
     }
 }
 

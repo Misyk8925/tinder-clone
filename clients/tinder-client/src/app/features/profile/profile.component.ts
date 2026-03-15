@@ -137,7 +137,7 @@ import { Profile } from '../../core/models/profile.model';
       flex-direction: column;
       height: 100vh;
       background: var(--bg);
-      padding-bottom: 70px;
+      padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 159px);
       overflow-y: auto;
     }
 

@@ -66,7 +66,7 @@ public class SwipeService {
             enqueueMatchCreated(normalizedId, swipeRecord.getTimestamp());
         } else {
             // Right swipe, no match yet — notify target that swiper liked them
-            pendingLikeRepo.upsertIgnore(targetId, swiperId, Instant.now());
+            pendingLikeRepo.upsertIgnore(targetId, swiperId, Instant.now(), Boolean.TRUE.equals(swipeRecord.getIsSuper()));
         }
     }
 
@@ -75,7 +75,7 @@ public class SwipeService {
         log.info("Fetching 'liked me' list for profileId={}", profileId);
         return pendingLikeRepo.findByLikedUserIdOrderByLikedAtDesc(profileId)
                 .stream()
-                .map(p -> new LikedMeDto(p.getLikerProfileId(), p.getLikedAt()))
+                .map(p -> new LikedMeDto(p.getLikerProfileId(), p.getLikedAt(), p.isSuper()))  // isSuper defaults to false via DB column default
                 .toList();
     }
 

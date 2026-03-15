@@ -76,6 +76,32 @@ public class LocationService {
         }
     }
 
+    /**
+     * Creates a Location entity directly from GPS coordinates provided by the client.
+     * Skips geocoding since the coordinates are already known.
+     *
+     * @param latitude  WGS-84 latitude  (-90  … +90)
+     * @param longitude WGS-84 longitude (-180 … +180)
+     * @param city      city name supplied by the user (used for the Location.city field)
+     */
+    public Location createFromCoordinates(double latitude, double longitude, String city) {
+        Location loc = new Location();
+        loc.setCity(city != null && !city.isBlank() ? city : "Unknown");
+
+        Point point = geometryFactory.createPoint(new Coordinate(longitude, latitude));
+        point.setSRID(4326);
+        loc.setGeo(point);
+
+        try {
+            Location saved = repo.save(loc);
+            log.info("Saved GPS-derived location for city '{}': lat={}, lon={}", city, latitude, longitude);
+            return saved;
+        } catch (Exception e) {
+            log.error("Error saving GPS location for city '{}': {}", city, e.getMessage(), e);
+            throw new RuntimeException("Failed to save GPS location for city: " + city, e);
+        }
+    }
+
     // No @Transactional here — repo.save() is itself transactional; self-invocation
     // would bypass Spring's proxy anyway, so we simply rely on the repository's own transaction.
     private Location geocodeAndSave(String city) {

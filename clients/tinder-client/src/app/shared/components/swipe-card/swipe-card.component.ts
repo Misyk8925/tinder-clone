@@ -1,6 +1,6 @@
 import {
   Component, Input, Output, EventEmitter,
-  ElementRef, OnInit, OnDestroy, signal, computed
+  ElementRef, OnInit, OnDestroy, signal
 } from '@angular/core';
 import { NgClass, NgStyle } from '@angular/common';
 import { Profile } from '../../../core/models/profile.model';
@@ -20,9 +20,9 @@ import { Profile } from '../../../core/models/profile.model';
         @if (profile.photos?.length) {
           <img [src]="profile.photos[currentPhoto()].url" [alt]="profile.name" (error)="onImgError($event)" />
           @if (profile.photos.length > 1) {
-            <div class="photo-dots">
+            <div class="photo-segments">
               @for (photo of profile.photos; track $index) {
-                <span class="dot" [ngClass]="{ active: currentPhoto() === $index }" (click)="setPhoto($index)"></span>
+                <div class="segment" [ngClass]="{ active: currentPhoto() === $index }" (click)="setPhoto($index)"></div>
               }
             </div>
             <div class="photo-prev" (click)="prevPhoto()"></div>
@@ -33,16 +33,34 @@ import { Profile } from '../../../core/models/profile.model';
             <span>{{ profile.name[0] }}</span>
           </div>
         }
+
+        <div class="like-badge">
+          <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 21.593c-5.63-5.539-11-10.297-11-14.402 0-3.791 3.068-5.191 5.281-5.191 1.312 0 4.151.501 5.719 4.457 1.59-3.968 4.464-4.447 5.726-4.447 2.54 0 5.274 1.621 5.274 5.181 0 4.069-5.136 8.625-11 14.402z"/></svg>
+          LIKE
+        </div>
+        <div class="nope-badge">
+          <svg viewBox="0 0 24 24" fill="currentColor"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+          NOPE
+        </div>
       </div>
 
-      <div class="like-badge">LIKE</div>
-      <div class="nope-badge">NOPE</div>
+      <div class="card-gradient"></div>
 
       <div class="card-info">
         <div class="card-name-row">
-          <h2>{{ profile.name }}, {{ profile.age }}</h2>
-          <span class="city">📍 {{ profile.city }}</span>
+          <div class="name-age">
+            <h2>{{ profile.name }}<span class="age">, {{ profile.age }}</span></h2>
+          </div>
+          <button class="info-btn" (click)="$event.stopPropagation()">
+            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/></svg>
+          </button>
         </div>
+        @if (profile.city) {
+          <div class="location-row">
+            <svg viewBox="0 0 24 24" fill="currentColor" class="loc-icon"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/></svg>
+            <span>{{ profile.city }}</span>
+          </div>
+        }
         @if (profile.bio) {
           <p class="bio">{{ profile.bio }}</p>
         }
@@ -64,7 +82,7 @@ import { Profile } from '../../../core/models/profile.model';
       border-radius: 16px;
       overflow: hidden;
       background: var(--surface);
-      box-shadow: 0 8px 32px var(--shadow-lg);
+      box-shadow: 0 4px 20px rgba(0,0,0,0.15);
       cursor: grab;
       user-select: none;
       touch-action: none;
@@ -74,7 +92,8 @@ import { Profile } from '../../../core/models/profile.model';
     }
 
     .card-photo {
-      position: relative;
+      position: absolute;
+      inset: 0;
       width: 100%;
       height: 100%;
 
@@ -82,52 +101,56 @@ import { Profile } from '../../../core/models/profile.model';
         width: 100%;
         height: 100%;
         object-fit: cover;
+        pointer-events: none;
       }
     }
 
     .no-photo {
       width: 100%;
       height: 100%;
-      background: linear-gradient(135deg, #fd5564, #ff8a00);
+      background: linear-gradient(160deg, #fd267a 0%, #ff6036 100%);
       display: flex;
       align-items: center;
       justify-content: center;
 
       span {
-        font-size: 120px;
-        color: rgba(255,255,255,0.5);
-        font-weight: 700;
+        font-size: 100px;
+        color: rgba(255,255,255,0.4);
+        font-weight: 800;
         text-transform: uppercase;
       }
     }
 
-    .photo-dots {
+    .photo-segments {
       position: absolute;
       top: 10px;
-      left: 0;
-      right: 0;
+      left: 8px;
+      right: 8px;
       display: flex;
       gap: 4px;
-      justify-content: center;
       z-index: 3;
+      pointer-events: none;
     }
 
-    .dot {
-      width: 28px;
+    .segment {
+      flex: 1;
       height: 3px;
       border-radius: 2px;
-      background: rgba(255,255,255,0.5);
+      background: rgba(255,255,255,0.45);
       cursor: pointer;
+      pointer-events: all;
       transition: background 0.2s;
 
-      &.active { background: #fff; }
+      &.active {
+        background: rgba(255,255,255,0.95);
+      }
     }
 
     .photo-prev, .photo-next {
       position: absolute;
       top: 0;
       bottom: 0;
-      width: 40%;
+      width: 38%;
       z-index: 2;
       cursor: pointer;
     }
@@ -135,69 +158,128 @@ import { Profile } from '../../../core/models/profile.model';
     .photo-prev { left: 0; }
     .photo-next { right: 0; }
 
+    /* LIKE / NOPE badges */
     .like-badge, .nope-badge {
       position: absolute;
-      top: 40px;
-      padding: 6px 14px;
-      border-radius: 6px;
-      font-size: 28px;
+      top: 36px;
+      padding: 6px 16px;
+      border-radius: 8px;
+      font-size: 26px;
       font-weight: 800;
       letter-spacing: 2px;
       opacity: 0;
-      transition: opacity 0.1s;
+      transition: opacity 0.12s;
       z-index: 10;
       border: 4px solid;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+
+      svg {
+        width: 22px;
+        height: 22px;
+      }
     }
 
     .like-badge {
-      left: 24px;
-      color: #00d26a;
-      border-color: #00d26a;
+      left: 20px;
+      color: #4dde8f;
+      border-color: #4dde8f;
       transform: rotate(-20deg);
     }
 
     .nope-badge {
-      right: 24px;
-      color: #fd5564;
-      border-color: #fd5564;
+      right: 20px;
+      color: #f04949;
+      border-color: #f04949;
       transform: rotate(20deg);
     }
 
     .card.liked .like-badge { opacity: 1; }
     .card.noped .nope-badge { opacity: 1; }
 
+    /* Bottom gradient overlay */
+    .card-gradient {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      height: 65%;
+      background: linear-gradient(to top,
+        rgba(0,0,0,0.85) 0%,
+        rgba(0,0,0,0.55) 35%,
+        rgba(0,0,0,0.2) 65%,
+        transparent 100%);
+      pointer-events: none;
+      z-index: 1;
+    }
+
     .card-info {
       position: absolute;
       bottom: 0;
       left: 0;
       right: 0;
-      padding: 20px 20px 28px;
-      background: linear-gradient(to top, rgba(0,0,0,0.75) 0%, transparent 100%);
+      padding: 16px 18px 22px;
       color: #fff;
+      z-index: 2;
     }
 
     .card-name-row {
       display: flex;
-      align-items: baseline;
-      gap: 10px;
-      flex-wrap: wrap;
+      align-items: flex-end;
+      justify-content: space-between;
+      gap: 8px;
+      margin-bottom: 4px;
+    }
 
-      h2 {
-        margin: 0;
+    .name-age h2 {
+      margin: 0;
+      font-size: 28px;
+      font-weight: 700;
+      line-height: 1.1;
+      text-shadow: 0 1px 4px rgba(0,0,0,0.2);
+
+      .age {
         font-size: 26px;
-        font-weight: 700;
+        font-weight: 500;
       }
     }
 
-    .city {
+    .info-btn {
+      background: transparent;
+      border: 2px solid rgba(255,255,255,0.8);
+      border-radius: 50%;
+      width: 36px;
+      height: 36px;
+      min-width: 36px;
+      color: #fff;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0;
+      flex-shrink: 0;
+      transition: background 0.15s;
+
+      svg { width: 20px; height: 20px; }
+      &:active { background: rgba(255,255,255,0.15); }
+    }
+
+    .location-row {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      margin-bottom: 6px;
       font-size: 14px;
       opacity: 0.9;
+
+      .loc-icon { width: 14px; height: 14px; flex-shrink: 0; }
     }
 
     .bio {
-      margin: 6px 0 10px;
+      margin: 0 0 8px;
       font-size: 14px;
-      opacity: 0.85;
+      opacity: 0.9;
       line-height: 1.4;
       display: -webkit-box;
       -webkit-line-clamp: 2;
@@ -212,9 +294,10 @@ import { Profile } from '../../../core/models/profile.model';
     }
 
     .hobby-tag {
-      background: rgba(255,255,255,0.25);
-      border: 1px solid rgba(255,255,255,0.5);
-      padding: 3px 10px;
+      background: rgba(255,255,255,0.2);
+      border: 1px solid rgba(255,255,255,0.45);
+      backdrop-filter: blur(4px);
+      padding: 4px 12px;
       border-radius: 20px;
       font-size: 12px;
       font-weight: 500;
@@ -338,6 +421,6 @@ export class SwipeCardComponent implements OnInit, OnDestroy {
   }
 
   hobbyLabel(hobby: string): string {
-    return hobby.charAt(0) + hobby.slice(1).toLowerCase();
+    return hobby.charAt(0) + hobby.slice(1).toLowerCase().replace(/_/g, ' ');
   }
 }

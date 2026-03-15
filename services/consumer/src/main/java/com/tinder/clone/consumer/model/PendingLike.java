@@ -33,4 +33,7 @@ public class PendingLike {
 
     @Column(name = "liked_at", nullable = false)
     private Instant likedAt;
+
+    @Column(name = "is_super", nullable = false)
+    private boolean isSuper;
 }

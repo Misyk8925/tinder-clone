@@ -61,7 +61,8 @@ class ProfileApplicationServiceOutboxComponentTest {
                 resilientCacheManager,
                 sanitizationService,
                 preferencesService,
-                profileOutboxService
+                profileOutboxService,
+                null
         );
     }
 
@@ -149,7 +150,9 @@ class ProfileApplicationServiceOutboxComponentTest {
                 "bio",
                 "Berlin",
                 new PreferencesDto(null, 24, 40, "male", 30),
-                List.of(Hobby.HIKING, Hobby.PHOTOGRAPHY, Hobby.GAMING)
+                List.of(Hobby.HIKING, Hobby.PHOTOGRAPHY, Hobby.GAMING),
+                null,
+                null
         );
     }
 }

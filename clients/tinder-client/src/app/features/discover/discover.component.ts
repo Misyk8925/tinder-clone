@@ -12,24 +12,42 @@ import { Router } from '@angular/router';
   template: `
     <div class="discover">
       <header class="header">
+        <div class="header-spacer"></div>
+
         <div class="logo">
-          <svg viewBox="0 0 24 24" fill="#fd5564"><path d="M12 21.593c-5.63-5.539-11-10.297-11-14.402 0-3.791 3.068-5.191 5.281-5.191 1.312 0 4.151.501 5.719 4.457 1.59-3.968 4.464-4.447 5.726-4.447 2.54 0 5.274 1.621 5.274 5.181 0 4.069-5.136 8.625-11 14.402z"/></svg>
-          <span>Tinder</span>
+          <svg viewBox="0 0 24 24" fill="#fd267a" width="26" height="26">
+            <path d="M17.66 11.2c-.23-.3-.51-.56-.77-.82-.67-.6-1.43-1.03-2.07-1.66C13.33 7.26 13 4.85 13.95 3c-.95.23-1.78.75-2.49 1.32-2.59 2.11-3.66 5.65-2.67 8.9.04.14.08.28.08.43 0 .28-.19.52-.45.57-.28.07-.53-.09-.63-.37-.04-.1-.06-.21-.09-.32C7.15 13 7 12.5 7 11.85c0-.58.16-1.2.44-1.7-1.16 1.27-1.86 2.97-1.86 4.77 0 3.31 2.69 6 6 6s6-2.69 6-6c0-1.88-.82-3.63-2.09-4.82z"/>
+          </svg>
+          <span class="logo-text">tinder</span>
         </div>
+
+        <button class="header-btn">
+          <svg viewBox="0 0 24 24" fill="none" stroke="#9e9ea0" stroke-width="1.8" width="26" height="26">
+            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+          </svg>
+        </button>
       </header>
 
       <div class="deck-area">
         @if (loading()) {
           <div class="empty-state">
             <div class="spinner"></div>
-            <p>Loading profiles...</p>
           </div>
         } @else if (currentIndex() >= profiles().length) {
           <div class="empty-state">
-            <div class="empty-icon">🎉</div>
+            <div class="card-illustration">
+              <div class="ill-card ill-back-2"></div>
+              <div class="ill-card ill-back-1"></div>
+              <div class="ill-card ill-front">
+                <div class="ill-like-stamp">LIKE</div>
+              </div>
+            </div>
             <h3>You've seen everyone!</h3>
-            <p>Check back later for new people</p>
-            <button class="btn-primary" (click)="refresh()">Refresh</button>
+            <p>Check back later for new people nearby</p>
+            <button class="btn-refresh" (click)="refresh()">
+              <svg viewBox="0 0 24 24" fill="currentColor" width="18" height="18"><path d="M17.65 6.35C16.2 4.9 14.21 4 12 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08c-.82 2.33-3.04 4-5.65 4-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"/></svg>
+              Refresh
+            </button>
           </div>
         } @else {
           <div class="cards-stack">
@@ -59,24 +77,38 @@ import { Router } from '@angular/router';
 
       @if (matchedProfile()) {
         <div class="match-overlay" (click)="dismissMatch()">
-          <div class="match-dialog">
-            <div class="match-title">It's a Match!</div>
+          <div class="match-content" (click)="$event.stopPropagation()">
+            <div class="match-header">
+              <svg viewBox="0 0 24 24" fill="white" width="36" height="36" class="match-flame">
+                <path d="M17.66 11.2c-.23-.3-.51-.56-.77-.82-.67-.6-1.43-1.03-2.07-1.66C13.33 7.26 13 4.85 13.95 3c-.95.23-1.78.75-2.49 1.32-2.59 2.11-3.66 5.65-2.67 8.9.04.14.08.28.08.43 0 .28-.19.52-.45.57-.28.07-.53-.09-.63-.37-.04-.1-.06-.21-.09-.32C7.15 13 7 12.5 7 11.85c0-.58.16-1.2.44-1.7-1.16 1.27-1.86 2.97-1.86 4.77 0 3.31 2.69 6 6 6s6-2.69 6-6c0-1.88-.82-3.63-2.09-4.82z"/>
+              </svg>
+              <div class="match-title">It's a Match!</div>
+              <p class="match-sub">You and {{ matchedProfile()!.name }} liked each other</p>
+            </div>
+
             <div class="match-avatars">
-              <div class="avatar-circle">
-                <span>Me</span>
+              <div class="avatar-ring me">
+                <div class="avatar-circle">
+                  <span>Me</span>
+                </div>
               </div>
-              <div class="heart">❤️</div>
-              <div class="avatar-circle">
-                @if (matchedProfile()!.photos?.length) {
-                  <img [src]="matchedProfile()!.photos[0].url" [alt]="matchedProfile()!.name" />
-                } @else {
-                  <span>{{ matchedProfile()!.name[0] }}</span>
-                }
+              <div class="avatar-ring them">
+                <div class="avatar-circle">
+                  @if (matchedProfile()!.photos?.length) {
+                    <img [src]="matchedProfile()!.photos[0].url" [alt]="matchedProfile()!.name" />
+                  } @else {
+                    <span>{{ matchedProfile()!.name[0] }}</span>
+                  }
+                </div>
               </div>
             </div>
-            <p>You and {{ matchedProfile()!.name }} liked each other</p>
-            <button class="btn-primary" (click)="goToMatches()">Send a Message</button>
-            <button class="btn-ghost" (click)="dismissMatch()">Keep Swiping</button>
+
+            <div class="match-actions">
+              <button class="btn-send-msg" (click)="goToMatches()">
+                Send a Message
+              </button>
+              <button class="btn-keep-swiping" (click)="dismissMatch()">Keep Swiping</button>
+            </div>
           </div>
         </div>
       }
@@ -87,30 +119,51 @@ import { Router } from '@angular/router';
       display: flex;
       flex-direction: column;
       height: 100vh;
+      height: 100dvh;
       background: var(--bg);
-      padding-bottom: 70px;
+      padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 159px);
     }
 
     .header {
       display: flex;
-      justify-content: center;
+      justify-content: space-between;
       align-items: center;
-      padding: 14px 20px;
+      padding: 12px 16px 10px;
       background: var(--surface);
-      box-shadow: 0 2px 8px var(--shadow-sm);
+      border-bottom: 1px solid var(--border);
+      flex-shrink: 0;
+    }
 
-      .logo {
-        display: flex;
-        align-items: center;
-        gap: 8px;
+    .header-spacer {
+      width: 36px;
+    }
 
-        svg { width: 28px; height: 28px; }
-        span {
-          font-size: 22px;
-          font-weight: 700;
-          color: #fd5564;
-          letter-spacing: -0.5px;
-        }
+    .header-btn {
+      background: none;
+      border: none;
+      cursor: pointer;
+      padding: 4px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 36px;
+      height: 36px;
+      transition: background 0.15s;
+
+      &:active { background: var(--surface-2); }
+    }
+
+    .logo {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+
+      .logo-text {
+        font-size: 22px;
+        font-weight: 800;
+        color: #fd267a;
+        letter-spacing: -0.5px;
       }
     }
 
@@ -119,9 +172,10 @@ import { Router } from '@angular/router';
       display: flex;
       flex-direction: column;
       align-items: center;
-      padding: 16px 16px 0;
-      gap: 16px;
+      padding: 12px 12px 0;
+      gap: 12px;
       overflow: hidden;
+      min-height: 0;
     }
 
     .cards-stack {
@@ -129,13 +183,14 @@ import { Router } from '@angular/router';
       width: 100%;
       max-width: 400px;
       flex: 1;
+      min-height: 0;
 
       .card-wrapper {
         position: absolute;
         inset: 0;
 
-        &.z1 { z-index: 1; transform: scale(0.94) translateY(20px); }
-        &.z2 { z-index: 2; transform: scale(0.97) translateY(10px); }
+        &.z1 { z-index: 1; transform: scale(0.93) translateY(22px); }
+        &.z2 { z-index: 2; transform: scale(0.96) translateY(11px); }
         &.z3 { z-index: 3; transform: scale(1); }
       }
     }
@@ -144,8 +199,9 @@ import { Router } from '@angular/router';
       display: flex;
       justify-content: center;
       align-items: center;
-      gap: 16px;
-      padding-bottom: 16px;
+      gap: 14px;
+      padding: 10px 0 12px;
+      flex-shrink: 0;
     }
 
     .btn-action {
@@ -155,33 +211,31 @@ import { Router } from '@angular/router';
       display: flex;
       align-items: center;
       justify-content: center;
-      box-shadow: 0 4px 16px var(--shadow-lg);
+      background: var(--surface);
+      box-shadow: 0 2px 12px rgba(0,0,0,0.12);
       transition: transform 0.15s, box-shadow 0.15s;
 
-      &:active { transform: scale(0.92); }
-
-      svg { width: 26px; height: 26px; }
+      &:active { transform: scale(0.88); }
 
       &.nope {
-        width: 60px; height: 60px;
-        background: var(--surface);
-        color: #fd5564;
-        border: 2px solid #fd5564;
+        width: 58px; height: 58px;
+        border: 2px solid #f04949;
+        color: #f04949;
+        svg { width: 28px; height: 28px; }
       }
 
       &.superlike {
-        width: 52px; height: 52px;
-        background: var(--surface);
-        color: #1da1f2;
-        border: 2px solid #1da1f2;
+        width: 50px; height: 50px;
+        border: 2px solid #00b4cc;
+        color: #00b4cc;
         svg { width: 22px; height: 22px; }
       }
 
       &.like {
-        width: 60px; height: 60px;
-        background: var(--surface);
-        color: #00d26a;
-        border: 2px solid #00d26a;
+        width: 58px; height: 58px;
+        border: 2px solid #4dde8f;
+        color: #4dde8f;
+        svg { width: 28px; height: 28px; }
       }
     }
 
@@ -191,106 +245,226 @@ import { Router } from '@angular/router';
       align-items: center;
       justify-content: center;
       flex: 1;
-      gap: 16px;
+      gap: 14px;
       text-align: center;
+      padding: 20px;
 
-      .empty-icon { font-size: 64px; }
-      h3 { margin: 0; font-size: 22px; color: var(--text-primary); }
-      p { margin: 0; color: var(--text-muted); }
+      h3 { margin: 0; font-size: 22px; font-weight: 800; color: var(--text-primary); }
+      p { margin: 0; color: var(--text-muted); font-size: 14px; max-width: 240px; line-height: 1.5; }
+    }
+
+    .card-illustration {
+      position: relative;
+      width: 150px;
+      height: 170px;
+      margin-bottom: 8px;
+    }
+
+    .ill-card {
+      position: absolute;
+      border-radius: 14px;
+    }
+
+    .ill-back-2 {
+      width: 106px; height: 138px;
+      bottom: 0; left: 50%;
+      transform: translateX(-50%) rotate(-6deg) translateY(4px);
+      background: var(--surface);
+      border: 2px solid var(--border);
+    }
+
+    .ill-back-1 {
+      width: 110px; height: 142px;
+      bottom: 0; left: 50%;
+      transform: translateX(-50%) rotate(-2deg) translateY(2px);
+      background: var(--surface);
+      border: 2px solid var(--border);
+    }
+
+    .ill-front {
+      width: 114px; height: 148px;
+      bottom: 0; left: 50%;
+      transform: translateX(-50%) rotate(8deg);
+      background: #f0fff4;
+      border: 2.5px solid #4dde8f;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    [data-theme="dark"] .ill-front {
+      background: #0d2a1a;
+    }
+
+    .ill-like-stamp {
+      font-size: 20px;
+      font-weight: 800;
+      color: #4dde8f;
+      border: 3px solid #4dde8f;
+      border-radius: 6px;
+      padding: 3px 10px;
+      letter-spacing: 2px;
+      transform: rotate(-8deg);
     }
 
     .spinner {
-      width: 48px; height: 48px;
-      border: 4px solid var(--border-light);
-      border-top: 4px solid #fd5564;
+      width: 44px; height: 44px;
+      border: 3px solid var(--border);
+      border-top: 3px solid #fd267a;
       border-radius: 50%;
       animation: spin 0.8s linear infinite;
     }
 
     @keyframes spin { to { transform: rotate(360deg); } }
 
-    .btn-primary {
-      background: linear-gradient(135deg, #fd5564, #ff8a00);
+    .btn-refresh {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      background: linear-gradient(135deg, #fd267a, #ff6036);
       color: #fff;
       border: none;
       border-radius: 30px;
-      padding: 12px 32px;
-      font-size: 16px;
+      padding: 12px 28px;
+      font-size: 15px;
       font-weight: 600;
       cursor: pointer;
-      box-shadow: 0 4px 15px rgba(253,85,100,0.3);
+      box-shadow: 0 4px 14px rgba(253,38,122,0.3);
+      transition: transform 0.15s;
+
+      &:active { transform: scale(0.95); }
     }
 
+    /* ── Match Overlay ── */
     .match-overlay {
       position: fixed;
       inset: 0;
-      background: rgba(0,0,0,0.7);
+      background: rgba(0, 0, 0, 0.88);
       display: flex;
       align-items: center;
       justify-content: center;
       z-index: 1000;
+      animation: fadeIn 0.25s ease;
     }
 
-    .match-dialog {
-      background: linear-gradient(135deg, #fd5564, #ff8a00);
-      border-radius: 24px;
-      padding: 40px 32px;
+    @keyframes fadeIn {
+      from { opacity: 0; }
+      to { opacity: 1; }
+    }
+
+    .match-content {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 0 32px;
+      width: 100%;
+      max-width: 360px;
+      animation: slideUp 0.3s ease;
+    }
+
+    @keyframes slideUp {
+      from { transform: translateY(30px); opacity: 0; }
+      to { transform: translateY(0); opacity: 1; }
+    }
+
+    .match-header {
       text-align: center;
-      color: #fff;
-      max-width: 320px;
-      width: 90%;
+      margin-bottom: 32px;
 
-      .match-title {
-        font-size: 36px;
-        font-weight: 800;
-        margin-bottom: 24px;
-        text-shadow: 0 2px 8px rgba(0,0,0,0.2);
-      }
-
-      p {
-        font-size: 16px;
+      .match-flame {
         opacity: 0.9;
-        margin: 0 0 24px;
+        margin-bottom: 10px;
       }
+    }
+
+    .match-title {
+      font-size: 42px;
+      font-weight: 800;
+      background: linear-gradient(135deg, #fd267a, #ff6036);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      line-height: 1.1;
+      margin-bottom: 10px;
+    }
+
+    .match-sub {
+      margin: 0;
+      font-size: 15px;
+      color: rgba(255,255,255,0.75);
+      font-weight: 400;
     }
 
     .match-avatars {
       display: flex;
       align-items: center;
       justify-content: center;
-      gap: 12px;
-      margin-bottom: 20px;
+      margin-bottom: 40px;
 
-      .heart { font-size: 28px; }
+      .avatar-ring {
+        padding: 3px;
+        border-radius: 50%;
+        background: linear-gradient(135deg, #fd267a, #ff6036);
+
+        &:first-child { margin-right: -16px; z-index: 1; }
+        &:last-child { margin-left: -16px; z-index: 2; }
+      }
     }
 
     .avatar-circle {
-      width: 80px;
-      height: 80px;
+      width: 96px;
+      height: 96px;
       border-radius: 50%;
-      border: 3px solid rgba(255,255,255,0.8);
+      border: 3px solid #1a1a1a;
       overflow: hidden;
-      background: rgba(255,255,255,0.3);
+      background: rgba(255,255,255,0.15);
       display: flex;
       align-items: center;
       justify-content: center;
-      font-size: 28px;
+      font-size: 32px;
       font-weight: 700;
       color: #fff;
 
       img { width: 100%; height: 100%; object-fit: cover; }
     }
 
-    .btn-ghost {
+    .match-actions {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      width: 100%;
+    }
+
+    .btn-send-msg {
+      width: 100%;
+      padding: 16px;
+      border: none;
+      border-radius: 50px;
+      background: linear-gradient(135deg, #fd267a, #ff6036);
+      color: #fff;
+      font-size: 16px;
+      font-weight: 700;
+      cursor: pointer;
+      letter-spacing: 0.3px;
+      box-shadow: 0 4px 20px rgba(253,38,122,0.4);
+      transition: transform 0.15s;
+
+      &:active { transform: scale(0.97); }
+    }
+
+    .btn-keep-swiping {
+      width: 100%;
+      padding: 14px;
+      border: 1.5px solid rgba(255,255,255,0.35);
+      border-radius: 50px;
       background: transparent;
-      color: rgba(255,255,255,0.85);
-      border: 2px solid rgba(255,255,255,0.5);
-      border-radius: 30px;
-      padding: 10px 28px;
+      color: rgba(255,255,255,0.8);
       font-size: 15px;
       font-weight: 500;
       cursor: pointer;
-      margin-top: 10px;
+      transition: border-color 0.15s;
+
+      &:active { border-color: rgba(255,255,255,0.6); }
     }
   `]
 })
@@ -338,22 +512,17 @@ export class DiscoverComponent implements OnInit {
     });
   }
 
-  onSwipe(direction: 'left' | 'right', profile: Profile): void {
+  onSwipe(direction: 'left' | 'right', profile: Profile, isSuper = false): void {
     if (!this.myProfileId) return;
 
-    const swipeData = {
+    this.swipeService.swipe({
       profile1Id: this.myProfileId,
       profile2Id: profile.profileId,
-      decision: direction === 'right'
-    };
-
-    this.swipeService.swipe(swipeData).subscribe({
-      next: () => {
-        this.currentIndex.update(v => v + 1);
-      },
-      error: () => {
-        this.currentIndex.update(v => v + 1);
-      }
+      decision: direction === 'right',
+      isSuper
+    }).subscribe({
+      next: () => { this.currentIndex.update(v => v + 1); },
+      error: () => { this.currentIndex.update(v => v + 1); }
     });
   }
 
@@ -368,7 +537,8 @@ export class DiscoverComponent implements OnInit {
   }
 
   superLike(): void {
-    this.swipeRight();
+    const current = this.profiles()[this.currentIndex()];
+    if (current) this.onSwipe('right', current, true);
   }
 
   refresh(): void {

@@ -24,11 +24,12 @@ public interface PendingLikeRepository extends JpaRepository<PendingLike, UUID> 
      */
     @Modifying
     @Query(value = """
-        INSERT INTO pending_likes (id, liked_user_id, liker_profile_id, liked_at)
-        VALUES (gen_random_uuid(), :likedUserId, :likerProfileId, :likedAt)
+        INSERT INTO pending_likes (id, liked_user_id, liker_profile_id, liked_at, is_super)
+        VALUES (gen_random_uuid(), :likedUserId, :likerProfileId, :likedAt, :isSuper)
         ON CONFLICT (liked_user_id, liker_profile_id) DO NOTHING
         """, nativeQuery = true)
     void upsertIgnore(@Param("likedUserId") UUID likedUserId,
                       @Param("likerProfileId") UUID likerProfileId,
-                      @Param("likedAt") Instant likedAt);
+                      @Param("likedAt") Instant likedAt,
+                      @Param("isSuper") boolean isSuper);
 }

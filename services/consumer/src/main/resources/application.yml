@@ -4,7 +4,6 @@ spring:
       dialect: org.hibernate.dialect.PostgreSQLDialect
     hibernate:
       ddl-auto: create-drop
-    show-sql: true
   kafka:
     bootstrap-servers: localhost:9092
     consumer:

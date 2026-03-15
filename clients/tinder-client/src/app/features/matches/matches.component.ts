@@ -36,7 +36,18 @@ export function markConversationRead(conversationId: string): void {
   template: `
     <div class="matches-page">
       <header class="header">
-        <h1>Matches</h1>
+        <div class="header-left"></div>
+        <div class="logo">
+          <svg viewBox="0 0 24 24" width="22" height="22" fill="#fd267a">
+            <path d="M17.66 11.2c-.23-.3-.51-.56-.77-.82-.67-.6-1.43-1.03-2.07-1.66C13.33 7.26 13 4.85 13.95 3c-.95.23-1.78.75-2.49 1.32-2.59 2.11-3.66 5.65-2.67 8.9.04.14.08.28.08.43 0 .28-.19.52-.45.57-.28.07-.53-.09-.63-.37-.04-.1-.06-.21-.09-.32C7.15 13 7 12.5 7 11.85c0-.58.16-1.2.44-1.7-1.16 1.27-1.86 2.97-1.86 4.77 0 3.31 2.69 6 6 6s6-2.69 6-6c0-1.88-.82-3.63-2.09-4.82z"/>
+          </svg>
+          <span class="logo-text">tinder</span>
+        </div>
+        <button class="header-icon-btn">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" width="24" height="24">
+            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+          </svg>
+        </button>
       </header>
 
       @if (loading()) {
@@ -45,10 +56,20 @@ export function markConversationRead(conversationId: string): void {
         </div>
       } @else if (newMatches().length === 0 && conversations().length === 0) {
         <div class="empty">
-          <div class="empty-icon">💌</div>
-          <h3>No matches yet</h3>
-          <p>Keep swiping to find your matches!</p>
-          <button class="btn-primary" (click)="goDiscover()">Start Swiping</button>
+          <!-- Tinder card stack illustration -->
+          <div class="card-illustration">
+            <div class="card card-back-2"></div>
+            <div class="card card-back-1"></div>
+            <div class="card card-front">
+              <div class="like-stamp">LIKE</div>
+            </div>
+          </div>
+
+          <h2 class="empty-title">Start Swiping</h2>
+          <p class="empty-text">
+            Your confirmed matches will appear here.<br>
+            You can message a match directly.
+          </p>
         </div>
       } @else {
         <div class="content">
@@ -129,25 +150,58 @@ export function markConversationRead(conversationId: string): void {
       display: flex;
       flex-direction: column;
       height: 100vh;
-      background: var(--bg);
-      padding-bottom: 70px;
+      height: 100dvh;
+      background: var(--surface);
+      padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 159px);
       overflow: hidden;
     }
 
+    /* ── Header ── */
     .header {
-      padding: 20px 20px 16px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 14px 18px 12px;
       background: var(--surface);
-      box-shadow: 0 2px 8px var(--shadow-sm);
+      border-bottom: 1px solid var(--border);
       flex-shrink: 0;
+    }
 
-      h1 {
-        margin: 0;
-        font-size: 24px;
-        font-weight: 700;
-        color: var(--text-primary);
+    .header-left {
+      width: 36px;
+    }
+
+    .logo {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+
+      .logo-text {
+        font-size: 22px;
+        font-weight: 800;
+        color: #fd267a;
+        letter-spacing: -0.5px;
       }
     }
 
+    .header-icon-btn {
+      background: none;
+      border: none;
+      cursor: pointer;
+      color: #9e9ea0;
+      padding: 4px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 50%;
+      width: 36px;
+      height: 36px;
+      transition: background 0.15s;
+
+      &:active { background: var(--surface-2); }
+    }
+
+    /* ── Loading ── */
     .loading {
       flex: 1;
       display: flex;
@@ -156,42 +210,107 @@ export function markConversationRead(conversationId: string): void {
     }
 
     .spinner {
-      width: 40px;
-      height: 40px;
-      border: 3px solid var(--border-light);
-      border-top: 3px solid #fd5564;
+      width: 36px;
+      height: 36px;
+      border: 3px solid var(--border);
+      border-top: 3px solid #fd267a;
       border-radius: 50%;
       animation: spin 0.8s linear infinite;
     }
 
     @keyframes spin { to { transform: rotate(360deg); } }
 
+    /* ── Empty state ── */
     .empty {
       flex: 1;
       display: flex;
       flex-direction: column;
       align-items: center;
       justify-content: center;
-      gap: 14px;
+      gap: 0;
+      padding: 40px 40px 60px;
       text-align: center;
-      padding: 40px;
-
-      .empty-icon { font-size: 64px; }
-      h3 { margin: 0; font-size: 20px; color: var(--text-primary); }
-      p { margin: 0; color: var(--text-muted); }
     }
 
-    .btn-primary {
-      background: linear-gradient(135deg, #fd5564, #ff8a00);
-      color: #fff;
-      border: none;
-      border-radius: 30px;
-      padding: 12px 32px;
-      font-size: 16px;
-      font-weight: 600;
-      cursor: pointer;
+    /* Card stack illustration matching the Tinder screenshot */
+    .card-illustration {
+      position: relative;
+      width: 160px;
+      height: 180px;
+      margin-bottom: 32px;
     }
 
+    .card {
+      position: absolute;
+      border-radius: 14px;
+      background: var(--surface);
+    }
+
+    .card-back-2 {
+      width: 110px;
+      height: 145px;
+      bottom: 0;
+      left: 50%;
+      transform: translateX(-50%) rotate(-6deg) translateY(4px);
+      background: var(--bg);
+      border: 2px solid var(--border);
+    }
+
+    .card-back-1 {
+      width: 115px;
+      height: 150px;
+      bottom: 0;
+      left: 50%;
+      transform: translateX(-50%) rotate(-2deg) translateY(2px);
+      background: var(--bg);
+      border: 2px solid var(--border);
+    }
+
+    .card-front {
+      width: 120px;
+      height: 155px;
+      bottom: 0;
+      left: 50%;
+      transform: translateX(-50%) rotate(8deg);
+      background: #f0fff4;
+      border: 2.5px solid #4dde8f;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    [data-theme="dark"] .card-front {
+      background: #0d2a1a;
+    }
+
+    .like-stamp {
+      font-size: 22px;
+      font-weight: 800;
+      color: #4dde8f;
+      border: 3px solid #4dde8f;
+      border-radius: 6px;
+      padding: 4px 12px;
+      letter-spacing: 2px;
+      transform: rotate(-8deg);
+    }
+
+    .empty-title {
+      margin: 0 0 12px;
+      font-size: 22px;
+      font-weight: 800;
+      color: var(--text-primary);
+      letter-spacing: -0.3px;
+    }
+
+    .empty-text {
+      margin: 0;
+      font-size: 15px;
+      color: var(--text-muted);
+      line-height: 1.55;
+      max-width: 280px;
+    }
+
+    /* ── Content ── */
     .content {
       flex: 1;
       overflow-y: auto;
@@ -199,16 +318,15 @@ export function markConversationRead(conversationId: string): void {
 
     .section {
       background: var(--surface);
-      margin-bottom: 8px;
     }
 
     .section-title {
       margin: 0;
       padding: 16px 20px 12px;
-      font-size: 13px;
+      font-size: 12px;
       font-weight: 700;
       text-transform: uppercase;
-      letter-spacing: 0.5px;
+      letter-spacing: 0.7px;
       color: var(--text-muted);
       display: flex;
       align-items: center;
@@ -216,7 +334,7 @@ export function markConversationRead(conversationId: string): void {
     }
 
     .badge {
-      background: linear-gradient(135deg, #fd5564, #ff8a00);
+      background: #fd267a;
       color: #fff;
       font-size: 11px;
       font-weight: 700;
@@ -229,8 +347,8 @@ export function markConversationRead(conversationId: string): void {
     /* ── New Matches horizontal scroll ── */
     .new-matches-scroll {
       display: flex;
-      gap: 16px;
-      padding: 4px 20px 20px;
+      gap: 14px;
+      padding: 0 20px 20px;
       overflow-x: auto;
       scrollbar-width: none;
       -ms-overflow-style: none;
@@ -242,13 +360,12 @@ export function markConversationRead(conversationId: string): void {
       display: flex;
       flex-direction: column;
       align-items: center;
-      gap: 8px;
+      gap: 6px;
       background: none;
       border: none;
       padding: 0;
       cursor: pointer;
       flex-shrink: 0;
-      opacity: 1;
       transition: opacity 0.2s;
 
       &.starting { opacity: 0.6; }
@@ -256,31 +373,27 @@ export function markConversationRead(conversationId: string): void {
     }
 
     .bubble-ring {
-      padding: 3px;
+      padding: 2.5px;
       border-radius: 50%;
-      background: linear-gradient(135deg, #fd5564, #ff8a00);
+      background: linear-gradient(135deg, #fd267a, #ff6036);
     }
 
     .bubble-avatar {
       position: relative;
-      width: 70px;
-      height: 70px;
+      width: 68px;
+      height: 68px;
       border-radius: 50%;
       overflow: hidden;
       background: var(--border);
-      border: 2px solid var(--surface);
+      border: 2.5px solid var(--surface);
       display: flex;
       align-items: center;
       justify-content: center;
-      font-size: 24px;
+      font-size: 22px;
       font-weight: 700;
       color: var(--text-secondary);
 
-      img {
-        width: 100%;
-        height: 100%;
-        object-fit: cover;
-      }
+      img { width: 100%; height: 100%; object-fit: cover; }
     }
 
     .bubble-spinner {
@@ -288,14 +401,13 @@ export function markConversationRead(conversationId: string): void {
       inset: 0;
       border-radius: 50%;
       background: rgba(0,0,0,0.3);
-      display: flex;
-      align-items: center;
-      justify-content: center;
 
       &::after {
         content: '';
-        width: 22px;
-        height: 22px;
+        position: absolute;
+        top: 50%; left: 50%;
+        transform: translate(-50%, -50%);
+        width: 20px; height: 20px;
         border: 2px solid rgba(255,255,255,0.4);
         border-top: 2px solid #fff;
         border-radius: 50%;
@@ -308,16 +420,16 @@ export function markConversationRead(conversationId: string): void {
       font-size: 12px;
       font-weight: 600;
       color: var(--text-primary);
-      max-width: 76px;
+      max-width: 72px;
       text-align: center;
       overflow: hidden;
       text-overflow: ellipsis;
       white-space: nowrap;
     }
 
-    /* ── Conversations list ── */
+    /* ── Conversations ── */
     .conversations-list {
-      padding: 0 0 8px;
+      border-top: 1px solid var(--border);
     }
 
     .conv-item {
@@ -327,7 +439,9 @@ export function markConversationRead(conversationId: string): void {
       padding: 12px 20px;
       cursor: pointer;
       transition: background 0.15s;
+      border-bottom: 1px solid var(--border);
 
+      &:last-child { border-bottom: none; }
       &:active { background: var(--surface-2); }
     }
 
@@ -336,7 +450,7 @@ export function markConversationRead(conversationId: string): void {
       height: 56px;
       border-radius: 50%;
       overflow: hidden;
-      background: linear-gradient(135deg, #fd5564, #ff8a00);
+      background: linear-gradient(135deg, #fd267a, #ff6036);
       flex-shrink: 0;
       display: flex;
       align-items: center;
@@ -345,17 +459,10 @@ export function markConversationRead(conversationId: string): void {
       font-weight: 700;
       color: #fff;
 
-      img {
-        width: 100%;
-        height: 100%;
-        object-fit: cover;
-      }
+      img { width: 100%; height: 100%; object-fit: cover; }
     }
 
-    .conv-info {
-      flex: 1;
-      min-width: 0;
-    }
+    .conv-info { flex: 1; min-width: 0; }
 
     .conv-name-row {
       display: flex;
@@ -402,10 +509,10 @@ export function markConversationRead(conversationId: string): void {
     }
 
     .unread-dot {
-      width: 10px;
-      height: 10px;
+      width: 9px;
+      height: 9px;
       border-radius: 50%;
-      background: linear-gradient(135deg, #fd5564, #ff8a00);
+      background: #fd267a;
       flex-shrink: 0;
       margin-left: auto;
     }
@@ -514,8 +621,6 @@ export class MatchesComponent implements OnInit, OnDestroy {
     if (lm) {
       lastMessageText = lm.messageType === 'IMAGE' ? '📷 Photo' : (lm.text ?? null);
 
-      // Unread if: the last message was sent by the other person AND
-      // it arrived after the last time the user opened this conversation.
       if (lm.senderId !== myProfileId) {
         const lastRead = getLastRead(conv.conversationId);
         unread = !lastRead || new Date(lm.createdAt) > new Date(lastRead);

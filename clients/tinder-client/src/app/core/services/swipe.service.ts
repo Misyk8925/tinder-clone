@@ -10,6 +10,7 @@ export class SwipeService {
   private base = `${environment.apiGatewayUrl}/api/v1/swipes`;
 
   swipe(data: SwipeRequest): Observable<void> {
-    return this.http.post<void>(this.base, data);
+    const url = data.isSuper ? `${this.base}/super` : this.base;
+    return this.http.post<void>(url, data);
   }
 }

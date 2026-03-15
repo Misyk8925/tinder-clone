@@ -45,10 +45,13 @@ export interface CreateProfileRequest {
   city: string;
   preferences: Preferences;
   hobbies: Hobby[];
+  latitude?: number;
+  longitude?: number;
 }
 
 export interface SwipeRequest {
   profile1Id: string;
   profile2Id: string;
   decision: boolean;
+  isSuper?: boolean;
 }

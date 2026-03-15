@@ -2,44 +2,43 @@ import { Component, inject } from '@angular/core';
 import { RouterLink, RouterLinkActive, Router, NavigationEnd } from '@angular/router';
 import { KeycloakService } from '../../../core/services/keycloak.service';
 import { filter } from 'rxjs/operators';
+import { LucideAngularModule } from 'lucide-angular';
 
 @Component({
   selector: 'app-navbar',
-  imports: [RouterLink, RouterLinkActive],
+  imports: [RouterLink, RouterLinkActive, LucideAngularModule],
   template: `
     @if (!hidden) {
     <nav class="navbar">
+
       <a routerLink="/discover" routerLinkActive="active" class="nav-item">
-        <svg viewBox="0 0 24 24" fill="currentColor">
-          <path d="M12 21.593c-5.63-5.539-11-10.297-11-14.402 0-3.791 3.068-5.191 5.281-5.191 1.312 0 4.151.501 5.719 4.457 1.59-3.968 4.464-4.447 5.726-4.447 2.54 0 5.274 1.621 5.274 5.181 0 4.069-5.136 8.625-11 14.402z"/>
-        </svg>
-        <span>Discover</span>
+        <lucide-icon name="flame" [size]="26" class="nav-icon" strokeWidth="1.75"></lucide-icon>
+        <span class="nav-label">Swipen</span>
       </a>
-      @if (isPremiumOrAdmin) {
+
       <a routerLink="/likes" routerLinkActive="active" class="nav-item">
-        <svg viewBox="0 0 24 24" fill="currentColor">
-          <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
-        </svg>
-        <span>Likes You</span>
+        <lucide-icon name="heart" [size]="26" class="nav-icon" strokeWidth="1.75"></lucide-icon>
+        <span class="nav-label">Likes</span>
       </a>
-      }
+
       <a routerLink="/matches" routerLinkActive="active" class="nav-item">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
-        </svg>
-        <span>Matches</span>
+        <lucide-icon name="message-circle" [size]="26" class="nav-icon" strokeWidth="1.75"></lucide-icon>
+        <span class="nav-label">Chat</span>
       </a>
+
       <a routerLink="/profile" routerLinkActive="active" class="nav-item">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
-          <circle cx="12" cy="7" r="4"/>
-        </svg>
-        <span>Profile</span>
+        <lucide-icon name="user" [size]="26" class="nav-icon" strokeWidth="1.75"></lucide-icon>
+        <span class="nav-label">Profil</span>
       </a>
+
     </nav>
     }
   `,
   styles: [`
+    :host {
+      display: contents;
+    }
+
     .navbar {
       position: fixed;
       bottom: 0;
@@ -50,36 +49,39 @@ import { filter } from 'rxjs/operators';
       align-items: center;
       background: var(--surface);
       border-top: 1px solid var(--border);
-      padding: 8px 0 env(safe-area-inset-bottom, 8px);
+      padding: 8px 0 calc(env(safe-area-inset-bottom, 0px) + 29px);
       z-index: 100;
-      box-shadow: 0 -2px 10px rgba(0,0,0,0.08);
     }
 
     .nav-item {
       display: flex;
       flex-direction: column;
       align-items: center;
-      gap: 2px;
-      color: var(--text-muted);
+      gap: 4px;
+      color: var(--custom);
       text-decoration: none;
-      transition: color 0.2s;
-      padding: 4px 20px;
+      padding: 4px 14px;
+      min-width: 56px;
+      transition: color 0.15s;
 
-      svg {
-        width: 24px;
-        height: 24px;
-      }
-
-      span {
+      .nav-label {
         font-size: 10px;
-        font-weight: 600;
-        text-transform: uppercase;
-        letter-spacing: 0.5px;
+        font-weight: 500;
+        letter-spacing: 0.1px;
       }
 
       &.active {
-        color: #fd5564;
+        color: #fd267a;
+
+        .nav-label {
+          font-weight: 700;
+          color: #fd267a;
+        }
       }
+    }
+
+    [data-theme="dark"] .nav-item.active .nav-label {
+      color: #f2f2f7;
     }
   `]
 })

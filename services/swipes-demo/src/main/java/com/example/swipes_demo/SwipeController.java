@@ -18,7 +18,14 @@ public class SwipeController {
 
     @PostMapping
     public Mono<ResponseEntity<Void>> swipe(@RequestBody @Valid SwipeDto dto) {
-        return swipeService.sendSwipe(dto)
+        return swipeService.sendSwipe(dto, false)
+                .thenReturn(ResponseEntity.ok().build());
+    }
+
+    /** Only reachable via gateway's PremiumOrAdminFilter — no role check needed here. */
+    @PostMapping("/super")
+    public Mono<ResponseEntity<Void>> superLike(@RequestBody @Valid SwipeDto dto) {
+        return swipeService.sendSwipe(dto, true)
                 .thenReturn(ResponseEntity.ok().build());
     }
 }
