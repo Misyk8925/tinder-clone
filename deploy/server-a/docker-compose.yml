@@ -1,0 +1,69 @@
+# Server A — Entry point
+# Services: config-server, discovery, gateway
+#
+# Dokploy: укажи compose file = deploy/server-a/docker-compose.yml
+
+services:
+
+  config-server:
+    build:
+      context: ../../services/config-server2
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:8888/actuator/health || exit 1"]
+      interval: 15s
+      timeout: 10s
+      start_period: 60s
+      retries: 5
+
+  discovery:
+    build:
+      context: ../../services/discovery
+      dockerfile: Dockerfile2
+    restart: unless-stopped
+    environment:
+      SPRING_CLOUD_CONFIG_URI: http://config-server:8888
+    ports:
+      - "8761:8761"
+    depends_on:
+      config-server:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:8761/actuator/health || exit 1"]
+      interval: 15s
+      timeout: 10s
+      start_period: 60s
+      retries: 5
+
+  gateway:
+    build:
+      context: ../../services/gateway
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    ports:
+      - "8222:8222"
+    environment:
+      SPRING_DATA_REDIS_HOST: ${INFRA_HOST}
+      SPRING_DATA_REDIS_PORT: 6379
+      SPRING_DATA_REDIS_PASSWORD: ${REDIS_PASSWORD}
+      KEYCLOAK_JWK_SET_URI: http://${INFRA_HOST}:9080/realms/spring/protocol/openid-connect/certs
+      EUREKA_CLIENT_SERVICE_URL_DEFAULT_ZONE: http://discovery:8761/eureka
+      EUREKA_CLIENT_REGISTER_WITH_EUREKA: "true"
+      EUREKA_CLIENT_FETCH_REGISTRY: "true"
+      EUREKA_INSTANCE_HOSTNAME: gateway
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.gateway.rule=Host(`${APP_DOMAIN}`)"
+      - "traefik.http.routers.gateway.entrypoints=websecure"
+      - "traefik.http.routers.gateway.tls.certresolver=letsencrypt"
+      - "traefik.http.services.gateway.loadbalancer.server.port=8222"
+    depends_on:
+      discovery:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:8222/actuator/health || exit 1"]
+      interval: 15s
+      timeout: 10s
+      start_period: 90s
+      retries: 10

@@ -1,0 +1,36 @@
+# Server D — Payments (изолирован для соответствия требованиям PCI DSS)
+# Services: subscriptions-service
+#
+# Dokploy: укажи compose file = deploy/server-d/docker-compose.yml
+
+services:
+
+  # CN=subscriptions-service, SAN=DNS:subscriptions-service
+  subscriptions-service:
+    build:
+      context: ../../services/subscriptions
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    ports:
+      - "8095:8095"
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://${INFRA_HOST}:5432/subscriptions_db
+      SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER:-postgres}
+      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD}
+      SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_JWK_SET_URI: http://${INFRA_HOST}:9080/realms/spring/protocol/openid-connect/certs
+      STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY}
+      STRIPE_WEBHOOK_SECRET: ${STRIPE_WEBHOOK_SECRET}
+      STRIPE_PRICE_ID: ${STRIPE_PRICE_ID}
+      STRIPE_SUCCESS_URL: ${STRIPE_SUCCESS_URL}
+      STRIPE_CANCEL_URL: ${STRIPE_CANCEL_URL}
+      # gRPC mTLS → profiles-service на Server B
+      PROFILES_GRPC_ADDRESS: static://${SERVER_B_HOST}:9010
+      GRPC_OVERRIDE_AUTHORITY: profiles-service
+      GRPC_MTLS_ENABLED: ${GRPC_MTLS_ENABLED:-true}
+      PROFILES_BASE_URL: http://${SERVER_B_HOST}:8010
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:8095/actuator/health || exit 1"]
+      interval: 15s
+      timeout: 10s
+      start_period: 90s
+      retries: 10

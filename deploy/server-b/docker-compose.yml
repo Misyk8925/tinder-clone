@@ -1,0 +1,88 @@
+# Server B — Core user features (mTLS-coupled services на одном хосте)
+# Services: profiles-service, deck-service, consumer-service
+#
+# Все три сервиса взаимодействуют через mTLS — держим их вместе,
+# чтобы они общались по именам контейнеров без выхода в сеть.
+#
+# Dokploy: укажи compose file = deploy/server-b/docker-compose.yml
+
+services:
+
+  # CN=profiles-service, SAN=DNS:profiles-service — имя контейнера совпадает
+  profiles-service:
+    build:
+      context: ../../services/profiles
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    ports:
+      - "8010:8010"
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://${INFRA_HOST}:5432/profiles_db
+      SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER:-postgres}
+      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD}
+      SPRING_DATA_REDIS_HOST: ${INFRA_HOST}
+      SPRING_DATA_REDIS_PASSWORD: ${REDIS_PASSWORD}
+      SPRING_KAFKA_BOOTSTRAP_SERVERS: ${INFRA_HOST}:9092
+      KEYCLOAK_JWK_SET_URI: http://${INFRA_HOST}:9080/realms/spring/protocol/openid-connect/certs
+      KEYCLOAK_URL: http://${INFRA_HOST}:9080
+      KEYCLOAK_ADMIN_USERNAME: ${KEYCLOAK_ADMIN:-admin}
+      KEYCLOAK_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD}
+      AWS_REGION: ${AWS_REGION:-eu-north-1}
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID:-test}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY:-test}
+      AWS_S3_BUCKET: ${AWS_S3_BUCKET:-profiles-photos}
+      AWS_S3_ENDPOINT: ${AWS_S3_ENDPOINT:-http://${INFRA_HOST}:4566}
+      CDN_ENABLED: ${CDN_ENABLED:-false}
+      CLOUDFRONT_DOMAIN: ${CLOUDFRONT_DOMAIN:-}
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:8010/actuator/health || exit 1"]
+      interval: 15s
+      timeout: 10s
+      start_period: 90s
+      retries: 10
+
+  # CN=consumer-service, SAN=DNS:consumer-service
+  consumer-service:
+    build:
+      context: ../../services/consumer
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    ports:
+      - "8050:8050"
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://${INFRA_HOST}:5432/consumer_db
+      SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER:-postgres}
+      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD}
+      SPRING_KAFKA_BOOTSTRAP_SERVERS: ${INFRA_HOST}:9092
+      SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_JWK_SET_URI: http://${INFRA_HOST}:9080/realms/spring/protocol/openid-connect/certs
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:8050/actuator/health || exit 1"]
+      interval: 15s
+      timeout: 10s
+      start_period: 90s
+      retries: 10
+
+  # CN=deck-service, SAN=DNS:deck-service
+  # Вызывает profiles-service и consumer-service по mTLS — они на этом же хосте
+  deck-service:
+    build:
+      context: ../../services/deck
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    environment:
+      SPRING_DATA_REDIS_HOST: ${INFRA_HOST}
+      SPRING_DATA_REDIS_PASSWORD: ${REDIS_PASSWORD}
+      SPRING_KAFKA_BOOTSTRAP_SERVERS: ${INFRA_HOST}:9092
+      PROFILES_BASE_URL: https://profiles-service:8011/api/v1/profiles/internal
+      SWIPES_BASE_URL: https://consumer-service:8051
+    depends_on:
+      profiles-service:
+        condition: service_healthy
+      consumer-service:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:8030/actuator/health || exit 1"]
+      interval: 15s
+      timeout: 10s
+      start_period: 90s
+      retries: 10
