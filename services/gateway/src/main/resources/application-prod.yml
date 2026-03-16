@@ -1,0 +1,178 @@
+# Production overrides for Spring Cloud Gateway.
+# Replaces localhost URIs with Docker Compose service names.
+# Activated when SPRING_PROFILES_ACTIVE=prod (set in Dockerfile).
+
+spring:
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          jwk-set-uri: ${KEYCLOAK_JWK_SET_URI:http://keycloak:9080/realms/spring/protocol/openid-connect/certs}
+
+  cloud:
+    gateway:
+      server:
+        webflux:
+          routes:
+            ############################## PROFILES ROUTES
+            - id: profile-create
+              uri: http://profiles-service:8010
+              predicates:
+                - Path=/api/v1/profiles
+                - Method=POST
+              filters:
+                - name: RoleBasedRateLimitFilter
+                  args:
+                    adminCapacity:  1000000000
+                    adminPeriodInSeconds: 3600
+                    premiumCapacity: 50
+                    premiumPeriodInSeconds: 3600
+                    basicCapacity: 5
+                    basicPeriodInSeconds: 3600
+                    anonCapacity: 0
+                    anonPeriodInSeconds: 7200
+
+            - id: profile-update
+              uri: http://profiles-service:8010
+              predicates:
+                - Path=/api/v1/profiles/**
+                - Method=PUT, PATCH
+              filters:
+                - name: RoleBasedRateLimitFilter
+                  args:
+                    adminCapacity:  1000000000
+                    adminPeriodInSeconds: 3600
+                    premiumCapacity: 50
+                    premiumPeriodInSeconds: 3600
+                    basicCapacity: 20
+                    basicPeriodInSeconds: 3600
+                    anonCapacity: 1
+                    anonPeriodInSeconds: 3600
+
+            - id: profile-delete
+              uri: http://profiles-service:8010
+              predicates:
+                - Path=/api/v1/profiles/**
+                - Method=DELETE
+              filters:
+                - name: RoleBasedRateLimitFilter
+                  args:
+                    adminCapacity: 50
+                    adminPeriodInSeconds: 3600
+                    premiumCapacity: 20
+                    premiumPeriodInSeconds: 3600
+                    basicCapacity: 5
+                    basicPeriodInSeconds: 3600
+                    anonCapacity: 1
+                    anonPeriodInSeconds: 3600
+
+            - id: profile-me
+              uri: http://profiles-service:8010
+              predicates:
+                - Path=/api/v1/profiles/me
+                - Method=GET
+
+            - id: profile-other
+              uri: http://profiles-service:8010
+              predicates:
+                - Path=/api/v1/profiles/**
+              filters:
+                - name: RoleBasedRateLimitFilter
+                  args:
+                    adminCapacity:  1000000000
+                    adminPeriodInSeconds: 3600
+                    premiumCapacity: 300
+                    premiumPeriodInSeconds: 3600
+                    basicCapacity: 120
+                    basicPeriodInSeconds: 3600
+                    anonCapacity: 1
+                    anonPeriodInSeconds: 3600
+
+            ############################## SWIPES ROUTES
+
+            - id: swipes-super
+              uri: http://swipes-demo:8040
+              predicates:
+                - Path=/api/v1/swipes/super
+                - Method=POST
+              filters:
+                - PremiumOrAdminFilter
+
+            - id: swipes
+              uri: http://swipes-demo:8040
+              predicates:
+                - Path=/api/v1/swipes
+              filters:
+                - name: RoleBasedRateLimitFilter
+                  args:
+                    adminCapacity:  1000000000
+                    adminPeriodInSeconds: 3600
+                    premiumCapacity: 500
+                    premiumPeriodInSeconds: 3600
+                    basicCapacity: 100
+                    basicPeriodInSeconds: 3600
+                    anonCapacity: 10
+                    anonPeriodInSeconds: 3600
+
+            ############################## LIKES YOU (premium + admin only)
+
+            - id: consumer-liked-me
+              uri: http://consumer-service:8050
+              predicates:
+                - Path=/api/v1/swipes/liked-me
+                - Method=GET
+              filters:
+                - PremiumOrAdminFilter
+
+            ############################## DECK ROUTES (admin / monitoring)
+
+            - id: deck-admin
+              uri: http://deck-service:8030
+              predicates:
+                - Path=/api/v1/admin/deck/**
+              filters:
+                - name: RoleBasedRateLimitFilter
+                  args:
+                    adminCapacity:  1000000000
+                    adminPeriodInSeconds: 3600
+                    premiumCapacity: 0
+                    premiumPeriodInSeconds: 3600
+                    basicCapacity: 0
+                    basicPeriodInSeconds: 3600
+                    anonCapacity: 0
+                    anonPeriodInSeconds: 3600
+
+            ############################## MATCH ROUTES
+
+            - id: match-conversations
+              uri: http://match-service:8080
+              predicates:
+                - Path=/rest/conversations/**
+
+            - id: match-other
+              uri: http://match-service:8080
+              predicates:
+                - Path=/match/**
+
+            ############################## SUBSCRIPTIONS ROUTES
+
+            - id: subscriptions-billing
+              uri: http://subscriptions-service:8095
+              predicates:
+                - Path=/api/v1/billing/**
+              filters:
+                - name: RoleBasedRateLimitFilter
+                  args:
+                    adminCapacity:  1000000000
+                    adminPeriodInSeconds: 3600
+                    premiumCapacity: 20
+                    premiumPeriodInSeconds: 3600
+                    basicCapacity: 10
+                    basicPeriodInSeconds: 3600
+                    anonCapacity: 0
+                    anonPeriodInSeconds: 3600
+
+            - id: subscriptions-webhook
+              uri: http://subscriptions-service:8095
+              predicates:
+                - Path=/api/v1/webhook/**

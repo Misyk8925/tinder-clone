@@ -1,0 +1,25 @@
+# Production overrides — Docker Compose service names replace localhost.
+spring:
+  datasource:
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://postgres:5432/match_db}
+    username: ${SPRING_DATASOURCE_USERNAME:postgres}
+    password: ${SPRING_DATASOURCE_PASSWORD}
+  kafka:
+    bootstrap-servers: ${SPRING_KAFKA_BOOTSTRAP_SERVERS:kafka:29092}
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          jwk-set-uri: ${KEYCLOAK_JWK_SET_URI:http://keycloak:9080/realms/spring/protocol/openid-connect/certs}
+
+keycloak:
+  auth-server-url: ${KEYCLOAK_AUTH_SERVER_URL:http://keycloak:9080}
+
+cloud:
+  aws:
+    region: ${AWS_REGION:eu-north-1}
+    credentials:
+      access-key: ${AWS_ACCESS_KEY_ID:test}
+      secret-key: ${AWS_SECRET_ACCESS_KEY:test}
+    s3:
+      endpoint: ${AWS_S3_ENDPOINT:http://localstack:4566}

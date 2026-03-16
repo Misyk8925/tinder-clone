@@ -1,0 +1,15 @@
+# Production overrides — Docker Compose service names replace localhost.
+spring:
+  data:
+    redis:
+      host: ${SPRING_DATA_REDIS_HOST:redis}
+      port: ${SPRING_DATA_REDIS_PORT:6379}
+      password: ${SPRING_DATA_REDIS_PASSWORD:}
+  kafka:
+    bootstrap-servers: ${SPRING_KAFKA_BOOTSTRAP_SERVERS:kafka:29092}
+
+profiles:
+  base-url: ${PROFILES_BASE_URL:https://profiles-service:8011/api/v1/profiles/internal}
+
+swipes:
+  base-url: ${SWIPES_BASE_URL:https://consumer-service:8051}

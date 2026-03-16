@@ -1,0 +1,29 @@
+# Production overrides — Docker Compose service names replace localhost.
+spring:
+  datasource:
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://postgres:5432/subscriptions_db}
+    username: ${SPRING_DATASOURCE_USERNAME:postgres}
+    password: ${SPRING_DATASOURCE_PASSWORD}
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          jwk-set-uri: ${SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_JWK_SET_URI:http://keycloak:9080/realms/spring/protocol/openid-connect/certs}
+
+grpc:
+  client:
+    profiles-service:
+      address: ${PROFILES_GRPC_ADDRESS:static://profiles-service:9010}
+      negotiation-type: tls
+    mtls:
+      enabled: ${GRPC_MTLS_ENABLED:true}
+      key-store: ${SUBSCRIPTIONS_GRPC_KEYSTORE_PATH:classpath:subscriptions-service.p12}
+      key-store-password: ${SUBSCRIPTIONS_GRPC_KEYSTORE_PASSWORD:changeit}
+      key-store-type: PKCS12
+      trust-store: ${SUBSCRIPTIONS_GRPC_TRUSTSTORE_PATH:classpath:truststore.jks}
+      trust-store-password: ${SUBSCRIPTIONS_GRPC_TRUSTSTORE_PASSWORD:changeit}
+      trust-store-type: JKS
+      override-authority: ${GRPC_OVERRIDE_AUTHORITY:profiles-service}
+
+profiles:
+  base-url: ${PROFILES_BASE_URL:http://profiles-service:8010}
