@@ -23,6 +23,7 @@ services:
       dockerfile: Dockerfile2
     restart: unless-stopped
     environment:
+      # Переопределяет hardcoded URL в application.yml
       SPRING_CLOUD_CONFIG_URI: http://config-server:8888
     ports:
       - "8761:8761"
@@ -52,6 +53,13 @@ services:
       EUREKA_CLIENT_REGISTER_WITH_EUREKA: "true"
       EUREKA_CLIENT_FETCH_REGISTRY: "true"
       EUREKA_INSTANCE_HOSTNAME: gateway
+      # Адреса upstream-сервисов на других серверах (из .env)
+      PROFILES_SERVICE_URL: http://${SERVER_B_HOST}:8010
+      CONSUMER_SERVICE_URL: http://${SERVER_B_HOST}:8050
+      DECK_SERVICE_URL: http://${SERVER_B_HOST}:8030
+      SWIPES_SERVICE_URL: http://${SERVER_C_HOST}:8040
+      MATCH_SERVICE_URL: http://${SERVER_C_HOST}:8080
+      SUBSCRIPTIONS_SERVICE_URL: http://${SERVER_D_HOST}:8095
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.gateway.rule=Host(`${APP_DOMAIN}`)"

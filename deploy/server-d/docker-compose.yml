@@ -13,6 +13,8 @@ services:
     restart: unless-stopped
     ports:
       - "8095:8095"
+    volumes:
+      - ../../deploy/certs:/certs:ro
     environment:
       SPRING_DATASOURCE_URL: jdbc:postgresql://${INFRA_HOST}:5432/subscriptions_db
       SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER:-postgres}
@@ -28,6 +30,11 @@ services:
       GRPC_OVERRIDE_AUTHORITY: profiles-service
       GRPC_MTLS_ENABLED: ${GRPC_MTLS_ENABLED:-true}
       PROFILES_BASE_URL: http://${SERVER_B_HOST}:8010
+      # mTLS клиент для gRPC → profiles-service
+      SUBSCRIPTIONS_GRPC_KEYSTORE_PATH: file:/certs/subscriptions-service.p12
+      SUBSCRIPTIONS_GRPC_KEYSTORE_PASSWORD: ${CERTS_PASSWORD:-changeit}
+      SUBSCRIPTIONS_GRPC_TRUSTSTORE_PATH: file:/certs/truststore.jks
+      SUBSCRIPTIONS_GRPC_TRUSTSTORE_PASSWORD: ${CERTS_PASSWORD:-changeit}
     healthcheck:
       test: ["CMD-SHELL", "curl -sf http://localhost:8095/actuator/health || exit 1"]
       interval: 15s

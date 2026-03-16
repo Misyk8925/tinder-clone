@@ -1,6 +1,8 @@
 spring:
     config:
-      import: optional:configserver:http://localhost:8888
+      # URL берётся из spring.cloud.config.uri (env: SPRING_CLOUD_CONFIG_URI).
+      # По умолчанию http://localhost:8888 — работает для локальной разработки.
+      import: optional:configserver:
     application:
       name: discovery-service
 server:
