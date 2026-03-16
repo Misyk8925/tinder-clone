@@ -40,6 +40,10 @@ services:
       AWS_S3_ENDPOINT: ${AWS_S3_ENDPOINT:-http://${INFRA_HOST}:4566}
       CDN_ENABLED: ${CDN_ENABLED:-false}
       CLOUDFRONT_DOMAIN: ${CLOUDFRONT_DOMAIN:-}
+      # profiles вызывает swipes-demo как media-сервис (Server C)
+      MEDIA_SERVICE_BASE_URL: http://${SERVER_C_HOST}:8040
+      # Zipkin — опционально; если нет Zipkin, трейсы падают молча
+      ZIPKIN_ENDPOINT: ${ZIPKIN_ENDPOINT:-http://${INFRA_HOST}:9411/api/v2/spans}
       # mTLS — сертификаты из смонтированного /certs
       PROFILES_KEYSTORE_PATH: file:/certs/profiles-service.p12
       PROFILES_KEYSTORE_PASSWORD: ${CERTS_PASSWORD:-changeit}
