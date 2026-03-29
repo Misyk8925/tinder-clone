@@ -1,3 +1,4 @@
+.env.local
 .env.prod
 .idea
 /rlScript.sh
