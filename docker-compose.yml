@@ -19,6 +19,11 @@ services:
       POSTGRES_USER: ${POSTGRES_USER:-postgres}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
       POSTGRES_INITDB_ARGS: "-c max_connections=80 -c shared_buffers=128MB"
+      PROFILES_DB_PASSWORD: ${PROFILES_DB_PASSWORD:?PROFILES_DB_PASSWORD is required}
+      MATCH_DB_PASSWORD: ${MATCH_DB_PASSWORD:?MATCH_DB_PASSWORD is required}
+      CONSUMER_DB_PASSWORD: ${CONSUMER_DB_PASSWORD:?CONSUMER_DB_PASSWORD is required}
+      SUBSCRIPTIONS_DB_PASSWORD: ${SUBSCRIPTIONS_DB_PASSWORD:?SUBSCRIPTIONS_DB_PASSWORD is required}
+      SWIPES_DB_PASSWORD: ${SWIPES_DB_PASSWORD:?SWIPES_DB_PASSWORD is required}
     volumes:
       - profiles-pgdata:/var/lib/postgresql/data
       - ./docker/postgres/init-databases.sql:/docker-entrypoint-initdb.d/init-databases.sql
