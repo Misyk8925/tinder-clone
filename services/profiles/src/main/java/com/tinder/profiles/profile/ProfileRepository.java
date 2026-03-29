@@ -32,7 +32,7 @@ public interface ProfileRepository extends JpaRepository<Profile, UUID> {
      * Uses database-level filtering for efficiency.
      */
     @Query("""
-        SELECT p FROM Profile p
+        SELECT DISTINCT p FROM Profile p
         WHERE p.isDeleted = false
         AND p.profileId != :viewerId
         AND (:minAge IS NULL OR p.age >= :minAge)

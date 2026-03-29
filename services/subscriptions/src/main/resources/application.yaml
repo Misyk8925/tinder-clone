@@ -38,9 +38,9 @@ spring:
     hibernate:
       ddl-auto: create-drop
   datasource:
-    url: jdbc:postgresql://127.0.0.1:54322/postgres
-    username: postgres
-    password: postgres
+    url: ${SUBSCRIPTIONS_DB_URL:jdbc:postgresql://127.0.0.1:54334/subscriptions_db}
+    username: ${SUBSCRIPTIONS_DB_USER:subscriptions_app}
+    password: ${SUBSCRIPTIONS_DB_PASSWORD:change_me_subscriptions_db_password}
   config:
     import: "optional:file:services/subscriptions/.env.properties"
   security:

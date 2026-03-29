@@ -18,7 +18,7 @@
 
     <!-- Send structured JSON logs to Logstash / ELK -->
     <appender name="LOGSTASH" class="net.logstash.logback.appender.LogstashTcpSocketAppender">
-        <destination>localhost:5010</destination>
+        <destination>${LOGSTASH_HOST:-logstash}:${LOGSTASH_PORT:-5000}</destination>
         <!-- Suppress outbox noise in ELK as well -->
         <filter class="com.tinder.clone.consumer.logging.OutboxSqlFilter"/>
         <encoder class="net.logstash.logback.encoder.LogstashEncoder">

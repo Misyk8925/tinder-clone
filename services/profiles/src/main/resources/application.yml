@@ -21,7 +21,7 @@ internal:
       client-auth: need
       trust-store: ${PROFILES_TRUSTSTORE_PATH:classpath:truststore.jks}
       trust-store-password: ${PROFILES_TRUSTSTORE_PASSWORD:changeit}
-      trust-store-type: PKCS12
+      trust-store-type: JKS
 spring:
   grpc:
     server:
@@ -44,7 +44,7 @@ spring:
           truststore:
             location: ${PROFILES_GRPC_TRUSTSTORE_PATH:classpath:truststore.jks}
             password: ${PROFILES_GRPC_TRUSTSTORE_PASSWORD:changeit}
-            type: PKCS12
+            type: JKS
   config:
     import:
       - "optional:file:services/profiles/.env.properties"
@@ -61,9 +61,9 @@ spring:
         enable.idempotence: true
         spring.json.add.type.headers: false
   datasource:
-    url: jdbc:postgresql://127.0.0.1:54322/postgres
-    username: postgres
-    password: postgres
+    url: ${PROFILES_DB_URL:jdbc:postgresql://127.0.0.1:54331/profiles_db}
+    username: ${PROFILES_DB_USER:profiles_app}
+    password: ${PROFILES_DB_PASSWORD:change_me_profiles_db_password}
     hikari:
       maximum-pool-size: 150
       minimum-idle: 10
@@ -77,7 +77,7 @@ spring:
           jwk-set-uri: http://localhost:9080/realms/spring/protocol/openid-connect/certs
   jpa:
     hibernate:
-      ddl-auto: create-drop
+      ddl-auto: update
     properties:
       hibernate:
         dialect: org.hibernate.dialect.PostgreSQLDialect
@@ -148,11 +148,6 @@ keycloak:
   admin-username: ${KEYCLOAK_ADMIN_USERNAME:admin}
   admin-password: ${KEYCLOAK_ADMIN_PASSWORD:admin@1234}
 
-media:
-  service:
-    base-url: ${MEDIA_SERVICE_BASE_URL:http://localhost:8040}
-    ready-poll-max-attempts: ${MEDIA_READY_POLL_MAX_ATTEMPTS:30}
-    ready-poll-interval-ms: ${MEDIA_READY_POLL_INTERVAL_MS:200}
 
 # Kafka topics
 kafka:

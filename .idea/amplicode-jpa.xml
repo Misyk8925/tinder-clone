@@ -3,6 +3,8 @@
   <component name="AmplicodeJpaIdeaProjectConfig" isRepositorySpecification="true" newRepositoryParent="org.springframework.data.jpa.repository.JpaRepository">
     <option name="defaultUnitInitialized" value="true" />
     <option name="renamerInitialized" value="true" />
+    <option name="sourceModelValue" value="Default" />
+    <option name="targetDbValue" value="5e34e6e6-7603-487b-8da0-3ca3b6af6756" />
     <option name="snapshotDbValue" value="5e34e6e6-7603-487b-8da0-3ca3b6af6756" />
     <option name="newEntityIdType" value="UUID" />
     <option name="newEntityIdStrategy" value="UUID" />

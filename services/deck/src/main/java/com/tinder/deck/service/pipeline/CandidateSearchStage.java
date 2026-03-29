@@ -80,7 +80,8 @@ public class CandidateSearchStage extends BasicStage {
                                 searchFromDatabaseAndCache(viewer.id(), prefs)
                         )
                 )
-                .filter(candidate -> LocationFilterUtil.isWithinRange(viewer, candidate, prefs.maxRange()));
+                // Defensive guard for shared preferences cache: never return the viewer as a candidate.
+                .filter(candidate -> !candidate.id().equals(viewer.id()));
     }
 
     /**

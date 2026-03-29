@@ -70,6 +70,9 @@ A "Tinder-like" application built with **Spring Boot 3.x** and **Spring Cloud**,
 
 ## 🚀 Quick Start
 
+For hardened single-server production, use `docker-compose.prod.yml` or `docker-compose.prod-min.yml` with `.env.prod` (see `docs/docker-deployment.md`).
+Per-service DB credentials are expected in production: `PROFILES_DB_*`, `MATCH_DB_*`, `CONSUMER_DB_*`, `SUBSCRIPTIONS_DB_*`, `SWIPES_DB_*`.
+
 ### Prerequisites
 - Java 21+, Maven 3.9+, Docker
 

@@ -8,7 +8,9 @@ RUN --mount=type=cache,target=/root/.m2 mvn -B -e -ntp dependency:go-offline
 COPY src ./src
 RUN --mount=type=cache,target=/root/.m2 mvn -B -e -ntp package -DskipTests
 
-FROM gcr.io/distroless/java21-debian12:nonroot
+FROM eclipse-temurin:21-jre-alpine
+
+RUN apk add --no-cache wget
 
 WORKDIR /app
 COPY --from=build /workspace/target/*-SNAPSHOT.jar /app/app.jar
@@ -18,7 +20,7 @@ ENV TZ=UTC \
     SPRING_PROFILES_ACTIVE=prod
 
 
-USER nonroot:nonroot
+USER 1000:1000
 EXPOSE 8010
 
 

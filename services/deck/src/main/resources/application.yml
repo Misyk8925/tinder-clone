@@ -22,10 +22,10 @@ spring:
 
 profiles:
   # mTLS: use https. For plain-HTTP tests override with http and set mtls.enabled=false
-  base-url: https://localhost:8011/api/v1/profiles/internal
+  base-url: ${PROFILES_BASE_URL:https://localhost:8011/api/v1/profiles/internal}
 swipes:
   # mTLS: use https on internal mTLS port 8051 (plain port 8050 is HTTP-only)
-  base-url: https://localhost:8051
+  base-url: ${SWIPES_BASE_URL:https://localhost:8051}
 
 # mTLS client configuration (deck acts as mTLS client to profiles and consumer)
 mtls:

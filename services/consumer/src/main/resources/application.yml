@@ -1,9 +1,15 @@
 spring:
+  application:
+    name: consumer-service
+  config:
+    import: "optional:file:services/consumer/.env.properties"
   jpa:
+    database-platform: org.hibernate.dialect.PostgreSQLDialect
     properties:
-      dialect: org.hibernate.dialect.PostgreSQLDialect
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
     hibernate:
-      ddl-auto: create-drop
+      ddl-auto: update
   kafka:
     bootstrap-servers: localhost:9092
     consumer:
@@ -16,10 +22,15 @@ spring:
       properties:
         spring.json.add.type.headers: false
 
+  data:
+    redis:
+      host: ${SPRING_DATA_REDIS_HOST:localhost}
+      port: ${SPRING_DATA_REDIS_PORT:6379}
+
   datasource:
-      url: jdbc:postgresql://127.0.0.1:54322/postgres
-      username: postgres
-      password: postgres
+      url: ${CONSUMER_DB_URL:jdbc:postgresql://127.0.0.1:54333/consumer_db}
+      username: ${CONSUMER_DB_USER:consumer_app}
+      password: ${CONSUMER_DB_PASSWORD:change_me_consumer_db_password}
       driver-class-name: org.postgresql.Driver
 
 server:
@@ -38,7 +49,7 @@ internal:
       client-auth: need
       trust-store: ${CONSUMER_TRUSTSTORE_PATH:classpath:truststore.jks}
       trust-store-password: ${CONSUMER_TRUSTSTORE_PASSWORD:changeit}
-      trust-store-type: PKCS12
+      trust-store-type: JKS
 
 # mTLS for /between/batch endpoint: only deck-service CN is allowed
 mtls:

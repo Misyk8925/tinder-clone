@@ -5,10 +5,13 @@ import org.springframework.cloud.gateway.filter.GatewayFilter;
 import org.springframework.cloud.gateway.filter.factory.AbstractGatewayFilterFactory;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.core.context.ReactiveSecurityContextHolder;
 import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken;
 import org.springframework.stereotype.Component;
 import org.springframework.web.reactive.function.client.WebClient;
+import org.springframework.web.reactive.function.client.WebClientRequestException;
+import org.springframework.web.reactive.function.client.WebClientResponseException;
 import reactor.core.publisher.Mono;
 
 /**
@@ -21,15 +24,21 @@ import reactor.core.publisher.Mono;
 @Component
 public class PremiumOrAdminFilter extends AbstractGatewayFilterFactory<Object> {
 
-    private static final String PROFILES_ME_URL = "http://localhost:8010/api/v1/profiles/me";
+    private static final String PROFILES_ME_PATH = "/api/v1/profiles/me";
 
     private final SecurityService securityService;
     private final WebClient webClient;
+    private final String profilesMeUrl;
 
-    public PremiumOrAdminFilter(SecurityService securityService, WebClient.Builder webClientBuilder) {
+    public PremiumOrAdminFilter(
+            SecurityService securityService,
+            WebClient.Builder webClientBuilder,
+            @Value("${PROFILES_SERVICE_URL:http://localhost:8010}") String profilesServiceUrl
+    ) {
         super(Object.class);
         this.securityService = securityService;
         this.webClient = webClientBuilder.build();
+        this.profilesMeUrl = normalizeBaseUrl(profilesServiceUrl) + PROFILES_ME_PATH;
     }
 
     @Override
@@ -50,7 +59,7 @@ public class PremiumOrAdminFilter extends AbstractGatewayFilterFactory<Object> {
                             String bearerToken = "Bearer " + jwtAuth.getToken().getTokenValue();
 
                             return webClient.get()
-                                    .uri(PROFILES_ME_URL)
+                                    .uri(profilesMeUrl)
                                     .header(HttpHeaders.AUTHORIZATION, bearerToken)
                                     .retrieve()
                                     .bodyToMono(ProfileResponse.class)
@@ -59,10 +68,26 @@ public class PremiumOrAdminFilter extends AbstractGatewayFilterFactory<Object> {
                                                 .header("X-User-Id", profile.profileId())
                                                 .build();
                                         return chain.filter(exchange.mutate().request(mutated).build());
+                                    })
+                                    .onErrorResume(WebClientResponseException.class, ex -> {
+                                        HttpStatus status = HttpStatus.resolve(ex.getStatusCode().value());
+                                        exchange.getResponse().setStatusCode(status != null ? status : HttpStatus.BAD_GATEWAY);
+                                        return exchange.getResponse().setComplete();
+                                    })
+                                    .onErrorResume(WebClientRequestException.class, ex -> {
+                                        exchange.getResponse().setStatusCode(HttpStatus.SERVICE_UNAVAILABLE);
+                                        return exchange.getResponse().setComplete();
                                     });
                         });
             });
         };
+    }
+
+    private static String normalizeBaseUrl(String baseUrl) {
+        if (baseUrl.endsWith("/")) {
+            return baseUrl.substring(0, baseUrl.length() - 1);
+        }
+        return baseUrl;
     }
 
     @JsonIgnoreProperties(ignoreUnknown = true)

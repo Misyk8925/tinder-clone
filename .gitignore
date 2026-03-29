@@ -1,0 +1,6 @@
+.env.prod
+.idea
+/rlScript.sh
+.env
+*.p12
+*.jks

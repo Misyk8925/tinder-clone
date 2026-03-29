@@ -8,8 +8,8 @@ COPY src ./src
 RUN --mount=type=cache,target=/root/.m2 mvn -B -e -ntp package -DskipTests && \
     find target -maxdepth 1 -name "*.jar" ! -name "*-plain.jar" -exec mv {} target/app.jar \;
 
-FROM eclipse-temurin:17-jre-alpine
-RUN addgroup -S appgroup && adduser -S appuser -G appgroup
+FROM eclipse-temurin:17-jre-jammy
+RUN groupadd --system appgroup && useradd --system --gid appgroup appuser
 
 WORKDIR /app
 COPY --from=build /workspace/target/app.jar app.jar

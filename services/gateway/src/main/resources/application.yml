@@ -27,10 +27,16 @@ spring:
     gateway:
       server:
         webflux:
+          httpclient:
+            pool:
+              max-idle-time: 10s    # must be < Tomcat keepAliveTimeout (default 20s)
+              max-life-time: 60s
+            response-timeout: 30s
+            connect-timeout: 5000   # ms
           routes:
             ############################## PROFILES ROUTES
             - id: profile-create
-              uri: http://localhost:8010
+              uri: ${PROFILES_SERVICE_URL:http://localhost:8010}
               predicates:
                 - Path=/api/v1/profiles
                 - Method=POST
@@ -47,7 +53,7 @@ spring:
                     anonPeriodInSeconds: 7200
 
             - id: profile-update
-              uri: http://localhost:8010
+              uri: ${PROFILES_SERVICE_URL:http://localhost:8010}
               predicates:
                 - Path=/api/v1/profiles/**
                 - Method=PUT, PATCH
@@ -63,7 +69,7 @@ spring:
                     anonCapacity: 1
                     anonPeriodInSeconds: 3600
             - id: profile-delete
-              uri: http://localhost:8010
+              uri: ${PROFILES_SERVICE_URL:http://localhost:8010}
               predicates:
                 - Path=/api/v1/profiles/**
                 - Method=DELETE
@@ -80,13 +86,13 @@ spring:
                     anonPeriodInSeconds: 3600
 
             - id: profile-me
-              uri: http://localhost:8010
+              uri: ${PROFILES_SERVICE_URL:http://localhost:8010}
               predicates:
                 - Path=/api/v1/profiles/me
                 - Method=GET
 
             - id: profile-other
-              uri: http://localhost:8010
+              uri: ${PROFILES_SERVICE_URL:http://localhost:8010}
               predicates:
                 - Path=/api/v1/profiles/**
               filters:
@@ -104,7 +110,7 @@ spring:
               ############################## SWIPES ROUTES
 
             - id: swipes-super
-              uri: http://localhost:8040
+              uri: ${SWIPES_SERVICE_URL:http://localhost:8040}
               predicates:
                 - Path=/api/v1/swipes/super
                 - Method=POST
@@ -112,7 +118,7 @@ spring:
                 - PremiumOrAdminFilter
 
             - id: swipes
-              uri: http://localhost:8040  # swipes-demo service port (was wrong: 8020)
+              uri: ${SWIPES_SERVICE_URL:http://localhost:8040}
               predicates:
                 - Path=/api/v1/swipes
               filters:
@@ -130,7 +136,7 @@ spring:
               ############################## LIKES YOU (premium + admin only)
 
             - id: consumer-liked-me
-              uri: http://localhost:8050
+              uri: ${CONSUMER_SERVICE_URL:http://localhost:8050}
               predicates:
                 - Path=/api/v1/swipes/liked-me
                 - Method=GET
@@ -140,7 +146,7 @@ spring:
               ############################## DECK ROUTES (admin / monitoring)
 
             - id: deck-admin
-              uri: http://localhost:8030
+              uri: ${DECK_SERVICE_URL:http://localhost:8030}
               predicates:
                 - Path=/api/v1/admin/deck/**
               filters:
@@ -157,20 +163,25 @@ spring:
 
               ############################## MATCH ROUTES
 
+            - id: match-ws
+              uri: ${MATCH_WS_URL:ws://localhost:8080}
+              predicates:
+                - Path=/ws/**
+
             - id: match-conversations
-              uri: http://localhost:8080
+              uri: ${MATCH_SERVICE_URL:http://localhost:8080}
               predicates:
                 - Path=/rest/conversations/**
 
             - id: match-other
-              uri: http://localhost:8080
+              uri: ${MATCH_SERVICE_URL:http://localhost:8080}
               predicates:
                 - Path=/match/**
 
               ############################## SUBSCRIPTIONS ROUTES
 
             - id: subscriptions-billing
-              uri: http://localhost:8095
+              uri: ${SUBSCRIPTIONS_SERVICE_URL:http://localhost:8095}
               predicates:
                 - Path=/api/v1/billing/**
               filters:
@@ -186,7 +197,7 @@ spring:
                     anonPeriodInSeconds: 3600
 
             - id: subscriptions-webhook
-              uri: http://localhost:8095
+              uri: ${SUBSCRIPTIONS_SERVICE_URL:http://localhost:8095}
               predicates:
                 - Path=/api/v1/webhook/**
               # No rate-limit filter — Stripe webhook must not be blocked by JWT rate-limiting

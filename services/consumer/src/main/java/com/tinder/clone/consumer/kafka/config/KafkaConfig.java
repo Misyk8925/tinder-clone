@@ -85,7 +85,7 @@ public class KafkaConfig {
         return TopicBuilder.name(matchCreatedTopic)
                 .partitions(10)
                 .replicas(1)
-                .config("retentions.ms", "604800000")
+                .config("retention.ms", "604800000")
                 .config("cleanup.policy", "delete")
                 .build();
     }

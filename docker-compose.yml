@@ -1,11 +1,87 @@
+x-prod-mid-defaults: &prod-mid-defaults
+  restart: unless-stopped
+  init: true
+  security_opt:
+    - no-new-privileges:true
+  logging:
+    driver: json-file
+    options:
+      max-size: "8m"
+      max-file: "4"
+
 services:
+  postgres:
+    image: postgis/postgis:17-3.4
+    <<: *prod-mid-defaults
+    ports:
+      - "127.0.0.1:5435:5432"
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
+      POSTGRES_INITDB_ARGS: "-c max_connections=80 -c shared_buffers=128MB"
+    volumes:
+      - profiles-pgdata:/var/lib/postgresql/data
+      - ./docker/postgres/init-databases.sql:/docker-entrypoint-initdb.d/init-databases.sql
+      - ./migrations/migration:/docker-entrypoint-initdb.d/migration:ro
+    networks:
+      - app
+    mem_limit: 512m
+    cpus: "1.00"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres}"]
+      interval: 10s
+      timeout: 5s
+      start_period: 30s
+      retries: 5
+
+  keycloak-postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_DB: keycloak
+      POSTGRES_USER: keycloak
+      POSTGRES_PASSWORD: password
+    volumes:
+      - kc-pgdata:/var/lib/postgresql/data
+
+  keycloak:
+    image: quay.io/keycloak/keycloak:26.3.5
+    command: [ "start","--http-enabled=true","--http-port=9080" ]
+    ports:
+      - "9080:9080"
+      - "9000:9000"
+    volumes:
+      - ./themes:/opt/keycloak/themes
+    environment:
+      KC_BOOTSTRAP_ADMIN_USERNAME: admin
+      KC_BOOTSTRAP_ADMIN_PASSWORD: admin@1234
+      KC_PROXY: edge
+      KC_DB: postgres
+      KC_DB_SCHEMA: keycloak
+      KC_DB_USERNAME: keycloak
+      KC_DB_PASSWORD: password
+      KC_DB_URL_HOST: postgres
+      KC_DB_URL_PORT: 5432
+      KC_DB_URL_DATABASE: keycloak
+      KC_FEATURES: token-exchange,admin-fine-grained-authz
+      KC_HOSTNAME_URL: "https://localhost:8443"   # <- рекомендуемый способ
+      KC_HOSTNAME_STRICT: "false"
+      KC_HTTP_ENABLED: "true"
+      KC_PROXY_HEADERS: "xforwarded"
+
 
 
   redis:
     image: redis:8.2.1-alpine
-    restart: "no"
-    ports:
-      - "6379:6379"
+    <<: *prod-mid-defaults
+    ports: []
+    command: redis-server --maxmemory 128mb --maxmemory-policy allkeys-lru
+    networks:
+      - app
+    mem_limit: 128m
+    cpus: "0.35"
     healthcheck:
       test: redis-cli ping
       interval: 10s
@@ -15,114 +91,474 @@ services:
 
   zookeeper:
     image: confluentinc/cp-zookeeper:7.5.0
-    restart: unless-stopped
-    ports:
-      - "2181:2181"
+    <<: *prod-mid-defaults
+    ports: []
     environment:
       ZOOKEEPER_CLIENT_PORT: 2181
       ZOOKEEPER_TICK_TIME: 2000
+      ZK_SERVER_HEAP: 256
+    networks:
+      - app
+    mem_limit: 384m
+    cpus: "0.60"
 
   kafka:
     image: confluentinc/cp-kafka:7.5.0
-    restart: unless-stopped
+    <<: *prod-mid-defaults
     depends_on:
-      - zookeeper
-    ports:
-      - "9092:9092"
-      - "29092:29092"
+      zookeeper:
+        condition: service_started
+    ports: []
     environment:
       KAFKA_BROKER_ID: 1
       KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
-      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:29092,PLAINTEXT_HOST://localhost:9092
-      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:29092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT
       KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_HEAP_OPTS: "-Xmx384m -Xms256m"
+    networks:
+      - app
+    mem_limit: 768m
+    cpus: "1.00"
     healthcheck:
-      test: kafka-broker-api-versions --bootstrap-server localhost:9092
-      interval: 10s
+      # Lightweight healthcheck to avoid Kafka CLI timeouts on slower hosts.
+      test: ["CMD-SHELL", "bash -lc 'exec 3<>/dev/tcp/127.0.0.1/29092'"]
+      interval: 15s
       timeout: 10s
-      start_period: 30s
-      retries: 5
+      start_period: 240s
+      retries: 20
 
-    # NEW: Elasticsearch for storing logs
   elasticsearch:
-      image: docker.elastic.co/elasticsearch/elasticsearch:8.12.0
-      container_name: elasticsearch
-      restart: unless-stopped
-      environment:
-        - discovery.type=single-node
-        - xpack.security.enabled=false
-        - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
-      ports:
-        - "9200:9200"
-      volumes:
-        - elasticsearch-data:/usr/share/elasticsearch/data
-      networks:
-        - elk
-      healthcheck:
-        test: [ "CMD-SHELL", "curl -sf http://localhost:9200/_cluster/health?wait_for_status=yellow&timeout=5s || exit 1" ]
-        interval: 15s
-        timeout: 10s
-        start_period: 60s
-        retries: 10
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.12.0
+    container_name: elasticsearch
+    <<: *prod-mid-defaults
+    ports: []
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=false
+      - "ES_JAVA_OPTS=-Xms256m -Xmx256m"
+    volumes:
+      - elasticsearch-data:/usr/share/elasticsearch/data
+    networks:
+      - elk
+    mem_limit: 512m
+    cpus: "0.75"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:9200/_cluster/health?wait_for_status=yellow&timeout=5s || exit 1"]
+      interval: 15s
+      timeout: 10s
+      start_period: 60s
+      retries: 10
 
-    # NEW: Logstash for collecting logs
   logstash:
-      image: docker.elastic.co/logstash/logstash:8.12.0
-      container_name: logstash
-      restart: unless-stopped
-      ports:
-        - "5010:5000/tcp"
-      environment:
-        - "LS_JAVA_OPTS=-Xmx256m -Xms256m"
-      networks:
-        - elk
-      depends_on:
-        elasticsearch:
-          condition: service_healthy
-      command: |
-        bash -c "
-        cat > /usr/share/logstash/pipeline/logstash.conf <<EOF
-        input {
-          tcp {
-            port => 5000
-            codec => json
-          }
+    image: docker.elastic.co/logstash/logstash:8.12.0
+    container_name: logstash
+    <<: *prod-mid-defaults
+    ports: []
+    environment:
+      - "LS_JAVA_OPTS=-Xms128m -Xmx128m"
+    networks:
+      - elk
+      - app
+    depends_on:
+      elasticsearch:
+        condition: service_healthy
+    command: |
+      bash -c "
+      cat > /usr/share/logstash/pipeline/logstash.conf <<EOF
+      input {
+        tcp {
+          port => 5000
+          codec => json
         }
-        output {
-          elasticsearch {
-            hosts => ['http://elasticsearch:9200']
-            index => 'logstash-%{+YYYY.MM.dd}'
-          }
-          stdout { codec => rubydebug }
+      }
+      output {
+        elasticsearch {
+          hosts => ['http://elasticsearch:9200']
+          index => 'logstash-%{+YYYY.MM.dd}'
         }
-        EOF
-        /usr/local/bin/docker-entrypoint
-        "
+      }
+      EOF
+      /usr/local/bin/docker-entrypoint
+      "
+    mem_limit: 256m
+    cpus: "0.50"
 
-    # NEW: Kibana for viewing logs
   kibana:
-      image: docker.elastic.co/kibana/kibana:8.12.0
-      container_name: kibana
-      restart: unless-stopped
-      ports:
-        - "5601:5601"
-      environment:
-        - ELASTICSEARCH_HOSTS=http://elasticsearch:9200
-      networks:
-        - elk
-      depends_on:
-        elasticsearch:
-          condition: service_healthy
+    image: docker.elastic.co/kibana/kibana:8.12.0
+    container_name: kibana
+    <<: *prod-mid-defaults
+    ports:
+      - "127.0.0.1:5602:5601"
+    environment:
+      - ELASTICSEARCH_HOSTS=http://elasticsearch:9200
+    networks:
+      - elk
+    depends_on:
+      elasticsearch:
+        condition: service_healthy
+    mem_limit: 256m
+    cpus: "0.50"
+
+#  config-server:
+#    build:
+#      context: ./services/config-server2
+#    container_name: config-server
+#    <<: *prod-mid-defaults
+#    ports: []
+#    networks:
+#      - app
+#    mem_limit: 512m
+#    cpus: "0.75"
+#    environment:
+#      JAVA_OPTS: "-Xms192m -Xmx256m"
+#    healthcheck:
+#      test: ["CMD-SHELL", "wget -qO- http://localhost:8888/actuator/health | grep -q UP || exit 1"]
+#      interval: 15s
+#      timeout: 10s
+#      start_period: 300s
+#      retries: 10
+#
+#  discovery:
+#    build:
+#      context: ./services/discovery
+#    container_name: discovery
+#    <<: *prod-mid-defaults
+#    ports: []
+#    environment:
+#      SPRING_CONFIG_IMPORT: optional:configserver:http://config-server:8888
+#      EUREKA_INSTANCE_HOSTNAME: discovery
+#      JAVA_OPTS: "-Xms192m -Xmx256m"
+#    networks:
+#      - app
+#    mem_limit: 512m
+#    cpus: "0.75"
+#    healthcheck:
+#      test: ["CMD-SHELL", "wget -qO- http://localhost:8761/actuator/health | grep -q UP || exit 1"]
+#      interval: 15s
+#      timeout: 10s
+#      start_period: 300s
+#      retries: 10
+
+  profiles:
+    build:
+      context: ./services/profiles
+    container_name: profiles
+    <<: *prod-mid-defaults
+    ports: []
+    depends_on:
+
+      postgres:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    env_file:
+      - ./services/profiles/.env.properties
+    environment:
+      EUREKA_CLIENT_ENABLED: "false"
+      SPRING_CLOUD_DISCOVERY_ENABLED: "false"
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/profiles_db
+      SPRING_DATASOURCE_USERNAME: ${PROFILES_DB_USER:?PROFILES_DB_USER is required}
+      SPRING_DATASOURCE_PASSWORD: ${PROFILES_DB_PASSWORD:?PROFILES_DB_PASSWORD is required}
+      SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE: 8
+      SPRING_DATASOURCE_HIKARI_MINIMUM_IDLE: 3
+      SPRING_DATA_REDIS_HOST: redis
+      SPRING_DATA_REDIS_PORT: 6379
+      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+      SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_JWK_SET_URI: ${KEYCLOAK_JWK_SET_URI:-http://host.docker.internal:9080/realms/spring/protocol/openid-connect/certs}
+      KEYCLOAK_URL: ${KEYCLOAK_URL:-http://host.docker.internal:9080}
+      MEDIA_SERVICE_BASE_URL: http://swipes:8040
+      LOGSTASH_HOST: logstash
+      LOGSTASH_PORT: 5000
+      MANAGEMENT_TRACING_ENABLED: "false"
+
+      PROFILES_KEYSTORE_PATH: file:/certs/profiles-service.p12
+      PROFILES_KEYSTORE_PASSWORD: ${MTLS_KEYSTORE_PASSWORD:?MTLS_KEYSTORE_PASSWORD is required}
+      PROFILES_TRUSTSTORE_PATH: file:/certs/truststore.jks
+      PROFILES_TRUSTSTORE_PASSWORD: ${MTLS_TRUSTSTORE_PASSWORD:?MTLS_TRUSTSTORE_PASSWORD is required}
+      PROFILES_GRPC_KEYSTORE_PATH: file:/certs/profiles-service.p12
+      PROFILES_GRPC_KEYSTORE_PASSWORD: ${MTLS_KEYSTORE_PASSWORD:?MTLS_KEYSTORE_PASSWORD is required}
+      PROFILES_GRPC_TRUSTSTORE_PATH: file:/certs/truststore.jks
+      PROFILES_GRPC_TRUSTSTORE_PASSWORD: ${MTLS_TRUSTSTORE_PASSWORD:?MTLS_TRUSTSTORE_PASSWORD is required}
+      JAVA_TOOL_OPTIONS: "-XX:+UseContainerSupport -XX:+UseZGC -XX:InitialRAMPercentage=40.0 -XX:MaxRAMPercentage=55.0 -Dfile.encoding=UTF-8 -Dsun.net.inetaddr.ttl=60 -Djava.io.tmpdir=/tmp"
+    volumes:
+      - ./docker/certs/profiles-service.p12:/certs/profiles-service.p12:ro
+      - ./docker/certs/truststore.jks:/certs/truststore.jks:ro
+    networks:
+      - app
+    mem_limit: 640m
+    cpus: "1.00"
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://localhost:8010/actuator/health"]
+      interval: 15s
+      timeout: 10s
+      start_period: 300s
+      retries: 10
+
+  deck:
+    build:
+      context: ./services/deck
+    container_name: deck
+    <<: *prod-mid-defaults
+    ports: []
+    depends_on:
+
+      kafka:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      SPRING_DATA_REDIS_HOST: redis
+      SPRING_DATA_REDIS_PORT: 6379
+      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+      PROFILES_BASE_URL: https://profiles:8011/api/v1/profiles/internal
+      SWIPES_BASE_URL: https://consumer:8051
+      DECK_KEYSTORE_PATH: file:/certs/deck-service.p12
+      DECK_KEYSTORE_PASSWORD: ${MTLS_KEYSTORE_PASSWORD:?MTLS_KEYSTORE_PASSWORD is required}
+      DECK_TRUSTSTORE_PATH: file:/certs/truststore.jks
+      DECK_TRUSTSTORE_PASSWORD: ${MTLS_TRUSTSTORE_PASSWORD:?MTLS_TRUSTSTORE_PASSWORD is required}
+      SPRING_REDIS_TIMEOUT: 30000
+      JAVA_TOOL_OPTIONS: "-XX:+UseContainerSupport -XX:+UseZGC -XX:InitialRAMPercentage=40.0 -XX:MaxRAMPercentage=55.0 -Dfile.encoding=UTF-8 -Dsun.net.inetaddr.ttl=60 -Djava.io.tmpdir=/tmp"
+    volumes:
+      - ./docker/certs/deck-service.p12:/certs/deck-service.p12:ro
+      - ./docker/certs/truststore.jks:/certs/truststore.jks:ro
+    networks:
+      - app
+    mem_limit: 384m
+    cpus: "0.60"
+    healthcheck:
+      test: ["CMD-SHELL", "(wget -q --server-response -O- http://localhost:8030/actuator/health 2>&1 || true) | grep -Eq 'HTTP/1.1 (200|401)' || exit 1"]
+      interval: 15s
+      timeout: 10s
+      start_period: 300s
+      retries: 10
+
+  gateway:
+    build:
+      context: ./services/gateway
+    container_name: gateway
+    <<: *prod-mid-defaults
+    ports:
+      - "8222:8222"
+    depends_on:
+
+      redis:
+        condition: service_healthy
+      profiles:
+        condition: service_healthy
+
+
+    environment:
+      SPRING_DATA_REDIS_HOST: redis
+      SPRING_DATA_REDIS_PORT: 6379
+      EUREKA_CLIENT_ENABLED: "false"
+      SPRING_CLOUD_DISCOVERY_ENABLED: "false"
+      SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_JWK_SET_URI: ${KEYCLOAK_JWK_SET_URI:-http://host.docker.internal:9080/realms/spring/protocol/openid-connect/certs}
+      PROFILES_SERVICE_URL: http://profiles:8010
+      SWIPES_SERVICE_URL: http://swipes:8040
+      CONSUMER_SERVICE_URL: http://consumer:8050
+      DECK_SERVICE_URL: http://deck:8030
+      MATCH_SERVICE_URL: http://match:8080
+      MATCH_WS_URL: ws://match:8080
+      SUBSCRIPTIONS_SERVICE_URL: http://subscriptions:8095
+      JAVA_TOOL_OPTIONS: "-XX:+UseContainerSupport -XX:+UseZGC -XX:InitialRAMPercentage=40.0 -XX:MaxRAMPercentage=55.0 -Dfile.encoding=UTF-8 -Dsun.net.inetaddr.ttl=60 -Djava.io.tmpdir=/tmp"
+    networks:
+      - app
+    mem_limit: 384m
+    cpus: "0.60"
+    healthcheck:
+      test: ["CMD-SHELL", "nc -z localhost 8222 || exit 1"]
+      interval: 15s
+      timeout: 10s
+      start_period: 300s
+      retries: 10
+
+  match:
+    build:
+      context: ./services/match
+    container_name: match
+    <<: *prod-mid-defaults
+    ports: []
+    depends_on:
+
+      postgres:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+    env_file:
+      - ./services/match/.env.properties
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/match_db
+      SPRING_DATASOURCE_USERNAME: ${MATCH_DB_USER:?MATCH_DB_USER is required}
+      SPRING_DATASOURCE_PASSWORD: ${MATCH_DB_PASSWORD:?MATCH_DB_PASSWORD is required}
+      SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE: 4
+      SPRING_DATASOURCE_HIKARI_MINIMUM_IDLE: 2
+      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+      KEYCLOAK_JWK_SET_URI: ${KEYCLOAK_JWK_SET_URI:-http://host.docker.internal:9080/realms/spring/protocol/openid-connect/certs}
+      KEYCLOAK_AUTH_SERVER_URL: ${KEYCLOAK_AUTH_SERVER_URL:-http://host.docker.internal:9080}
+      JAVA_TOOL_OPTIONS: "-XX:+UseContainerSupport -XX:+UseZGC -XX:InitialRAMPercentage=40.0 -XX:MaxRAMPercentage=55.0 -Dfile.encoding=UTF-8 -Dsun.net.inetaddr.ttl=60 -Djava.io.tmpdir=/tmp"
+    networks:
+      - app
+    mem_limit: 512m
+    cpus: "0.60"
+    healthcheck:
+      test: ["CMD-SHELL", "(wget -q --server-response -O- http://localhost:8080/actuator/health 2>&1 || true) | grep -Eq 'HTTP/1.1 (200|401)' || exit 1"]
+      interval: 15s
+      timeout: 10s
+      start_period: 300s
+      retries: 10
+
+  consumer:
+    build:
+      context: ./services/consumer
+    container_name: consumer
+    <<: *prod-mid-defaults
+    ports: []
+    depends_on:
+      postgres:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/consumer_db
+      SPRING_DATASOURCE_USERNAME: ${CONSUMER_DB_USER:?CONSUMER_DB_USER is required}
+      SPRING_DATASOURCE_PASSWORD: ${CONSUMER_DB_PASSWORD:?CONSUMER_DB_PASSWORD is required}
+      SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE: 4
+      SPRING_DATASOURCE_HIKARI_MINIMUM_IDLE: 2
+      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+      SPRING_DATA_REDIS_HOST: redis
+      SPRING_DATA_REDIS_PORT: 6379
+      CONSUMER_KEYSTORE_PATH: file:/certs/consumer-service.p12
+      CONSUMER_KEYSTORE_PASSWORD: ${MTLS_KEYSTORE_PASSWORD:?MTLS_KEYSTORE_PASSWORD is required}
+      CONSUMER_TRUSTSTORE_PATH: file:/certs/truststore.jks
+      CONSUMER_TRUSTSTORE_PASSWORD: ${MTLS_TRUSTSTORE_PASSWORD:?MTLS_TRUSTSTORE_PASSWORD is required}
+      JAVA_TOOL_OPTIONS: "-XX:+UseContainerSupport -XX:+UseZGC -XX:InitialRAMPercentage=40.0 -XX:MaxRAMPercentage=55.0 -Dfile.encoding=UTF-8 -Dsun.net.inetaddr.ttl=60 -Djava.io.tmpdir=/tmp"
+    volumes:
+      - ./docker/certs/consumer-service.p12:/certs/consumer-service.p12:ro
+      - ./docker/certs/truststore.jks:/certs/truststore.jks:ro
+    networks:
+      - app
+    mem_limit: 512m
+    cpus: "0.60"
+    healthcheck:
+      test: ["CMD-SHELL", "(wget -q --server-response -O- http://localhost:8050/actuator/health 2>&1 || true) | grep -Eq 'HTTP/1.1 (200|401)' || exit 1"]
+      interval: 15s
+      timeout: 10s
+      start_period: 300s
+      retries: 10
+
+  subscriptions:
+    build:
+      context: ./services/subscriptions
+    container_name: subscriptions
+    <<: *prod-mid-defaults
+    ports: []
+    depends_on:
+
+      postgres:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+    env_file:
+      - ./services/subscriptions/.env.properties
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/subscriptions_db
+      SPRING_DATASOURCE_USERNAME: ${SUBSCRIPTIONS_DB_USER:?SUBSCRIPTIONS_DB_USER is required}
+      SPRING_DATASOURCE_PASSWORD: ${SUBSCRIPTIONS_DB_PASSWORD:?SUBSCRIPTIONS_DB_PASSWORD is required}
+      SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE: 4
+      SPRING_DATASOURCE_HIKARI_MINIMUM_IDLE: 2
+      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+      PROFILES_GRPC_ADDRESS: static://profiles:9010
+      PROFILES_BASE_URL: http://profiles:8010/api/profiles
+      KEYCLOAK_JWK_SET_URI: ${KEYCLOAK_JWK_SET_URI:-http://host.docker.internal:9080/realms/spring/protocol/openid-connect/certs}
+      STRIPE_SUCCESS_URL: ${STRIPE_SUCCESS_URL:?STRIPE_SUCCESS_URL is required}
+      STRIPE_CANCEL_URL: ${STRIPE_CANCEL_URL:?STRIPE_CANCEL_URL is required}
+      SUBSCRIPTIONS_GRPC_KEYSTORE_PATH: file:/certs/subscriptions-service.p12
+      SUBSCRIPTIONS_GRPC_KEYSTORE_PASSWORD: ${MTLS_KEYSTORE_PASSWORD:?MTLS_KEYSTORE_PASSWORD is required}
+      SUBSCRIPTIONS_GRPC_TRUSTSTORE_PATH: file:/certs/truststore.jks
+      SUBSCRIPTIONS_GRPC_TRUSTSTORE_PASSWORD: ${MTLS_TRUSTSTORE_PASSWORD:?MTLS_TRUSTSTORE_PASSWORD is required}
+      JAVA_TOOL_OPTIONS: "-XX:+UseContainerSupport -XX:+UseZGC -XX:InitialRAMPercentage=40.0 -XX:MaxRAMPercentage=55.0 -Dfile.encoding=UTF-8 -Dsun.net.inetaddr.ttl=60 -Djava.io.tmpdir=/tmp"
+    volumes:
+      - ./docker/certs/subscriptions-service.p12:/certs/subscriptions-service.p12:ro
+      - ./docker/certs/truststore.jks:/certs/truststore.jks:ro
+    networks:
+      - app
+    mem_limit: 384m
+    cpus: "0.60"
+    healthcheck:
+      test: ["CMD-SHELL", "(wget -q --server-response -O- http://localhost:8095/actuator/health 2>&1 || true) | grep -Eq 'HTTP/1.1 (200|401)' || exit 1"]
+      interval: 15s
+      timeout: 10s
+      start_period: 300s
+      retries: 10
+
+  swipes:
+    build:
+      context: ./services/swipes-demo
+    container_name: swipes
+    <<: *prod-mid-defaults
+    ports: []
+    depends_on:
+
+      postgres:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/swipes_db
+      SPRING_DATASOURCE_USERNAME: ${SWIPES_DB_USER:?SWIPES_DB_USER is required}
+      SPRING_DATASOURCE_PASSWORD: ${SWIPES_DB_PASSWORD:?SWIPES_DB_PASSWORD is required}
+      SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE: 4
+      SPRING_DATASOURCE_HIKARI_MINIMUM_IDLE: 2
+      SPRING_DATA_REDIS_HOST: redis
+      SPRING_DATA_REDIS_PORT: 6379
+      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+      SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_JWK_SET_URI: ${KEYCLOAK_JWK_SET_URI:-http://host.docker.internal:9080/realms/spring/protocol/openid-connect/certs}
+      SERVICES_PROFILES_BASE_URL: http://profiles:8010/api/v1/profiles
+      JAVA_TOOL_OPTIONS: "-XX:+UseContainerSupport -XX:+UseZGC -XX:InitialRAMPercentage=40.0 -XX:MaxRAMPercentage=55.0 -Dfile.encoding=UTF-8 -Dsun.net.inetaddr.ttl=60 -Djava.io.tmpdir=/tmp"
+    networks:
+      - app
+    mem_limit: 384m
+    cpus: "0.60"
+    healthcheck:
+      test: ["CMD-SHELL", "(wget -q --server-response -O- http://localhost:8040/actuator/health 2>&1 || true) | grep -Eq 'HTTP/1.1 (200|401)' || exit 1"]
+      interval: 15s
+      timeout: 10s
+      start_period: 300s
+      retries: 10
+
+  tinder-client:
+    build:
+      context: ./clients/tinder-client
+    container_name: tinder-client
+    <<: *prod-mid-defaults
+    ports:
+      - "4200:80"
+    depends_on:
+      gateway:
+        condition: service_healthy
+    networks:
+      - app
+    mem_limit: 160m
+    cpus: "0.30"
 
 
 networks:
+  app:
+    driver: bridge
   elk:
     driver: bridge
-  supabase_network_michael:
-    external: true
 
 volumes:
   profiles-pgdata:
   elasticsearch-data:
-      driver: local
+    driver: local
+  kc-pgdata:
+
