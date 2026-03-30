@@ -249,10 +249,9 @@ import { Photo, Profile } from '../../core/models/profile.model';
       display: flex;
       align-items: center;
       justify-content: center;
-      transition: background 0.2s, transform 0.2s;
+      transition: background 0.2s;
 
       &:hover { background: var(--border); }
-      &:active { transform: scale(0.9); }
     }
 
     .edit-btn {
@@ -264,10 +263,8 @@ import { Photo, Profile } from '../../core/models/profile.model';
       font-size: 14px;
       font-weight: 600;
       cursor: pointer;
-      letter-spacing: 0.1px;
-      transition: opacity 0.15s, transform 0.15s;
 
-      &:active { opacity: 0.85; transform: scale(0.96); }
+      &:active { opacity: 0.85; }
     }
 
     /* ── Loading ── */
@@ -331,11 +328,6 @@ import { Photo, Profile } from '../../core/models/profile.model';
       height: 100%;
       object-fit: cover;
       display: block;
-      transition: transform 0.3s ease;
-    }
-
-    .photo-slot:hover .slot-img {
-      transform: scale(1.02);
     }
 
     .slot-delete {
@@ -346,31 +338,14 @@ import { Photo, Profile } from '../../core/models/profile.model';
       color: #fff;
       border: none;
       border-radius: 50%;
-      width: 22px;
-      height: 22px;
-      font-size: 11px;
+      width: 24px;
+      height: 24px;
       cursor: pointer;
       display: flex;
       align-items: center;
       justify-content: center;
       backdrop-filter: blur(4px);
-      opacity: 0;
-      transition: opacity 0.15s;
       z-index: 2;
-    }
-
-    .photo-slot:hover .slot-delete,
-    .photo-slot:active .slot-delete {
-      opacity: 1;
-    }
-
-    /* always show delete on touch devices */
-    @media (hover: none) {
-      .slot-delete {
-        opacity: 1;
-        width: 26px;
-        height: 26px;
-      }
     }
 
     .slot-add {
@@ -383,19 +358,12 @@ import { Photo, Profile } from '../../core/models/profile.model';
       align-items: center;
       justify-content: center;
       color: var(--text-muted);
-      transition: background 0.15s, border-color 0.15s, color 0.15s;
+      transition: background 0.15s, color 0.15s;
 
       svg { width: 26px; height: 26px; }
 
-      &:hover {
-        background: var(--surface);
-        border-color: #fd5564;
-        color: #fd5564;
-      }
-
-      &:active {
-        background: var(--border-light);
-      }
+      &:hover { background: var(--surface); color: #fd5564; }
+      &:active { background: var(--border-light); }
     }
 
     /* Upload overlay (spinner on top of slot) */
@@ -585,11 +553,8 @@ import { Photo, Profile } from '../../core/models/profile.model';
       font-size: 13px;
       font-weight: 600;
       cursor: pointer;
-      backdrop-filter: blur(4px);
-      transition: background 0.15s;
       flex-shrink: 0;
 
-      &:hover { background: rgba(255,255,255,0.28); }
       &:disabled { opacity: 0.5; cursor: default; }
     }
 
@@ -718,9 +683,8 @@ import { Photo, Profile } from '../../core/models/profile.model';
       font-size: 16px;
       font-weight: 600;
       cursor: pointer;
-      transition: opacity 0.15s, transform 0.15s;
 
-      &:active { opacity: 0.85; transform: scale(0.97); }
+      &:active { opacity: 0.85; }
     }
 
     /* ── Toast ── */

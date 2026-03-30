@@ -286,7 +286,7 @@ services:
       SPRING_DATA_REDIS_PORT: 6379
       SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:29092
       SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_JWK_SET_URI: ${KEYCLOAK_JWK_SET_URI:-http://keycloak:9080/realms/spring/protocol/openid-connect/certs}
-      KEYCLOAK_URL: ${KEYCLOAK_URL:-http://keycloak:9080}
+      KEYCLOAK_URL: http://keycloak:9080
       MEDIA_SERVICE_BASE_URL: http://swipes:8040
       LOGSTASH_HOST: localhost
       LOGSTASH_PORT: 5000
