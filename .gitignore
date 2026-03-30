@@ -3,5 +3,8 @@
 .idea
 /rlScript.sh
 .env
+# Allow docker/certs to be committed (self-signed mTLS certs)
 *.p12
 *.jks
+!docker/certs/*.p12
+!docker/certs/*.jks

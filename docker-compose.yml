@@ -561,8 +561,7 @@ services:
       context: ./clients/tinder-client
     container_name: tinder-client
     <<: *prod-mid-defaults
-    ports:
-      - "4200:80"
+    ports: []
     depends_on:
       gateway:
         condition: service_healthy
