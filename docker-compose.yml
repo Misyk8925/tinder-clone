@@ -60,7 +60,7 @@ services:
       - "9080:9080"
       - "9000:9000"
     volumes:
-      - ./themes:/opt/keycloak/themes
+      - ./docker/keycloak/themes:/opt/keycloak/themes
     environment:
       KC_BOOTSTRAP_ADMIN_USERNAME: admin
       KC_BOOTSTRAP_ADMIN_PASSWORD: admin@1234
