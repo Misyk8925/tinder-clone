@@ -111,6 +111,13 @@
 			<groupId>software.amazon.awssdk</groupId>
 			<artifactId>s3</artifactId>
 		</dependency>
+
+		<!-- HEIC/HEIF ImageIO plugin (requires libheif on the host) -->
+		<dependency>
+			<groupId>com.github.gotson.nightmonkeys</groupId>
+			<artifactId>imageio-heif</artifactId>
+			<version>0.2.1</version>
+		</dependency>
 	</dependencies>
 	<dependencyManagement>
 		<dependencies>

@@ -9,7 +9,8 @@ RUN --mount=type=cache,target=/root/.m2 mvn -B -e -ntp package -DskipTests && \
     find target -maxdepth 1 -name "*.jar" ! -name "*-plain.jar" -exec mv {} target/app.jar \;
 
 FROM eclipse-temurin:21-jre-alpine
-RUN addgroup -S appgroup && adduser -S appuser -G appgroup
+RUN apk add --no-cache libheif && \
+    addgroup -S appgroup && adduser -S appuser -G appgroup
 
 WORKDIR /app
 COPY --from=build /workspace/target/app.jar app.jar

@@ -757,9 +757,15 @@ export class ProfileComponent implements OnInit {
     this.fileInputRef.nativeElement.click();
   }
 
-  uploadPhoto(e: Event): void {
-    const file = (e.target as HTMLInputElement).files?.[0];
+  async uploadPhoto(e: Event): Promise<void> {
+    let file = (e.target as HTMLInputElement).files?.[0];
     if (!file) return;
+    if (file.type === 'image/heic' || file.type === 'image/heif' || /\.(heic|heif)$/i.test(file.name)) {
+      const heic2any = (await import('heic2any')).default;
+      const converted = await heic2any({ blob: file, toType: 'image/jpeg', quality: 0.9 });
+      const blob = Array.isArray(converted) ? converted[0] : converted;
+      file = new File([blob], file.name.replace(/\.(heic|heif)$/i, '.jpg'), { type: 'image/jpeg' });
+    }
     this.profileService.uploadPhoto(file, this.uploadPosition).subscribe({
       next: () => this.ngOnInit(),
       error: (err: HttpErrorResponse) => {

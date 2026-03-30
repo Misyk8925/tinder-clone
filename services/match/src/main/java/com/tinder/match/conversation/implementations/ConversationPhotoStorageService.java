@@ -15,8 +15,11 @@ import software.amazon.awssdk.services.s3.model.PutObjectRequest;
 import software.amazon.awssdk.services.s3.model.S3Exception;
 
 import javax.imageio.ImageIO;
+import java.awt.Color;
+import java.awt.Graphics2D;
 import java.awt.image.BufferedImage;
 import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
@@ -36,7 +39,9 @@ public class ConversationPhotoStorageService {
     private static final List<String> ALLOWED_CONTENT_TYPES = List.of(
             "image/jpeg",
             "image/png",
-            "image/webp"
+            "image/webp",
+            "image/heic",
+            "image/heif"
     );
 
     private final S3Client s3Client;
@@ -73,9 +78,14 @@ public class ConversationPhotoStorageService {
             throw new IllegalArgumentException("Failed to read photo bytes", exception);
         }
 
+        String contentType = file.getContentType();
+        if ("image/heic".equals(contentType) || "image/heif".equals(contentType)) {
+            bytes = convertToJpeg(bytes);
+            contentType = "image/jpeg";
+        }
+
         BufferedImage image = readImage(bytes);
 
-        String contentType = file.getContentType();
         String extension = fileExtensionFor(contentType);
         String key = String.format(
                 "chat/photos/%s/%s/%s/%s.%s",
@@ -195,6 +205,28 @@ public class ConversationPhotoStorageService {
             log.info("Created missing S3 bucket '{}' using endpoint {}", resolvedBucket, s3Endpoint);
         } catch (BucketAlreadyOwnedByYouException | BucketAlreadyExistsException ignored) {
             // Bucket exists, safe to continue.
+        }
+    }
+
+    private byte[] convertToJpeg(byte[] imageBytes) {
+        try {
+            BufferedImage image = ImageIO.read(new ByteArrayInputStream(imageBytes));
+            if (image == null) {
+                throw new IllegalArgumentException("Failed to decode HEIC image");
+            }
+            BufferedImage rgbImage = new BufferedImage(image.getWidth(), image.getHeight(), BufferedImage.TYPE_INT_RGB);
+            Graphics2D g2d = rgbImage.createGraphics();
+            g2d.setColor(Color.WHITE);
+            g2d.fillRect(0, 0, image.getWidth(), image.getHeight());
+            g2d.drawImage(image, 0, 0, null);
+            g2d.dispose();
+            ByteArrayOutputStream baos = new ByteArrayOutputStream();
+            if (!ImageIO.write(rgbImage, "jpg", baos)) {
+                throw new IllegalArgumentException("Failed to encode image as JPEG");
+            }
+            return baos.toByteArray();
+        } catch (IOException exception) {
+            throw new IllegalArgumentException("Failed to convert HEIC to JPEG", exception);
         }
     }
 

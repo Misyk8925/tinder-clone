@@ -100,7 +100,7 @@ public class ImageProcessingService {
     public void validateImage(MultipartFile file) throws IOException {
         // Check MIME type
         String contentType = file.getContentType();
-        if (!List.of("image/jpeg", "image/png", "image/webp")
+        if (!List.of("image/jpeg", "image/png", "image/webp", "image/heic", "image/heif")
                 .contains(contentType)) {
             throw new IllegalArgumentException("Invalid image type"+ (contentType == null ? "" : ": "+contentType));
         }

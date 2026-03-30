@@ -526,8 +526,15 @@ export class ChatComponent implements OnInit, OnDestroy, AfterViewChecked {
   }
 
   async sendPhoto(e: Event): Promise<void> {
-    const file = (e.target as HTMLInputElement).files?.[0];
+    let file = (e.target as HTMLInputElement).files?.[0];
     if (!file) return;
+
+    if (file.type === 'image/heic' || file.type === 'image/heif' || /\.(heic|heif)$/i.test(file.name)) {
+      const heic2any = (await import('heic2any')).default;
+      const converted = await heic2any({ blob: file, toType: 'image/jpeg', quality: 0.9 });
+      const blob = Array.isArray(converted) ? converted[0] : converted;
+      file = new File([blob], file.name.replace(/\.(heic|heif)$/i, '.jpg'), { type: 'image/jpeg' });
+    }
 
     const token = await this.keycloak.getToken();
     if (!token) return;
