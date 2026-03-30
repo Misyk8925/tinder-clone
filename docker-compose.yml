@@ -302,8 +302,8 @@ services:
       PROFILES_GRPC_TRUSTSTORE_PASSWORD: ${MTLS_TRUSTSTORE_PASSWORD:?MTLS_TRUSTSTORE_PASSWORD is required}
       JAVA_TOOL_OPTIONS: "-XX:+UseContainerSupport -XX:+UseZGC -XX:InitialRAMPercentage=40.0 -XX:MaxRAMPercentage=55.0 -Dfile.encoding=UTF-8 -Dsun.net.inetaddr.ttl=60 -Djava.io.tmpdir=/tmp"
     volumes:
-      - ./docker/certs/profiles-service.p12:/certs/profiles-service.p12:ro
-      - ./docker/certs/truststore.jks:/certs/truststore.jks:ro
+      - /etc/dokploy/certs/tinderclone/profiles-service.p12:/certs/profiles-service.p12:ro
+      - /etc/dokploy/certs/tinderclone/truststore.jks:/certs/truststore.jks:ro
     networks:
       - app
     mem_limit: 640m
@@ -340,8 +340,8 @@ services:
       SPRING_REDIS_TIMEOUT: 30000
       JAVA_TOOL_OPTIONS: "-XX:+UseContainerSupport -XX:+UseZGC -XX:InitialRAMPercentage=40.0 -XX:MaxRAMPercentage=55.0 -Dfile.encoding=UTF-8 -Dsun.net.inetaddr.ttl=60 -Djava.io.tmpdir=/tmp"
     volumes:
-      - ./docker/certs/deck-service.p12:/certs/deck-service.p12:ro
-      - ./docker/certs/truststore.jks:/certs/truststore.jks:ro
+      - /etc/dokploy/certs/tinderclone/deck-service.p12:/certs/deck-service.p12:ro
+      - /etc/dokploy/certs/tinderclone/truststore.jks:/certs/truststore.jks:ro
     networks:
       - app
     mem_limit: 384m
@@ -460,8 +460,8 @@ services:
       CONSUMER_TRUSTSTORE_PASSWORD: ${MTLS_TRUSTSTORE_PASSWORD:?MTLS_TRUSTSTORE_PASSWORD is required}
       JAVA_TOOL_OPTIONS: "-XX:+UseContainerSupport -XX:+UseZGC -XX:InitialRAMPercentage=40.0 -XX:MaxRAMPercentage=55.0 -Dfile.encoding=UTF-8 -Dsun.net.inetaddr.ttl=60 -Djava.io.tmpdir=/tmp"
     volumes:
-      - ./docker/certs/consumer-service.p12:/certs/consumer-service.p12:ro
-      - ./docker/certs/truststore.jks:/certs/truststore.jks:ro
+      - /etc/dokploy/certs/tinderclone/consumer-service.p12:/certs/consumer-service.p12:ro
+      - /etc/dokploy/certs/tinderclone/truststore.jks:/certs/truststore.jks:ro
     networks:
       - app
     mem_limit: 512m
@@ -506,8 +506,8 @@ services:
       SUBSCRIPTIONS_GRPC_TRUSTSTORE_PASSWORD: ${MTLS_TRUSTSTORE_PASSWORD:?MTLS_TRUSTSTORE_PASSWORD is required}
       JAVA_TOOL_OPTIONS: "-XX:+UseContainerSupport -XX:+UseZGC -XX:InitialRAMPercentage=40.0 -XX:MaxRAMPercentage=55.0 -Dfile.encoding=UTF-8 -Dsun.net.inetaddr.ttl=60 -Djava.io.tmpdir=/tmp"
     volumes:
-      - ./docker/certs/subscriptions-service.p12:/certs/subscriptions-service.p12:ro
-      - ./docker/certs/truststore.jks:/certs/truststore.jks:ro
+      - /etc/dokploy/certs/tinderclone/subscriptions-service.p12:/certs/subscriptions-service.p12:ro
+      - /etc/dokploy/certs/tinderclone/truststore.jks:/certs/truststore.jks:ro
     networks:
       - app
     mem_limit: 384m
