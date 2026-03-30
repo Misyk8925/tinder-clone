@@ -19,22 +19,18 @@ import { LucideAngularModule } from 'lucide-angular';
 
       <a routerLink="/discover" routerLinkActive="active" class="nav-item">
         <lucide-icon name="flame" [size]="26" class="nav-icon" strokeWidth="1.75"></lucide-icon>
-        <span class="nav-label">Swipen</span>
       </a>
 
       <a routerLink="/likes" routerLinkActive="active" class="nav-item">
         <lucide-icon name="heart" [size]="26" class="nav-icon" strokeWidth="1.75"></lucide-icon>
-        <span class="nav-label">Likes</span>
       </a>
 
       <a routerLink="/matches" routerLinkActive="active" class="nav-item">
         <lucide-icon name="message-circle" [size]="26" class="nav-icon" strokeWidth="1.75"></lucide-icon>
-        <span class="nav-label">Chat</span>
       </a>
 
       <a routerLink="/profile" routerLinkActive="active" class="nav-item">
         <lucide-icon name="user" [size]="26" class="nav-icon" strokeWidth="1.75"></lucide-icon>
-        <span class="nav-label">Profil</span>
       </a>
 
     </nav>
@@ -60,39 +56,27 @@ import { LucideAngularModule } from 'lucide-angular';
       align-items: center;
       background: var(--surface);
       border-top: 1px solid var(--border);
-      padding: 8px 0 calc(env(safe-area-inset-bottom, 0px) + 8px);
+      padding: 10px 0 calc(env(safe-area-inset-bottom, 0px) + 10px);
       z-index: 100;
     }
 
     .nav-item {
       display: flex;
-      flex-direction: column;
       align-items: center;
-      gap: 4px;
-      color: var(--custom);
+      justify-content: center;
+      color: var(--text-muted);
       text-decoration: none;
-      padding: 4px 14px;
-      min-width: 56px;
-      transition: color 0.15s;
-
-      .nav-label {
-        font-size: 10px;
-        font-weight: 500;
-        letter-spacing: 0.1px;
-      }
+      padding: 6px 20px;
+      border-radius: 14px;
+      transition: color 0.15s, background 0.15s;
 
       &.active {
         color: #fd267a;
-
-        .nav-label {
-          font-weight: 700;
-          color: #fd267a;
-        }
       }
-    }
 
-    [data-theme="dark"] .nav-item.active .nav-label {
-      color: #f2f2f7;
+      &:active {
+        background: var(--surface-2);
+      }
     }
 
     /* ── Desktop: left sidebar ── */
@@ -108,7 +92,7 @@ import { LucideAngularModule } from 'lucide-angular';
         top: 0;
         bottom: 0;
         right: unset;
-        width: 76px;
+        width: 72px;
         height: 100dvh;
         flex-direction: column;
         justify-content: flex-start;
@@ -132,15 +116,9 @@ import { LucideAngularModule } from 'lucide-angular';
       }
 
       .nav-item {
-        padding: 14px 0;
-        min-width: unset;
-        gap: 5px;
+        padding: 16px 0;
         border-radius: 0;
         justify-content: center;
-
-        .nav-label {
-          font-size: 9px;
-        }
       }
     }
   `]

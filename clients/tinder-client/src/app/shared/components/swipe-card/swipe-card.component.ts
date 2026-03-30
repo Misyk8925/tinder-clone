@@ -42,6 +42,10 @@ import { Profile } from '../../../core/models/profile.model';
           <svg viewBox="0 0 24 24" fill="currentColor"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
           NOPE
         </div>
+        <div class="super-badge">
+          <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z"/></svg>
+          SUPER
+        </div>
       </div>
 
       <div class="card-gradient"></div>
@@ -79,10 +83,10 @@ import { Profile } from '../../../core/models/profile.model';
       position: absolute;
       width: 100%;
       height: 100%;
-      border-radius: 16px;
+      border-radius: 18px;
       overflow: hidden;
       background: var(--surface);
-      box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+      box-shadow: 0 6px 28px rgba(0,0,0,0.18);
       cursor: grab;
       user-select: none;
       touch-action: none;
@@ -136,7 +140,7 @@ import { Profile } from '../../../core/models/profile.model';
       flex: 1;
       height: 3px;
       border-radius: 2px;
-      background: rgba(255,255,255,0.45);
+      background: rgba(255,255,255,0.4);
       cursor: pointer;
       pointer-events: all;
       transition: background 0.2s;
@@ -158,8 +162,8 @@ import { Profile } from '../../../core/models/profile.model';
     .photo-prev { left: 0; }
     .photo-next { right: 0; }
 
-    /* LIKE / NOPE badges */
-    .like-badge, .nope-badge {
+    /* LIKE / NOPE / SUPER badges */
+    .like-badge, .nope-badge, .super-badge {
       position: absolute;
       top: 36px;
       padding: 6px 16px;
@@ -168,7 +172,7 @@ import { Profile } from '../../../core/models/profile.model';
       font-weight: 800;
       letter-spacing: 2px;
       opacity: 0;
-      transition: opacity 0.12s;
+      transition: opacity 0.1s;
       z-index: 10;
       border: 4px solid;
       display: flex;
@@ -195,8 +199,16 @@ import { Profile } from '../../../core/models/profile.model';
       transform: rotate(20deg);
     }
 
+    .super-badge {
+      left: 50%;
+      transform: translateX(-50%);
+      color: #00b4cc;
+      border-color: #00b4cc;
+    }
+
     .card.liked .like-badge { opacity: 1; }
     .card.noped .nope-badge { opacity: 1; }
+    .card.super .super-badge { opacity: 1; }
 
     /* Bottom gradient overlay */
     .card-gradient {
@@ -237,7 +249,7 @@ import { Profile } from '../../../core/models/profile.model';
       font-size: 28px;
       font-weight: 700;
       line-height: 1.1;
-      text-shadow: 0 1px 4px rgba(0,0,0,0.2);
+      text-shadow: 0 1px 6px rgba(0,0,0,0.25);
 
       .age {
         font-size: 26px;
@@ -294,9 +306,9 @@ import { Profile } from '../../../core/models/profile.model';
     }
 
     .hobby-tag {
-      background: rgba(255,255,255,0.2);
-      border: 1px solid rgba(255,255,255,0.45);
-      backdrop-filter: blur(4px);
+      background: rgba(255,255,255,0.18);
+      border: 1px solid rgba(255,255,255,0.4);
+      backdrop-filter: blur(6px);
       padding: 4px 12px;
       border-radius: 20px;
       font-size: 12px;
@@ -315,6 +327,7 @@ export class SwipeCardComponent implements OnInit, OnDestroy {
   private startX = 0;
   private startY = 0;
   private isDragging = false;
+  private isAnimating = false;
   private readonly SWIPE_THRESHOLD = 100;
 
   private mouseMoveHandler = this.onDragMove.bind(this);
@@ -338,13 +351,40 @@ export class SwipeCardComponent implements OnInit, OnDestroy {
     document.removeEventListener('touchend', this.touchEndHandler);
   }
 
+  /** Called by parent to animate programmatic swipe (button click) */
+  public triggerSwipe(direction: 'left' | 'right' | 'up'): void {
+    if (this.isAnimating || this.isDragging) return;
+    this.isAnimating = true;
+
+    const emitDir: 'left' | 'right' = direction === 'left' ? 'left' : 'right';
+
+    if (direction === 'up') {
+      this.cardStyle.set({
+        transform: 'translate(0, -1400px) scale(0.8)',
+        transition: 'transform 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94)'
+      });
+    } else {
+      const flyX = direction === 'right' ? 1300 : -1300;
+      const rotation = direction === 'right' ? 30 : -30;
+      this.swipeDir.set(direction);
+      this.cardStyle.set({
+        transform: `translate(${flyX}px, -150px) rotate(${rotation}deg)`,
+        transition: 'transform 0.38s cubic-bezier(0.25, 0.46, 0.45, 0.94)'
+      });
+    }
+
+    setTimeout(() => this.swiped.emit(emitDir), 360);
+  }
+
   onDragStart(e: MouseEvent): void {
+    if (this.isAnimating) return;
     this.isDragging = true;
     this.startX = e.clientX;
     this.startY = e.clientY;
   }
 
   onTouchStart(e: TouchEvent): void {
+    if (this.isAnimating) return;
     this.isDragging = true;
     this.startX = e.touches[0].clientX;
     this.startY = e.touches[0].clientY;
@@ -388,16 +428,17 @@ export class SwipeCardComponent implements OnInit, OnDestroy {
 
   private finishSwipe(dx: number): void {
     if (Math.abs(dx) > this.SWIPE_THRESHOLD) {
+      this.isAnimating = true;
       const direction = dx > 0 ? 'right' : 'left';
-      const flyX = direction === 'right' ? 1200 : -1200;
+      const flyX = direction === 'right' ? 1300 : -1300;
       const rotation = direction === 'right' ? 30 : -30;
       this.cardStyle.set({
-        transform: `translate(${flyX}px, -100px) rotate(${rotation}deg)`,
-        transition: 'transform 0.4s ease'
+        transform: `translate(${flyX}px, -150px) rotate(${rotation}deg)`,
+        transition: 'transform 0.38s cubic-bezier(0.25, 0.46, 0.45, 0.94)'
       });
-      setTimeout(() => this.swiped.emit(direction), 380);
+      setTimeout(() => this.swiped.emit(direction), 360);
     } else {
-      this.cardStyle.set({ transform: 'translate(0,0) rotate(0deg)', transition: 'transform 0.3s ease' });
+      this.cardStyle.set({ transform: 'translate(0,0) rotate(0deg)', transition: 'transform 0.35s cubic-bezier(0.34, 1.56, 0.64, 1)' });
       this.swipeDir.set(null);
     }
   }

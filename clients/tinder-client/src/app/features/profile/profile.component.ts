@@ -25,33 +25,48 @@ import { Photo, Profile } from '../../core/models/profile.model';
         <div class="loading"><div class="spinner"></div></div>
       } @else if (profile()) {
         <div class="profile-content">
+
+          <!-- Photo Gallery: full-width hero + 4 thumbnails row -->
           <div class="photo-gallery">
             @for (slot of photoSlots(); track $index) {
-              <div class="photo-slot" [class.slot-0]="$index === 0"
-                   [class.slot-1]="$index === 1" [class.slot-2]="$index === 2"
-                   [class.slot-3]="$index === 3" [class.slot-4]="$index === 4">
+              <div class="photo-slot" [class.slot-hero]="$index === 0"
+                   [class.slot-thumb]="$index > 0"
+                   [class.uploading]="uploadingSlot() === $index">
+
                 @if (slot) {
                   <img [src]="slot.url" class="slot-img" [alt]="'Photo ' + ($index + 1)" />
-                  <button class="slot-delete" (click)="deletePhoto(slot.photoID)" title="Remove photo">✕</button>
-                } @else if ($index === (profile()!.photos?.length ?? 0)) {
+                  <button class="slot-delete" (click)="deletePhoto(slot.photoID)" title="Remove photo">
+                    <svg viewBox="0 0 24 24" fill="currentColor" width="10" height="10"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+                  </button>
+                } @else if ($index === (profile()!.photos?.length ?? 0) && $index < 5) {
                   <button class="slot-add" (click)="triggerUploadAt($index)">
                     <svg viewBox="0 0 24 24" fill="currentColor"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>
                   </button>
+                }
+
+                @if (uploadingSlot() === $index) {
+                  <div class="upload-overlay">
+                    <div class="upload-spinner"></div>
+                  </div>
                 }
               </div>
             }
             <input type="file" accept="image/*" (change)="uploadPhoto($event)" hidden #fileInput />
           </div>
 
+          <!-- Info section -->
           <div class="info-section">
             <div class="name-row">
               <h2>{{ profile()!.name }}, {{ profile()!.age }}</h2>
               @if (profile()!.isActive) {
-                <span class="badge active">Active</span>
+                <span class="badge active">● Active</span>
               }
             </div>
             @if (profile()!.city && profile()!.city !== 'Unknown') {
-              <p class="city">📍 {{ profile()!.city }}</p>
+              <p class="city">
+                <svg viewBox="0 0 24 24" fill="currentColor" width="13" height="13"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/></svg>
+                {{ profile()!.city }}
+              </p>
             }
 
             @if (profile()!.bio) {
@@ -74,13 +89,13 @@ import { Photo, Profile } from '../../core/models/profile.model';
                 </div>
                 <div class="pref-item">
                   <span class="pref-label">Distance</span>
-                  <span class="pref-value">Up to {{ profile()!.preferences?.maxRange }} km</span>
+                  <span class="pref-value">{{ profile()!.preferences?.maxRange }} km</span>
                 </div>
               </div>
             </div>
 
             @if (profile()!.hobbies?.length) {
-              <div class="section">
+              <div class="section no-margin">
                 <h4>Hobbies</h4>
                 <div class="hobbies">
                   @for (hobby of profile()!.hobbies; track hobby) {
@@ -91,40 +106,25 @@ import { Photo, Profile } from '../../core/models/profile.model';
             }
           </div>
 
+          <!-- Premium: show banner for subscribers, nothing for non-subscribers (no upsell here) -->
           @if (isPremium()) {
             <div class="premium-banner">
               <div class="premium-banner-left">
-                <span class="premium-banner-icon">👑</span>
+                <div class="premium-crown-wrap">
+                  <svg viewBox="0 0 24 24" fill="currentColor" width="20" height="20"><path d="M5 16L3 5l5.5 5L12 4l3.5 6L21 5l-2 11H5zm2 2h10v2H7v-2z"/></svg>
+                </div>
                 <div>
-                  <span class="premium-banner-title">Premium</span>
-                  <span class="premium-banner-sub">Active membership</span>
+                  <span class="premium-banner-title">Premium Active</span>
+                  <span class="premium-banner-sub">Unlimited swipes & more</span>
                 </div>
               </div>
               <button class="premium-banner-btn" (click)="manageSubscription()" [disabled]="subLoading()">
                 {{ subLoading() ? '...' : 'Manage' }}
               </button>
             </div>
-          } @else {
-            <div class="premium-card">
-              <div class="premium-card-header">
-                <span class="crown">👑</span>
-                <div>
-                  <h3>Get Premium</h3>
-                  <p>Unlock unlimited swipes & more</p>
-                </div>
-                <span class="price">€10<small>/mo</small></span>
-              </div>
-              <ul class="perks">
-                <li>Unlimited swipes per day</li>
-                <li>See who liked you</li>
-                <li>Priority in discovery</li>
-              </ul>
-              <button class="btn-subscribe" (click)="subscribe()" [disabled]="subLoading()">
-                {{ subLoading() ? 'Loading...' : 'Subscribe Now' }}
-              </button>
-            </div>
           }
 
+          <!-- Account section -->
           <div class="account-section">
             <p class="account-section-label">Account</p>
             <div class="account-list">
@@ -136,6 +136,16 @@ import { Photo, Profile } from '../../core/models/profile.model';
                 <span class="account-row-chevron">›</span>
               </button>
               <div class="account-divider"></div>
+              @if (!isPremium()) {
+                <button class="account-row" (click)="subscribe()" [disabled]="subLoading()">
+                  <span class="account-row-icon premium-icon">
+                    <svg viewBox="0 0 24 24" fill="currentColor" width="16" height="16"><path d="M5 16L3 5l5.5 5L12 4l3.5 6L21 5l-2 11H5zm2 2h10v2H7v-2z"/></svg>
+                  </span>
+                  <span class="account-row-label">{{ subLoading() ? 'Loading...' : 'Upgrade to Premium' }}</span>
+                  <span class="account-row-badge">€10/mo</span>
+                </button>
+                <div class="account-divider"></div>
+              }
               <button class="account-row" (click)="logout()">
                 <span class="account-row-icon logout">
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
@@ -156,10 +166,13 @@ import { Photo, Profile } from '../../core/models/profile.model';
               </button>
             </div>
           </div>
+
         </div>
       } @else {
         <div class="no-profile">
-          <div class="empty-icon">👤</div>
+          <div class="empty-icon">
+            <svg viewBox="0 0 24 24" fill="currentColor" width="64" height="64" style="color: var(--text-muted)"><path d="M12 12c2.7 0 4.8-2.1 4.8-4.8S14.7 2.4 12 2.4 7.2 4.5 7.2 7.2 9.3 12 12 12zm0 2.4c-3.2 0-9.6 1.6-9.6 4.8v2.4h19.2v-2.4c0-3.2-6.4-4.8-9.6-4.8z"/></svg>
+          </div>
           <h3>No profile yet</h3>
           <p>Create your profile to start swiping!</p>
           <button class="btn-primary" (click)="goEdit()">Create Profile</button>
@@ -176,67 +189,74 @@ import { Photo, Profile } from '../../core/models/profile.model';
     .profile-page {
       display: flex;
       flex-direction: column;
-      height: 100dvh;
+      min-height: 100dvh;
       background: var(--bg);
-      padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 72px);
+      padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 80px);
       overflow-y: auto;
     }
 
     @media (min-width: 768px) {
       .profile-page {
-        padding-bottom: 24px;
-        height: 100dvh;
+        padding-bottom: 32px;
       }
 
       .profile-content {
-        max-width: 680px;
+        max-width: 640px;
         margin: 0 auto;
         width: 100%;
       }
 
       .photo-gallery {
-        grid-template-rows: 140px 140px 116px;
+        grid-template-rows: 300px 148px;
       }
     }
 
+    /* ── Header ── */
     .header {
       display: flex;
       align-items: center;
       justify-content: space-between;
-      padding: 20px;
+      padding: 18px 20px;
       background: var(--surface);
-      box-shadow: 0 2px 8px var(--shadow-sm);
+      border-bottom: 1px solid var(--border);
       position: sticky;
       top: 0;
       z-index: 10;
 
-      h1 { margin: 0; font-size: 24px; font-weight: 700; color: var(--text-primary); }
+      h1 {
+        margin: 0;
+        font-size: 22px;
+        font-weight: 700;
+        color: var(--text-primary);
+        letter-spacing: -0.3px;
+      }
     }
 
     .header-actions {
       display: flex;
       align-items: center;
-      gap: 10px;
+      gap: 8px;
     }
 
     .theme-toggle {
       background: var(--surface-2);
       border: 1px solid var(--border);
       border-radius: 50%;
-      width: 38px;
-      height: 38px;
-      font-size: 18px;
+      width: 36px;
+      height: 36px;
+      font-size: 16px;
       cursor: pointer;
       display: flex;
       align-items: center;
       justify-content: center;
-      transition: background 0.2s;
+      transition: background 0.2s, transform 0.2s;
 
       &:hover { background: var(--border); }
+      &:active { transform: scale(0.9); }
     }
 
     .edit-btn {
-      background: linear-gradient(135deg, #fd5564, #ff8a00);
+      background: linear-gradient(135deg, #fd5564, #ff6036);
       color: #fff;
       border: none;
       border-radius: 20px;
@@ -244,8 +264,13 @@ import { Photo, Profile } from '../../core/models/profile.model';
       font-size: 14px;
       font-weight: 600;
       cursor: pointer;
+      letter-spacing: 0.1px;
+      transition: opacity 0.15s, transform 0.15s;
+
+      &:active { opacity: 0.85; transform: scale(0.96); }
     }
 
+    /* ── Loading ── */
     .loading {
       flex: 1;
       display: flex;
@@ -254,71 +279,98 @@ import { Photo, Profile } from '../../core/models/profile.model';
     }
 
     .spinner {
-      width: 40px; height: 40px;
-      border: 3px solid var(--border-light);
+      width: 38px; height: 38px;
+      border: 3px solid var(--border);
       border-top: 3px solid #fd5564;
       border-radius: 50%;
-      animation: spin 0.8s linear infinite;
+      animation: spin 0.75s linear infinite;
     }
 
     @keyframes spin { to { transform: rotate(360deg); } }
 
+    /* ── Profile Content ── */
     .profile-content {
       padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
     }
 
+    /* ── Photo Gallery: hero + 4 thumbnails ── */
     .photo-gallery {
       display: grid;
-      grid-template-columns: 2fr 1fr;
-      grid-template-rows: 108px 108px 90px;
-      gap: 4px;
+      grid-template-columns: repeat(4, 1fr);
+      grid-template-rows: 210px 110px;
+      gap: 3px;
       border-radius: 20px;
       overflow: hidden;
-      margin-bottom: 16px;
     }
 
     .photo-slot {
       position: relative;
       background: var(--surface-2);
-      border-radius: 4px;
       overflow: hidden;
+      transition: opacity 0.2s;
+
+      &.uploading {
+        opacity: 0.6;
+      }
     }
 
-    .slot-0 {
-      grid-column: 1;
-      grid-row: 1 / 3;
-      border-radius: 0;
+    .slot-hero {
+      grid-column: 1 / -1;
+      grid-row: 1;
     }
 
-    .slot-1 { grid-column: 2; grid-row: 1; }
-    .slot-2 { grid-column: 2; grid-row: 2; }
-    .slot-3 { grid-column: 1; grid-row: 3; }
-    .slot-4 { grid-column: 2; grid-row: 3; }
+    .slot-thumb {
+      grid-row: 2;
+    }
 
     .slot-img {
       width: 100%;
       height: 100%;
       object-fit: cover;
       display: block;
+      transition: transform 0.3s ease;
+    }
+
+    .photo-slot:hover .slot-img {
+      transform: scale(1.02);
     }
 
     .slot-delete {
       position: absolute;
-      top: 5px;
-      right: 5px;
-      background: rgba(0,0,0,0.55);
+      top: 6px;
+      right: 6px;
+      background: rgba(0,0,0,0.6);
       color: #fff;
       border: none;
       border-radius: 50%;
-      width: 24px;
-      height: 24px;
-      font-size: 12px;
+      width: 22px;
+      height: 22px;
+      font-size: 11px;
       cursor: pointer;
       display: flex;
       align-items: center;
       justify-content: center;
-      backdrop-filter: blur(3px);
-      line-height: 1;
+      backdrop-filter: blur(4px);
+      opacity: 0;
+      transition: opacity 0.15s;
+      z-index: 2;
+    }
+
+    .photo-slot:hover .slot-delete,
+    .photo-slot:active .slot-delete {
+      opacity: 1;
+    }
+
+    /* always show delete on touch devices */
+    @media (hover: none) {
+      .slot-delete {
+        opacity: 1;
+        width: 26px;
+        height: 26px;
+      }
     }
 
     .slot-add {
@@ -331,27 +383,62 @@ import { Photo, Profile } from '../../core/models/profile.model';
       align-items: center;
       justify-content: center;
       color: var(--text-muted);
-      transition: background 0.15s;
+      transition: background 0.15s, border-color 0.15s, color 0.15s;
 
-      svg { width: 28px; height: 28px; }
-      &:hover { background: var(--border-light); }
+      svg { width: 26px; height: 26px; }
+
+      &:hover {
+        background: var(--surface);
+        border-color: #fd5564;
+        color: #fd5564;
+      }
+
+      &:active {
+        background: var(--border-light);
+      }
     }
 
+    /* Upload overlay (spinner on top of slot) */
+    .upload-overlay {
+      position: absolute;
+      inset: 0;
+      background: rgba(0,0,0,0.35);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 3;
+      backdrop-filter: blur(2px);
+    }
+
+    .upload-spinner {
+      width: 28px; height: 28px;
+      border: 3px solid rgba(255,255,255,0.3);
+      border-top: 3px solid #fff;
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+    }
+
+    /* ── Info Section ── */
     .info-section {
       background: var(--surface);
       border-radius: 20px;
       padding: 20px;
-      margin-bottom: 16px;
-      box-shadow: 0 2px 8px var(--shadow-sm);
+      box-shadow: 0 1px 6px var(--shadow-sm);
     }
 
     .name-row {
       display: flex;
       align-items: center;
       gap: 10px;
-      margin-bottom: 4px;
+      margin-bottom: 6px;
 
-      h2 { margin: 0; font-size: 24px; font-weight: 700; color: var(--text-primary); }
+      h2 {
+        margin: 0;
+        font-size: 24px;
+        font-weight: 700;
+        color: var(--text-primary);
+        letter-spacing: -0.3px;
+      }
     }
 
     .badge {
@@ -359,69 +446,120 @@ import { Photo, Profile } from '../../core/models/profile.model';
       border-radius: 12px;
       font-size: 12px;
       font-weight: 600;
+      flex-shrink: 0;
 
-      &.active { background: #e8fdf1; color: #00a84f; }
+      &.active {
+        background: rgba(0, 168, 79, 0.12);
+        color: #00a84f;
+        border: 1px solid rgba(0, 168, 79, 0.2);
+      }
     }
 
-    .city { margin: 0 0 16px; color: var(--text-secondary); font-size: 15px; }
+    .city {
+      margin: 0 0 18px;
+      color: var(--text-secondary);
+      font-size: 14px;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
 
     .section {
-      margin-bottom: 16px;
+      margin-bottom: 18px;
 
-      h4 { margin: 0 0 8px; font-size: 13px; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-muted); }
-      p { margin: 0; color: var(--text-secondary); font-size: 15px; line-height: 1.5; }
+      &.no-margin { margin-bottom: 0; }
+
+      h4 {
+        margin: 0 0 10px;
+        font-size: 11px;
+        text-transform: uppercase;
+        letter-spacing: 0.8px;
+        font-weight: 600;
+        color: var(--text-muted);
+      }
+
+      p {
+        margin: 0;
+        color: var(--text-secondary);
+        font-size: 15px;
+        line-height: 1.6;
+      }
     }
 
     .pref-grid {
       display: grid;
       grid-template-columns: repeat(3, 1fr);
-      gap: 10px;
+      gap: 8px;
     }
 
     .pref-item {
       background: var(--surface-2);
-      border-radius: 12px;
-      padding: 10px;
+      border-radius: 14px;
+      padding: 12px 10px;
       text-align: center;
 
-      .pref-label { display: block; font-size: 11px; color: var(--text-muted); margin-bottom: 4px; }
-      .pref-value { display: block; font-size: 14px; font-weight: 600; color: var(--text-primary); }
+      .pref-label {
+        display: block;
+        font-size: 10px;
+        color: var(--text-muted);
+        margin-bottom: 5px;
+        text-transform: uppercase;
+        letter-spacing: 0.4px;
+        font-weight: 500;
+      }
+
+      .pref-value {
+        display: block;
+        font-size: 14px;
+        font-weight: 600;
+        color: var(--text-primary);
+      }
     }
 
     .hobbies {
       display: flex;
       flex-wrap: wrap;
-      gap: 8px;
+      gap: 7px;
     }
 
     .hobby-tag {
-      background: #fff0f1;
+      background: rgba(253, 85, 100, 0.1);
       color: #fd5564;
-      border: 1px solid #ffd0d4;
+      border: 1px solid rgba(253, 85, 100, 0.22);
       padding: 5px 14px;
       border-radius: 20px;
       font-size: 13px;
       font-weight: 500;
     }
 
-    /* ── Premium banner (active subscriber) ── */
+    /* ── Premium Banner (active subscriber) ── */
     .premium-banner {
       display: flex;
       align-items: center;
       justify-content: space-between;
       background: linear-gradient(135deg, #7b2ff7, #f107a3);
-      border-radius: 16px;
-      padding: 12px 16px;
-      margin-bottom: 16px;
+      border-radius: 18px;
+      padding: 14px 18px;
+      box-shadow: 0 4px 16px rgba(123,47,247,0.3);
     }
 
     .premium-banner-left {
       display: flex;
       align-items: center;
-      gap: 10px;
+      gap: 12px;
     }
 
-    .premium-banner-icon { font-size: 22px; }
+    .premium-crown-wrap {
+      width: 36px;
+      height: 36px;
+      border-radius: 10px;
+      background: rgba(255,255,255,0.18);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #fff;
+      flex-shrink: 0;
+    }
 
     .premium-banner-title {
       display: block;
@@ -433,96 +571,31 @@ import { Photo, Profile } from '../../core/models/profile.model';
 
     .premium-banner-sub {
       display: block;
-      color: rgba(255,255,255,0.72);
+      color: rgba(255,255,255,0.7);
       font-size: 12px;
+      margin-top: 2px;
     }
 
     .premium-banner-btn {
-      background: rgba(255,255,255,0.18);
-      border: 1px solid rgba(255,255,255,0.35);
+      background: rgba(255,255,255,0.2);
+      border: 1px solid rgba(255,255,255,0.3);
       color: #fff;
       border-radius: 20px;
-      padding: 6px 16px;
+      padding: 7px 18px;
       font-size: 13px;
       font-weight: 600;
       cursor: pointer;
       backdrop-filter: blur(4px);
+      transition: background 0.15s;
+      flex-shrink: 0;
 
+      &:hover { background: rgba(255,255,255,0.28); }
       &:disabled { opacity: 0.5; cursor: default; }
     }
 
-    /* ── Premium upsell card (non-subscriber) ── */
-    .premium-card {
-      background: var(--surface);
-      border-radius: 20px;
-      padding: 20px;
-      box-shadow: 0 2px 12px rgba(123,47,247,0.12);
-      border: 1.5px solid #ede5ff;
-      margin-bottom: 16px;
-    }
-
-    .premium-card-header {
-      display: flex;
-      align-items: center;
-      gap: 14px;
-      margin-bottom: 16px;
-
-      .crown { font-size: 32px; }
-      div { flex: 1; }
-      h3 { margin: 0; font-size: 18px; font-weight: 700; color: var(--text-primary); }
-      p { margin: 2px 0 0; font-size: 13px; color: var(--text-muted); }
-    }
-
-    .price {
-      font-size: 24px;
-      font-weight: 800;
-      color: #7b2ff7;
-
-      small { font-size: 13px; font-weight: 500; color: var(--text-muted); }
-    }
-
-    .perks {
-      list-style: none;
-      padding: 0;
-      margin: 0 0 16px;
-      display: flex;
-      flex-direction: column;
-      gap: 8px;
-
-      li {
-        font-size: 14px;
-        color: var(--text-secondary);
-        padding-left: 20px;
-        position: relative;
-
-        &::before {
-          content: '✓';
-          position: absolute;
-          left: 0;
-          color: #7b2ff7;
-          font-weight: 700;
-        }
-      }
-    }
-
-    .btn-subscribe {
-      width: 100%;
-      padding: 14px;
-      border-radius: 14px;
-      border: none;
-      background: linear-gradient(135deg, #7b2ff7, #f107a3);
-      color: #fff;
-      font-size: 16px;
-      font-weight: 700;
-      cursor: pointer;
-      letter-spacing: 0.3px;
-
-      &:disabled { opacity: 0.6; cursor: default; }
-    }
-
-    /* ── Account / Danger zone ── */
+    /* ── Account Section ── */
     .account-section {
-      margin-top: 8px;
+      padding-bottom: 4px;
     }
 
     .account-section-label {
@@ -530,7 +603,7 @@ import { Photo, Profile } from '../../core/models/profile.model';
       font-size: 11px;
       font-weight: 600;
       text-transform: uppercase;
-      letter-spacing: 0.6px;
+      letter-spacing: 0.7px;
       color: var(--text-muted);
 
       &.danger-label { margin-top: 20px; color: #fd5564; }
@@ -538,7 +611,7 @@ import { Photo, Profile } from '../../core/models/profile.model';
 
     .account-list {
       background: var(--surface);
-      border-radius: 16px;
+      border-radius: 18px;
       overflow: hidden;
       box-shadow: 0 1px 4px var(--shadow-sm);
     }
@@ -553,10 +626,11 @@ import { Photo, Profile } from '../../core/models/profile.model';
       border: none;
       cursor: pointer;
       text-align: left;
-      transition: background 0.15s;
+      transition: background 0.12s;
 
       &:hover { background: var(--surface-2); }
       &:active { background: var(--border-light); }
+      &:disabled { opacity: 0.6; cursor: default; }
 
       &.danger .account-row-label { color: #fd5564; }
     }
@@ -564,7 +638,7 @@ import { Photo, Profile } from '../../core/models/profile.model';
     .account-row-icon {
       width: 32px;
       height: 32px;
-      border-radius: 8px;
+      border-radius: 9px;
       background: var(--surface-2);
       display: flex;
       align-items: center;
@@ -574,8 +648,9 @@ import { Photo, Profile } from '../../core/models/profile.model';
 
       svg { width: 16px; height: 16px; }
 
-      &.logout { background: #fff8e1; color: #f59e0b; }
-      &.danger { background: #fff0f1; color: #fd5564; }
+      &.logout { background: rgba(245, 158, 11, 0.12); color: #f59e0b; }
+      &.danger { background: rgba(253, 85, 100, 0.12); color: #fd5564; }
+      &.premium-icon { background: rgba(123, 47, 247, 0.12); color: #7b2ff7; }
     }
 
     .account-row-label {
@@ -591,37 +666,23 @@ import { Photo, Profile } from '../../core/models/profile.model';
       line-height: 1;
     }
 
+    .account-row-badge {
+      font-size: 12px;
+      font-weight: 600;
+      color: #7b2ff7;
+      background: rgba(123, 47, 247, 0.1);
+      border: 1px solid rgba(123, 47, 247, 0.2);
+      padding: 3px 9px;
+      border-radius: 10px;
+    }
+
     .account-divider {
       height: 1px;
       background: var(--border-light);
       margin-left: 60px;
     }
 
-    .toast-msg {
-      position: fixed;
-      bottom: 100px;
-      left: 50%;
-      transform: translateX(-50%);
-      background: rgba(30, 30, 30, 0.92);
-      color: #fff;
-      padding: 12px 20px;
-      border-radius: 24px;
-      font-size: 14px;
-      font-weight: 500;
-      z-index: 2000;
-      white-space: nowrap;
-      max-width: 90vw;
-      text-align: center;
-      animation: fadeIn 0.2s ease;
-      box-shadow: 0 4px 16px rgba(0,0,0,0.3);
-      backdrop-filter: blur(8px);
-    }
-
-    @keyframes fadeIn {
-      from { opacity: 0; transform: translateX(-50%) translateY(6px); }
-      to { opacity: 1; transform: translateX(-50%) translateY(0); }
-    }
-
+    /* ── No Profile Empty State ── */
     .no-profile {
       flex: 1;
       display: flex;
@@ -632,9 +693,9 @@ import { Photo, Profile } from '../../core/models/profile.model';
       text-align: center;
       padding: 40px;
 
-      .empty-icon { font-size: 64px; }
-      h3 { margin: 0; font-size: 22px; color: var(--text-primary); }
-      p { margin: 0; color: var(--text-muted); }
+      .empty-icon { opacity: 0.4; }
+      h3 { margin: 0; font-size: 22px; font-weight: 700; color: var(--text-primary); }
+      p { margin: 0; color: var(--text-muted); font-size: 15px; }
 
       .btn-logout-text {
         background: none;
@@ -649,14 +710,43 @@ import { Photo, Profile } from '../../core/models/profile.model';
     }
 
     .btn-primary {
-      background: linear-gradient(135deg, #fd5564, #ff8a00);
+      background: linear-gradient(135deg, #fd5564, #ff6036);
       color: #fff;
       border: none;
       border-radius: 30px;
-      padding: 12px 32px;
+      padding: 13px 34px;
       font-size: 16px;
       font-weight: 600;
       cursor: pointer;
+      transition: opacity 0.15s, transform 0.15s;
+
+      &:active { opacity: 0.85; transform: scale(0.97); }
+    }
+
+    /* ── Toast ── */
+    .toast-msg {
+      position: fixed;
+      bottom: 90px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(20, 20, 20, 0.94);
+      color: #fff;
+      padding: 12px 20px;
+      border-radius: 24px;
+      font-size: 14px;
+      font-weight: 500;
+      z-index: 2000;
+      white-space: nowrap;
+      max-width: 90vw;
+      text-align: center;
+      animation: toastIn 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+      box-shadow: 0 4px 20px rgba(0,0,0,0.35);
+      backdrop-filter: blur(12px);
+    }
+
+    @keyframes toastIn {
+      from { opacity: 0; transform: translateX(-50%) translateY(10px) scale(0.95); }
+      to { opacity: 1; transform: translateX(-50%) translateY(0) scale(1); }
     }
   `]
 })
@@ -673,6 +763,7 @@ export class ProfileComponent implements OnInit {
   loading = signal(true);
   subLoading = signal(false);
   isPremium = signal(false);
+  uploadingSlot = signal<number | null>(null);
   toast = signal<string | null>(null);
   private toastTimer: ReturnType<typeof setTimeout> | null = null;
 
@@ -760,15 +851,23 @@ export class ProfileComponent implements OnInit {
   async uploadPhoto(e: Event): Promise<void> {
     let file = (e.target as HTMLInputElement).files?.[0];
     if (!file) return;
+
+    this.uploadingSlot.set(this.uploadPosition);
+
     if (file.type === 'image/heic' || file.type === 'image/heif' || /\.(heic|heif)$/i.test(file.name)) {
       const heic2any = (await import('heic2any')).default;
       const converted = await heic2any({ blob: file, toType: 'image/jpeg', quality: 0.9 });
       const blob = Array.isArray(converted) ? converted[0] : converted;
       file = new File([blob], file.name.replace(/\.(heic|heif)$/i, '.jpg'), { type: 'image/jpeg' });
     }
+
     this.profileService.uploadPhoto(file, this.uploadPosition).subscribe({
-      next: () => this.ngOnInit(),
+      next: () => {
+        this.uploadingSlot.set(null);
+        this.ngOnInit();
+      },
       error: (err: HttpErrorResponse) => {
+        this.uploadingSlot.set(null);
         if (err.status === 429) {
           this.showToast('Too many uploads. Please wait before uploading again.');
         } else {

@@ -1,4 +1,4 @@
-import { Component, inject, OnInit, signal } from '@angular/core';
+import { Component, inject, OnInit, signal, ViewChildren, QueryList } from '@angular/core';
 import { HttpErrorResponse } from '@angular/common/http';
 import { NgClass } from '@angular/common';
 import { Profile } from '../../core/models/profile.model';
@@ -145,7 +145,7 @@ import { Router } from '@angular/router';
       flex-direction: column;
       height: 100dvh;
       background: var(--bg);
-      padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 72px);
+      padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 64px);
     }
 
     @media (min-width: 768px) {
@@ -236,7 +236,7 @@ import { Router } from '@angular/router';
         inset: 0;
 
         &.z1 { z-index: 1; transform: scale(0.93) translateY(22px); }
-        &.z2 { z-index: 2; transform: scale(0.96) translateY(11px); }
+        &.z2 { z-index: 2; transform: scale(0.97) translateY(11px); }
         &.z3 { z-index: 3; transform: scale(1); }
       }
     }
@@ -258,16 +258,21 @@ import { Router } from '@angular/router';
       align-items: center;
       justify-content: center;
       background: var(--surface);
-      box-shadow: 0 2px 12px rgba(0,0,0,0.12);
-      transition: transform 0.15s, box-shadow 0.15s;
+      box-shadow: 0 3px 14px rgba(0,0,0,0.12);
+      transition: transform 0.18s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.15s;
 
-      &:active { transform: scale(0.88); }
+      &:active {
+        transform: scale(0.84) !important;
+        box-shadow: 0 1px 6px rgba(0,0,0,0.1);
+      }
 
       &.nope {
         width: 58px; height: 58px;
         border: 2px solid #f04949;
         color: #f04949;
         svg { width: 28px; height: 28px; }
+
+        &:hover { box-shadow: 0 4px 18px rgba(240,73,73,0.28); transform: scale(1.06); }
       }
 
       &.superlike {
@@ -275,6 +280,8 @@ import { Router } from '@angular/router';
         border: 2px solid #00b4cc;
         color: #00b4cc;
         svg { width: 22px; height: 22px; }
+
+        &:hover { box-shadow: 0 4px 18px rgba(0,180,204,0.28); transform: scale(1.06); }
       }
 
       &.like {
@@ -282,6 +289,8 @@ import { Router } from '@angular/router';
         border: 2px solid #4dde8f;
         color: #4dde8f;
         svg { width: 28px; height: 28px; }
+
+        &:hover { box-shadow: 0 4px 18px rgba(77,222,143,0.28); transform: scale(1.06); }
       }
     }
 
@@ -385,7 +394,7 @@ import { Router } from '@angular/router';
     .match-overlay {
       position: fixed;
       inset: 0;
-      background: rgba(0, 0, 0, 0.88);
+      background: rgba(0, 0, 0, 0.9);
       display: flex;
       align-items: center;
       justify-content: center;
@@ -405,11 +414,11 @@ import { Router } from '@angular/router';
       padding: 0 32px;
       width: 100%;
       max-width: 360px;
-      animation: slideUp 0.3s ease;
+      animation: slideUp 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
     }
 
     @keyframes slideUp {
-      from { transform: translateY(30px); opacity: 0; }
+      from { transform: translateY(40px); opacity: 0; }
       to { transform: translateY(0); opacity: 1; }
     }
 
@@ -501,7 +510,7 @@ import { Router } from '@angular/router';
     .btn-keep-swiping {
       width: 100%;
       padding: 14px;
-      border: 1.5px solid rgba(255,255,255,0.35);
+      border: 1.5px solid rgba(255,255,255,0.3);
       border-radius: 50px;
       background: transparent;
       color: rgba(255,255,255,0.8);
@@ -552,7 +561,7 @@ import { Router } from '@angular/router';
       bottom: 100px;
       left: 50%;
       transform: translateX(-50%);
-      background: rgba(30, 30, 30, 0.92);
+      background: rgba(20, 20, 20, 0.94);
       color: #fff;
       padding: 12px 20px;
       border-radius: 24px;
@@ -562,13 +571,20 @@ import { Router } from '@angular/router';
       white-space: nowrap;
       max-width: 90vw;
       text-align: center;
-      animation: fadeIn 0.2s ease;
-      box-shadow: 0 4px 16px rgba(0,0,0,0.3);
-      backdrop-filter: blur(8px);
+      animation: toastIn 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+      box-shadow: 0 4px 20px rgba(0,0,0,0.35);
+      backdrop-filter: blur(12px);
+    }
+
+    @keyframes toastIn {
+      from { opacity: 0; transform: translateX(-50%) translateY(10px) scale(0.95); }
+      to { opacity: 1; transform: translateX(-50%) translateY(0) scale(1); }
     }
   `]
 })
 export class DiscoverComponent implements OnInit {
+  @ViewChildren(SwipeCardComponent) swipeCards!: QueryList<SwipeCardComponent>;
+
   private profileService = inject(ProfileService);
   private swipeService = inject(SwipeService);
   private router = inject(Router);
@@ -580,6 +596,7 @@ export class DiscoverComponent implements OnInit {
   showPremiumModal = signal(false);
   toast = signal<string | null>(null);
   private toastTimer: ReturnType<typeof setTimeout> | null = null;
+  private nextSuperLike = false;
 
   private showToast(msg: string): void {
     if (this.toastTimer) clearTimeout(this.toastTimer);
@@ -629,7 +646,10 @@ export class DiscoverComponent implements OnInit {
     });
   }
 
-  onSwipe(direction: 'left' | 'right', profile: Profile, isSuper = false): void {
+  onSwipe(direction: 'left' | 'right', profile: Profile): void {
+    const isSuper = this.nextSuperLike;
+    this.nextSuperLike = false;
+
     if (!this.myProfileId) return;
 
     this.swipeService.swipe({
@@ -656,18 +676,22 @@ export class DiscoverComponent implements OnInit {
   }
 
   swipeLeft(): void {
-    const current = this.profiles()[this.currentIndex()];
-    if (current) this.onSwipe('left', current);
+    const topCard = this.swipeCards?.first;
+    if (topCard) topCard.triggerSwipe('left');
   }
 
   swipeRight(): void {
-    const current = this.profiles()[this.currentIndex()];
-    if (current) this.onSwipe('right', current);
+    const topCard = this.swipeCards?.first;
+    if (topCard) topCard.triggerSwipe('right');
   }
 
   superLike(): void {
     const current = this.profiles()[this.currentIndex()];
-    if (current) this.onSwipe('right', current, true);
+    if (!current) return;
+    this.nextSuperLike = true;
+    const topCard = this.swipeCards?.first;
+    if (topCard) topCard.triggerSwipe('up');
+    else this.nextSuperLike = false;
   }
 
   refresh(): void {
