@@ -300,7 +300,7 @@ services:
       PROFILES_GRPC_KEYSTORE_PASSWORD: ${MTLS_KEYSTORE_PASSWORD:?MTLS_KEYSTORE_PASSWORD is required}
       PROFILES_GRPC_TRUSTSTORE_PATH: file:/certs/truststore.jks
       PROFILES_GRPC_TRUSTSTORE_PASSWORD: ${MTLS_TRUSTSTORE_PASSWORD:?MTLS_TRUSTSTORE_PASSWORD is required}
-      JAVA_TOOL_OPTIONS: "-XX:+UseContainerSupport -XX:+UseZGC -XX:InitialRAMPercentage=40.0 -XX:MaxRAMPercentage=55.0 -Dfile.encoding=UTF-8 -Dsun.net.inetaddr.ttl=60 -Djava.io.tmpdir=/tmp"
+      JAVA_TOOL_OPTIONS: "-XX:+UseContainerSupport -XX:+UseG1GC -XX:InitialRAMPercentage=40.0 -XX:MaxRAMPercentage=75.0 -Dfile.encoding=UTF-8 -Dsun.net.inetaddr.ttl=60 -Djava.io.tmpdir=/tmp"
     volumes:
       - /etc/dokploy/certs/tinderclone/profiles-service.p12:/certs/profiles-service.p12:ro
       - /etc/dokploy/certs/tinderclone/truststore.jks:/certs/truststore.jks:ro
@@ -332,7 +332,7 @@ services:
       DECK_TRUSTSTORE_PATH: file:/certs/truststore.jks
       DECK_TRUSTSTORE_PASSWORD: ${MTLS_TRUSTSTORE_PASSWORD:?MTLS_TRUSTSTORE_PASSWORD is required}
       SPRING_REDIS_TIMEOUT: 30000
-      JAVA_TOOL_OPTIONS: "-XX:+UseContainerSupport -XX:+UseZGC -XX:InitialRAMPercentage=40.0 -XX:MaxRAMPercentage=55.0 -Dfile.encoding=UTF-8 -Dsun.net.inetaddr.ttl=60 -Djava.io.tmpdir=/tmp"
+      JAVA_TOOL_OPTIONS: "-XX:+UseContainerSupport -XX:+UseG1GC -XX:InitialRAMPercentage=40.0 -XX:MaxRAMPercentage=75.0 -Dfile.encoding=UTF-8 -Dsun.net.inetaddr.ttl=60 -Djava.io.tmpdir=/tmp"
     volumes:
       - /etc/dokploy/certs/tinderclone/deck-service.p12:/certs/deck-service.p12:ro
       - /etc/dokploy/certs/tinderclone/truststore.jks:/certs/truststore.jks:ro
@@ -375,7 +375,7 @@ services:
       MATCH_SERVICE_URL: http://match:8080
       MATCH_WS_URL: ws://match:8080
       SUBSCRIPTIONS_SERVICE_URL: http://subscriptions:8095
-      JAVA_TOOL_OPTIONS: "-XX:+UseContainerSupport -XX:+UseZGC -XX:InitialRAMPercentage=40.0 -XX:MaxRAMPercentage=55.0 -Dfile.encoding=UTF-8 -Dsun.net.inetaddr.ttl=60 -Djava.io.tmpdir=/tmp"
+      JAVA_TOOL_OPTIONS: "-XX:+UseContainerSupport -XX:+UseG1GC -XX:InitialRAMPercentage=40.0 -XX:MaxRAMPercentage=75.0 -Dfile.encoding=UTF-8 -Dsun.net.inetaddr.ttl=60 -Djava.io.tmpdir=/tmp"
     networks:
       - app
     mem_limit: 384m
@@ -414,7 +414,7 @@ services:
       SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:29092
       KEYCLOAK_JWK_SET_URI: ${KEYCLOAK_JWK_SET_URI:-http://keycloak:9080/realms/spring/protocol/openid-connect/certs}
       KEYCLOAK_AUTH_SERVER_URL: ${KEYCLOAK_AUTH_SERVER_URL:-http://keycloak:9080}
-      JAVA_TOOL_OPTIONS: "-XX:+UseContainerSupport -XX:+UseZGC -XX:InitialRAMPercentage=40.0 -XX:MaxRAMPercentage=55.0 -Dfile.encoding=UTF-8 -Dsun.net.inetaddr.ttl=60 -Djava.io.tmpdir=/tmp"
+      JAVA_TOOL_OPTIONS: "-XX:+UseContainerSupport -XX:+UseG1GC -XX:InitialRAMPercentage=40.0 -XX:MaxRAMPercentage=75.0 -Dfile.encoding=UTF-8 -Dsun.net.inetaddr.ttl=60 -Djava.io.tmpdir=/tmp"
     networks:
       - app
     mem_limit: 512m
@@ -452,7 +452,7 @@ services:
       CONSUMER_KEYSTORE_PASSWORD: ${MTLS_KEYSTORE_PASSWORD:?MTLS_KEYSTORE_PASSWORD is required}
       CONSUMER_TRUSTSTORE_PATH: file:/certs/truststore.jks
       CONSUMER_TRUSTSTORE_PASSWORD: ${MTLS_TRUSTSTORE_PASSWORD:?MTLS_TRUSTSTORE_PASSWORD is required}
-      JAVA_TOOL_OPTIONS: "-XX:+UseContainerSupport -XX:+UseZGC -XX:InitialRAMPercentage=40.0 -XX:MaxRAMPercentage=55.0 -Dfile.encoding=UTF-8 -Dsun.net.inetaddr.ttl=60 -Djava.io.tmpdir=/tmp"
+      JAVA_TOOL_OPTIONS: "-XX:+UseContainerSupport -XX:+UseG1GC -XX:InitialRAMPercentage=40.0 -XX:MaxRAMPercentage=75.0 -Dfile.encoding=UTF-8 -Dsun.net.inetaddr.ttl=60 -Djava.io.tmpdir=/tmp"
     volumes:
       - /etc/dokploy/certs/tinderclone/consumer-service.p12:/certs/consumer-service.p12:ro
       - /etc/dokploy/certs/tinderclone/truststore.jks:/certs/truststore.jks:ro
@@ -498,7 +498,7 @@ services:
       SUBSCRIPTIONS_GRPC_KEYSTORE_PASSWORD: ${MTLS_KEYSTORE_PASSWORD:?MTLS_KEYSTORE_PASSWORD is required}
       SUBSCRIPTIONS_GRPC_TRUSTSTORE_PATH: file:/certs/truststore.jks
       SUBSCRIPTIONS_GRPC_TRUSTSTORE_PASSWORD: ${MTLS_TRUSTSTORE_PASSWORD:?MTLS_TRUSTSTORE_PASSWORD is required}
-      JAVA_TOOL_OPTIONS: "-XX:+UseContainerSupport -XX:+UseZGC -XX:InitialRAMPercentage=40.0 -XX:MaxRAMPercentage=55.0 -Dfile.encoding=UTF-8 -Dsun.net.inetaddr.ttl=60 -Djava.io.tmpdir=/tmp"
+      JAVA_TOOL_OPTIONS: "-XX:+UseContainerSupport -XX:+UseG1GC -XX:InitialRAMPercentage=40.0 -XX:MaxRAMPercentage=75.0 -Dfile.encoding=UTF-8 -Dsun.net.inetaddr.ttl=60 -Djava.io.tmpdir=/tmp"
     volumes:
       - /etc/dokploy/certs/tinderclone/subscriptions-service.p12:/certs/subscriptions-service.p12:ro
       - /etc/dokploy/certs/tinderclone/truststore.jks:/certs/truststore.jks:ro
@@ -538,7 +538,7 @@ services:
       SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:29092
       SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_JWK_SET_URI: ${KEYCLOAK_JWK_SET_URI:-http://keycloak:9080/realms/spring/protocol/openid-connect/certs}
       SERVICES_PROFILES_BASE_URL: http://profiles:8010/api/v1/profiles
-      JAVA_TOOL_OPTIONS: "-XX:+UseContainerSupport -XX:+UseZGC -XX:InitialRAMPercentage=40.0 -XX:MaxRAMPercentage=55.0 -Dfile.encoding=UTF-8 -Dsun.net.inetaddr.ttl=60 -Djava.io.tmpdir=/tmp"
+      JAVA_TOOL_OPTIONS: "-XX:+UseContainerSupport -XX:+UseG1GC -XX:InitialRAMPercentage=40.0 -XX:MaxRAMPercentage=75.0 -Dfile.encoding=UTF-8 -Dsun.net.inetaddr.ttl=60 -Djava.io.tmpdir=/tmp"
     networks:
       - app
     mem_limit: 512m
