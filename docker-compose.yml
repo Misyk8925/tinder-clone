@@ -310,10 +310,10 @@ services:
     cpus: "1.00"
     healthcheck:
       test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://localhost:8010/actuator/health"]
-      interval: 15s
-      timeout: 10s
-      start_period: 300s
-      retries: 10
+      interval: 20s
+      timeout: 15s
+      start_period: 600s
+      retries: 5
 
   deck:
     build:
