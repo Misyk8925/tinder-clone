@@ -498,7 +498,7 @@ services:
       SUBSCRIPTIONS_GRPC_KEYSTORE_PASSWORD: ${MTLS_KEYSTORE_PASSWORD:?MTLS_KEYSTORE_PASSWORD is required}
       SUBSCRIPTIONS_GRPC_TRUSTSTORE_PATH: file:/certs/truststore.jks
       SUBSCRIPTIONS_GRPC_TRUSTSTORE_PASSWORD: ${MTLS_TRUSTSTORE_PASSWORD:?MTLS_TRUSTSTORE_PASSWORD is required}
-      JAVA_TOOL_OPTIONS: "-XX:+UseContainerSupport -XX:+UseG1GC -XX:InitialRAMPercentage=40.0 -XX:MaxRAMPercentage=75.0 -Dfile.encoding=UTF-8 -Dsun.net.inetaddr.ttl=60 -Djava.io.tmpdir=/tmp"
+      JAVA_TOOL_OPTIONS: "-XX:+UseContainerSupport -XX:+UseG1GC -XX:InitialRAMPercentage=40.0 -XX:MaxRAMPercentage=75.0 -Dfile.encoding=UTF-8 -Dsun.net.inetaddr.ttl=60 -Djava.io.tmpdir=/tmp -Dio.grpc.netty.shaded.io.netty.handler.ssl.noOpenSsl=true"
     volumes:
       - /etc/dokploy/certs/tinderclone/subscriptions-service.p12:/certs/subscriptions-service.p12:ro
       - /etc/dokploy/certs/tinderclone/truststore.jks:/certs/truststore.jks:ro
