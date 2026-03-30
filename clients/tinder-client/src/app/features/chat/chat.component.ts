@@ -109,8 +109,18 @@ interface StompMessageEvent {
     .chat-page {
       display: flex;
       flex-direction: column;
-      height: 100vh;
+      height: 100dvh;
       background: var(--bg);
+    }
+
+    @media (min-width: 768px) {
+      .chat-page {
+        max-width: 800px;
+        margin: 0 auto;
+        border-left: 1px solid var(--border);
+        border-right: 1px solid var(--border);
+        height: 100dvh;
+      }
     }
 
     .chat-header {
@@ -296,10 +306,16 @@ interface StompMessageEvent {
       display: flex;
       align-items: center;
       gap: 10px;
-      padding: 12px 16px;
+      padding: 12px 16px calc(12px + env(safe-area-inset-bottom, 0px));
       background: var(--surface);
       border-top: 1px solid var(--border-light);
-      padding-bottom: calc(12px + env(safe-area-inset-bottom, 0px));
+      flex-shrink: 0;
+    }
+
+    @media (min-width: 768px) {
+      .input-area {
+        padding-bottom: 16px;
+      }
     }
 
     .photo-btn {

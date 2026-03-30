@@ -150,11 +150,37 @@ export function markConversationRead(conversationId: string): void {
     .matches-page {
       display: flex;
       flex-direction: column;
-      height: 100vh;
       height: 100dvh;
       background: var(--surface);
-      padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 159px);
+      padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 72px);
       overflow: hidden;
+    }
+
+    @media (min-width: 768px) {
+      .matches-page {
+        padding-bottom: 0;
+        height: 100dvh;
+      }
+
+      .content {
+        max-width: 680px;
+        margin: 0 auto;
+        width: 100%;
+      }
+
+      .new-matches-scroll {
+        flex-wrap: wrap;
+        overflow-x: visible;
+        gap: 16px;
+        padding-bottom: 12px;
+      }
+
+      .conv-item {
+        &:hover {
+          background: var(--surface-2);
+          cursor: pointer;
+        }
+      }
     }
 
     /* ── Header ── */

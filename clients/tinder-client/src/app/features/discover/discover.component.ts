@@ -143,10 +143,31 @@ import { Router } from '@angular/router';
     .discover {
       display: flex;
       flex-direction: column;
-      height: 100vh;
       height: 100dvh;
       background: var(--bg);
-      padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 159px);
+      padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 72px);
+    }
+
+    @media (min-width: 768px) {
+      .discover {
+        padding-bottom: 0;
+        height: 100dvh;
+      }
+
+      .cards-stack {
+        max-width: 460px;
+      }
+
+      .btn-action {
+        &.nope { width: 68px; height: 68px; svg { width: 32px; height: 32px; } }
+        &.like { width: 68px; height: 68px; svg { width: 32px; height: 32px; } }
+        &.superlike { width: 58px; height: 58px; svg { width: 26px; height: 26px; } }
+      }
+
+      .action-buttons {
+        gap: 20px;
+        padding: 14px 0 18px;
+      }
     }
 
     .header {
@@ -528,7 +549,7 @@ import { Router } from '@angular/router';
 
     .toast-msg {
       position: fixed;
-      bottom: 180px;
+      bottom: 100px;
       left: 50%;
       transform: translateX(-50%);
       background: rgba(30, 30, 30, 0.92);

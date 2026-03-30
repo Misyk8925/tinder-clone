@@ -28,7 +28,7 @@ import { KeycloakService } from '../../core/services/keycloak.service';
   `,
   styles: [`
     .login-page {
-      min-height: 100vh;
+      min-height: 100dvh;
       background: linear-gradient(160deg, #fd5564 0%, #ff8a00 100%);
       display: flex;
       align-items: center;

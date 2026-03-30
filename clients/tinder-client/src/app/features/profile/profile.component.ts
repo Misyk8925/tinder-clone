@@ -176,10 +176,27 @@ import { Photo, Profile } from '../../core/models/profile.model';
     .profile-page {
       display: flex;
       flex-direction: column;
-      height: 100vh;
+      height: 100dvh;
       background: var(--bg);
-      padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 159px);
+      padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 72px);
       overflow-y: auto;
+    }
+
+    @media (min-width: 768px) {
+      .profile-page {
+        padding-bottom: 24px;
+        height: 100dvh;
+      }
+
+      .profile-content {
+        max-width: 680px;
+        margin: 0 auto;
+        width: 100%;
+      }
+
+      .photo-gallery {
+        grid-template-rows: 140px 140px 116px;
+      }
     }
 
     .header {
@@ -582,7 +599,7 @@ import { Photo, Profile } from '../../core/models/profile.model';
 
     .toast-msg {
       position: fixed;
-      bottom: 180px;
+      bottom: 100px;
       left: 50%;
       transform: translateX(-50%);
       background: rgba(30, 30, 30, 0.92);

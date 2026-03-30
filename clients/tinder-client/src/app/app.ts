@@ -8,18 +8,28 @@ import { ThemeService } from './core/services/theme.service';
   imports: [RouterOutlet, NavbarComponent],
   template: `
     <div class="app-wrapper">
-      <router-outlet />
       <app-navbar />
+      <main class="page-content">
+        <router-outlet />
+      </main>
     </div>
   `,
   styles: [`
     .app-wrapper {
-      height: 100vh;
-      display: flex;
-      flex-direction: column;
+      height: 100dvh;
       background: var(--bg);
-      position: relative;
       overflow: hidden;
+    }
+
+    .page-content {
+      height: 100dvh;
+      overflow: hidden;
+    }
+
+    @media (min-width: 768px) {
+      .page-content {
+        margin-left: 76px;
+      }
     }
   `]
 })

@@ -142,10 +142,22 @@ const ALL_HOBBIES: Hobby[] = [
     .edit-page {
       display: flex;
       flex-direction: column;
-      height: 100vh;
+      height: 100dvh;
       background: var(--bg);
       overflow-y: auto;
       padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 90px);
+    }
+
+    @media (min-width: 768px) {
+      .edit-page {
+        padding-bottom: 40px;
+      }
+
+      .form-body {
+        max-width: 600px;
+        margin: 0 auto;
+        width: 100%;
+      }
     }
 
     .header {

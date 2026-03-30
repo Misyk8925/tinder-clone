@@ -125,10 +125,47 @@ interface LikerCard {
     .likes-page {
       display: flex;
       flex-direction: column;
-      min-height: 100vh;
       min-height: 100dvh;
       background: var(--bg);
-      padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 159px);
+      padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 72px);
+    }
+
+    @media (min-width: 768px) {
+      .likes-page {
+        padding-bottom: 0;
+        min-height: 100dvh;
+      }
+
+      .grid {
+        grid-template-columns: repeat(3, 1fr);
+        max-width: 900px;
+        margin: 0 auto;
+      }
+
+      .blur-grid {
+        grid-template-columns: repeat(4, 1fr);
+        max-width: 900px;
+        margin: 0 auto;
+      }
+
+      .header {
+        max-width: 900px;
+        margin: 0 auto;
+        width: 100%;
+        box-sizing: border-box;
+      }
+    }
+
+    @media (min-width: 1200px) {
+      .grid {
+        grid-template-columns: repeat(4, 1fr);
+        max-width: 1100px;
+      }
+
+      .blur-grid {
+        grid-template-columns: repeat(4, 1fr);
+        max-width: 1100px;
+      }
     }
 
     .header {
@@ -405,7 +442,7 @@ interface LikerCard {
 
     .toast-msg {
       position: fixed;
-      bottom: 180px;
+      bottom: 100px;
       left: 50%;
       transform: translateX(-50%);
       background: rgba(30, 30, 30, 0.92);
