@@ -10,7 +10,7 @@ RUN --mount=type=cache,target=/root/.m2 mvn -B -e -ntp package -DskipTests
 
 FROM eclipse-temurin:21-jre-alpine
 
-RUN apk add --no-cache wget libheif
+RUN apk add --no-cache wget
 
 WORKDIR /app
 COPY --from=build /workspace/target/*-SNAPSHOT.jar /app/app.jar

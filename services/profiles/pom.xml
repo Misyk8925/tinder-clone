@@ -93,12 +93,6 @@
             <version>4.2</version>
         </dependency>
 
-        <!-- HEIC/HEIF ImageIO plugin (requires libheif on the host) -->
-        <dependency>
-            <groupId>com.github.gotson.nightmonkeys</groupId>
-            <artifactId>imageio-heif</artifactId>
-            <version>0.2.1</version>
-        </dependency>
 
         <dependency>
             <groupId>org.postgresql</groupId>
