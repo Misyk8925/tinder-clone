@@ -541,7 +541,7 @@ services:
       JAVA_TOOL_OPTIONS: "-XX:+UseContainerSupport -XX:+UseZGC -XX:InitialRAMPercentage=40.0 -XX:MaxRAMPercentage=55.0 -Dfile.encoding=UTF-8 -Dsun.net.inetaddr.ttl=60 -Djava.io.tmpdir=/tmp"
     networks:
       - app
-    mem_limit: 384m
+    mem_limit: 512m
     cpus: "0.60"
     healthcheck:
       test: ["CMD-SHELL", "(wget -q --server-response -O- http://localhost:8040/actuator/health 2>&1 || true) | grep -Eq 'HTTP/1.1 (200|401)' || exit 1"]
