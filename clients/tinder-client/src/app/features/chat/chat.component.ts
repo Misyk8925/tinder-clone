@@ -110,7 +110,7 @@ interface StompMessageEvent {
       display: flex;
       flex-direction: column;
       height: 100dvh;
-      background: var(--bg);
+      background: transparent;
     }
 
     @media (min-width: 768px) {
@@ -128,9 +128,12 @@ interface StompMessageEvent {
       align-items: center;
       gap: 12px;
       padding: 12px 16px;
-      background: var(--surface);
-      box-shadow: 0 2px 8px var(--shadow-sm);
+      background: var(--surface-glass);
+      box-shadow: 0 8px 20px var(--shadow-sm);
       z-index: 10;
+      border-bottom: 1px solid var(--border);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
     }
 
     .back-btn {
@@ -138,7 +141,7 @@ interface StompMessageEvent {
       border: none;
       cursor: pointer;
       padding: 4px;
-      color: #fd5564;
+      color: var(--brand);
 
       svg { width: 24px; height: 24px; display: block; }
     }
@@ -151,7 +154,7 @@ interface StompMessageEvent {
       .avatar {
         width: 42px; height: 42px;
         border-radius: 50%;
-        background: linear-gradient(135deg, #fd5564, #ff8a00);
+        background: var(--brand-gradient);
         color: #fff;
         display: flex;
         align-items: center;
@@ -165,16 +168,16 @@ interface StompMessageEvent {
 
     .online {
       font-size: 12px;
-      color: #00d26a;
+      color: var(--like);
       font-weight: 500;
 
-      &.connecting { color: #f0a500; }
+      &.connecting { color: var(--gold-2); }
     }
 
     .messages-area {
       flex: 1;
       overflow-y: auto;
-      padding: 16px;
+      padding: 18px 16px;
       display: flex;
       flex-direction: column;
       gap: 8px;
@@ -191,7 +194,7 @@ interface StompMessageEvent {
     .spinner {
       width: 36px; height: 36px;
       border: 3px solid var(--border-light);
-      border-top: 3px solid #fd5564;
+      border-top: 3px solid var(--brand);
       border-radius: 50%;
       animation: spin 0.8s linear infinite;
     }
@@ -216,7 +219,7 @@ interface StompMessageEvent {
         align-items: flex-end;
 
         .bubble {
-          background: linear-gradient(135deg, #fd5564, #ff8a00);
+          background: var(--brand-gradient);
           color: #fff;
           border-radius: 18px 18px 4px 18px;
         }
@@ -224,15 +227,21 @@ interface StompMessageEvent {
     }
 
     .bubble {
-      background: var(--surface);
+      background: rgba(255,255,255,0.9);
       color: var(--text-primary);
       padding: 10px 14px;
       border-radius: 18px 18px 18px 4px;
       max-width: 70%;
       font-size: 15px;
       line-height: 1.4;
-      box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+      box-shadow: 0 8px 20px var(--shadow-sm);
+      border: 1px solid var(--border-light);
       word-break: break-word;
+    }
+
+    [data-theme="dark"] .bubble {
+      background: rgba(28, 26, 36, 0.92);
+      border-color: rgba(255,255,255,0.08);
     }
 
     .msg-photo {
@@ -307,9 +316,11 @@ interface StompMessageEvent {
       align-items: center;
       gap: 10px;
       padding: 12px 16px calc(12px + env(safe-area-inset-bottom, 0px));
-      background: var(--surface);
-      border-top: 1px solid var(--border-light);
+      background: var(--surface-glass);
+      border-top: 1px solid var(--border);
       flex-shrink: 0;
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
     }
 
     @media (min-width: 768px) {
@@ -335,16 +346,16 @@ interface StompMessageEvent {
       outline: none;
       background: var(--surface-2);
       color: var(--text-primary);
-      transition: border-color 0.2s;
+      transition: border-color 0.2s, box-shadow 0.2s;
 
-      &:focus { border-color: #fd5564; background: var(--surface); }
+      &:focus { border-color: var(--brand); background: var(--surface); box-shadow: 0 0 0 3px rgba(255, 68, 88, 0.14); }
     }
 
     .send-btn {
       width: 42px; height: 42px;
       border-radius: 50%;
       border: none;
-      background: linear-gradient(135deg, #fd5564, #ff8a00);
+      background: var(--brand-gradient);
       color: #fff;
       cursor: pointer;
       display: flex;

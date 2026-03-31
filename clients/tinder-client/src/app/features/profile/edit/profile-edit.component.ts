@@ -143,9 +143,9 @@ const ALL_HOBBIES: Hobby[] = [
       display: flex;
       flex-direction: column;
       height: 100dvh;
-      background: var(--bg);
+      background: transparent;
       overflow-y: auto;
-      padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 90px);
+      padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 88px);
     }
 
     @media (min-width: 768px) {
@@ -165,11 +165,14 @@ const ALL_HOBBIES: Hobby[] = [
       align-items: center;
       gap: 12px;
       padding: 14px 16px;
-      background: var(--surface);
-      box-shadow: 0 2px 8px var(--shadow-sm);
+      background: var(--surface-glass);
+      box-shadow: 0 8px 20px var(--shadow-sm);
       position: sticky;
       top: 0;
       z-index: 10;
+      border-bottom: 1px solid var(--border);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
 
       h1 { margin: 0; font-size: 20px; font-weight: 700; color: var(--text-primary); }
     }
@@ -179,7 +182,7 @@ const ALL_HOBBIES: Hobby[] = [
       border: none;
       cursor: pointer;
       padding: 4px;
-      color: #fd5564;
+      color: var(--brand);
 
       svg { width: 24px; height: 24px; display: block; }
     }
@@ -189,6 +192,9 @@ const ALL_HOBBIES: Hobby[] = [
       display: flex;
       flex-direction: column;
       gap: 16px;
+      max-width: 640px;
+      width: 100%;
+      margin: 0 auto;
     }
 
     .form-group {
@@ -207,16 +213,19 @@ const ALL_HOBBIES: Hobby[] = [
 
       input, select, textarea {
         border: 1.5px solid var(--border);
-        border-radius: 12px;
+        border-radius: 14px;
         padding: 12px 14px;
         font-size: 15px;
         outline: none;
         background: var(--surface);
         color: var(--text-primary);
-        transition: border-color 0.2s;
+        transition: border-color 0.2s, box-shadow 0.2s;
         font-family: inherit;
 
-        &:focus { border-color: #fd5564; }
+        &:focus {
+          border-color: var(--brand);
+          box-shadow: 0 0 0 3px rgba(255, 68, 88, 0.16);
+        }
       }
 
       textarea { resize: none; }
@@ -245,7 +254,7 @@ const ALL_HOBBIES: Hobby[] = [
 
     .error {
       font-size: 12px;
-      color: #fd5564;
+      color: var(--brand);
     }
 
     .section-title {
@@ -274,8 +283,8 @@ const ALL_HOBBIES: Hobby[] = [
       transition: all 0.15s;
 
       &.selected {
-        background: #fd5564;
-        border-color: #fd5564;
+        background: var(--brand-gradient);
+        border-color: transparent;
         color: #fff;
       }
     }
@@ -285,9 +294,9 @@ const ALL_HOBBIES: Hobby[] = [
     }
 
     .save-error {
-      background: #fff0f1;
-      color: #fd5564;
-      border: 1px solid #ffd0d4;
+      background: rgba(255, 68, 88, 0.12);
+      color: var(--brand);
+      border: 1px solid rgba(255, 68, 88, 0.22);
       border-radius: 12px;
       padding: 12px 14px;
       font-size: 14px;
@@ -301,12 +310,12 @@ const ALL_HOBBIES: Hobby[] = [
       padding: 16px;
       border-radius: 16px;
       border: none;
-      background: linear-gradient(135deg, #fd5564, #ff8a00);
+      background: var(--brand-gradient);
       color: #fff;
       font-size: 16px;
       font-weight: 700;
       cursor: pointer;
-      box-shadow: 0 4px 15px rgba(253,85,100,0.3);
+      box-shadow: 0 10px 24px rgba(255, 68, 88, 0.3);
 
       &:disabled { opacity: 0.5; cursor: not-allowed; }
     }

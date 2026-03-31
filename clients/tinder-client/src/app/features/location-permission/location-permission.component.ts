@@ -45,7 +45,7 @@ import { GeoLocationService } from '../../core/services/geo-location.service';
       display: flex;
       align-items: center;
       justify-content: center;
-      background: var(--bg);
+      background: transparent;
       padding: 24px;
     }
 
@@ -56,18 +56,19 @@ import { GeoLocationService } from '../../core/services/geo-location.service';
       border-radius: 24px;
       padding: 40px 32px;
       text-align: center;
-      box-shadow: 0 8px 32px var(--shadow-sm);
+      box-shadow: 0 20px 50px var(--shadow-md);
       display: flex;
       flex-direction: column;
       align-items: center;
       gap: 16px;
+      border: 1px solid var(--border-light);
     }
 
     .icon-wrap {
       width: 80px;
       height: 80px;
       border-radius: 50%;
-      background: linear-gradient(135deg, rgba(253,85,100,0.12), rgba(255,138,0,0.12));
+      background: linear-gradient(135deg, rgba(255, 68, 88, 0.18), rgba(255, 138, 61, 0.18));
       display: flex;
       align-items: center;
       justify-content: center;
@@ -76,7 +77,7 @@ import { GeoLocationService } from '../../core/services/geo-location.service';
       svg {
         width: 40px;
         height: 40px;
-        color: #fd5564;
+        color: var(--brand);
       }
     }
 
@@ -125,12 +126,12 @@ import { GeoLocationService } from '../../core/services/geo-location.service';
       padding: 16px;
       border-radius: 16px;
       border: none;
-      background: linear-gradient(135deg, #fd5564, #ff8a00);
+      background: var(--brand-gradient);
       color: #fff;
       font-size: 16px;
       font-weight: 700;
       cursor: pointer;
-      box-shadow: 0 4px 15px rgba(253,85,100,0.3);
+      box-shadow: 0 10px 24px rgba(255, 68, 88, 0.3);
       transition: opacity 0.2s;
 
       &:disabled { opacity: 0.6; cursor: not-allowed; }
@@ -141,7 +142,7 @@ import { GeoLocationService } from '../../core/services/geo-location.service';
       padding: 14px;
       border-radius: 16px;
       border: 1.5px solid var(--border);
-      background: transparent;
+      background: rgba(255,255,255,0.6);
       color: var(--text-secondary);
       font-size: 15px;
       font-weight: 600;

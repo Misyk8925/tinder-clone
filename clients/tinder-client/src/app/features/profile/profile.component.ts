@@ -190,8 +190,8 @@ import { Photo, Profile } from '../../core/models/profile.model';
       display: flex;
       flex-direction: column;
       height: 100dvh;
-      background: var(--bg);
-      padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 72px);
+      background: transparent;
+      padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 88px);
       overflow-y: auto;
     }
 
@@ -217,11 +217,14 @@ import { Photo, Profile } from '../../core/models/profile.model';
       align-items: center;
       justify-content: space-between;
       padding: 18px 20px;
-      background: var(--surface);
+      background: var(--surface-glass);
       border-bottom: 1px solid var(--border);
       position: sticky;
       top: 0;
       z-index: 10;
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      box-shadow: 0 8px 20px var(--shadow-sm);
 
       h1 {
         margin: 0;
@@ -239,7 +242,7 @@ import { Photo, Profile } from '../../core/models/profile.model';
     }
 
     .theme-toggle {
-      background: var(--surface-2);
+      background: rgba(255,255,255,0.75);
       border: 1px solid var(--border);
       border-radius: 50%;
       width: 36px;
@@ -251,11 +254,17 @@ import { Photo, Profile } from '../../core/models/profile.model';
       justify-content: center;
       transition: background 0.2s;
 
-      &:hover { background: var(--border); }
+      &:hover { background: var(--surface-2); }
+    }
+
+    [data-theme="dark"] .theme-toggle {
+      background: rgba(36, 33, 45, 0.9);
+      border-color: rgba(255,255,255,0.08);
+      color: #fff;
     }
 
     .edit-btn {
-      background: linear-gradient(135deg, #fd5564, #ff6036);
+      background: var(--brand-gradient);
       color: #fff;
       border: none;
       border-radius: 20px;
@@ -278,7 +287,7 @@ import { Photo, Profile } from '../../core/models/profile.model';
     .spinner {
       width: 38px; height: 38px;
       border: 3px solid var(--border);
-      border-top: 3px solid #fd5564;
+      border-top: 3px solid var(--brand);
       border-radius: 50%;
       animation: spin 0.75s linear infinite;
     }
@@ -301,6 +310,8 @@ import { Photo, Profile } from '../../core/models/profile.model';
       gap: 3px;
       border-radius: 20px;
       overflow: hidden;
+      border: 1px solid var(--border);
+      box-shadow: 0 16px 32px var(--shadow-sm);
     }
 
     .photo-slot {
@@ -362,7 +373,7 @@ import { Photo, Profile } from '../../core/models/profile.model';
 
       svg { width: 26px; height: 26px; }
 
-      &:hover { background: var(--surface); color: #fd5564; }
+      &:hover { background: var(--surface); color: var(--brand); }
       &:active { background: var(--border-light); }
     }
 
@@ -391,7 +402,8 @@ import { Photo, Profile } from '../../core/models/profile.model';
       background: var(--surface);
       border-radius: 20px;
       padding: 20px;
-      box-shadow: 0 1px 6px var(--shadow-sm);
+      box-shadow: 0 12px 30px var(--shadow-sm);
+      border: 1px solid var(--border-light);
     }
 
     .name-row {
@@ -491,9 +503,9 @@ import { Photo, Profile } from '../../core/models/profile.model';
     }
 
     .hobby-tag {
-      background: rgba(253, 85, 100, 0.1);
-      color: #fd5564;
-      border: 1px solid rgba(253, 85, 100, 0.22);
+      background: rgba(255, 68, 88, 0.12);
+      color: var(--brand);
+      border: 1px solid rgba(255, 68, 88, 0.22);
       padding: 5px 14px;
       border-radius: 20px;
       font-size: 13px;
@@ -505,10 +517,10 @@ import { Photo, Profile } from '../../core/models/profile.model';
       display: flex;
       align-items: center;
       justify-content: space-between;
-      background: linear-gradient(135deg, #7b2ff7, #f107a3);
+      background: linear-gradient(135deg, var(--gold), var(--gold-2));
       border-radius: 18px;
       padding: 14px 18px;
-      box-shadow: 0 4px 16px rgba(123,47,247,0.3);
+      box-shadow: 0 10px 24px rgba(246, 181, 63, 0.35);
     }
 
     .premium-banner-left {
@@ -571,7 +583,7 @@ import { Photo, Profile } from '../../core/models/profile.model';
       letter-spacing: 0.7px;
       color: var(--text-muted);
 
-      &.danger-label { margin-top: 20px; color: #fd5564; }
+      &.danger-label { margin-top: 20px; color: var(--brand); }
     }
 
     .account-list {
@@ -597,7 +609,7 @@ import { Photo, Profile } from '../../core/models/profile.model';
       &:active { background: var(--border-light); }
       &:disabled { opacity: 0.6; cursor: default; }
 
-      &.danger .account-row-label { color: #fd5564; }
+      &.danger .account-row-label { color: var(--brand); }
     }
 
     .account-row-icon {
@@ -614,8 +626,8 @@ import { Photo, Profile } from '../../core/models/profile.model';
       svg { width: 16px; height: 16px; }
 
       &.logout { background: rgba(245, 158, 11, 0.12); color: #f59e0b; }
-      &.danger { background: rgba(253, 85, 100, 0.12); color: #fd5564; }
-      &.premium-icon { background: rgba(123, 47, 247, 0.12); color: #7b2ff7; }
+      &.danger { background: rgba(255, 68, 88, 0.12); color: var(--brand); }
+      &.premium-icon { background: rgba(246, 181, 63, 0.16); color: var(--gold-2); }
     }
 
     .account-row-label {
@@ -634,9 +646,9 @@ import { Photo, Profile } from '../../core/models/profile.model';
     .account-row-badge {
       font-size: 12px;
       font-weight: 600;
-      color: #7b2ff7;
-      background: rgba(123, 47, 247, 0.1);
-      border: 1px solid rgba(123, 47, 247, 0.2);
+      color: var(--gold-2);
+      background: rgba(246, 181, 63, 0.14);
+      border: 1px solid rgba(246, 181, 63, 0.25);
       padding: 3px 9px;
       border-radius: 10px;
     }
@@ -675,7 +687,7 @@ import { Photo, Profile } from '../../core/models/profile.model';
     }
 
     .btn-primary {
-      background: linear-gradient(135deg, #fd5564, #ff6036);
+      background: var(--brand-gradient);
       color: #fff;
       border: none;
       border-radius: 30px;

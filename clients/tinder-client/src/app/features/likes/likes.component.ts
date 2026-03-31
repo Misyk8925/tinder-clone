@@ -126,8 +126,8 @@ interface LikerCard {
       display: flex;
       flex-direction: column;
       height: 100dvh;
-      background: var(--bg);
-      padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 64px);
+      background: transparent;
+      padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 88px);
       overflow-y: auto;
     }
 
@@ -171,12 +171,15 @@ interface LikerCard {
       align-items: center;
       gap: 10px;
       padding: 18px 20px 14px;
-      background: var(--surface);
+      background: var(--surface-glass);
       border-bottom: 1px solid var(--border);
       position: sticky;
       top: 0;
       z-index: 10;
       width: 100%;
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      box-shadow: 0 8px 20px var(--shadow-sm);
 
       h1 {
         margin: 0;
@@ -188,7 +191,7 @@ interface LikerCard {
     }
 
     .count-badge {
-      background: linear-gradient(135deg, #fd267a, #ff6036);
+      background: var(--brand-gradient);
       color: #fff;
       border-radius: 12px;
       padding: 2px 9px;
@@ -214,7 +217,7 @@ interface LikerCard {
     .spinner {
       width: 44px; height: 44px;
       border: 3px solid var(--border);
-      border-top: 3px solid #fd267a;
+      border-top: 3px solid var(--brand);
       border-radius: 50%;
       animation: spin 0.8s linear infinite;
     }
@@ -240,17 +243,18 @@ interface LikerCard {
       background: var(--surface);
       filter: blur(10px);
       pointer-events: none;
+      border: 1px solid var(--border-light);
     }
 
     .blur-photo {
       aspect-ratio: 3/4;
 
-      &.gradient-0 { background: linear-gradient(160deg, #f093fb, #f5576c); }
-      &.gradient-1 { background: linear-gradient(160deg, #4facfe, #00f2fe); }
-      &.gradient-2 { background: linear-gradient(160deg, #43e97b, #38f9d7); }
-      &.gradient-3 { background: linear-gradient(160deg, #fa709a, #fee140); }
-      &.gradient-4 { background: linear-gradient(160deg, #a18cd1, #fbc2eb); }
-      &.gradient-5 { background: linear-gradient(160deg, #fd267a, #ff6036); }
+      &.gradient-0 { background: linear-gradient(160deg, #ff8a3d, #ff4458); }
+      &.gradient-1 { background: linear-gradient(160deg, #4fc3ff, #2f8cff); }
+      &.gradient-2 { background: linear-gradient(160deg, #27d1a2, #39e2b7); }
+      &.gradient-3 { background: linear-gradient(160deg, #f6b53f, #ff8a3d); }
+      &.gradient-4 { background: linear-gradient(160deg, #ffb084, #ffd3a5); }
+      &.gradient-5 { background: linear-gradient(160deg, #ff4458, #ff8a3d); }
     }
 
     .blur-info {
@@ -275,7 +279,7 @@ interface LikerCard {
       display: flex;
       align-items: center;
       justify-content: center;
-      background: linear-gradient(to bottom, transparent 0%, rgba(0,0,0,0.5) 40%, rgba(0,0,0,0.8) 100%);
+      background: linear-gradient(to bottom, transparent 0%, rgba(0,0,0,0.45) 40%, rgba(0,0,0,0.85) 100%);
       padding: 24px;
     }
 
@@ -289,13 +293,13 @@ interface LikerCard {
       width: 72px;
       height: 72px;
       border-radius: 50%;
-      background: linear-gradient(135deg, #f9a825, #f57f17);
+      background: linear-gradient(135deg, var(--gold), var(--gold-2));
       display: flex;
       align-items: center;
       justify-content: center;
       margin: 0 auto 16px;
       color: #fff;
-      box-shadow: 0 8px 24px rgba(249,168,37,0.4);
+      box-shadow: 0 10px 26px rgba(246, 181, 63, 0.45);
     }
 
     .upgrade-box h2 {
@@ -317,12 +321,12 @@ interface LikerCard {
       padding: 15px;
       border: none;
       border-radius: 50px;
-      background: linear-gradient(135deg, #f9a825, #f57f17);
+      background: linear-gradient(135deg, var(--gold), var(--gold-2));
       color: #fff;
       font-size: 16px;
       font-weight: 700;
       cursor: pointer;
-      box-shadow: 0 4px 16px rgba(249,168,37,0.4);
+      box-shadow: 0 8px 20px rgba(246, 181, 63, 0.4);
       transition: transform 0.15s;
 
       &:active { transform: scale(0.96); }
@@ -332,20 +336,21 @@ interface LikerCard {
     .grid {
       display: grid;
       grid-template-columns: repeat(2, 1fr);
-      gap: 10px;
-      padding: 14px;
+      gap: 12px;
+      padding: 14px 16px 20px;
     }
 
     .liker-card {
-      border-radius: 16px;
+      border-radius: 20px;
       overflow: hidden;
       aspect-ratio: 3/4;
       position: relative;
-      box-shadow: 0 2px 14px var(--shadow-md);
+      box-shadow: 0 16px 32px var(--shadow-md);
       cursor: pointer;
+      border: 1px solid var(--border-light);
 
       &.super-like {
-        outline: 2.5px solid #00b4cc;
+        outline: 2.5px solid rgba(47, 140, 255, 0.7);
         outline-offset: -2px;
       }
 
@@ -359,7 +364,7 @@ interface LikerCard {
       .card-no-photo {
         position: absolute;
         inset: 0;
-        background: linear-gradient(160deg, #fd267a 0%, #c0392b 100%);
+        background: var(--brand-gradient);
         display: flex;
         align-items: center;
         justify-content: center;
@@ -376,7 +381,7 @@ interface LikerCard {
         position: absolute;
         top: 10px;
         left: 10px;
-        background: #00b4cc;
+        background: linear-gradient(135deg, var(--super), #5bb1ff);
         color: #fff;
         font-size: 11px;
         font-weight: 700;
@@ -387,6 +392,7 @@ interface LikerCard {
         gap: 4px;
         letter-spacing: 0.3px;
         z-index: 2;
+        box-shadow: 0 6px 16px rgba(47, 140, 255, 0.35);
       }
 
       /* bottom overlay: name + action buttons */
@@ -396,7 +402,7 @@ interface LikerCard {
         left: 0;
         right: 0;
         padding: 36px 10px 10px;
-        background: linear-gradient(to top, rgba(0,0,0,0.75) 0%, transparent 100%);
+        background: linear-gradient(to top, rgba(0,0,0,0.78) 0%, rgba(0,0,0,0.25) 60%, transparent 100%);
         z-index: 2;
       }
 
@@ -436,7 +442,7 @@ interface LikerCard {
         }
 
         .btn-like {
-          background: linear-gradient(135deg, #fd267a, #ff6036);
+          background: var(--brand-gradient);
           color: #fff;
         }
       }

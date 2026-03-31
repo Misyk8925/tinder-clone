@@ -16,7 +16,7 @@ import { Router } from '@angular/router';
         <div class="header-spacer"></div>
 
         <div class="logo">
-          <svg viewBox="0 0 24 24" fill="#fd267a" width="26" height="26">
+          <svg viewBox="0 0 24 24" fill="#ff4458" width="26" height="26">
             <path d="M17.66 11.2c-.23-.3-.51-.56-.77-.82-.67-.6-1.43-1.03-2.07-1.66C13.33 7.26 13 4.85 13.95 3c-.95.23-1.78.75-2.49 1.32-2.59 2.11-3.66 5.65-2.67 8.9.04.14.08.28.08.43 0 .28-.19.52-.45.57-.28.07-.53-.09-.63-.37-.04-.1-.06-.21-.09-.32C7.15 13 7 12.5 7 11.85c0-.58.16-1.2.44-1.7-1.16 1.27-1.86 2.97-1.86 4.77 0 3.31 2.69 6 6 6s6-2.69 6-6c0-1.88-.82-3.63-2.09-4.82z"/>
           </svg>
           <span class="logo-text">tinder</span>
@@ -80,7 +80,7 @@ import { Router } from '@angular/router';
         <div class="match-overlay" (click)="dismissPremiumModal()">
           <div class="match-content premium-modal" (click)="$event.stopPropagation()">
             <div class="premium-icon">
-              <svg viewBox="0 0 24 24" fill="#00b4cc" width="56" height="56">
+              <svg viewBox="0 0 24 24" fill="#f6b53f" width="56" height="56">
                 <path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z"/>
               </svg>
             </div>
@@ -144,8 +144,8 @@ import { Router } from '@angular/router';
       display: flex;
       flex-direction: column;
       height: 100dvh;
-      background: var(--bg);
-      padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 72px);
+      background: transparent;
+      padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 88px);
     }
 
     .header {
@@ -153,9 +153,15 @@ import { Router } from '@angular/router';
       justify-content: space-between;
       align-items: center;
       padding: 12px 16px 10px;
-      background: var(--surface);
+      background: var(--surface-glass);
       border-bottom: 1px solid var(--border);
       flex-shrink: 0;
+      position: sticky;
+      top: 0;
+      z-index: 10;
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      box-shadow: 0 8px 20px var(--shadow-sm);
     }
 
     @media (min-width: 768px) {
@@ -212,7 +218,7 @@ import { Router } from '@angular/router';
       .logo-text {
         font-size: 22px;
         font-weight: 800;
-        color: #fd267a;
+        color: var(--brand);
         letter-spacing: -0.5px;
       }
     }
@@ -222,8 +228,8 @@ import { Router } from '@angular/router';
       display: flex;
       flex-direction: column;
       align-items: center;
-      padding: 12px 12px 0;
-      gap: 12px;
+      padding: 14px 16px 0;
+      gap: 16px;
       overflow: hidden;
       min-height: 0;
     }
@@ -249,53 +255,58 @@ import { Router } from '@angular/router';
       display: flex;
       justify-content: center;
       align-items: center;
-      gap: 14px;
-      padding: 10px 0 12px;
+      gap: 18px;
+      padding: 14px 0 18px;
       flex-shrink: 0;
     }
 
     .btn-action {
-      border: none;
+      border: 1px solid rgba(255,255,255,0.6);
       border-radius: 50%;
       cursor: pointer;
       display: flex;
       align-items: center;
       justify-content: center;
-      background: var(--surface);
-      box-shadow: 0 3px 14px rgba(0,0,0,0.12);
-      transition: transform 0.18s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.15s;
+      background: rgba(255,255,255,0.92);
+      box-shadow: 0 16px 30px var(--shadow-md);
+      transition: transform 0.18s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.18s, border-color 0.18s;
 
       &:active {
-        transform: scale(0.84) !important;
-        box-shadow: 0 1px 6px rgba(0,0,0,0.1);
+        transform: scale(0.9) !important;
+        box-shadow: 0 6px 16px var(--shadow-sm);
       }
 
       &.nope {
-        width: 58px; height: 58px;
-        border: 2px solid #f04949;
-        color: #f04949;
+        width: 62px; height: 62px;
+        border: 2px solid rgba(255, 77, 90, 0.6);
+        color: var(--nope);
         svg { width: 28px; height: 28px; }
 
-        &:hover { box-shadow: 0 4px 18px rgba(240,73,73,0.28); transform: scale(1.06); }
+        &:hover { box-shadow: 0 12px 26px rgba(255, 77, 90, 0.25); transform: translateY(-2px) scale(1.05); }
       }
 
       &.superlike {
-        width: 50px; height: 50px;
-        border: 2px solid #00b4cc;
-        color: #00b4cc;
+        width: 54px; height: 54px;
+        border: 2px solid rgba(47, 140, 255, 0.6);
+        color: var(--super);
         svg { width: 22px; height: 22px; }
 
-        &:hover { box-shadow: 0 4px 18px rgba(0,180,204,0.28); transform: scale(1.06); }
+        &:hover { box-shadow: 0 12px 26px rgba(47, 140, 255, 0.25); transform: translateY(-2px) scale(1.05); }
       }
 
       &.like {
-        width: 58px; height: 58px;
-        border: 2px solid #4dde8f;
-        color: #4dde8f;
+        width: 62px; height: 62px;
+        border: 2px solid rgba(39, 209, 162, 0.6);
+        color: var(--like);
         svg { width: 28px; height: 28px; }
 
-        &:hover { box-shadow: 0 4px 18px rgba(77,222,143,0.28); transform: scale(1.06); }
+        &:hover { box-shadow: 0 12px 26px rgba(39, 209, 162, 0.25); transform: translateY(-2px) scale(1.05); }
       }
+    }
+
+    [data-theme="dark"] .btn-action {
+      background: rgba(30, 28, 38, 0.9);
+      border-color: rgba(255,255,255,0.08);
     }
 
     .empty-state {
@@ -344,8 +355,8 @@ import { Router } from '@angular/router';
       width: 114px; height: 148px;
       bottom: 0; left: 50%;
       transform: translateX(-50%) rotate(8deg);
-      background: #f0fff4;
-      border: 2.5px solid #4dde8f;
+      background: rgba(39, 209, 162, 0.14);
+      border: 2.5px solid var(--like);
       display: flex;
       align-items: center;
       justify-content: center;
@@ -358,8 +369,8 @@ import { Router } from '@angular/router';
     .ill-like-stamp {
       font-size: 20px;
       font-weight: 800;
-      color: #4dde8f;
-      border: 3px solid #4dde8f;
+      color: var(--like);
+      border: 3px solid var(--like);
       border-radius: 6px;
       padding: 3px 10px;
       letter-spacing: 2px;
@@ -369,7 +380,7 @@ import { Router } from '@angular/router';
     .spinner {
       width: 44px; height: 44px;
       border: 3px solid var(--border);
-      border-top: 3px solid #fd267a;
+      border-top: 3px solid var(--brand);
       border-radius: 50%;
       animation: spin 0.8s linear infinite;
     }
@@ -380,15 +391,15 @@ import { Router } from '@angular/router';
       display: flex;
       align-items: center;
       gap: 8px;
-      background: linear-gradient(135deg, #fd267a, #ff6036);
+      background: var(--brand-gradient);
       color: #fff;
       border: none;
       border-radius: 30px;
       padding: 12px 28px;
       font-size: 15px;
-      font-weight: 600;
+      font-weight: 700;
       cursor: pointer;
-      box-shadow: 0 4px 14px rgba(253,38,122,0.3);
+      box-shadow: 0 10px 22px rgba(255, 68, 88, 0.3);
       transition: transform 0.15s;
 
       &:active { transform: scale(0.95); }
@@ -398,7 +409,7 @@ import { Router } from '@angular/router';
     .match-overlay {
       position: fixed;
       inset: 0;
-      background: rgba(0, 0, 0, 0.9);
+      background: radial-gradient(circle at top, rgba(255, 68, 88, 0.18), transparent 50%), rgba(7, 7, 12, 0.92);
       display: flex;
       align-items: center;
       justify-content: center;
@@ -439,7 +450,7 @@ import { Router } from '@angular/router';
     .match-title {
       font-size: 42px;
       font-weight: 800;
-      background: linear-gradient(135deg, #fd267a, #ff6036);
+      background: var(--brand-gradient);
       -webkit-background-clip: text;
       -webkit-text-fill-color: transparent;
       background-clip: text;
@@ -463,7 +474,7 @@ import { Router } from '@angular/router';
       .avatar-ring {
         padding: 3px;
         border-radius: 50%;
-        background: linear-gradient(135deg, #fd267a, #ff6036);
+        background: var(--brand-gradient);
 
         &:first-child { margin-right: -16px; z-index: 1; }
         &:last-child { margin-left: -16px; z-index: 2; }
@@ -499,13 +510,13 @@ import { Router } from '@angular/router';
       padding: 16px;
       border: none;
       border-radius: 50px;
-      background: linear-gradient(135deg, #fd267a, #ff6036);
+      background: var(--brand-gradient);
       color: #fff;
       font-size: 16px;
       font-weight: 700;
       cursor: pointer;
       letter-spacing: 0.3px;
-      box-shadow: 0 4px 20px rgba(253,38,122,0.4);
+      box-shadow: 0 10px 24px rgba(255, 68, 88, 0.35);
       transition: transform 0.15s;
 
       &:active { transform: scale(0.97); }
@@ -533,13 +544,13 @@ import { Router } from '@angular/router';
 
     .premium-icon {
       margin-bottom: 16px;
-      filter: drop-shadow(0 0 16px rgba(0,180,204,0.5));
+      filter: drop-shadow(0 0 18px rgba(246, 181, 63, 0.6));
     }
 
     .premium-title {
       font-size: 28px;
       font-weight: 800;
-      background: linear-gradient(135deg, #00b4cc, #a78bfa);
+      background: linear-gradient(135deg, var(--gold), var(--gold-2));
       -webkit-background-clip: text;
       -webkit-text-fill-color: transparent;
       background-clip: text;
@@ -556,8 +567,8 @@ import { Router } from '@angular/router';
     }
 
     .btn-upgrade {
-      background: linear-gradient(135deg, #00b4cc, #a78bfa);
-      box-shadow: 0 4px 20px rgba(0,180,204,0.4);
+      background: linear-gradient(135deg, var(--gold), var(--gold-2));
+      box-shadow: 0 8px 20px rgba(246, 181, 63, 0.45);
     }
 
     .toast-msg {

@@ -17,8 +17,9 @@ import { ThemeService } from './core/services/theme.service';
   styles: [`
     .app-wrapper {
       height: 100dvh;
-      background: var(--bg);
+      background: transparent;
       display: flex;
+      position: relative;
     }
 
     .page-content {
@@ -26,6 +27,7 @@ import { ThemeService } from './core/services/theme.service';
       height: 100dvh;
       overflow: hidden;
       min-width: 0;
+      position: relative;
     }
 
     @media (min-width: 768px) {

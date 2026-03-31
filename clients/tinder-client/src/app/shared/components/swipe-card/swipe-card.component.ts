@@ -83,16 +83,31 @@ import { Profile } from '../../../core/models/profile.model';
       position: absolute;
       width: 100%;
       height: 100%;
-      border-radius: 18px;
+      border-radius: 26px;
       overflow: hidden;
       background: var(--surface);
-      box-shadow: 0 6px 28px rgba(0,0,0,0.18);
+      border: 1px solid rgba(255,255,255,0.5);
+      box-shadow: 0 20px 40px rgba(15,23,42,0.24), 0 2px 8px rgba(15,23,42,0.08);
       cursor: grab;
       user-select: none;
       touch-action: none;
       will-change: transform;
 
       &:active { cursor: grabbing; }
+
+      &::after {
+        content: '';
+        position: absolute;
+        inset: 0;
+        border-radius: inherit;
+        border: 1px solid rgba(255,255,255,0.25);
+        pointer-events: none;
+      }
+    }
+
+    [data-theme="dark"] .card {
+      border-color: rgba(255,255,255,0.12);
+      box-shadow: 0 20px 46px rgba(0,0,0,0.6);
     }
 
     .card-photo {
@@ -112,7 +127,7 @@ import { Profile } from '../../../core/models/profile.model';
     .no-photo {
       width: 100%;
       height: 100%;
-      background: linear-gradient(160deg, #fd267a 0%, #ff6036 100%);
+      background: var(--brand-gradient);
       display: flex;
       align-items: center;
       justify-content: center;
@@ -127,9 +142,9 @@ import { Profile } from '../../../core/models/profile.model';
 
     .photo-segments {
       position: absolute;
-      top: 10px;
-      left: 8px;
-      right: 8px;
+      top: 12px;
+      left: 12px;
+      right: 12px;
       display: flex;
       gap: 4px;
       z-index: 3;
@@ -140,13 +155,13 @@ import { Profile } from '../../../core/models/profile.model';
       flex: 1;
       height: 3px;
       border-radius: 2px;
-      background: rgba(255,255,255,0.4);
+      background: rgba(255,255,255,0.35);
       cursor: pointer;
       pointer-events: all;
       transition: background 0.2s;
 
       &.active {
-        background: rgba(255,255,255,0.95);
+        background: rgba(255,255,255,0.98);
       }
     }
 
@@ -165,45 +180,47 @@ import { Profile } from '../../../core/models/profile.model';
     /* LIKE / NOPE / SUPER badges */
     .like-badge, .nope-badge, .super-badge {
       position: absolute;
-      top: 36px;
-      padding: 6px 16px;
-      border-radius: 8px;
-      font-size: 26px;
+      top: 34px;
+      padding: 6px 14px;
+      border-radius: 10px;
+      font-size: 20px;
       font-weight: 800;
       letter-spacing: 2px;
       opacity: 0;
       transition: opacity 0.1s;
       z-index: 10;
-      border: 4px solid;
+      border: 3px solid;
       display: flex;
       align-items: center;
       gap: 6px;
+      background: rgba(0,0,0,0.25);
+      backdrop-filter: blur(6px);
 
       svg {
-        width: 22px;
-        height: 22px;
+        width: 20px;
+        height: 20px;
       }
     }
 
     .like-badge {
       left: 20px;
-      color: #4dde8f;
-      border-color: #4dde8f;
+      color: var(--like);
+      border-color: var(--like);
       transform: rotate(-20deg);
     }
 
     .nope-badge {
       right: 20px;
-      color: #f04949;
-      border-color: #f04949;
+      color: var(--nope);
+      border-color: var(--nope);
       transform: rotate(20deg);
     }
 
     .super-badge {
       left: 50%;
       transform: translateX(-50%);
-      color: #00b4cc;
-      border-color: #00b4cc;
+      color: var(--super);
+      border-color: var(--super);
     }
 
     .card.liked .like-badge { opacity: 1; }
@@ -216,10 +233,10 @@ import { Profile } from '../../../core/models/profile.model';
       bottom: 0;
       left: 0;
       right: 0;
-      height: 65%;
+      height: 68%;
       background: linear-gradient(to top,
-        rgba(0,0,0,0.85) 0%,
-        rgba(0,0,0,0.55) 35%,
+        rgba(0,0,0,0.9) 0%,
+        rgba(0,0,0,0.6) 35%,
         rgba(0,0,0,0.2) 65%,
         transparent 100%);
       pointer-events: none;
@@ -249,7 +266,7 @@ import { Profile } from '../../../core/models/profile.model';
       font-size: 28px;
       font-weight: 700;
       line-height: 1.1;
-      text-shadow: 0 1px 6px rgba(0,0,0,0.25);
+      text-shadow: 0 1px 10px rgba(0,0,0,0.35);
 
       .age {
         font-size: 26px;
@@ -258,8 +275,8 @@ import { Profile } from '../../../core/models/profile.model';
     }
 
     .info-btn {
-      background: transparent;
-      border: 2px solid rgba(255,255,255,0.8);
+      background: rgba(255,255,255,0.12);
+      border: 1.5px solid rgba(255,255,255,0.7);
       border-radius: 50%;
       width: 36px;
       height: 36px;
@@ -271,10 +288,10 @@ import { Profile } from '../../../core/models/profile.model';
       justify-content: center;
       padding: 0;
       flex-shrink: 0;
-      transition: background 0.15s;
+      transition: background 0.15s, transform 0.15s;
 
       svg { width: 20px; height: 20px; }
-      &:active { background: rgba(255,255,255,0.15); }
+      &:active { background: rgba(255,255,255,0.22); transform: scale(0.96); }
     }
 
     .location-row {
@@ -306,8 +323,8 @@ import { Profile } from '../../../core/models/profile.model';
     }
 
     .hobby-tag {
-      background: rgba(255,255,255,0.18);
-      border: 1px solid rgba(255,255,255,0.4);
+      background: rgba(255,255,255,0.2);
+      border: 1px solid rgba(255,255,255,0.45);
       backdrop-filter: blur(6px);
       padding: 4px 12px;
       border-radius: 20px;
