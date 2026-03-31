@@ -37,6 +37,11 @@ import { Photo, Profile } from '../../core/models/profile.model';
             }
             <div class="photo-count">{{ profile()!.photos?.length ?? 0 }}/5</div>
           </div>
+          <div class="photo-hero-actions">
+            <button class="btn-manage" (click)="toggleManagePhotos()">
+              {{ managePhotos() ? 'Done' : 'Manage Photos' }}
+            </button>
+          </div>
 
           <div class="photo-manager">
             <div class="manager-header">
@@ -58,11 +63,15 @@ import { Photo, Profile } from '../../core/models/profile.model';
                     <div class="manager-sub">{{ $index === 0 ? 'Profile photo' : 'Optional' }}</div>
                   </div>
                   <div class="manager-actions">
-                    @if (slot) {
-                      <button class="btn-ghost" (click)="triggerUploadAt($index)">Replace</button>
-                      <button class="btn-danger" (click)="deletePhoto(slot.photoID)">Remove</button>
-                    } @else if ($index === (profile()!.photos?.length ?? 0)) {
-                      <button class="btn-add" (click)="triggerUploadAt($index)">Add</button>
+                    @if ($index === 0 || managePhotos()) {
+                      @if (slot) {
+                        <button class="btn-ghost" (click)="triggerUploadAt($index)">Replace</button>
+                        <button class="btn-danger" (click)="deletePhoto(slot.photoID)">Remove</button>
+                      } @else if ($index === (profile()!.photos?.length ?? 0)) {
+                        <button class="btn-add" (click)="triggerUploadAt($index)">Add</button>
+                      } @else {
+                        <button class="btn-locked" disabled>Locked</button>
+                      }
                     } @else {
                       <button class="btn-locked" disabled>Locked</button>
                     }
@@ -658,9 +667,14 @@ export class ProfileComponent implements OnInit {
   isPremium = signal(false);
   uploadingSlot = signal<number | null>(null);
   toast = signal<string | null>(null);
+  managePhotos = signal(false);
   private toastTimer: ReturnType<typeof setTimeout> | null = null;
 
   private uploadPosition = 0;
+
+  toggleManagePhotos(): void {
+    this.managePhotos.update(v => !v);
+  }
 
   private showToast(msg: string): void {
     if (this.toastTimer) clearTimeout(this.toastTimer);

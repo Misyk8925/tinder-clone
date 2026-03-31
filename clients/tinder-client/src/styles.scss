@@ -169,7 +169,10 @@ app-profile .photo-hero {
   background: var(--surface-2);
   border: 1px solid var(--border);
   box-shadow: 0 18px 36px var(--shadow-sm);
-  aspect-ratio: 4 / 5;
+  aspect-ratio: 3 / 4;
+  width: 100%;
+  max-width: 360px;
+  margin: 0 auto;
 }
 
 app-profile .photo-hero img {
@@ -204,12 +207,36 @@ app-profile .photo-count {
   backdrop-filter: blur(6px);
 }
 
+app-profile .photo-hero-actions {
+  display: flex;
+  justify-content: center;
+  margin: 12px 0 6px;
+}
+
+app-profile .btn-manage {
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text-primary);
+  border-radius: 14px;
+  padding: 8px 18px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: transform 0.15s, box-shadow 0.15s;
+}
+
+app-profile .btn-manage:hover {
+  box-shadow: 0 8px 16px var(--shadow-sm);
+  transform: translateY(-1px);
+}
+
 app-profile .photo-manager {
   background: var(--surface);
   border: 1px solid var(--border-light);
   border-radius: 18px;
   padding: 16px;
   box-shadow: 0 12px 28px var(--shadow-sm);
+  margin-top: 10px;
 }
 
 app-profile .manager-header h3 {
@@ -344,6 +371,10 @@ app-profile .upload-spinner {
 @keyframes spin { to { transform: rotate(360deg); } }
 
 @media (min-width: 768px) {
+  app-profile .photo-hero {
+    max-width: 420px;
+  }
+
   app-profile .photo-manager {
     padding: 18px;
   }
