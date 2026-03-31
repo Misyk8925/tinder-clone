@@ -28,7 +28,7 @@ import { ThemeService } from './core/services/theme.service';
 
     @media (min-width: 768px) {
       .page-content {
-        margin-left: 76px;
+        margin-left: 72px;
       }
     }
   `]

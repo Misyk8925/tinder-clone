@@ -149,10 +149,7 @@ interface LikerCard {
       }
 
       .header {
-        max-width: 900px;
-        margin: 0 auto;
-        width: 100%;
-        box-sizing: border-box;
+        padding: 18px 32px 14px;
       }
     }
 
@@ -175,11 +172,15 @@ interface LikerCard {
       padding: 18px 20px 14px;
       background: var(--surface);
       border-bottom: 1px solid var(--border);
+      position: sticky;
+      top: 0;
+      z-index: 10;
+      width: 100%;
 
       h1 {
         margin: 0;
         font-size: 22px;
-        font-weight: 800;
+        font-weight: 700;
         color: var(--text-primary);
         letter-spacing: -0.3px;
       }

@@ -8,8 +8,7 @@ import { LucideAngularModule } from 'lucide-angular';
   selector: 'app-navbar',
   imports: [RouterLink, RouterLinkActive, LucideAngularModule],
   template: `
-    @if (!hidden) {
-    <nav class="navbar">
+    <nav class="navbar" [class.chat-hidden]="hidden">
 
       <div class="nav-logo">
         <svg viewBox="0 0 24 24" fill="#fd267a" width="28" height="28">
@@ -34,16 +33,26 @@ import { LucideAngularModule } from 'lucide-angular';
       </a>
 
     </nav>
-    }
   `,
   styles: [`
     :host {
-      display: contents;
+      display: contents; /* mobile: no layout contribution */
     }
 
     /* ── Mobile: bottom bar ── */
     .nav-logo {
       display: none;
+    }
+
+    /* Hide on mobile when inside a chat, always show on desktop */
+    .navbar.chat-hidden {
+      display: none;
+    }
+
+    @media (min-width: 768px) {
+      .navbar.chat-hidden {
+        display: flex;
+      }
     }
 
     .navbar {
