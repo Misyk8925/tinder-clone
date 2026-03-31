@@ -43,14 +43,14 @@ import { Photo, Profile } from '../../core/models/profile.model';
             </button>
           </div>
 
-          <div class="photo-manager" [class.manage-enabled]="managePhotos()">
-            <div class="manager-header">
-              <h3>Manage Photos</h3>
-              <p>Only your first photo is shown on your profile.</p>
-            </div>
-            <div class="manager-list">
-              @for (slot of photoSlots(); track $index) {
-                @if ($index === 0 || managePhotos()) {
+          @if (managePhotos()) {
+            <div class="photo-manager">
+              <div class="manager-header">
+                <h3>Manage Photos</h3>
+                <p>Only your first photo is shown on your profile.</p>
+              </div>
+              <div class="manager-list">
+                @for (slot of photoSlots(); track $index) {
                   <div class="manager-row"
                        [class.filled]="!!slot"
                        [class.uploading]="uploadingSlot() === $index">
@@ -83,10 +83,10 @@ import { Photo, Profile } from '../../core/models/profile.model';
                     }
                   </div>
                 }
-              }
+              </div>
+              <input type="file" accept="image/*" (change)="uploadPhoto($event)" hidden #fileInput />
             </div>
-            <input type="file" accept="image/*" (change)="uploadPhoto($event)" hidden #fileInput />
-          </div>
+          }
 
           <!-- Info section -->
           <div class="info-section">
@@ -250,7 +250,7 @@ import { Photo, Profile } from '../../core/models/profile.model';
       display: flex;
       align-items: center;
       justify-content: space-between;
-      padding: 18px 20px;
+      padding: 10px;
       background: var(--surface-glass);
       border-bottom: 1px solid var(--border);
       position: sticky;

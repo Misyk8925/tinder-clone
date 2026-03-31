@@ -161,7 +161,7 @@ export function markConversationRead(conversationId: string): void {
       display: flex;
       align-items: center;
       justify-content: space-between;
-      padding: 14px 18px 12px;
+      padding: 10px;
       background: var(--surface-glass);
       border-bottom: 1px solid var(--border);
       flex-shrink: 0;

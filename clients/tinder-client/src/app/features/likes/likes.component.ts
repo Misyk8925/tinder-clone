@@ -170,7 +170,7 @@ interface LikerCard {
       display: flex;
       align-items: center;
       gap: 10px;
-      padding: 18px 20px 14px;
+      padding: 10px;
       background: var(--surface-glass);
       border-bottom: 1px solid var(--border);
       position: sticky;

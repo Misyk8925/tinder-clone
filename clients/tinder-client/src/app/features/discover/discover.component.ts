@@ -152,7 +152,7 @@ import { Router } from '@angular/router';
       display: flex;
       justify-content: space-between;
       align-items: center;
-      padding: 12px 16px 10px;
+      padding: 10px;
       background: var(--surface-glass);
       border-bottom: 1px solid var(--border);
       flex-shrink: 0;

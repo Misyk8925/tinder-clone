@@ -127,7 +127,7 @@ interface StompMessageEvent {
       display: flex;
       align-items: center;
       gap: 12px;
-      padding: 12px 16px;
+      padding: 10px;
       background: var(--surface-glass);
       box-shadow: 0 8px 20px var(--shadow-sm);
       z-index: 10;
