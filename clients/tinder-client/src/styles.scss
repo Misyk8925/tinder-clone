@@ -62,12 +62,10 @@ input, textarea, select, button {
   border-radius: 2px;
 }
 
-/* ─── Lucide icon active fill (navbar) ─── */
+/* ─── Lucide icon colors (navbar) ─── */
 app-navbar .nav-item.active lucide-icon svg {
   stroke: #fd267a;
 }
-
-/* Inactive navbar icons use text-secondary color */
 app-navbar .nav-item:not(.active) lucide-icon svg {
   stroke: var(--text-secondary);
 }

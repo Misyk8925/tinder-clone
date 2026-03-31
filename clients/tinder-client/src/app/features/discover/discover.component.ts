@@ -154,6 +154,10 @@ import { Router } from '@angular/router';
         height: 100dvh;
       }
 
+      .header {
+        display: none;
+      }
+
       .cards-stack {
         max-width: 460px;
       }

@@ -162,6 +162,10 @@ export function markConversationRead(conversationId: string): void {
         height: 100dvh;
       }
 
+      .header {
+        display: none;
+      }
+
       .content {
         max-width: 680px;
         margin: 0 auto;

@@ -30,7 +30,7 @@ import { ThemeService } from './core/services/theme.service';
 
     @media (min-width: 768px) {
       .page-content {
-        margin-left: 72px;
+        margin-left: 200px;
       }
     }
   `]
