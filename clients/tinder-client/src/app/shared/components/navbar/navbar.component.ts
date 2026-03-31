@@ -1,6 +1,7 @@
 import { Component, inject } from '@angular/core';
 import { RouterLink, RouterLinkActive, Router, NavigationEnd } from '@angular/router';
 import { KeycloakService } from '../../../core/services/keycloak.service';
+import { ThemeService } from '../../../core/services/theme.service';
 import { filter } from 'rxjs/operators';
 import { LucideAngularModule } from 'lucide-angular';
 
@@ -44,6 +45,17 @@ import { LucideAngularModule } from 'lucide-angular';
         </a>
       </div>
 
+      <div class="nav-actions">
+        <button class="theme-toggle" (click)="theme.toggle()" [title]="theme.isDark() ? 'Switch to light mode' : 'Switch to dark mode'">
+          <lucide-icon [name]="theme.isDark() ? 'sun' : 'moon'" [size]="18" strokeWidth="1.75"></lucide-icon>
+          <span>{{ theme.isDark() ? 'Light Mode' : 'Dark Mode' }}</span>
+        </button>
+        <a routerLink="/profile/edit" class="nav-action edit">
+          <lucide-icon name="pencil" [size]="18" strokeWidth="1.75"></lucide-icon>
+          <span>Edit Profile</span>
+        </a>
+      </div>
+
     </nav>
   `,
   styles: [`
@@ -56,7 +68,8 @@ import { LucideAngularModule } from 'lucide-angular';
     ──────────────────────────── */
     .nav-logo,
     .nav-label,
-    .nav-section {
+    .nav-section,
+    .nav-actions {
       display: none;
     }
 
@@ -247,12 +260,59 @@ import { LucideAngularModule } from 'lucide-angular';
       .nav-item.active lucide-icon svg {
         stroke: var(--brand);
       }
+
+      .nav-actions {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+        padding: 12px 16px 20px;
+      }
+
+      .nav-actions .theme-toggle,
+      .nav-actions .nav-action {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        background: var(--surface-2);
+        border: 1px solid var(--border);
+        color: var(--text-primary);
+        border-radius: 14px;
+        padding: 10px 12px;
+        font-size: 13px;
+        font-weight: 600;
+        text-decoration: none;
+        cursor: pointer;
+        transition: transform 0.15s, box-shadow 0.15s, background 0.15s;
+      }
+
+      .nav-actions .theme-toggle {
+        appearance: none;
+      }
+
+      .nav-actions .theme-toggle:hover,
+      .nav-actions .nav-action:hover {
+        background: var(--surface-3);
+        box-shadow: 0 8px 16px var(--shadow-sm);
+        transform: translateY(-1px);
+      }
+
+      .nav-actions .nav-action.edit {
+        background: var(--brand-gradient);
+        color: #fff;
+        border-color: transparent;
+        box-shadow: 0 10px 20px rgba(255, 68, 88, 0.28);
+      }
+
+      .nav-actions .nav-action.edit lucide-icon svg {
+        stroke: #fff;
+      }
     }
   `]
 })
 export class NavbarComponent {
   private keycloak = inject(KeycloakService);
   private router = inject(Router);
+  theme = inject(ThemeService);
 
   hidden = false;
 

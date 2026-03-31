@@ -164,7 +164,10 @@ input, textarea, select, button {
 /* ─── Desktop: hide redundant page headers (sidebar handles navigation) ─── */
 @media (min-width: 768px) {
   app-discover .header,
-  app-matches .header {
+  app-matches .header,
+  app-likes .header,
+  app-profile .header,
+  app-profile-edit .header {
     display: none !important;
   }
 }

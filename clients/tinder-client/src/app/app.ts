@@ -30,9 +30,19 @@ import { ThemeService } from './core/services/theme.service';
       position: relative;
     }
 
+    .page-content > *:not(router-outlet) {
+      width: 100%;
+    }
+
     @media (min-width: 768px) {
       .page-content {
         margin-left: 200px;
+        overflow: hidden;
+      }
+
+      .page-content > *:not(router-outlet) {
+        max-width: 1100px;
+        margin: 0 auto;
       }
     }
   `]
