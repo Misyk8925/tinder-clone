@@ -549,12 +549,6 @@ import { Photo, Profile } from '../../core/models/profile.model';
       line-height: 1.2;
     }
 
-    .premium-banner-sub {
-      display: block;
-      color: rgba(255,255,255,0.7);
-      font-size: 12px;
-      margin-top: 2px;
-    }
 
     .premium-banner-btn {
       background: rgba(255,255,255,0.2);
@@ -637,11 +631,6 @@ import { Photo, Profile } from '../../core/models/profile.model';
       color: var(--text-primary);
     }
 
-    .account-row-chevron {
-      font-size: 20px;
-      color: var(--text-muted);
-      line-height: 1;
-    }
 
     .account-row-badge {
       font-size: 12px;
@@ -682,7 +671,6 @@ import { Photo, Profile } from '../../core/models/profile.model';
         cursor: pointer;
         padding: 4px 8px;
         text-decoration: underline;
-        text-underline-offset: 3px;
       }
     }
 
