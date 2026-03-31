@@ -18,12 +18,14 @@ import { ThemeService } from './core/services/theme.service';
     .app-wrapper {
       height: 100dvh;
       background: var(--bg);
-      overflow: hidden;
+      display: flex;
     }
 
     .page-content {
+      flex: 1;
       height: 100dvh;
       overflow: hidden;
+      min-width: 0;
     }
 
     @media (min-width: 768px) {

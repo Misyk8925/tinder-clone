@@ -189,9 +189,9 @@ import { Photo, Profile } from '../../core/models/profile.model';
     .profile-page {
       display: flex;
       flex-direction: column;
-      min-height: 100dvh;
+      height: 100dvh;
       background: var(--bg);
-      padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 80px);
+      padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 72px);
       overflow-y: auto;
     }
 

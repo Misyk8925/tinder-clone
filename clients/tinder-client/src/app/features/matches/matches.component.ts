@@ -151,8 +151,8 @@ export function markConversationRead(conversationId: string): void {
       display: flex;
       flex-direction: column;
       height: 100dvh;
-      background: var(--surface);
-      padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 72px);
+      background: var(--bg);
+      padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 64px);
       overflow: hidden;
     }
 
@@ -192,6 +192,9 @@ export function markConversationRead(conversationId: string): void {
       background: var(--surface);
       border-bottom: 1px solid var(--border);
       flex-shrink: 0;
+      position: sticky;
+      top: 0;
+      z-index: 10;
     }
 
     .header-left {

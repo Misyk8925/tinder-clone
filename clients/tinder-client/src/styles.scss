@@ -64,7 +64,10 @@ input, textarea, select, button {
 
 /* ─── Lucide icon active fill (navbar) ─── */
 app-navbar .nav-item.active lucide-icon svg {
-  fill: #fd267a;
   stroke: #fd267a;
-  stroke-width: 0;
+}
+
+/* Inactive navbar icons use text-secondary color */
+app-navbar .nav-item:not(.active) lucide-icon svg {
+  stroke: var(--text-secondary);
 }

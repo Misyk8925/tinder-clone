@@ -36,7 +36,7 @@ import { LucideAngularModule } from 'lucide-angular';
   `,
   styles: [`
     :host {
-      display: contents; /* mobile: no layout contribution */
+      display: contents;
     }
 
     /* ── Mobile: bottom bar ── */
@@ -44,15 +44,9 @@ import { LucideAngularModule } from 'lucide-angular';
       display: none;
     }
 
-    /* Hide on mobile when inside a chat, always show on desktop */
+    /* Hide on mobile when in chat; always show on desktop */
     .navbar.chat-hidden {
       display: none;
-    }
-
-    @media (min-width: 768px) {
-      .navbar.chat-hidden {
-        display: flex;
-      }
     }
 
     .navbar {
@@ -73,18 +67,18 @@ import { LucideAngularModule } from 'lucide-angular';
       display: flex;
       align-items: center;
       justify-content: center;
-      color: var(--text-muted);
+      color: var(--text-secondary);
       text-decoration: none;
       padding: 6px 20px;
       border-radius: 14px;
-      transition: color 0.15s, background 0.15s;
+      transition: color 0.15s;
 
       &.active {
         color: #fd267a;
       }
 
       &:active {
-        background: var(--surface-2);
+        opacity: 0.7;
       }
     }
 
@@ -93,6 +87,11 @@ import { LucideAngularModule } from 'lucide-angular';
       :host {
         display: block;
         flex-shrink: 0;
+        width: 72px;
+      }
+
+      .navbar.chat-hidden {
+        display: flex;
       }
 
       .navbar {
@@ -128,6 +127,17 @@ import { LucideAngularModule } from 'lucide-angular';
         padding: 16px 0;
         border-radius: 0;
         justify-content: center;
+        color: var(--text-secondary);
+
+        &.active {
+          color: #fd267a;
+          background: rgba(253, 38, 122, 0.06);
+        }
+
+        &:hover {
+          color: var(--text-primary);
+          background: var(--surface-2);
+        }
       }
     }
   `]

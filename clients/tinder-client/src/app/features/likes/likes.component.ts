@@ -125,15 +125,16 @@ interface LikerCard {
     .likes-page {
       display: flex;
       flex-direction: column;
-      min-height: 100dvh;
+      height: 100dvh;
       background: var(--bg);
-      padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 72px);
+      padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 64px);
+      overflow-y: auto;
     }
 
     @media (min-width: 768px) {
       .likes-page {
         padding-bottom: 0;
-        min-height: 100dvh;
+        height: 100dvh;
       }
 
       .grid {
