@@ -68,9 +68,12 @@ import { LucideAngularModule } from 'lucide-angular';
     ──────────────────────────── */
     .nav-logo,
     .nav-label,
-    .nav-section,
     .nav-actions {
       display: none;
+    }
+
+    .nav-section {
+      display: contents;
     }
 
     .navbar.chat-hidden {
