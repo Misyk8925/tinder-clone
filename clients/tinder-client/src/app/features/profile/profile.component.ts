@@ -26,37 +26,56 @@ import { Photo, Profile } from '../../core/models/profile.model';
       } @else if (profile()) {
         <div class="profile-content">
 
-          <!-- Photo Gallery: mosaic layout -->
-          <div class="photo-gallery">
-            @for (slot of photoSlots(); track $index) {
-              <div class="photo-slot"
-                   [class.slot-hero]="$index === 0"
-                   [class.slot-thumb]="$index > 0"
-                   [class.thumb-1]="$index === 1"
-                   [class.thumb-2]="$index === 2"
-                   [class.thumb-3]="$index === 3"
-                   [class.thumb-4]="$index === 4"
-                   [class.uploading]="uploadingSlot() === $index">
-
-                @if (slot) {
-                  <img [src]="slot.url" class="slot-img" [alt]="'Photo ' + ($index + 1)" />
-                  <button class="slot-delete" (click)="deletePhoto(slot.photoID)" title="Remove photo">
-                    <svg viewBox="0 0 24 24" fill="currentColor" width="10" height="10"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
-                  </button>
-                } @else {
-                  <button class="slot-add" (click)="triggerUploadAt($index)">
-                    <svg viewBox="0 0 24 24" fill="currentColor"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>
-                    <span>Add photo</span>
-                  </button>
-                }
-
-                @if (uploadingSlot() === $index) {
-                  <div class="upload-overlay">
-                    <div class="upload-spinner"></div>
-                  </div>
-                }
+          <!-- Photo Hero + Manager -->
+          <div class="photo-hero">
+            @if (profile()!.photos?.length) {
+              <img [src]="profile()!.photos[0].url" alt="Profile photo" />
+            } @else {
+              <div class="photo-placeholder">
+                <span>{{ profile()!.name?.[0] ?? '?' }}</span>
               </div>
             }
+            <div class="photo-count">{{ profile()!.photos?.length ?? 0 }}/5</div>
+          </div>
+
+          <div class="photo-manager">
+            <div class="manager-header">
+              <h3>Manage Photos</h3>
+              <p>Only your first photo is shown on your profile.</p>
+            </div>
+            <div class="manager-list">
+              @for (slot of photoSlots(); track $index) {
+                <div class="manager-row" [class.filled]="!!slot" [class.uploading]="uploadingSlot() === $index">
+                  <div class="manager-thumb">
+                    @if (slot) {
+                      <img [src]="slot.url" [alt]="'Photo ' + ($index + 1)" />
+                    } @else {
+                      <div class="thumb-empty">{{ $index + 1 }}</div>
+                    }
+                  </div>
+                  <div class="manager-meta">
+                    <div class="manager-title">Photo {{ $index + 1 }}</div>
+                    <div class="manager-sub">{{ $index === 0 ? 'Profile photo' : 'Optional' }}</div>
+                  </div>
+                  <div class="manager-actions">
+                    @if (slot) {
+                      <button class="btn-ghost" (click)="triggerUploadAt($index)">Replace</button>
+                      <button class="btn-danger" (click)="deletePhoto(slot.photoID)">Remove</button>
+                    } @else if ($index === (profile()!.photos?.length ?? 0)) {
+                      <button class="btn-add" (click)="triggerUploadAt($index)">Add</button>
+                    } @else {
+                      <button class="btn-locked" disabled>Locked</button>
+                    }
+                  </div>
+
+                  @if (uploadingSlot() === $index) {
+                    <div class="upload-overlay">
+                      <div class="upload-spinner"></div>
+                    </div>
+                  }
+                </div>
+              }
+            </div>
             <input type="file" accept="image/*" (change)="uploadPhoto($event)" hidden #fileInput />
           </div>
 
