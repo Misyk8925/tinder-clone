@@ -484,7 +484,6 @@ import { Photo, Profile } from '../../core/models/profile.model';
         color: var(--text-muted);
         margin-bottom: 5px;
         text-transform: uppercase;
-        letter-spacing: 0.4px;
         font-weight: 500;
       }
 
