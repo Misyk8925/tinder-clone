@@ -38,19 +38,22 @@ import { Photo, Profile } from '../../core/models/profile.model';
             <div class="photo-count">{{ profile()!.photos?.length ?? 0 }}/5</div>
           </div>
           <div class="photo-hero-actions">
-            <button class="btn-manage" (click)="toggleManagePhotos()">
+            <button class="btn-manage" [class.active]="managePhotos()" (click)="toggleManagePhotos()">
               {{ managePhotos() ? 'Done' : 'Manage Photos' }}
             </button>
           </div>
 
-          <div class="photo-manager">
+          <div class="photo-manager" [class.manage-enabled]="managePhotos()">
             <div class="manager-header">
               <h3>Manage Photos</h3>
               <p>Only your first photo is shown on your profile.</p>
             </div>
             <div class="manager-list">
               @for (slot of photoSlots(); track $index) {
-                <div class="manager-row" [class.filled]="!!slot" [class.uploading]="uploadingSlot() === $index">
+                <div class="manager-row"
+                     [class.filled]="!!slot"
+                     [class.uploading]="uploadingSlot() === $index"
+                     [class.disabled]="!managePhotos() && $index > 0">
                   <div class="manager-thumb">
                     @if (slot) {
                       <img [src]="slot.url" [alt]="'Photo ' + ($index + 1)" />
@@ -73,7 +76,7 @@ import { Photo, Profile } from '../../core/models/profile.model';
                         <button class="btn-locked" disabled>Locked</button>
                       }
                     } @else {
-                      <button class="btn-locked" disabled>Locked</button>
+                      <span class="locked-pill">Locked</span>
                     }
                   </div>
 
@@ -673,7 +676,7 @@ export class ProfileComponent implements OnInit {
   private uploadPosition = 0;
 
   toggleManagePhotos(): void {
-    this.managePhotos.update(v => !v);
+    this.managePhotos.set(!this.managePhotos());
   }
 
   private showToast(msg: string): void {

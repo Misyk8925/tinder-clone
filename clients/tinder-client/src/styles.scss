@@ -170,8 +170,8 @@ app-profile .photo-hero {
   border: 1px solid var(--border);
   box-shadow: 0 18px 36px var(--shadow-sm);
   aspect-ratio: 3 / 4;
-  width: 100%;
-  max-width: 360px;
+  width: min(84vw, 280px);
+  max-width: 280px;
   margin: 0 auto;
 }
 
@@ -230,6 +230,13 @@ app-profile .btn-manage:hover {
   transform: translateY(-1px);
 }
 
+app-profile .btn-manage.active {
+  background: var(--brand-gradient);
+  color: #fff;
+  border-color: transparent;
+  box-shadow: 0 10px 20px rgba(255, 68, 88, 0.25);
+}
+
 app-profile .photo-manager {
   background: var(--surface);
   border: 1px solid var(--border-light);
@@ -266,6 +273,10 @@ app-profile .manager-row {
   border-radius: 14px;
   border: 1px solid var(--border-light);
   background: var(--surface-2);
+}
+
+app-profile .manager-row.disabled {
+  opacity: 0.55;
 }
 
 app-profile .manager-thumb {
@@ -325,6 +336,16 @@ app-profile .manager-actions button {
   cursor: pointer;
 }
 
+app-profile .locked-pill {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-muted);
+  padding: 4px 10px;
+  border-radius: 12px;
+  background: var(--surface-3);
+  border: 1px solid var(--border-light);
+}
+
 app-profile .btn-ghost {
   background: rgba(255,255,255,0.7);
   color: var(--text-primary);
@@ -372,7 +393,8 @@ app-profile .upload-spinner {
 
 @media (min-width: 768px) {
   app-profile .photo-hero {
-    max-width: 420px;
+    width: min(60vw, 320px);
+    max-width: 320px;
   }
 
   app-profile .photo-manager {
