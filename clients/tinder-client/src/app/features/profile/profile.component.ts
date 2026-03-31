@@ -26,11 +26,16 @@ import { Photo, Profile } from '../../core/models/profile.model';
       } @else if (profile()) {
         <div class="profile-content">
 
-          <!-- Photo Gallery: full-width hero + 4 thumbnails row -->
+          <!-- Photo Gallery: mosaic layout -->
           <div class="photo-gallery">
             @for (slot of photoSlots(); track $index) {
-              <div class="photo-slot" [class.slot-hero]="$index === 0"
+              <div class="photo-slot"
+                   [class.slot-hero]="$index === 0"
                    [class.slot-thumb]="$index > 0"
+                   [class.thumb-1]="$index === 1"
+                   [class.thumb-2]="$index === 2"
+                   [class.thumb-3]="$index === 3"
+                   [class.thumb-4]="$index === 4"
                    [class.uploading]="uploadingSlot() === $index">
 
                 @if (slot) {
@@ -38,9 +43,10 @@ import { Photo, Profile } from '../../core/models/profile.model';
                   <button class="slot-delete" (click)="deletePhoto(slot.photoID)" title="Remove photo">
                     <svg viewBox="0 0 24 24" fill="currentColor" width="10" height="10"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
                   </button>
-                } @else if ($index === (profile()!.photos?.length ?? 0) && $index < 5) {
+                } @else {
                   <button class="slot-add" (click)="triggerUploadAt($index)">
                     <svg viewBox="0 0 24 24" fill="currentColor"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>
+                    <span>Add photo</span>
                   </button>
                 }
 
@@ -300,101 +306,6 @@ import { Photo, Profile } from '../../core/models/profile.model';
       display: flex;
       flex-direction: column;
       gap: 12px;
-    }
-
-    /* ── Photo Gallery: hero + 4 thumbnails ── */
-    .photo-gallery {
-      display: grid;
-      grid-template-columns: repeat(4, 1fr);
-      grid-template-rows: 210px 110px;
-      gap: 3px;
-      border-radius: 20px;
-      overflow: hidden;
-      border: 1px solid var(--border);
-      box-shadow: 0 16px 32px var(--shadow-sm);
-    }
-
-    .photo-slot {
-      position: relative;
-      background: var(--surface-2);
-      overflow: hidden;
-      transition: opacity 0.2s;
-
-      &.uploading {
-        opacity: 0.6;
-      }
-    }
-
-    .slot-hero {
-      grid-column: 1 / -1;
-      grid-row: 1;
-    }
-
-    .slot-thumb {
-      grid-row: 2;
-    }
-
-    .slot-img {
-      width: 100%;
-      height: 100%;
-      object-fit: cover;
-      display: block;
-    }
-
-    .slot-delete {
-      position: absolute;
-      top: 6px;
-      right: 6px;
-      background: rgba(0,0,0,0.6);
-      color: #fff;
-      border: none;
-      border-radius: 50%;
-      width: 24px;
-      height: 24px;
-      cursor: pointer;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      backdrop-filter: blur(4px);
-      z-index: 2;
-    }
-
-    .slot-add {
-      width: 100%;
-      height: 100%;
-      background: none;
-      border: 2px dashed var(--border);
-      cursor: pointer;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      color: var(--text-muted);
-      transition: background 0.15s, color 0.15s;
-
-      svg { width: 26px; height: 26px; }
-
-      &:hover { background: var(--surface); color: var(--brand); }
-      &:active { background: var(--border-light); }
-    }
-
-    /* Upload overlay (spinner on top of slot) */
-    .upload-overlay {
-      position: absolute;
-      inset: 0;
-      background: rgba(0,0,0,0.35);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      z-index: 3;
-      backdrop-filter: blur(2px);
-    }
-
-    .upload-spinner {
-      width: 28px; height: 28px;
-      border: 3px solid rgba(255,255,255,0.3);
-      border-top: 3px solid #fff;
-      border-radius: 50%;
-      animation: spin 0.7s linear infinite;
     }
 
     /* ── Info Section ── */
