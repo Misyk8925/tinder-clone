@@ -156,6 +156,20 @@ export function markConversationRead(conversationId: string): void {
       overflow: hidden;
     }
 
+    /* ── Header ── */
+    .header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 14px 18px 12px;
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      flex-shrink: 0;
+      position: sticky;
+      top: 0;
+      z-index: 10;
+    }
+
     @media (min-width: 768px) {
       .matches-page {
         padding-bottom: 0;
@@ -185,20 +199,6 @@ export function markConversationRead(conversationId: string): void {
           cursor: pointer;
         }
       }
-    }
-
-    /* ── Header ── */
-    .header {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      padding: 14px 18px 12px;
-      background: var(--surface);
-      border-bottom: 1px solid var(--border);
-      flex-shrink: 0;
-      position: sticky;
-      top: 0;
-      z-index: 10;
     }
 
     .header-left {

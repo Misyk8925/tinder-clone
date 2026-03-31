@@ -148,6 +148,16 @@ import { Router } from '@angular/router';
       padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 72px);
     }
 
+    .header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 12px 16px 10px;
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      flex-shrink: 0;
+    }
+
     @media (min-width: 768px) {
       .discover {
         padding-bottom: 0;
@@ -172,16 +182,6 @@ import { Router } from '@angular/router';
         gap: 20px;
         padding: 14px 0 18px;
       }
-    }
-
-    .header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      padding: 12px 16px 10px;
-      background: var(--surface);
-      border-bottom: 1px solid var(--border);
-      flex-shrink: 0;
     }
 
     .header-spacer {

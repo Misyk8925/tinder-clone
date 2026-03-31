@@ -62,6 +62,14 @@ input, textarea, select, button {
   border-radius: 2px;
 }
 
+/* ─── Desktop: hide redundant page headers (sidebar handles navigation) ─── */
+@media (min-width: 768px) {
+  app-discover .header,
+  app-matches .header {
+    display: none !important;
+  }
+}
+
 /* ─── Lucide icon colors (navbar) ─── */
 app-navbar .nav-item.active lucide-icon svg {
   stroke: #fd267a;
