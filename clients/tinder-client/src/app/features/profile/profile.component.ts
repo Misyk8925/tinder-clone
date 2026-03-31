@@ -50,23 +50,22 @@ import { Photo, Profile } from '../../core/models/profile.model';
             </div>
             <div class="manager-list">
               @for (slot of photoSlots(); track $index) {
-                <div class="manager-row"
-                     [class.filled]="!!slot"
-                     [class.uploading]="uploadingSlot() === $index"
-                     [class.disabled]="!managePhotos() && $index > 0">
-                  <div class="manager-thumb">
-                    @if (slot) {
-                      <img [src]="slot.url" [alt]="'Photo ' + ($index + 1)" />
-                    } @else {
-                      <div class="thumb-empty">{{ $index + 1 }}</div>
-                    }
-                  </div>
-                  <div class="manager-meta">
-                    <div class="manager-title">Photo {{ $index + 1 }}</div>
-                    <div class="manager-sub">{{ $index === 0 ? 'Profile photo' : 'Optional' }}</div>
-                  </div>
-                  <div class="manager-actions">
-                    @if ($index === 0 || managePhotos()) {
+                @if ($index === 0 || managePhotos()) {
+                  <div class="manager-row"
+                       [class.filled]="!!slot"
+                       [class.uploading]="uploadingSlot() === $index">
+                    <div class="manager-thumb">
+                      @if (slot) {
+                        <img [src]="slot.url" [alt]="'Photo ' + ($index + 1)" />
+                      } @else {
+                        <div class="thumb-empty">{{ $index + 1 }}</div>
+                      }
+                    </div>
+                    <div class="manager-meta">
+                      <div class="manager-title">Photo {{ $index + 1 }}</div>
+                      <div class="manager-sub">{{ $index === 0 ? 'Profile photo' : 'Optional' }}</div>
+                    </div>
+                    <div class="manager-actions">
                       @if (slot) {
                         <button class="btn-ghost" (click)="triggerUploadAt($index)">Replace</button>
                         <button class="btn-danger" (click)="deletePhoto(slot.photoID)">Remove</button>
@@ -75,17 +74,15 @@ import { Photo, Profile } from '../../core/models/profile.model';
                       } @else {
                         <button class="btn-locked" disabled>Locked</button>
                       }
-                    } @else {
-                      <span class="locked-pill">Locked</span>
+                    </div>
+
+                    @if (uploadingSlot() === $index) {
+                      <div class="upload-overlay">
+                        <div class="upload-spinner"></div>
+                      </div>
                     }
                   </div>
-
-                  @if (uploadingSlot() === $index) {
-                    <div class="upload-overlay">
-                      <div class="upload-spinner"></div>
-                    </div>
-                  }
-                </div>
+                }
               }
             </div>
             <input type="file" accept="image/*" (change)="uploadPhoto($event)" hidden #fileInput />

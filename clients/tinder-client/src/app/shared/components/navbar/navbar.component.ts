@@ -90,7 +90,7 @@ import { LucideAngularModule } from 'lucide-angular';
       align-items: center;
       background: var(--surface-glass);
       border: 1px solid var(--border);
-      padding: 8px 8px;
+      padding: 3px;
       border-radius: 22px;
       z-index: 100;
       backdrop-filter: blur(18px);
