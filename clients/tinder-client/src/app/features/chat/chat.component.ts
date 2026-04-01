@@ -227,7 +227,6 @@ interface StompMessageEvent {
     }
 
     .bubble {
-      background: rgba(255,255,255,0.9);
       color: var(--text-primary);
       padding: 10px 14px;
       border-radius: 18px 18px 18px 4px;
