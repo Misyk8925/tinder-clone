@@ -1,0 +1,28 @@
+spring:
+  config:
+    activate:
+      on-profile: prod
+  kafka:
+    bootstrap-servers: ${PROFILES_KAFKA_BOOTSTRAP_SERVERS}
+  datasource:
+    url: ${PROFILES_DB_URL}
+    username: ${PROFILES_DB_USER}
+    password: ${PROFILES_DB_PASSWORD}
+  ssl:
+    bundle:
+      jks:
+        grpc-server-tls:
+          keystore:
+            location: ${PROFILES_GRPC_KEYSTORE_PATH}
+            password: ${PROFILES_GRPC_KEYSTORE_PASSWORD}
+          truststore:
+            location: ${PROFILES_GRPC_TRUSTSTORE_PATH}
+            password: ${PROFILES_GRPC_TRUSTSTORE_PASSWORD}
+
+internal:
+  server:
+    ssl:
+      key-store: ${PROFILES_KEYSTORE_PATH}
+      key-store-password: ${PROFILES_KEYSTORE_PASSWORD}
+      trust-store: ${PROFILES_TRUSTSTORE_PATH}
+      trust-store-password: ${PROFILES_TRUSTSTORE_PASSWORD}

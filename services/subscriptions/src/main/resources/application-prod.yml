@@ -1,0 +1,16 @@
+spring:
+  config:
+
+	activate:
+	  on-profile: prod
+  jpa:
+	hibernate:
+	  ddl-auto: validate
+  datasource:
+	url: ${SUBSCRIPTIONS_DB_URL:${SPRING_DATASOURCE_URL:jdbc:postgresql://postgres:5432/subscriptions_db}}
+	username: ${SUBSCRIPTIONS_DB_USER:${SPRING_DATASOURCE_USERNAME:subscriptions_app}}
+	password: ${SUBSCRIPTIONS_DB_PASSWORD:${SPRING_DATASOURCE_PASSWORD:subscriptions_app}}
+
+profiles:
+  base-url: ${PROFILES_BASE_URL:http://profiles:8010/api/profiles}
+

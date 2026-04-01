@@ -12,16 +12,13 @@ import java.time.Duration;
 @Slf4j
 public class ProfilesWebClient {
 
-    @Value("${profiles.base-url}")
-    private String profilesBaseUrl;
-
     private final WebClient webClient;
 
-    public ProfilesWebClient(WebClient.Builder webClientBuilder) {
+    public ProfilesWebClient(WebClient.Builder webClientBuilder,
+                             @Value("${profiles.base-url}") String profilesBaseUrl) {
         this.webClient = webClientBuilder
                 .baseUrl(profilesBaseUrl)
-                .build()
-        ;
+                .build();
     }
 
     public Mono<ProfileDto> getByUserId(String token){

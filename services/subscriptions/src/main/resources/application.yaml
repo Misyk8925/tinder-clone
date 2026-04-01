@@ -58,3 +58,4 @@ resilience4j:
         waitDurationInOpenState: 10s
         permittedNumberOfCallsInHalfOpenState: 2
         registerHealthIndicator: true
+

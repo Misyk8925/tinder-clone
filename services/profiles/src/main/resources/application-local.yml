@@ -1,0 +1,26 @@
+spring:
+  config:
+    activate:
+      on-profile: local
+  datasource:
+    url: jdbc:postgresql://127.0.0.1:54322/postgres?sslmode=disable
+    username: postgres
+    password: postgres
+  ssl:
+    bundle:
+      jks:
+        grpc-server-tls:
+          keystore:
+            location: classpath:profiles-service.p12
+            password: changeit
+          truststore:
+            location: classpath:truststore.jks
+            password: changeit
+
+internal:
+  server:
+    ssl:
+      key-store: classpath:profiles-service.p12
+      key-store-password: changeit
+      trust-store: classpath:truststore.jks
+      trust-store-password: changeit

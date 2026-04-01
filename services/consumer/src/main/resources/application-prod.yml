@@ -1,0 +1,18 @@
+spring:
+  config:
+    activate:
+      on-profile: prod
+  kafka:
+    bootstrap-servers: ${CONSUMER_KAFKA_BOOTSTRAP_SERVERS}
+  datasource:
+    url: ${CONSUMER_DB_URL}
+    username: ${CONSUMER_DB_USER}
+    password: ${CONSUMER_DB_PASSWORD}
+
+internal:
+  server:
+    ssl:
+      key-store: ${CONSUMER_KEYSTORE_PATH}
+      key-store-password: ${CONSUMER_KEYSTORE_PASSWORD}
+      trust-store: ${CONSUMER_TRUSTSTORE_PATH}
+      trust-store-password: ${CONSUMER_TRUSTSTORE_PASSWORD}

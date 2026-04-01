@@ -1,0 +1,16 @@
+spring:
+  config:
+    activate:
+      on-profile: prod
+  jpa:
+    hibernate:
+      ddl-auto: validate
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS}
+  datasource:
+    url: ${SUBSCRIPTIONS_DB_URL}
+    username: ${SUBSCRIPTIONS_DB_USER}
+    password: ${SUBSCRIPTIONS_DB_PASSWORD}
+
+profiles:
+  base-url: ${PROFILES_BASE_URL}

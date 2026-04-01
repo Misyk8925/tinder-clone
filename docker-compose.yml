@@ -43,11 +43,11 @@ services:
     image: postgres:16-alpine
     restart: unless-stopped
     ports:
-      - "5432:5432"
+      - "127.0.0.1:5432:5432"
     environment:
-      POSTGRES_DB: keycloak
-      POSTGRES_USER: keycloak
-      POSTGRES_PASSWORD: password
+      POSTGRES_DB: ${KEYCLOAK_POSTGRES_DB:-keycloak}
+      POSTGRES_USER: ${KEYCLOAK_POSTGRES_USER:-keycloak}
+      POSTGRES_PASSWORD: ${KEYCLOAK_POSTGRES_PASSWORD:?KEYCLOAK_POSTGRES_PASSWORD is required}
     volumes:
       - kc-pgdata:/var/lib/postgresql/data
     networks:
@@ -55,24 +55,23 @@ services:
 
   keycloak:
     image: quay.io/keycloak/keycloak:26.3.5
-    command: [ "start","--http-enabled=true","--http-port=9080" ]
+    command: [ "start","--http-port=9080" ]
     ports:
-      - "9080:9080"
-      - "9000:9000"
+      - "127.0.0.1:9080:9080"
     volumes:
       - ./docker/keycloak/themes:/opt/keycloak/themes
     environment:
-      KC_BOOTSTRAP_ADMIN_USERNAME: admin
-      KC_BOOTSTRAP_ADMIN_PASSWORD: admin@1234
+      KC_BOOTSTRAP_ADMIN_USERNAME: ${KEYCLOAK_ADMIN:?KEYCLOAK_ADMIN is required}
+      KC_BOOTSTRAP_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:?KEYCLOAK_ADMIN_PASSWORD is required}
       KC_PROXY: edge
       KC_DB: postgres
-      KC_DB_USERNAME: keycloak
-      KC_DB_PASSWORD: password
+      KC_DB_USERNAME: ${KEYCLOAK_POSTGRES_USER:-keycloak}
+      KC_DB_PASSWORD: ${KEYCLOAK_POSTGRES_PASSWORD:?KEYCLOAK_POSTGRES_PASSWORD is required}
       KC_DB_URL_HOST: keycloak-postgres
-      KC_DB_URL_PORT: 5432
-      KC_DB_URL_DATABASE: keycloak
+      KC_DB_URL_PORT: ${KEYCLOAK_POSTGRES_PORT:-5432}
+      KC_DB_URL_DATABASE: ${KEYCLOAK_POSTGRES_DB:-keycloak}
       KC_FEATURES: token-exchange,admin-fine-grained-authz
-      KC_HOSTNAME_URL: "https://auth.mykh.studio"
+      KC_HOSTNAME_URL: ${KEYCLOAK_URL:?KEYCLOAK_URL is required}
       KC_HOSTNAME_STRICT: "false"
       KC_HTTP_ENABLED: "true"
       KC_PROXY_HEADERS: "xforwarded"
@@ -84,7 +83,8 @@ services:
   redis:
     image: redis:8.2.1-alpine
     <<: *prod-mid-defaults
-    ports: []
+    ports:
+      - "127.0.0.1:6379:6379"
     command: redis-server --maxmemory 128mb --maxmemory-policy allkeys-lru
     networks:
       - app
@@ -264,6 +264,7 @@ services:
       redis:
         condition: service_healthy
     environment:
+      SPRING_PROFILES_ACTIVE: prod
       AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID:?AWS_ACCESS_KEY_ID is required}
       AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY:?AWS_SECRET_ACCESS_KEY is required}
       AWS_S3_BUCKET: ${AWS_S3_BUCKET:?AWS_S3_BUCKET is required}
@@ -273,7 +274,7 @@ services:
       KEYCLOAK_REALM: ${KEYCLOAK_REALM:-spring}
       KEYCLOAK_CLIENT_ID: ${KEYCLOAK_CLIENT_ID:?KEYCLOAK_CLIENT_ID is required}
       KEYCLOAK_CLIENT_SECRET: ${KEYCLOAK_CLIENT_SECRET:?KEYCLOAK_CLIENT_SECRET is required}
-      KEYCLOAK_ADMIN_USERNAME: ${KEYCLOAK_ADMIN_USERNAME:?KEYCLOAK_ADMIN_USERNAME is required}
+      KEYCLOAK_ADMIN_USERNAME: ${KEYCLOAK_ADMIN:?KEYCLOAK_ADMIN is required}
       KEYCLOAK_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:?KEYCLOAK_ADMIN_PASSWORD is required}
       EUREKA_CLIENT_ENABLED: "false"
       SPRING_CLOUD_DISCOVERY_ENABLED: "false"
@@ -322,6 +323,7 @@ services:
       redis:
         condition: service_healthy
     environment:
+      SPRING_PROFILES_ACTIVE: prod
       SPRING_DATA_REDIS_HOST: redis
       SPRING_DATA_REDIS_PORT: 6379
       SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:29092
@@ -353,7 +355,7 @@ services:
     container_name: gateway
     <<: *prod-mid-defaults
     ports:
-      - "8222:8222"
+      - "127.0.0.1:8222:8222"
     depends_on:
 
       redis:
@@ -363,6 +365,7 @@ services:
 
 
     environment:
+      SPRING_PROFILES_ACTIVE: prod
       SPRING_DATA_REDIS_HOST: redis
       SPRING_DATA_REDIS_PORT: 6379
       EUREKA_CLIENT_ENABLED: "false"
@@ -400,13 +403,14 @@ services:
       kafka:
         condition: service_healthy
     environment:
+      SPRING_PROFILES_ACTIVE: prod
       AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID:?AWS_ACCESS_KEY_ID is required}
       AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY:?AWS_SECRET_ACCESS_KEY is required}
       AWS_S3_BUCKET: ${AWS_S3_BUCKET:?AWS_S3_BUCKET is required}
       AWS_REGION: ${AWS_REGION:-eu-north-1}
       CLOUDFRONT_DOMAIN: ${CLOUDFRONT_DOMAIN:?CLOUDFRONT_DOMAIN is required}
       CDN_ENABLED: ${CDN_ENABLED:-true}
-      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/match_db
+      SPRING_DATASOURCE_URL: ${MATCH_DB_URL:?MATCH_DB_URL is required}
       SPRING_DATASOURCE_USERNAME: ${MATCH_DB_USER:?MATCH_DB_USER is required}
       SPRING_DATASOURCE_PASSWORD: ${MATCH_DB_PASSWORD:?MATCH_DB_PASSWORD is required}
       SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE: 4
@@ -440,6 +444,7 @@ services:
       redis:
         condition: service_healthy
     environment:
+      SPRING_PROFILES_ACTIVE: prod
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/consumer_db
       SPRING_DATASOURCE_USERNAME: ${CONSUMER_DB_USER:?CONSUMER_DB_USER is required}
       SPRING_DATASOURCE_PASSWORD: ${CONSUMER_DB_PASSWORD:?CONSUMER_DB_PASSWORD is required}
@@ -480,10 +485,11 @@ services:
       kafka:
         condition: service_healthy
     environment:
+      SPRING_PROFILES_ACTIVE: prod
       STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY:?STRIPE_SECRET_KEY is required}
       STRIPE_WEBHOOK_SECRET: ${STRIPE_WEBHOOK_SECRET:?STRIPE_WEBHOOK_SECRET is required}
       STRIPE_PRICE_ID: ${STRIPE_PRICE_ID:?STRIPE_PRICE_ID is required}
-      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/subscriptions_db
+      SUBSCRIPTIONS_DB_URL: jdbc:postgresql://postgres:5432/subscriptions_db
       SPRING_DATASOURCE_USERNAME: ${SUBSCRIPTIONS_DB_USER:?SUBSCRIPTIONS_DB_USER is required}
       SPRING_DATASOURCE_PASSWORD: ${SUBSCRIPTIONS_DB_PASSWORD:?SUBSCRIPTIONS_DB_PASSWORD is required}
       SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE: 4
@@ -528,6 +534,7 @@ services:
       redis:
         condition: service_healthy
     environment:
+      SPRING_PROFILES_ACTIVE: prod
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/swipes_db
       SPRING_DATASOURCE_USERNAME: ${SWIPES_DB_USER:?SWIPES_DB_USER is required}
       SPRING_DATASOURCE_PASSWORD: ${SWIPES_DB_PASSWORD:?SWIPES_DB_PASSWORD is required}

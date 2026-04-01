@@ -36,14 +36,12 @@
           },
           "configurations": {
             "production": {
-              "budgets": [
+              "fileReplacements": [
                 {
-                  "type": "initial",
-                  "maximumWarning": "500kB",
-                  "maximumError": "1MB"
-                },
-                {
-                  "type": "anyComponentStyle",
+                  "replace": "src/environments/environment.ts",
+                  "with": "src/environments/environment.prod.ts"
+                }
+              ],
                   "maximumWarning": "4kB",
                   "maximumError": "8kB"
                 }
@@ -58,6 +56,17 @@
           },
           "defaultConfiguration": "production"
         },
+            "local": {
+              "fileReplacements": [
+                {
+                  "replace": "src/environments/environment.ts",
+                  "with": "src/environments/environment.local.ts"
+                }
+              ],
+              "optimization": false,
+              "extractLicenses": false,
+              "sourceMap": true
+            },
         "serve": {
           "builder": "@angular/build:dev-server",
           "configurations": {
@@ -72,6 +81,9 @@
         },
         "test": {
           "builder": "@angular/build:unit-test"
+            "local": {
+              "buildTarget": "tinder-client:build:local"
+            },
         }
       }
     }

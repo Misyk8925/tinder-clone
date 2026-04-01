@@ -1,0 +1,10 @@
+spring:
+  config:
+    activate:
+      on-profile: local
+  kafka:
+    bootstrap-servers: ${SPRING_KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+  datasource:
+    url: jdbc:postgresql://127.0.0.1:54322/postgres?sslmode=disable
+    username: postgres
+    password: postgres
