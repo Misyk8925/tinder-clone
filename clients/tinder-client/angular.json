@@ -21,19 +21,23 @@
         "build": {
           "builder": "@angular/build:application",
           "options": {
-            "browser": "src/main.ts",
-            "tsConfig": "tsconfig.app.json",
-            "inlineStyleLanguage": "scss",
-            "assets": [
-              {
-                "glob": "**/*",
-                "input": "public"
-              }
-            ],
-            "styles": [
-              "src/styles.scss"
-            ]
-          },
+             "browser": "src/main.ts",
+             "tsConfig": "tsconfig.app.json",
+             "inlineStyleLanguage": "scss",
+             "assets": [
+               {
+                 "glob": "**/*",
+                 "input": "public"
+               },
+               {
+                 "glob": "**/*",
+                 "input": "src/assets"
+               }
+             ],
+             "styles": [
+               "src/styles.scss"
+             ]
+           },
           "configurations": {
             "production": {
               "fileReplacements": [
@@ -87,19 +91,23 @@
         },
         "test": {
           "builder": "@angular/build:unit-test",
-          "options": {
-            "tsConfig": "tsconfig.spec.json",
-            "inlineStyleLanguage": "scss",
-            "assets": [
-              {
-                "glob": "**/*",
-                "input": "public"
-              }
-            ],
-            "styles": [
-              "src/styles.scss"
-            ]
-          }
+           "options": {
+             "tsConfig": "tsconfig.spec.json",
+             "inlineStyleLanguage": "scss",
+             "assets": [
+               {
+                 "glob": "**/*",
+                 "input": "public"
+               },
+               {
+                 "glob": "**/*",
+                 "input": "src/assets"
+               }
+             ],
+             "styles": [
+               "src/styles.scss"
+             ]
+           }
         }
       }
     }
