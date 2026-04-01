@@ -536,38 +536,56 @@ export class ChatComponent implements OnInit, OnDestroy, AfterViewChecked {
   }
 
   async sendPhoto(e: Event): Promise<void> {
-    let file = (e.target as HTMLInputElement).files?.[0];
-    if (!file) return;
+     let file = (e.target as HTMLInputElement).files?.[0];
+     if (!file) return;
 
-    if (file.type === 'image/heic' || file.type === 'image/heif' || /\.(heic|heif)$/i.test(file.name)) {
-      const heic2any = (await import('heic2any')).default;
-      const converted = await heic2any({ blob: file, toType: 'image/jpeg', quality: 0.9 });
-      const blob = Array.isArray(converted) ? converted[0] : converted;
-      file = new File([blob], file.name.replace(/\.(heic|heif)$/i, '.jpg'), { type: 'image/jpeg' });
-    }
+     try {
+       if (file.type === 'image/heic' || file.type === 'image/heif' || /\.(heic|heif)$/i.test(file.name)) {
+         const heic2any = (await import('heic2any')).default;
+         const converted = await heic2any({ blob: file, toType: 'image/jpeg', quality: 0.9 });
+         const blob = Array.isArray(converted) ? converted[0] : converted;
+         file = new File([blob], file.name.replace(/\.(heic|heif)$/i, '.jpg'), { type: 'image/jpeg' });
+       }
 
-    const token = await this.keycloak.getToken();
-    if (!token) return;
+       const token = await this.keycloak.getToken();
+       if (!token) {
+         this.showToast('Failed to get authentication token');
+         return;
+       }
 
-    const clientMessageId = crypto.randomUUID();
-    const params = new URLSearchParams({
-      senderId: this.myId(),
-      clientMessageId
-    });
+       const clientMessageId = crypto.randomUUID();
+       const params = new URLSearchParams({
+         senderId: this.myId(),
+         clientMessageId
+       });
 
-    const formData = new FormData();
-    formData.append('file', file, file.name);
+       const formData = new FormData();
+       formData.append('file', file, file.name);
 
-    await firstValueFrom(
-      this.http.post(
-        `${environment.apiGatewayUrl}/rest/conversations/${this.conversationId()}/messages/photos?${params}`,
-        formData,
-        { headers: { Authorization: `Bearer ${token}` } }
-      )
-    ).catch(() => null);
+       await firstValueFrom(
+         this.http.post(
+           `${environment.apiGatewayUrl}/rest/conversations/${this.conversationId()}/messages/photos?${params}`,
+           formData,
+           { headers: { Authorization: `Bearer ${token}` } }
+         )
+       );
+       // Photo arrives via STOMP broadcast — no local push needed
+     } catch (err: unknown) {
+       const error = err as any;
+       if (error?.status === 429) {
+         this.showToast('Too many uploads. Please wait before uploading again.');
+       } else {
+         this.showToast('Photo upload failed. Please try again.');
+       }
+     }
+   }
 
-    // Photo arrives via STOMP broadcast — no local push needed
-  }
+   private showToast(message: string): void {
+     // Simple toast implementation using a temporary alert
+     // In a production app, you might use a toast service
+     console.warn('Toast:', message);
+     alert(message);
+   }
 
   openPreview(url: string): void {
     this.previewUrl.set(url);
