@@ -369,6 +369,9 @@ interface StompMessageEvent {
   `]
 })
 export class ChatComponent implements OnInit, OnDestroy, AfterViewChecked {
+  private static readonly MAX_CHAT_PHOTO_SIZE_BYTES = 5 * 1024 * 1024;
+  private static readonly JPEG_QUALITY_STEPS = [0.9, 0.8, 0.7, 0.6, 0.5, 0.4];
+
   @ViewChild('messagesArea') messagesArea!: ElementRef;
 
   private route = inject(ActivatedRoute);
@@ -540,11 +543,11 @@ export class ChatComponent implements OnInit, OnDestroy, AfterViewChecked {
      if (!file) return;
 
      try {
-       if (file.type === 'image/heic' || file.type === 'image/heif' || /\.(heic|heif)$/i.test(file.name)) {
-         const heic2any = (await import('heic2any')).default;
-         const converted = await heic2any({ blob: file, toType: 'image/jpeg', quality: 0.9 });
-         const blob = Array.isArray(converted) ? converted[0] : converted;
-         file = new File([blob], file.name.replace(/\.(heic|heif)$/i, '.jpg'), { type: 'image/jpeg' });
+       file = await this.preparePhotoForUpload(file);
+
+       if (file.size > ChatComponent.MAX_CHAT_PHOTO_SIZE_BYTES) {
+         this.showToast('Photo is too large. Please choose a smaller image.');
+         return;
        }
 
        const token = await this.keycloak.getToken();
@@ -574,11 +577,111 @@ export class ChatComponent implements OnInit, OnDestroy, AfterViewChecked {
        const error = err as any;
        if (error?.status === 429) {
          this.showToast('Too many uploads. Please wait before uploading again.');
+       } else if (error?.status === 413) {
+         this.showToast('Photo is too large. Please choose a smaller image.');
+       } else if (error?.message === 'HEIC conversion failed') {
+         this.showToast('HEIC conversion failed. Please choose another photo.');
+       } else if (error?.status === 400 && this.extractBackendErrorMessage(error)?.includes('Invalid image type')) {
+         this.showToast('Unsupported image type. Please upload JPEG, PNG, or WEBP.');
        } else {
          this.showToast('Photo upload failed. Please try again.');
        }
      }
    }
+
+  private async preparePhotoForUpload(file: File): Promise<File> {
+    let prepared = file;
+
+    if (file.type === 'image/heic' || file.type === 'image/heif' || /\.(heic|heif)$/i.test(file.name)) {
+      try {
+        const heic2any = (await import('heic2any')).default;
+        const converted = await heic2any({ blob: file, toType: 'image/jpeg', quality: 0.9 });
+        const blob = Array.isArray(converted) ? converted[0] : converted;
+        prepared = new File([blob], file.name.replace(/\.(heic|heif)$/i, '.jpg'), { type: 'image/jpeg' });
+      } catch {
+        throw new Error('HEIC conversion failed');
+      }
+    }
+
+    if (prepared.size <= ChatComponent.MAX_CHAT_PHOTO_SIZE_BYTES) {
+      return prepared;
+    }
+
+    const compressed = await this.compressToJpegUnderLimit(prepared, ChatComponent.MAX_CHAT_PHOTO_SIZE_BYTES);
+    return compressed ?? prepared;
+  }
+
+  private async compressToJpegUnderLimit(file: File, maxSizeBytes: number): Promise<File | null> {
+    if (!file.type.startsWith('image/')) {
+      return null;
+    }
+
+    const image = await this.loadImage(file);
+    const canvas = document.createElement('canvas');
+    canvas.width = image.naturalWidth || image.width;
+    canvas.height = image.naturalHeight || image.height;
+
+    const context = canvas.getContext('2d');
+    if (!context) {
+      return null;
+    }
+
+    context.drawImage(image, 0, 0, canvas.width, canvas.height);
+
+    let smallestBlob: Blob | null = null;
+    for (const quality of ChatComponent.JPEG_QUALITY_STEPS) {
+      const blob = await this.canvasToJpegBlob(canvas, quality);
+      if (!blob) {
+        continue;
+      }
+
+      if (!smallestBlob || blob.size < smallestBlob.size) {
+        smallestBlob = blob;
+      }
+
+      if (blob.size <= maxSizeBytes) {
+        return new File([blob], file.name.replace(/\.[^.]+$/, '.jpg'), { type: 'image/jpeg' });
+      }
+    }
+
+    if (!smallestBlob) {
+      return null;
+    }
+
+    return new File([smallestBlob], file.name.replace(/\.[^.]+$/, '.jpg'), { type: 'image/jpeg' });
+  }
+
+  private async loadImage(file: File): Promise<HTMLImageElement> {
+    const dataUrl = await new Promise<string>((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(String(reader.result));
+      reader.onerror = () => reject(new Error('Failed to read image'));
+      reader.readAsDataURL(file);
+    });
+
+    return new Promise<HTMLImageElement>((resolve, reject) => {
+      const img = new Image();
+      img.onload = () => resolve(img);
+      img.onerror = () => reject(new Error('Failed to decode image'));
+      img.src = dataUrl;
+    });
+  }
+
+  private async canvasToJpegBlob(canvas: HTMLCanvasElement, quality: number): Promise<Blob | null> {
+    return new Promise(resolve => {
+      canvas.toBlob(blob => resolve(blob), 'image/jpeg', quality);
+    });
+  }
+
+  private extractBackendErrorMessage(error: any): string | null {
+    if (typeof error?.error === 'string') {
+      return error.error;
+    }
+    if (typeof error?.error?.message === 'string') {
+      return error.error.message;
+    }
+    return null;
+  }
 
    private showToast(message: string): void {
      // Simple toast implementation using a temporary alert
