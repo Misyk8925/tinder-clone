@@ -12,7 +12,6 @@ import { markConversationRead } from '../matches/matches.component';
 import { KeycloakService } from '../../core/services/keycloak.service';
 import { ProfileService } from '../../core/services/profile.service';
 import { MinimalStompClient } from '../../core/stomp-client';
-import { IconsService } from '../../core/services/icons.service';
 import { environment } from '../../../environments/environment';
 
 interface StompMessageEvent {
@@ -31,72 +30,81 @@ interface StompMessageEvent {
   template: `
     <div class="chat-page">
       <header class="chat-header">
-         <button class="back-btn" (click)="goBack()">
-           <img [src]="iconsService.getIconUrl(iconsService.ICONS.back)" alt="Back" class="icon-img"/>
-         </button>
-         <div class="header-info">
-           <div class="avatar">{{ conversationId().slice(0,2).toUpperCase() }}</div>
-           <div>
-             <h2>Match Chat</h2>
-             <span class="online" [class.connecting]="wsState() === 'connecting'">
-               {{ wsState() === 'connected' ? 'Online' : wsState() === 'connecting' ? 'Connecting…' : 'Offline' }}
-             </span>
-           </div>
-         </div>
-       </header>
-
-       <div class="messages-area" #messagesArea>
-         @if (loading()) {
-           <div class="loading-msgs">
-             <div class="spinner"></div>
-           </div>
-         } @else if (messages().length === 0) {
-           <div class="no-msgs">
-             <p>Say hello! 👋</p>
-           </div>
-         } @else {
-           @for (msg of messages(); track msg.id) {
-             <div class="message" [ngClass]="{ 'mine': msg.senderId === myId() }">
-               <div class="bubble">
-                 @if (msg.type === 'photo') {
-                   <img [src]="msg.content" class="msg-photo" alt="Photo" (click)="openPreview(msg.content)" />
-                 } @else {
-                   {{ msg.content }}
-                 }
-               </div>
-               <span class="msg-time">{{ formatTime(msg.sentAt) }}</span>
-             </div>
-           }
-         }
-       </div>
-
-       <div class="input-area">
-         <label class="photo-btn" title="Send photo">
-           <input type="file" accept="image/*" (change)="sendPhoto($event)" hidden />
-           <img [src]="iconsService.getIconUrl(iconsService.ICONS.image)" alt="Photo" class="icon-img"/>
-         </label>
-         <input
-           class="msg-input"
-           type="text"
-           [(ngModel)]="messageText"
-           placeholder="Type a message..."
-           (keydown.enter)="sendMessage()"
-         />
-         <button class="send-btn" (click)="sendMessage()" [disabled]="!messageText.trim() || wsState() !== 'connected'">
-           <img [src]="iconsService.getIconUrl(iconsService.ICONS.send)" alt="Send" class="icon-img"/>
-         </button>
-       </div>
-     </div>
-
-     @if (previewUrl()) {
-        <div class="lightbox" (click)="closePreview()">
-          <button class="lightbox-close" (click)="closePreview()">
-            <img [src]="iconsService.getIconUrl(iconsService.ICONS.closeX)" alt="Close" class="icon-img"/>
-          </button>
-          <img [src]="previewUrl()!" class="lightbox-img" alt="Photo preview" (click)="$event.stopPropagation()" />
+        <button class="back-btn" (click)="goBack()">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polyline points="15 18 9 12 15 6"/>
+          </svg>
+        </button>
+        <div class="header-info">
+          <div class="avatar">{{ conversationId().slice(0,2).toUpperCase() }}</div>
+          <div>
+            <h2>Match Chat</h2>
+            <span class="online" [class.connecting]="wsState() === 'connecting'">
+              {{ wsState() === 'connected' ? 'Online' : wsState() === 'connecting' ? 'Connecting…' : 'Offline' }}
+            </span>
+          </div>
         </div>
-      }
-    `,
+      </header>
+
+      <div class="messages-area" #messagesArea>
+        @if (loading()) {
+          <div class="loading-msgs">
+            <div class="spinner"></div>
+          </div>
+        } @else if (messages().length === 0) {
+          <div class="no-msgs">
+            <p>Say hello! 👋</p>
+          </div>
+        } @else {
+          @for (msg of messages(); track msg.id) {
+            <div class="message" [ngClass]="{ 'mine': msg.senderId === myId() }">
+              <div class="bubble">
+                @if (msg.type === 'photo') {
+                  <img [src]="msg.content" class="msg-photo" alt="Photo" (click)="openPreview(msg.content)" />
+                } @else {
+                  {{ msg.content }}
+                }
+              </div>
+              <span class="msg-time">{{ formatTime(msg.sentAt) }}</span>
+            </div>
+          }
+        }
+      </div>
+
+      <div class="input-area">
+        <label class="photo-btn" title="Send photo">
+          <input type="file" accept="image/*" (change)="sendPhoto($event)" hidden />
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/>
+            <polyline points="21 15 16 10 5 21"/>
+          </svg>
+        </label>
+        <input
+          class="msg-input"
+          type="text"
+          [(ngModel)]="messageText"
+          placeholder="Type a message..."
+          (keydown.enter)="sendMessage()"
+        />
+        <button class="send-btn" (click)="sendMessage()" [disabled]="!messageText.trim() || wsState() !== 'connected'">
+          <svg viewBox="0 0 24 24" fill="currentColor">
+            <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/>
+          </svg>
+        </button>
+      </div>
+    </div>
+
+    @if (previewUrl()) {
+      <div class="lightbox" (click)="closePreview()">
+        <button class="lightbox-close" (click)="closePreview()">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+            <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+          </svg>
+        </button>
+        <img [src]="previewUrl()!" class="lightbox-img" alt="Photo preview" (click)="$event.stopPropagation()" />
+      </div>
+    }
+  `,
   styles: [`
     .chat-page {
       display: flex;
@@ -129,14 +137,14 @@ interface StompMessageEvent {
     }
 
     .back-btn {
-       background: none;
-       border: none;
-       cursor: pointer;
-       padding: 4px;
-       color: var(--brand);
+      background: none;
+      border: none;
+      cursor: pointer;
+      padding: 4px;
+      color: var(--brand);
 
-       .icon-img { width: 24px; height: 24px; display: block; }
-     }
+      svg { width: 24px; height: 24px; display: block; }
+    }
 
     .header-info {
       display: flex;
@@ -276,25 +284,25 @@ interface StompMessageEvent {
     }
 
     .lightbox-close {
-       position: absolute;
-       top: 16px;
-       right: 16px;
-       width: 40px;
-       height: 40px;
-       border-radius: 50%;
-       border: none;
-       background: rgba(255,255,255,0.15);
-       color: #fff;
-       cursor: pointer;
-       display: flex;
-       align-items: center;
-       justify-content: center;
-       backdrop-filter: blur(4px);
-       transition: background 0.15s;
+      position: absolute;
+      top: 16px;
+      right: 16px;
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      border: none;
+      background: rgba(255,255,255,0.15);
+      color: #fff;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      backdrop-filter: blur(4px);
+      transition: background 0.15s;
 
-       .icon-img { width: 20px; height: 20px; }
-       &:hover { background: rgba(255,255,255,0.25); }
-     }
+      svg { width: 20px; height: 20px; }
+      &:hover { background: rgba(255,255,255,0.25); }
+    }
 
     .msg-time {
       font-size: 11px;
@@ -321,12 +329,12 @@ interface StompMessageEvent {
     }
 
     .photo-btn {
-       color: var(--text-muted);
-       cursor: pointer;
-       padding: 4px;
+      color: var(--text-muted);
+      cursor: pointer;
+      padding: 4px;
 
-       .icon-img { width: 24px; height: 24px; display: block; }
-     }
+      svg { width: 24px; height: 24px; display: block; }
+    }
 
     .msg-input {
       flex: 1;
@@ -343,33 +351,32 @@ interface StompMessageEvent {
     }
 
     .send-btn {
-       width: 42px; height: 42px;
-       border-radius: 50%;
-       border: none;
-       background: var(--brand-gradient);
-       color: #fff;
-       cursor: pointer;
-       display: flex;
-       align-items: center;
-       justify-content: center;
-       flex-shrink: 0;
+      width: 42px; height: 42px;
+      border-radius: 50%;
+      border: none;
+      background: var(--brand-gradient);
+      color: #fff;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
 
-       .icon-img { width: 20px; height: 20px; }
+      svg { width: 20px; height: 20px; }
 
-       &:disabled { opacity: 0.4; cursor: not-allowed; }
-     }
+      &:disabled { opacity: 0.4; cursor: not-allowed; }
+    }
   `]
 })
 export class ChatComponent implements OnInit, OnDestroy, AfterViewChecked {
-   @ViewChild('messagesArea') messagesArea!: ElementRef;
+  @ViewChild('messagesArea') messagesArea!: ElementRef;
 
-   private route = inject(ActivatedRoute);
-   private router = inject(Router);
-   private matchService = inject(MatchService);
-   private keycloak = inject(KeycloakService);
-   private profileService = inject(ProfileService);
-   private http = inject(HttpClient);
-   iconsService = inject(IconsService);
+  private route = inject(ActivatedRoute);
+  private router = inject(Router);
+  private matchService = inject(MatchService);
+  private keycloak = inject(KeycloakService);
+  private profileService = inject(ProfileService);
+  private http = inject(HttpClient);
 
   conversationId = signal('');
   messages = signal<Message[]>([]);
