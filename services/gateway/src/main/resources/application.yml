@@ -166,7 +166,7 @@ spring:
             - id: match-ws
               uri: ${MATCH_WS_URL:ws://localhost:8080}
               predicates:
-                - Path=/ws/**
+                - Path=/ws,/ws/**
 
             - id: match-conversations
               uri: ${MATCH_SERVICE_URL:http://localhost:8080}
