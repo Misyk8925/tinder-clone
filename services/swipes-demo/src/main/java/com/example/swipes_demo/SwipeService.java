@@ -3,6 +3,7 @@ package com.example.swipes_demo;
 import com.example.swipes_demo.profileCache.ProfileCacheService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
 import reactor.core.publisher.Mono;
@@ -16,7 +17,8 @@ public class SwipeService {
     private final SwipeProducer swipeProducer;
     private final ProfileCacheService profileCacheService;
 
-    public Mono<Void> sendSwipe(SwipeDto dto, boolean isPremiumOrAdmin) {
+    public Mono<Void> sendSwipe(SwipeDto dto, boolean isPremiumOrAdmin, Jwt jwt) {
+        String bearerToken = extractBearerToken(jwt);
         UUID profile1Id = parseProfileId(dto.profile1Id(), "profile1Id");
         UUID profile2Id = parseProfileId(dto.profile2Id(), "profile2Id");
 
@@ -28,7 +30,7 @@ public class SwipeService {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Super like requires a premium or admin account");
         }
 
-        return profileCacheService.existsAll(profile1Id, profile2Id)
+        return profileCacheService.existsAll(profile1Id, profile2Id, bearerToken)
                 .flatMap(exists -> {
                     if (!exists) {
                         return Mono.error(new ResponseStatusException(
@@ -48,6 +50,13 @@ public class SwipeService {
 
                     return swipeProducer.send(event);
                 });
+    }
+
+    private String extractBearerToken(Jwt jwt) {
+        if (jwt == null || jwt.getTokenValue() == null || jwt.getTokenValue().isBlank()) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Missing JWT principal");
+        }
+        return jwt.getTokenValue();
     }
 
     private UUID parseProfileId(String rawId, String fieldName) {

@@ -7,24 +7,18 @@ import com.stripe.param.CustomerCreateParams;
 import com.stripe.param.checkout.SessionCreateParams;
 import com.tinder.subscriptions.stripeCustomer.StripeCustomer;
 import com.tinder.subscriptions.stripeCustomer.StripeCustomerRepository;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
+@Slf4j
 @Service
+@RequiredArgsConstructor
 public class BillingService {
-
-    private static final Logger log = LoggerFactory.getLogger(BillingService.class);
 
     private final StripeCustomerRepository stripeCustomerRepository;
     private final StripeConfig stripeConfig;
-
-    public BillingService(StripeCustomerRepository stripeCustomerRepository,
-                          StripeConfig stripeConfig) {
-        this.stripeCustomerRepository = stripeCustomerRepository;
-        this.stripeConfig = stripeConfig;
-    }
 
     @Value("${stripe.success-url}")
     private String successUrl;
@@ -32,7 +26,8 @@ public class BillingService {
     @Value("${stripe.cancel-url}")
     private String cancelUrl;
 
-    private String returnUrl = "http://localhost:8095/return";
+    @Value("${stripe.return-url}")
+    private String returnUrl;
 
     public String createSession(String userId) throws StripeException {
         ensureStripeApiKeyConfigured();
@@ -55,8 +50,6 @@ public class BillingService {
         return Session.create(params).getUrl();
     }
 
-
-
     public String createPortalSession(String userId) throws StripeException {
         ensureStripeApiKeyConfigured();
         StripeCustomer customer = getOrCreateCustomer(userId);
@@ -67,7 +60,6 @@ public class BillingService {
                 .build();
         return Session.create(param).getUrl();
     }
-
 
     public StripeCustomer getOrCreateCustomer(String userId) {
         return stripeCustomerRepository.findByUserId(userId)

@@ -20,6 +20,6 @@ public class ProfileEvent {
     private Boolean isDeleted;
     private Instant timestamp;
 
-    // Для обработки out-of-order событий
+    // Used for out-of-order event handling
     private Long sequenceNumber;
 }

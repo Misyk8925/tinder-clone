@@ -3,6 +3,7 @@ stripe:
   webhook-secret: ${STRIPE_WEBHOOK_SECRET:placeholder}
   success-url: ${STRIPE_SUCCESS_URL:http://localhost:8095/success}
   cancel-url: ${STRIPE_CANCEL_URL:http://localhost:8095/cancel}
+  return-url: ${STRIPE_RETURN_URL:http://localhost:8095/return}
   price-id: ${STRIPE_PRICE_ID:placeholder}
 
 grpc:

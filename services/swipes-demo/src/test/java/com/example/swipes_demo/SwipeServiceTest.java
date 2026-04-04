@@ -8,6 +8,7 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.server.ResponseStatusException;
 import reactor.core.publisher.Mono;
 
@@ -23,6 +24,8 @@ import static org.mockito.Mockito.when;
 @ExtendWith(MockitoExtension.class)
 class SwipeServiceTest {
 
+    private static final String BEARER_TOKEN = "test-token";
+
     @Mock
     private SwipeProducer swipeProducer;
 
@@ -32,18 +35,25 @@ class SwipeServiceTest {
     @InjectMocks
     private SwipeService swipeService;
 
+    private Jwt jwt() {
+        return Jwt.withTokenValue(BEARER_TOKEN)
+                .header("alg", "none")
+                .claim("sub", "user-id")
+                .build();
+    }
+
     @Test
     void sendSwipeShouldRejectWhenProfilesDoNotExist() {
         String profile1Id = UUID.randomUUID().toString();
         String profile2Id = UUID.randomUUID().toString();
         SwipeDto dto = new SwipeDto(profile1Id, profile2Id, true, null);
 
-        when(profileCacheService.existsAll(UUID.fromString(profile1Id), UUID.fromString(profile2Id)))
+        when(profileCacheService.existsAll(UUID.fromString(profile1Id), UUID.fromString(profile2Id), BEARER_TOKEN))
                 .thenReturn(Mono.just(false));
 
         ResponseStatusException exception = assertThrows(
                 ResponseStatusException.class,
-                () -> swipeService.sendSwipe(dto, false).block()
+                () -> swipeService.sendSwipe(dto, false, jwt()).block()
         );
 
         assertThat(exception.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
@@ -57,11 +67,11 @@ class SwipeServiceTest {
         String profile2Id = UUID.randomUUID().toString();
         SwipeDto dto = new SwipeDto(profile1Id, profile2Id, false, null);
 
-        when(profileCacheService.existsAll(UUID.fromString(profile1Id), UUID.fromString(profile2Id)))
+        when(profileCacheService.existsAll(UUID.fromString(profile1Id), UUID.fromString(profile2Id), BEARER_TOKEN))
                 .thenReturn(Mono.just(true));
         when(swipeProducer.send(any())).thenReturn(Mono.empty());
 
-        swipeService.sendSwipe(dto, false).block();
+        swipeService.sendSwipe(dto, false, jwt()).block();
 
         ArgumentCaptor<SwipeCreatedEvent> eventCaptor = ArgumentCaptor.forClass(SwipeCreatedEvent.class);
         verify(swipeProducer).send(eventCaptor.capture());
@@ -81,12 +91,12 @@ class SwipeServiceTest {
 
         ResponseStatusException exception = assertThrows(
                 ResponseStatusException.class,
-                () -> swipeService.sendSwipe(dto, false).block()
+                () -> swipeService.sendSwipe(dto, false, jwt()).block()
         );
 
         assertThat(exception.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
         assertThat(exception.getReason()).isEqualTo("profile1Id and profile2Id must be different");
-        verify(profileCacheService, never()).existsAll(any(), any());
+        verify(profileCacheService, never()).existsAll(any(), any(), any());
         verify(swipeProducer, never()).send(any());
     }
 }

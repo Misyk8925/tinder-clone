@@ -164,7 +164,6 @@ public class S3PhotoService {
      */
     @Deprecated
     public void uploadAndSave(byte[] data, String key, String contentType, String userId) {
-        UUID uuid = UUID.fromString(userId);
         upload(data, key, contentType);
 
         Photo photo = new Photo();

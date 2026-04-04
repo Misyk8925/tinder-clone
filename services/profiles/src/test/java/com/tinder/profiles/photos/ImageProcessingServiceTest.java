@@ -1,5 +1,6 @@
 package com.tinder.profiles.photos;
 
+import lombok.extern.slf4j.Slf4j;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -18,6 +19,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
  * Unit test for ImageProcessingService to verify the fix for the 0-byte upload issue.
  * Tests that image processing works correctly without stream exhaustion problems.
  */
+@Slf4j
 class ImageProcessingServiceTest {
 
     private ImageProcessingService imageProcessingService;
@@ -35,7 +37,7 @@ class ImageProcessingServiceTest {
         assertThat(imageResource.exists()).isTrue();
 
         byte[] originalBytes = Files.readAllBytes(imageResource.getFile().toPath());
-        System.out.println("Original file size: " + originalBytes.length + " bytes");
+        log.debug("Original file size: {} bytes", originalBytes.length);
 
         // Create mock multipart file
         MockMultipartFile file = new MockMultipartFile(
@@ -52,11 +54,9 @@ class ImageProcessingServiceTest {
         ImageProcessingService.ProcessedImages processed =
                 imageProcessingService.processUploadedImage(originalBytes);
 
-        System.out.println("Processed sizes:");
-        System.out.println("  Original: " + processed.original().length);
-        System.out.println("  Large: " + processed.large().length);
-        System.out.println("  Medium: " + processed.medium().length);
-        System.out.println("  Small: " + processed.small().length);
+        log.debug("Processed sizes: original={} large={} medium={} small={}",
+                processed.original().length, processed.large().length,
+                processed.medium().length, processed.small().length);
 
         // Verify all sizes are non-zero
         assertThat(processed.original()).as("Original image bytes").isNotEmpty();
@@ -90,50 +90,47 @@ class ImageProcessingServiceTest {
         MockMultipartFile file = new MockMultipartFile(
                 "file", "test.png", "image/png", imageBytes);
 
-        System.out.println("File size: " + file.getSize());
-        System.out.println("Image bytes length: " + imageBytes.length);
+        log.debug("File size: {}, image bytes length: {}", file.getSize(), imageBytes.length);
 
         // Simulate the original problematic flow:
         // 1. First validateImage() consumes the InputStream
         imageProcessingService.validateImage(file);
 
-        System.out.println("After validateImage, trying processUploadedImage...");
+        log.debug("After validateImage, trying processUploadedImage...");
 
         // Test the ByteArrayInputStream approach directly
         try {
             BufferedImage testImg = ImageIO.read(new ByteArrayInputStream(imageBytes));
-            System.out.println("Direct ByteArrayInputStream - Image: " + (testImg != null ? testImg.getWidth() + "x" + testImg.getHeight() : "null"));
+            log.debug("Direct ByteArrayInputStream - Image: {}",
+                    testImg != null ? testImg.getWidth() + "x" + testImg.getHeight() : "null");
         } catch (Exception e) {
-            System.out.println("Direct ByteArrayInputStream error: " + e.getMessage());
+            log.debug("Direct ByteArrayInputStream error: {}", e.getMessage());
         }
 
         // Test file.getInputStream() approach
         try {
             BufferedImage testImg = ImageIO.read(file.getInputStream());
-            System.out.println("file.getInputStream() - Image: " + (testImg != null ? testImg.getWidth() + "x" + testImg.getHeight() : "null"));
+            log.debug("file.getInputStream() - Image: {}",
+                    testImg != null ? testImg.getWidth() + "x" + testImg.getHeight() : "null");
         } catch (Exception e) {
-            System.out.println("file.getInputStream() error: " + e.getMessage());
+            log.debug("file.getInputStream() error: {}", e.getMessage());
         }
 
         // This WOULD fail with the old implementation, but now works with new one
         ImageProcessingService.ProcessedImages processed =
                 imageProcessingService.processUploadedImage(file);
 
-        System.out.println("Processed sizes:");
-        System.out.println("  Original: " + processed.original().length);
-        System.out.println("  Large: " + processed.large().length);
-        System.out.println("  Medium: " + processed.medium().length);
-        System.out.println("  Small: " + processed.small().length);
+        log.debug("Processed sizes: original={} large={} medium={} small={}",
+                processed.original().length, processed.large().length,
+                processed.medium().length, processed.small().length);
 
         // Let's also test with bytes directly
         ImageProcessingService.ProcessedImages processedBytes =
                 imageProcessingService.processUploadedImage(imageBytes);
 
-        System.out.println("Processed with bytes:");
-        System.out.println("  Original: " + processedBytes.original().length);
-        System.out.println("  Large: " + processedBytes.large().length);
-        System.out.println("  Medium: " + processedBytes.medium().length);
-        System.out.println("  Small: " + processedBytes.small().length);
+        log.debug("Processed with bytes: original={} large={} medium={} small={}",
+                processedBytes.original().length, processedBytes.large().length,
+                processedBytes.medium().length, processedBytes.small().length);
 
         // Verify it works
         assertThat(processedBytes.original()).isNotEmpty();

@@ -6,6 +6,7 @@ import com.tinder.profiles.profile.dto.success.ApiResponse;
 import com.tinder.profiles.profile.dto.profileData.CreateProfileDtoV1;
 import com.tinder.profiles.profile.dto.profileData.PatchProfileDto;
 import com.tinder.profiles.profile.dto.profileData.shared.SharedProfileDto;
+import com.tinder.profiles.profile.internal.InternalProfileService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -26,6 +27,31 @@ public class ProfileController {
 
     private final ProfileApplicationService applicationService;
     private final DeckService deckService;
+    private final InternalProfileService internalProfileService;
+
+    @GetMapping("/by-ids")
+    public ResponseEntity<List<SharedProfileDto>> getManyByIds(@RequestParam String ids) {
+        if (ids == null || ids.isBlank()) {
+            return ResponseEntity.badRequest().build();
+        }
+
+        List<UUID> uuidList;
+        try {
+            uuidList = java.util.Arrays.stream(ids.split(","))
+                    .map(String::trim)
+                    .filter(s -> !s.isEmpty())
+                    .map(UUID::fromString)
+                    .toList();
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().build();
+        }
+
+        if (uuidList.isEmpty() || uuidList.size() > 100) {
+            return ResponseEntity.badRequest().build();
+        }
+
+        return ResponseEntity.ok(internalProfileService.getMany(uuidList));
+    }
 
     @GetMapping("/deck")
     public ResponseEntity<List<SharedProfileDto>> getDeck(

@@ -650,7 +650,6 @@ export class DiscoverComponent implements OnInit {
         this.loading.set(false);
       },
       error: (err: HttpErrorResponse) => {
-        console.error('Failed to load deck', err);
         this.loading.set(false);
         if (err.status === 429) {
           this.showToast('Too many requests. Please wait before refreshing.');

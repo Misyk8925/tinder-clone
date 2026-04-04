@@ -5,7 +5,7 @@ import {
 import { ActivatedRoute, Router } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { NgClass } from '@angular/common';
-import { HttpClient } from '@angular/common/http';
+import { HttpClient, HttpErrorResponse } from '@angular/common/http';
 import { firstValueFrom } from 'rxjs';
 import { MatchService, Message } from '../../core/services/match.service';
 import { markConversationRead } from '../matches/matches.component';
@@ -673,7 +673,7 @@ export class ChatComponent implements OnInit, OnDestroy, AfterViewChecked {
     });
   }
 
-  private extractBackendErrorMessage(error: any): string | null {
+  private extractBackendErrorMessage(error: HttpErrorResponse): string | null {
     if (typeof error?.error === 'string') {
       return error.error;
     }
@@ -683,12 +683,9 @@ export class ChatComponent implements OnInit, OnDestroy, AfterViewChecked {
     return null;
   }
 
-   private showToast(message: string): void {
-     // Simple toast implementation using a temporary alert
-     // In a production app, you might use a toast service
-     console.warn('Toast:', message);
-     alert(message);
-   }
+  private showToast(message: string): void {
+    alert(message);
+  }
 
   openPreview(url: string): void {
     this.previewUrl.set(url);

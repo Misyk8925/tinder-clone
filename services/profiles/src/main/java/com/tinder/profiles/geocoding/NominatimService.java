@@ -1,6 +1,5 @@
 package com.tinder.profiles.geocoding;
 
-// NominatimService.java
 import io.github.resilience4j.bulkhead.Bulkhead;
 import io.github.resilience4j.circuitbreaker.CircuitBreaker;
 import io.github.resilience4j.retry.Retry;

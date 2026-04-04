@@ -8,7 +8,6 @@ import lombok.Getter;
 import lombok.Setter;
 
 import java.time.Instant;
-import java.util.UUID;
 
 @Entity
 @Table(name = "billing_subscriptions")
@@ -32,5 +31,3 @@ public class BillingSubscription {
     private Long lastStripeEventCreated; // protect against out-of-order events
     private Instant updatedAt;
 }
-
-

@@ -97,6 +97,10 @@ public class ProfileCacheService {
      * {@code profile.created} Kafka event has not been consumed yet.
      */
     public Mono<Boolean> existsAll(UUID firstProfileId, UUID secondProfileId) {
+        return existsAll(firstProfileId, secondProfileId, null);
+    }
+
+    public Mono<Boolean> existsAll(UUID firstProfileId, UUID secondProfileId, String bearerToken) {
         if (firstProfileId.equals(secondProfileId)) {
             return Mono.just(false);
         }
@@ -139,7 +143,7 @@ public class ProfileCacheService {
                                         notInDb.size());
 
                                 return warmRedis.then(
-                                        profileServiceClient.findExisting(notInDb)
+                                        profileServiceClient.findExisting(notInDb, bearerToken)
                                                 .flatMap(confirmedIds -> {
                                                     if (!confirmedIds.containsAll(notInDb)) {
                                                         log.debug("{} profile(s) not confirmed by profiles service",

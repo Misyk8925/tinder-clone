@@ -2,8 +2,6 @@ package com.tinder.profiles.security;
 
 import org.jsoup.Jsoup;
 import org.jsoup.safety.Safelist;
-import org.owasp.html.HtmlPolicyBuilder;
-import org.owasp.html.PolicyFactory;
 import org.springframework.stereotype.Service;
 
 @Service

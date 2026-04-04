@@ -19,7 +19,10 @@ import java.util.UUID;
 @Getter
 @Setter
 @Builder
-@Deprecated // This entity is deprecated and should not be used for new development. It is only kept for historical data and should be removed in the future.
+/**
+ * @deprecated Kept for historical data only. Use the new swipe model for all new development.
+ */
+@Deprecated
 public class SwipeEvent implements Serializable {
 
     @Id
