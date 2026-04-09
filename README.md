@@ -96,6 +96,20 @@ cd services/subscriptions    && mvn spring-boot:run &
 cd services/gateway          && mvn spring-boot:run &
 ```
 
+### 3. Troubleshooting Docker Maven cache (`*.lastUpdated` errors)
+If Docker build fails with errors like `FileNotFoundException ... .pom.lastUpdated`, clean the affected BuildKit Maven cache id and rebuild.
+
+```zsh
+./scripts/clear-buildx-m2-cache.sh m2-swipes-demo
+docker build --progress=plain -f services/swipes-demo/Dockerfile services/swipes-demo
+```
+
+If your `buildx` version does not support prune by id, use broader cleanup for cache mounts:
+
+```zsh
+./scripts/clear-buildx-m2-cache.sh all
+```
+
 ---
 
 ## 🔐 Security
