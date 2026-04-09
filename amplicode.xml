@@ -6,9 +6,9 @@
   </component>
   <component name="AmplicodePersistenceUnitSettings">
     <persistence-units>
-      <persistence-unit moduleName="profiles" name="Default">
+      <persistence-unit moduleName="consumer" name="Default">
         <packages>
-          <package value="com.tinder.profiles" />
+          <package value="com.tinder.clone.consumer" />
         </packages>
       </persistence-unit>
       <persistence-unit moduleName="match" name="Default">
@@ -16,9 +16,9 @@
           <package value="com.tinder.match" />
         </packages>
       </persistence-unit>
-      <persistence-unit moduleName="swipes-demo" name="Default">
+      <persistence-unit moduleName="profiles" name="Default">
         <packages>
-          <package value="com.example.swipes_demo" />
+          <package value="com.tinder.profiles" />
         </packages>
       </persistence-unit>
       <persistence-unit moduleName="subscriptions" name="Default">
@@ -26,9 +26,9 @@
           <package value="com.tinder.subscriptions" />
         </packages>
       </persistence-unit>
-      <persistence-unit moduleName="consumer" name="Default">
+      <persistence-unit moduleName="swipes-demo" name="Default">
         <packages>
-          <package value="com.tinder.clone.consumer" />
+          <package value="com.example.swipes_demo" />
         </packages>
       </persistence-unit>
     </persistence-units>

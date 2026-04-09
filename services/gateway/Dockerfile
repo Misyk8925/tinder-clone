@@ -2,10 +2,12 @@ FROM maven:3.9.9-eclipse-temurin-21 AS build
 WORKDIR /workspace
 
 COPY pom.xml .
-RUN --mount=type=cache,target=/root/.m2 mvn -B -e -ntp dependency:go-offline
+RUN --mount=type=cache,id=m2-gateway,sharing=locked,target=/root/.m2 \
+    mvn -B -e -ntp -Dmaven.repo.local=/root/.m2/repository dependency:go-offline
 
 COPY src ./src
-RUN --mount=type=cache,target=/root/.m2 mvn -B -e -ntp package -DskipTests && \
+RUN --mount=type=cache,id=m2-gateway,sharing=locked,target=/root/.m2 \
+    mvn -B -e -ntp -Dmaven.repo.local=/root/.m2/repository package -DskipTests && \
     find target -maxdepth 1 -name "*.jar" ! -name "*-plain.jar" -exec mv {} target/app.jar \;
 
 FROM eclipse-temurin:21-jre-alpine
