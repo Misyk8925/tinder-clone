@@ -28,29 +28,16 @@ public class ProfileController {
     private final ProfileApplicationService applicationService;
     private final DeckService deckService;
     private final InternalProfileService internalProfileService;
+    private final IdsQueryParamParser idsQueryParamParser;
 
     @GetMapping("/by-ids")
     public ResponseEntity<List<SharedProfileDto>> getManyByIds(@RequestParam String ids) {
-        if (ids == null || ids.isBlank()) {
-            return ResponseEntity.badRequest().build();
-        }
-
-        List<UUID> uuidList;
         try {
-            uuidList = java.util.Arrays.stream(ids.split(","))
-                    .map(String::trim)
-                    .filter(s -> !s.isEmpty())
-                    .map(UUID::fromString)
-                    .toList();
+            List<UUID> uuidList = idsQueryParamParser.parse(ids);
+            return ResponseEntity.ok(internalProfileService.getMany(uuidList));
         } catch (IllegalArgumentException e) {
             return ResponseEntity.badRequest().build();
         }
-
-        if (uuidList.isEmpty() || uuidList.size() > 100) {
-            return ResponseEntity.badRequest().build();
-        }
-
-        return ResponseEntity.ok(internalProfileService.getMany(uuidList));
     }
 
     @GetMapping("/deck")
