@@ -20,6 +20,7 @@ public class SwipeProducer {
 
     public Mono<Void> send(SwipeCreatedEvent event) {
 
+
             return Mono.fromCallable(() -> objectMapper.writeValueAsString(event))
                     .map(json -> SenderRecord.create(
                             new ProducerRecord<>(topic, event.getProfile1Id(), json), null))
