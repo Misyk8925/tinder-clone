@@ -8,39 +8,7 @@ A "Tinder-like" application built with **Spring Boot 3.x** and **Spring Cloud**,
 
 ![Architecture Diagram](docs/Screenshot%202026-03-09%20at%2021.17.26.png)
 
-```
-                                          [S] Stripe          Keycloak
-                                               ↑                  ↑
- ┌───────┐    ┌─────────────┐    ┌─────────────────────────────────────────────┐
- │ NGINX │───►│ API Gateway │    │                                             │
- └───────┘    └──────┬──────┘    │  ┌──────────────────┐                      │
-                     │           │  │ subscription svc  │◄──── gRPC: premium   │
-                     ├───────────►  └──────────────────┘                      │
-                     │           │                                             │
-                     ├───────────►  ┌──────────────┐   swipe.created  ╔══════════════╗
-                     │           │  │  swipe svc   │────────────────► ║ consumer svc ║──► Postgres
-                     │           │  └──────────────┘                  ╚══════════════╝
-                     │           │        │ profile.created                   │
-                     │           │        │ profile.updated          match.created + swipe.created
-                     │           │        │ profile.deleted                   │
-                     │           │        ↓                                   ↓
-                     ├───────────►  ┌──────────────┐   match.created  ┌──────────────┐
-                     │           │  │  match svc   │◄──────────────── │  match svc   │
-                     │           │  └──────┬───────┘                  └──────────────┘
-                     │           │         │ Postgres
-                     │           │
-                     ├───────────►  ┌──────────────┐  ←── deck ───  ╔═══════╗
-                     │           │  │ profile svc  │                 ║ Redis ║
-                     │           │  └──────────────┘  ──── deck ──► ╚═══════╝
-                     │           │        │ Postgres
-                     │           │        │
-                     │           │        │ HTTP GET /active-profiles
-                     │           │        ↓
-                     └───────────►  ┌──────────────┐
-                                 │  │  deck svc    │
-                                 │  └──────────────┘
-                                 └─────────────────────────────────────────────┘
-```
+
 
 ### Kafka Topics
 
@@ -70,8 +38,8 @@ A "Tinder-like" application built with **Spring Boot 3.x** and **Spring Cloud**,
 
 ## 🚀 Quick Start
 
-For hardened single-server production, use `docker-compose.prod.yml` or `docker-compose.prod-min.yml` with `.env.prod` (see `docs/docker-deployment.md`).
-Per-service DB credentials are expected in production: `PROFILES_DB_*`, `MATCH_DB_*`, `CONSUMER_DB_*`, `SUBSCRIPTIONS_DB_*`, `SWIPES_DB_*`.
+For production-like local runs, use the root `docker-compose.yml` with env values from `.env.prod.example` (copy to your local env file and set real secrets).
+Per-service DB credentials are expected: `PROFILES_DB_*`, `MATCH_DB_*`, `CONSUMER_DB_*`, `SUBSCRIPTIONS_DB_*`, `SWIPES_DB_*`.
 
 ### Prerequisites
 - Java 21+, Maven 3.9+, Docker
@@ -85,15 +53,15 @@ docker-compose up -d
 ### 2. Start Services (in order)
 ```bash
 # Config → Eureka → Profiles → Deck → Swipes → Consumer → Match → Subscriptions → Gateway
-cd services/config-server2  && mvn spring-boot:run &
-cd services/discovery        && mvn spring-boot:run &
-cd services/profiles         && mvn spring-boot:run &
-cd services/deck             && mvn spring-boot:run &
-cd services/swipes-demo      && mvn spring-boot:run &
-cd services/consumer         && mvn spring-boot:run &
-cd services/match            && mvn spring-boot:run &
-cd services/subscriptions    && mvn spring-boot:run &
-cd services/gateway          && mvn spring-boot:run &
+(cd services/config-server2  && mvn spring-boot:run) &
+(cd services/discovery       && mvn spring-boot:run) &
+(cd services/profiles        && mvn spring-boot:run) &
+(cd services/deck            && mvn spring-boot:run) &
+(cd services/swipes-demo     && mvn spring-boot:run) &
+(cd services/consumer        && mvn spring-boot:run) &
+(cd services/match           && mvn spring-boot:run) &
+(cd services/subscriptions   && mvn spring-boot:run) &
+(cd services/gateway         && mvn spring-boot:run) &
 ```
 
 ### 3. Troubleshooting Docker Maven cache (`*.lastUpdated` errors)
@@ -124,17 +92,15 @@ After a Stripe payment, Subscriptions Service calls Profiles gRPC `UpdatePremium
 
 | Service | Port | Purpose |
 |---------|------|---------|
-| PostgreSQL 16 | 5432 | Profiles DB |
+| PostgreSQL (postgis/postgis:17-3.4) | 5435 (host) -> 5432 (container) | Main DB host for profiles/match/consumer/subscriptions/swipes |
+| Keycloak PostgreSQL | 5432 | Keycloak DB |
+| Keycloak | 9080 | Auth / JWT issuer |
 | Redis 8.2 | 6379 | Deck cache + swipe existence |
-| Kafka | 9092 | Event streaming |
-| Zookeeper | 2181 | Kafka coordination |
-| LocalStack | 4566 | S3 emulation |
-| Elasticsearch | 9200 | Logs |
-| Logstash | 5010 | Log ingestion |
-| Kibana | 5601 | Log UI |
+| Kafka | internal only (`kafka:29092`) | Event streaming |
+| Zookeeper | internal only | Kafka coordination |
 
-> Consumer / Swipes services use a secondary PostgreSQL on port `54322`.  
-> `docker run --name pg-swipes -e POSTGRES_PASSWORD=postgres -p 54322:5432 -d postgres:16`
+> ELK services are present in `docker-compose.yml` but currently commented out.
+> LocalStack is not part of the current compose stack.
 
 ---
 
@@ -142,12 +108,13 @@ After a Stripe payment, Subscriptions Service calls Profiles gRPC `UpdatePremium
 
 ### Profiles Service `:8010`
 ```
-POST   /api/v1/profiles             - Create profile
-GET    /api/v1/profiles/{id}        - Get profile (Redis-cached)
-PUT    /api/v1/profiles/{id}        - Update
-DELETE /api/v1/profiles/{id}        - Soft delete
-GET    /api/v1/profiles/active      - Used by Deck Service
-POST   /photos/upload               - Upload photo (S3, max 5)
+POST   /api/v1/profiles                  - Create profile
+GET    /api/v1/profiles/{id}             - Get profile
+PUT    /api/v1/profiles                  - Update my profile
+DELETE /api/v1/profiles                  - Delete my profile
+GET    /api/v1/profiles/deck             - User deck view
+GET    /api/v1/profiles/internal/active  - Internal active profiles for deck rebuild
+POST   /api/v1/profiles/photos/upload    - Upload photo (S3, max 5)
 ```
 
 ### Swipes Demo `:8040`
@@ -164,8 +131,9 @@ DELETE /api/v1/admin/deck/?viewerId=                 - Invalidate cache
 
 ### Subscriptions Service `:8095`
 ```
-POST   /checkout                    - Create Stripe session
-POST   /webhook                     - Stripe webhook (→ gRPC premium upgrade)
+POST   /api/v1/billing/checkout-session  - Create Stripe checkout session
+POST   /api/v1/billing/portal-session    - Create Stripe portal session
+POST   /api/v1/webhook                   - Stripe webhook (-> gRPC premium upgrade)
 ```
 
 ---
@@ -187,7 +155,7 @@ Testcontainers (PostgreSQL, Redis), EmbeddedKafka, reactor-test (`StepVerifier`)
 ```bash
 curl http://localhost:8222/actuator/health   # Gateway
 open http://localhost:8761                   # Eureka
-open http://localhost:5601                   # Kibana
+# Kibana is optional (ELK block is commented in docker-compose)
 ```
 
 ---
