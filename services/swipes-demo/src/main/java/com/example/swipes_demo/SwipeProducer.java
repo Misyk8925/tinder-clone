@@ -3,26 +3,23 @@ package com.example.swipes_demo;
 import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.kafka.clients.producer.ProducerRecord;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
-import org.apache.kafka.clients.producer.ProducerRecord;
 import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
-import reactor.core.publisher.Mono;
+import reactor.core.Disposable;
 import reactor.core.publisher.Flux;
+import reactor.core.publisher.Mono;
 import reactor.kafka.sender.KafkaSender;
 import reactor.kafka.sender.SenderRecord;
 
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.ArrayBlockingQueue;
-import java.util.concurrent.BlockingQueue;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ThreadFactory;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.Queue;
+import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.concurrent.atomic.AtomicInteger;
 
 @Service
 @Slf4j
@@ -31,44 +28,47 @@ public class SwipeProducer {
     private static final String TOPIC = "swipe-created";
 
     private final KafkaSender<String, String> kafkaSender;
-    private final BlockingQueue<SwipeCreatedEvent> queue;
-    private final AtomicBoolean running = new AtomicBoolean(false);
+    private final Queue<SwipeCreatedEvent> queue;
+    private final AtomicInteger queueSize = new AtomicInteger();
     private final int queueCapacity;
-    private final int workerCount;
+    private final int concurrency;
     private final int batchSize;
+    private final Duration drainInterval;
     private final boolean warmupEnabled;
-    private ExecutorService workers;
+    private Disposable senderSubscription;
 
     public SwipeProducer(KafkaSender<String, String> kafkaSender,
                          @Value("${swipes.producer.queue-capacity:200000}") int queueCapacity,
-                         @Value("${swipes.producer.worker-count:4}") int workerCount,
+                         @Value("${swipes.producer.concurrency:${swipes.producer.worker-count:4}}") int concurrency,
                          @Value("${swipes.producer.batch-size:500}") int batchSize,
+                         @Value("${swipes.producer.buffer-timeout:1ms}") Duration drainInterval,
                          @Value("${swipes.producer.warmup-enabled:true}") boolean warmupEnabled) {
         this.kafkaSender = kafkaSender;
         this.queueCapacity = Math.max(1, queueCapacity);
-        this.queue = new ArrayBlockingQueue<>(this.queueCapacity);
-        this.workerCount = Math.max(1, workerCount);
+        this.queue = new ConcurrentLinkedQueue<>();
+        this.concurrency = Math.max(1, concurrency);
         this.batchSize = Math.max(1, batchSize);
+        this.drainInterval = drainInterval.isNegative() || drainInterval.isZero()
+                ? Duration.ofMillis(1)
+                : drainInterval;
         this.warmupEnabled = warmupEnabled;
     }
 
     @PostConstruct
-    void startWorkers() {
+    void startSender() {
         warmProducer();
-        running.set(true);
-        workers = Executors.newFixedThreadPool(workerCount, new SwipeProducerThreadFactory());
-        for (int i = 0; i < workerCount; i++) {
-            workers.submit(this::drainLoop);
-        }
-        log.info("Started swipe producer queue workers: workers={}, batchSize={}, capacity={}",
-                workerCount, batchSize, queueCapacity);
+        senderSubscription = Flux.range(0, concurrency)
+                .flatMap(worker -> Mono.defer(this::drainOnce).repeat(), concurrency)
+                .doOnError(error -> log.error("Swipe producer pipeline stopped", error))
+                .subscribe();
+        log.info("Started swipe producer pipeline: concurrency={}, batchSize={}, drainInterval={}, capacity={}",
+                concurrency, batchSize, drainInterval, queueCapacity);
     }
 
     @PreDestroy
-    void stopWorkers() {
-        running.set(false);
-        if (workers != null) {
-            workers.shutdownNow();
+    void stopSender() {
+        if (senderSubscription != null) {
+            senderSubscription.dispose();
         }
     }
 
@@ -89,7 +89,7 @@ public class SwipeProducer {
 
     public Mono<Void> send(SwipeCreatedEvent event) {
         return Mono.defer(() -> {
-            if (queue.offer(event)) {
+            if (tryEnqueue(event)) {
                 return Mono.empty();
             }
 
@@ -100,43 +100,57 @@ public class SwipeProducer {
         });
     }
 
-    private void drainLoop() {
+    private List<SwipeCreatedEvent> drainBatch() {
         List<SwipeCreatedEvent> batch = new ArrayList<>(batchSize);
+        for (int i = 0; i < batchSize; i++) {
+            SwipeCreatedEvent event = queue.poll();
+            if (event == null) {
+                break;
+            }
+            queueSize.decrementAndGet();
+            batch.add(event);
+        }
+        return batch;
+    }
 
-        while (running.get() || !queue.isEmpty()) {
-            try {
-                SwipeCreatedEvent first = queue.poll(250, TimeUnit.MILLISECONDS);
-                if (first == null) {
-                    continue;
-                }
-
-                batch.add(first);
-                queue.drainTo(batch, batchSize - 1);
-                publishBatch(batch);
-            } catch (InterruptedException ex) {
-                Thread.currentThread().interrupt();
-                if (!running.get()) {
-                    return;
-                }
-            } catch (Exception ex) {
-                log.error("Failed to publish swipe batch", ex);
-            } finally {
-                batch.clear();
+    private boolean tryEnqueue(SwipeCreatedEvent event) {
+        while (true) {
+            int currentSize = queueSize.get();
+            if (currentSize >= queueCapacity) {
+                return false;
+            }
+            if (queueSize.compareAndSet(currentSize, currentSize + 1)) {
+                queue.offer(event);
+                return true;
             }
         }
     }
 
-    private void publishBatch(List<SwipeCreatedEvent> batch) {
+    private Mono<Void> drainOnce() {
+        return Mono.defer(() -> {
+            List<SwipeCreatedEvent> batch = drainBatch();
+            if (batch.isEmpty()) {
+                return Mono.delay(drainInterval).then();
+            }
+
+            return publishBatch(batch);
+        }).onErrorResume(error -> {
+            log.error("Failed to drain swipe producer queue", error);
+            return Mono.delay(drainInterval).then();
+        });
+    }
+
+    private Mono<Void> publishBatch(List<SwipeCreatedEvent> batch) {
         Flux<SenderRecord<String, String, Void>> records = Flux.fromIterable(batch)
                 .map(event -> SenderRecord.create(
                         new ProducerRecord<>(TOPIC, event.getProfile1Id(), serialize(event)),
                         null
                 ));
 
-        kafkaSender.send(records)
+        return kafkaSender.send(records)
                 .doOnError(error -> log.error("Failed to send swipe event batch", error))
                 .then()
-                .block(Duration.ofSeconds(30));
+                .onErrorResume(error -> Mono.empty());
     }
 
     private String serialize(SwipeCreatedEvent event) {
@@ -147,16 +161,5 @@ public class SwipeProducer {
                 + ",\"isSuper\":" + event.isSuper()
                 + ",\"timestamp\":" + event.getTimestamp()
                 + "}";
-    }
-
-    private static final class SwipeProducerThreadFactory implements ThreadFactory {
-        private int index = 1;
-
-        @Override
-        public Thread newThread(Runnable runnable) {
-            Thread thread = new Thread(runnable, "swipe-producer-" + index++);
-            thread.setDaemon(true);
-            return thread;
-        }
     }
 }

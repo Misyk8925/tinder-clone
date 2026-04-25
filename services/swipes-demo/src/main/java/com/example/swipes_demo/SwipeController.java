@@ -20,6 +20,8 @@ import reactor.core.publisher.Mono;
 @RequiredArgsConstructor
 public class SwipeController {
 
+    private static final ResponseEntity<Void> ACCEPTED = ResponseEntity.accepted().build();
+
     private final SwipeService swipeService;
     private final InternalAuthVerifier internalAuthVerifier;
 
@@ -34,14 +36,14 @@ public class SwipeController {
             return Mono.error(new ResponseStatusException(HttpStatus.FORBIDDEN, "Invalid internal auth"));
         }
         return swipeService.sendSwipe(dto, false, jwt, internalRequest)
-                .thenReturn(ResponseEntity.accepted().build());
+                .thenReturn(ACCEPTED);
     }
 
     @PostMapping
     public Mono<ResponseEntity<Void>> swipe(@RequestBody @Valid SwipeDto dto,
                                             @AuthenticationPrincipal Jwt jwt) {
         return swipeService.sendSwipe(dto, false, jwt, false)
-                .thenReturn(ResponseEntity.accepted().build());
+                .thenReturn(ACCEPTED);
     }
 
     /** Only reachable via gateway's PremiumOrAdminFilter — no role check needed here. */
@@ -56,7 +58,7 @@ public class SwipeController {
             return Mono.error(new ResponseStatusException(HttpStatus.FORBIDDEN, "Invalid internal auth"));
         }
         return swipeService.sendSwipe(dto, true, jwt, internalRequest)
-                .thenReturn(ResponseEntity.accepted().build());
+                .thenReturn(ACCEPTED);
     }
 
     /** Only reachable via gateway's PremiumOrAdminFilter — no role check needed here. */
@@ -64,7 +66,7 @@ public class SwipeController {
     public Mono<ResponseEntity<Void>> superLike(@RequestBody @Valid SwipeDto dto,
                                                 @AuthenticationPrincipal Jwt jwt) {
         return swipeService.sendSwipe(dto, true, jwt, false)
-                .thenReturn(ResponseEntity.accepted().build());
+                .thenReturn(ACCEPTED);
     }
 
     private boolean isInternalRequest(ServerWebExchange exchange, String internalAuth) {

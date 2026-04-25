@@ -60,7 +60,9 @@ swipes:
   producer:
     queue-capacity: ${SWIPES_PRODUCER_QUEUE_CAPACITY:200000}
     worker-count: ${SWIPES_PRODUCER_WORKER_COUNT:4}
+    concurrency: ${SWIPES_PRODUCER_CONCURRENCY:${SWIPES_PRODUCER_WORKER_COUNT:4}}
     batch-size: ${SWIPES_PRODUCER_BATCH_SIZE:500}
+    buffer-timeout: ${SWIPES_PRODUCER_BUFFER_TIMEOUT:1ms}
     warmup-enabled: ${SWIPES_PRODUCER_WARMUP_ENABLED:true}
 
 kafka:

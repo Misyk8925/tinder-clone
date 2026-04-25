@@ -65,13 +65,40 @@ public class SwipeService {
                 });
     }
 
+    public Mono<Void> sendTrustedInternalSwipe(String body, boolean isPremiumOrAdmin) {
+        ParsedSwipe parsedSwipe = parseTrustedInternalSwipe(body);
+        if (parsedSwipe.isSuper() && !isPremiumOrAdmin) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Super like requires a premium or admin account");
+        }
+
+        if (parsedSwipe.profile1Id().equals(parsedSwipe.profile2Id())) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "profile1Id and profile2Id must be different");
+        }
+
+        return enqueueSwipe(
+                parsedSwipe.profile1Id(),
+                parsedSwipe.profile2Id(),
+                parsedSwipe.decision(),
+                parsedSwipe.isSuper()
+        );
+    }
+
     private Mono<Void> enqueueSwipe(SwipeDto dto) {
-        SwipeCreatedEvent event = new SwipeCreatedEvent(
-                nextEventId(),
+        return enqueueSwipe(
                 dto.profile1Id(),
                 dto.profile2Id(),
                 dto.decision(),
-                Boolean.TRUE.equals(dto.isSuper()),
+                Boolean.TRUE.equals(dto.isSuper())
+        );
+    }
+
+    private Mono<Void> enqueueSwipe(String profile1Id, String profile2Id, boolean decision, boolean isSuper) {
+        SwipeCreatedEvent event = new SwipeCreatedEvent(
+                nextEventId(),
+                profile1Id,
+                profile2Id,
+                decision,
+                isSuper,
                 System.currentTimeMillis()
         );
 
@@ -102,5 +129,81 @@ public class SwipeService {
                     "Invalid UUID in field: " + fieldName
             );
         }
+    }
+
+    private ParsedSwipe parseTrustedInternalSwipe(String body) {
+        if (body == null || body.isBlank()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Swipe body is required");
+        }
+
+        return new ParsedSwipe(
+                extractString(body, "profile1Id"),
+                extractString(body, "profile2Id"),
+                extractBoolean(body, "decision", false),
+                extractBoolean(body, "isSuper", false)
+        );
+    }
+
+    private String extractString(String body, String fieldName) {
+        String marker = "\"" + fieldName + "\"";
+        int fieldStart = body.indexOf(marker);
+        if (fieldStart < 0) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Missing field: " + fieldName);
+        }
+
+        int colon = body.indexOf(':', fieldStart + marker.length());
+        if (colon < 0) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid field: " + fieldName);
+        }
+
+        int valueStart = skipWhitespace(body, colon + 1);
+        if (valueStart >= body.length() || body.charAt(valueStart) != '"') {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid field: " + fieldName);
+        }
+
+        int valueEnd = body.indexOf('"', valueStart + 1);
+        if (valueEnd < 0) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid field: " + fieldName);
+        }
+
+        String value = body.substring(valueStart + 1, valueEnd);
+        if (value.isBlank()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Missing field: " + fieldName);
+        }
+        return value;
+    }
+
+    private boolean extractBoolean(String body, String fieldName, boolean defaultValue) {
+        String marker = "\"" + fieldName + "\"";
+        int fieldStart = body.indexOf(marker);
+        if (fieldStart < 0) {
+            return defaultValue;
+        }
+
+        int colon = body.indexOf(':', fieldStart + marker.length());
+        if (colon < 0) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid field: " + fieldName);
+        }
+
+        int valueStart = skipWhitespace(body, colon + 1);
+        if (body.startsWith("true", valueStart)) {
+            return true;
+        }
+        if (body.startsWith("false", valueStart)) {
+            return false;
+        }
+
+        throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid field: " + fieldName);
+    }
+
+    private int skipWhitespace(String value, int index) {
+        int current = index;
+        while (current < value.length() && Character.isWhitespace(value.charAt(current))) {
+            current++;
+        }
+        return current;
+    }
+
+    private record ParsedSwipe(String profile1Id, String profile2Id, boolean decision, boolean isSuper) {
     }
 }
