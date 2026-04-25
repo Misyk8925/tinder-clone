@@ -9,6 +9,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.oauth2.jwt.Jwt;
+import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.web.server.ResponseStatusException;
 import reactor.core.publisher.Mono;
 
@@ -82,6 +83,21 @@ class SwipeServiceTest {
         assertThat(sentEvent.isDecision()).isFalse();
         assertThat(sentEvent.getEventId()).isNotBlank();
         assertThat(sentEvent.getTimestamp()).isPositive();
+    }
+
+    @Test
+    void sendSwipeShouldAllowTrustedInternalBenchmarkWithoutProfileLookup() {
+        String profile1Id = UUID.randomUUID().toString();
+        String profile2Id = UUID.randomUUID().toString();
+        SwipeDto dto = new SwipeDto(profile1Id, profile2Id, false, null);
+
+        ReflectionTestUtils.setField(swipeService, "internalBypassProfileCheck", true);
+        when(swipeProducer.send(any())).thenReturn(Mono.empty());
+
+        swipeService.sendSwipe(dto, false, null, true).block();
+
+        verify(profileCacheService, never()).existsAll(any(), any(), any());
+        verify(swipeProducer).send(any());
     }
 
     @Test

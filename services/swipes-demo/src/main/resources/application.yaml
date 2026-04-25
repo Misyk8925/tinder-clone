@@ -54,8 +54,16 @@ services:
   profiles:
     base-url: http://localhost:8010/api/v1/profiles
 
+swipes:
+  internal-auth-secret: ${INTERNAL_SWIPES_AUTH_SECRET:}
+  internal-bypass-profile-check: ${SWIPES_INTERNAL_BYPASS_PROFILE_CHECK:false}
+  producer:
+    queue-capacity: ${SWIPES_PRODUCER_QUEUE_CAPACITY:200000}
+    worker-count: ${SWIPES_PRODUCER_WORKER_COUNT:4}
+    batch-size: ${SWIPES_PRODUCER_BATCH_SIZE:500}
+    warmup-enabled: ${SWIPES_PRODUCER_WARMUP_ENABLED:true}
+
 kafka:
   topics:
     profile-created: profile.created
     profile-deleted: profile.deleted
-

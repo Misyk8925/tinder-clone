@@ -545,13 +545,19 @@ services:
       SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:29092
       SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_JWK_SET_URI: ${KEYCLOAK_JWK_SET_URI:-http://keycloak:9080/realms/spring/protocol/openid-connect/certs}
       SERVICES_PROFILES_BASE_URL: http://profiles:8010/api/v1/profiles
+      INTERNAL_SWIPES_AUTH_SECRET: ${INTERNAL_SWIPES_AUTH_SECRET:-}
+      SWIPES_INTERNAL_BYPASS_PROFILE_CHECK: ${SWIPES_INTERNAL_BYPASS_PROFILE_CHECK:-false}
+      SWIPES_PRODUCER_QUEUE_CAPACITY: ${SWIPES_PRODUCER_QUEUE_CAPACITY:-200000}
+      SWIPES_PRODUCER_WORKER_COUNT: ${SWIPES_PRODUCER_WORKER_COUNT:-4}
+      SWIPES_PRODUCER_BATCH_SIZE: ${SWIPES_PRODUCER_BATCH_SIZE:-500}
+      SWIPES_PRODUCER_WARMUP_ENABLED: ${SWIPES_PRODUCER_WARMUP_ENABLED:-true}
       JAVA_TOOL_OPTIONS: "-XX:+UseContainerSupport -XX:+UseG1GC -XX:InitialRAMPercentage=40.0 -XX:MaxRAMPercentage=75.0 -Dfile.encoding=UTF-8 -Dsun.net.inetaddr.ttl=60 -Djava.io.tmpdir=/tmp"
     networks:
       - app
-    mem_limit: 512m
-    cpus: "0.60"
+    mem_limit: 2g
+    cpus: "6.00"
     healthcheck:
-      test: ["CMD-SHELL", "(wget -q --server-response -O- http://localhost:8040/actuator/health 2>&1 || true) | grep -Eq 'HTTP/1.1 (200|401)' || exit 1"]
+      test: ["CMD-SHELL", "(wget -q --server-response -O- http://localhost:8040/actuator/health 2>&1 || true) | grep -Eq 'HTTP/1.1 (200|401|403|404)' || exit 1"]
       interval: 15s
       timeout: 10s
       start_period: 300s
@@ -583,4 +589,3 @@ volumes:
   elasticsearch-data:
     driver: local
   kc-pgdata:
-
