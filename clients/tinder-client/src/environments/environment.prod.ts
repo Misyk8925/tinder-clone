@@ -1,9 +1,9 @@
 export const environment = {
   production: true,
-  apiGatewayUrl: 'https://api.mykh.studio',
-  wsUrl: 'wss://api.mykh.studio/ws',
+  apiGatewayUrl: 'https://api.misyk.tech',
+  wsUrl: 'wss://api.misyk.tech/ws',
   keycloak: {
-    url: 'https://auth-app.mykh.studio',
+    url: 'https://auth-app.misyk.tech',
     realm: 'spring',
     clientId: 'tinder-client'
   }
