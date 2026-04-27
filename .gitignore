@@ -8,3 +8,10 @@
 *.jks
 !docker/certs/*.p12
 !docker/certs/*.jks
+/.agents/skills/vps_dokploy_access.md
+/services/swipes-demo/load-tests/wrk/swipe-static.lua
+/services/swipes-demo/load-tests/swipe-benchmark.js
+/services/swipes-demo/setup-k6-vps.sh
+/services/swipes-demo/load-tests/README.md
+/clients/tinder-client/src/assets/icons/README.md
+/services/swipes-demo/benchmark-isolate-vps.sh
