@@ -289,6 +289,7 @@ services:
       SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_JWK_SET_URI: ${KEYCLOAK_JWK_SET_URI:-http://keycloak:9080/realms/spring/protocol/openid-connect/certs}
       KEYCLOAK_URL: http://keycloak:9080
       MEDIA_SERVICE_BASE_URL: http://swipes:8040
+      DECK_SERVICE_URL: http://deck:8030
       LOGSTASH_HOST: localhost
       LOGSTASH_PORT: 5000
       MANAGEMENT_TRACING_ENABLED: "false"

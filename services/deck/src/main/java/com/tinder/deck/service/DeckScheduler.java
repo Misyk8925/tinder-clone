@@ -24,6 +24,7 @@ public class DeckScheduler {
 
     private final DeckService deckService;
     private final ProfilesHttp profilesHttp;
+    private final DeckCache deckCache;
 
     /** Maximum number of deck rebuilds to run in parallel */
     @Value("${deck.scheduler.max-concurrent-rebuilds:10}")
@@ -32,6 +33,14 @@ public class DeckScheduler {
     /** Per-user rebuild timeout in seconds */
     @Value("${deck.scheduler.user-rebuild-timeout-seconds:30}")
     private int userRebuildTimeoutSeconds;
+
+    /** How far back a viewer must have requested a deck to be eligible for scheduled rebuilds */
+    @Value("${deck.scheduler.recent-viewers-window-minutes:30}")
+    private int recentViewersWindowMinutes;
+
+    /** Upper bound for viewers considered in a single scheduled pass */
+    @Value("${deck.scheduler.max-recent-viewers:1000}")
+    private int maxRecentViewers;
 
     /**
      * Rebuild decks for all active users in parallel.
@@ -46,26 +55,32 @@ public class DeckScheduler {
      */
     @Scheduled(cron = "${deck.scheduler.cron:0 0/1 * * * *}")
     public void rebuildAllDecks() {
-        log.info("Starting scheduled batch deck rebuild (concurrency={})", maxConcurrentRebuilds);
+        log.info("Starting scheduled rebuild for recent viewers (window={}m, max={}, concurrency={})",
+                recentViewersWindowMinutes, maxRecentViewers, maxConcurrentRebuilds);
 
         AtomicInteger success = new AtomicInteger(0);
         AtomicInteger failure = new AtomicInteger(0);
 
-        // getActiveUsers() always returns a Flux (never null) — start the reactive pipeline
-        profilesHttp.getActiveUsers()
+        deckCache.getRecentViewerIds(Duration.ofMinutes(recentViewersWindowMinutes), maxRecentViewers)
+                .buffer(100)
+                .concatMap(viewerIds -> {
+                    if (viewerIds.isEmpty()) {
+                        return Flux.empty();
+                    }
+                    return profilesHttp.getProfilesByIds(viewerIds);
+                })
                 .timeout(Duration.ofSeconds(60))
                 .onErrorResume(e -> {
-                    log.error("Failed to fetch active users — aborting scheduled rebuild: {}", e.getMessage());
+                    log.error("Failed to fetch recent viewers for scheduled rebuild: {}", e.getMessage());
                     return Flux.empty();
                 })
-                // Parallel rebuild: up to maxConcurrentRebuilds in-flight at once
                 .flatMap(viewer -> rebuildDeckForUserReactive(viewer)
                         .doOnSuccess(v -> success.incrementAndGet())
                         .doOnError(e -> failure.incrementAndGet())
-                        .onErrorResume(e -> Mono.empty()), // keep stream alive on per-user error
+                        .onErrorResume(e -> Mono.empty()),
                         maxConcurrentRebuilds)
                 .doOnComplete(() ->
-                        log.info("Scheduled batch deck rebuild completed — success={}, failed={}",
+                        log.info("Scheduled recent-viewer deck rebuild completed — success={}, failed={}",
                                 success.get(), failure.get()))
                 .subscribe();
     }

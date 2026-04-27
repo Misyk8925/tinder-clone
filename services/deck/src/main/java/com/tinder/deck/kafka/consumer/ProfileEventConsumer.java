@@ -51,11 +51,12 @@ public class ProfileEventConsumer {
 
         log.info("Invalidating decks for deleted profile: {}", event.getProfileId());
 
-        deckCache.removeFromAllDecks(event.getProfileId())
-                .doOnNext(count -> log.info("Removed deleted profile {} from {} cached decks",
-                        event.getProfileId(), count))
-                .then(deckCache.markAsStaleForAllDecks(event.getProfileId())
-                .doOnNext(count -> log.info("Marked deleted profile {} as stale in {} decks", event.getProfileId(), count))
+        deckCache.markProfileDeleted(event.getProfileId())
+                .doOnNext(marked -> log.info("Marked deleted profile {} in global deleted set={}",
+                        event.getProfileId(), marked))
+                .then(deckCache.markProfileInvalidated(event.getProfileId())
+                .doOnNext(marked -> log.info("Marked deleted profile {} as globally invalidated={}",
+                        event.getProfileId(), marked))
                 .then(deckCache.invalidate(event.getProfileId())
                         .doOnNext(count -> {
                             if (count > 0) {
@@ -99,17 +100,18 @@ public class ProfileEventConsumer {
     }
 
     private Mono<Void> handleCriticalFieldsChange(ProfileUpdateEvent event) {
-        log.info("CRITICAL_FIELDS changed for profile: {}. Invalidating personal deck",
+        log.info("CRITICAL_FIELDS changed for profile: {}. Globally invalidating cached entries",
                 event.getProfileId());
 
-        return deckCache.markAsStaleForAllDecks(event.getProfileId())
-                .doOnNext(count -> log.info("Marked profile {} as stale in {} decks", event.getProfileId(), count))
+        return deckCache.markProfileInvalidated(event.getProfileId())
+                .doOnNext(marked -> log.info("Marked profile {} as globally invalidated={}",
+                        event.getProfileId(), marked))
                 .then(Mono.fromRunnable(() -> log.debug("Preferences caches will expire naturally via TTL. " +
                         "Stale data acceptable for up to 5 minutes.")));
     }
 
     private Mono<Void> handleLocationChange(ProfileUpdateEvent event) {
-        log.info("LOCATION_CHANGE for profile: {}. Invalidating personal deck and marking stale for viewers",
+        log.info("LOCATION_CHANGE for profile: {}. Invalidating personal deck and globally invalidating cached entries",
                 event.getProfileId());
 
         Mono<Long> invalidate = deckCache.invalidate(event.getProfileId())
@@ -122,11 +124,12 @@ public class ProfileEventConsumer {
                 })
                 .doOnError(error -> log.error("Failed to invalidate personal deck after location change", error));
 
-        Mono<Long> markStale = deckCache.markAsStaleForAllDecks(event.getProfileId())
-                .doOnNext(count -> log.info("Marked profile {} as stale in {} decks", event.getProfileId(), count))
-                .doOnError(error -> log.error("Failed to mark profile as stale across decks after location change", error));
+        Mono<Boolean> markInvalidated = deckCache.markProfileInvalidated(event.getProfileId())
+                .doOnNext(marked -> log.info("Marked profile {} as globally invalidated={}",
+                        event.getProfileId(), marked))
+                .doOnError(error -> log.error("Failed to globally invalidate profile after location change", error));
 
-        return invalidate.then(markStale).then();
+        return invalidate.then(markInvalidated).then();
     }
 
     private Mono<Void> handleNonCriticalChange(ProfileUpdateEvent event) {

@@ -50,12 +50,12 @@ class ProfileEventConsumerTest {
         consumer.consumeProfileUpdate(event, 0, 1L);
 
         verify(deckCache).invalidate(profileId);
-        verify(deckCache, never()).markAsStaleForAllDecks(any());
+        verify(deckCache, never()).markProfileInvalidated(any());
     }
 
     @Test
-    @DisplayName("CRITICAL_FIELDS change marks profile as stale across decks")
-    void criticalFieldsChangeMarksStale() {
+    @DisplayName("CRITICAL_FIELDS change marks profile invalidated globally")
+    void criticalFieldsChangeMarksInvalidated() {
         UUID profileId = UUID.randomUUID();
         ProfileUpdateEvent event = ProfileUpdateEvent.builder()
                 .eventId(UUID.randomUUID())
@@ -65,17 +65,17 @@ class ProfileEventConsumerTest {
                 .timestamp(Instant.now())
                 .build();
 
-        when(deckCache.markAsStaleForAllDecks(profileId)).thenReturn(Mono.just(3L));
+        when(deckCache.markProfileInvalidated(profileId)).thenReturn(Mono.just(true));
 
         consumer.consumeProfileUpdate(event, 0, 2L);
 
-        verify(deckCache).markAsStaleForAllDecks(profileId);
+        verify(deckCache).markProfileInvalidated(profileId);
         verify(deckCache, never()).invalidate(any(UUID.class));
     }
 
     @Test
-    @DisplayName("LOCATION_CHANGE invalidates personal deck and marks stale across decks")
-    void locationChangeInvalidatesAndMarksStale() {
+    @DisplayName("LOCATION_CHANGE invalidates personal deck and marks profile invalidated globally")
+    void locationChangeInvalidatesAndMarksInvalidated() {
         UUID profileId = UUID.randomUUID();
         ProfileUpdateEvent event = ProfileUpdateEvent.builder()
                 .eventId(UUID.randomUUID())
@@ -86,12 +86,12 @@ class ProfileEventConsumerTest {
                 .build();
 
         when(deckCache.invalidate(profileId)).thenReturn(Mono.just(1L));
-        when(deckCache.markAsStaleForAllDecks(profileId)).thenReturn(Mono.just(5L));
+        when(deckCache.markProfileInvalidated(profileId)).thenReturn(Mono.just(true));
 
         consumer.consumeProfileUpdate(event, 0, 3L);
 
         verify(deckCache).invalidate(profileId);
-        verify(deckCache).markAsStaleForAllDecks(profileId);
+        verify(deckCache).markProfileInvalidated(profileId);
     }
 
     @Test
@@ -111,4 +111,3 @@ class ProfileEventConsumerTest {
         assertThrows(RuntimeException.class, () -> consumer.consumeProfileUpdate(event, 0, 4L));
     }
 }
-

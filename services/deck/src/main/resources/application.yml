@@ -77,10 +77,12 @@ deck:
       ttl-hours: 24  # How long to keep stale markers
 
   scheduler:
-    # Runs every minute — at 1000 users with concurrency=50 this typically completes in ~90s
-    cron: "0 0/1 * * * *"
+    # Runs every minute over recently active viewers only, not all profiles.
+    cron: "0 0/10 * * * *"
     max-concurrent-rebuilds: 50
     user-rebuild-timeout-seconds: 30
+    recent-viewers-window-minutes: 30
+    max-recent-viewers: 1000
 
 # Kafka topics
 kafka:

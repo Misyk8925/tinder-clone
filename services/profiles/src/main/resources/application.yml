@@ -148,6 +148,9 @@ keycloak:
   admin-username: ${KEYCLOAK_ADMIN_USERNAME:admin}
   admin-password: ${KEYCLOAK_ADMIN_PASSWORD:admin@1234}
 
+deck:
+  base-url: ${DECK_SERVICE_URL:http://localhost:8030}
+
 
 # Kafka topics
 kafka:

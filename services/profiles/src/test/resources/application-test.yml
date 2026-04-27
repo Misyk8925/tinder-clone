@@ -129,6 +129,9 @@ integration:
 swipes:
   base-url: http://localhost:8222
 
+deck:
+  base-url: http://localhost:8030
+
 outbox:
   publisher:
     enabled: true

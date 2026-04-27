@@ -20,6 +20,7 @@ import reactor.core.publisher.Mono;
 import reactor.test.StepVerifier;
 
 import java.time.Duration;
+import java.time.Instant;
 import java.util.*;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -86,7 +87,8 @@ class DeckServiceTest {
         pipeline = new DeckPipeline(searchStage, filterStage, scoringStage, cacheStage);
         ReflectionTestUtils.setField(pipeline, "perUserLimit", 500);
 
-        deckService = new DeckService(pipeline);
+        deckService = new DeckService(profilesHttp, deckCache, pipeline);
+        ReflectionTestUtils.setField(deckService, "ttlMinutes", 60L);
     }
 
     @Test
@@ -308,6 +310,63 @@ class DeckServiceTest {
 
         // Then: Swipes service should be called twice (2 batches)
         verify(swipesHttp, times(2)).betweenBatch(eq(viewerId), anyList());
+    }
+
+    @Test
+    @DisplayName("Should return true without rebuild when deck is fresh")
+    void testEnsureDeckSkipsFreshDeck() {
+        when(deckCache.size(viewerId)).thenReturn(Mono.just(5L));
+        when(deckCache.getBuildInstant(viewerId)).thenReturn(Mono.just(Optional.of(Instant.now())));
+
+        StepVerifier.create(deckService.ensureDeck(viewerId))
+                .expectNext(true)
+                .verifyComplete();
+
+        verify(deckCache, never()).withLock(any(), any());
+        verify(profilesHttp, never()).getProfile(any());
+    }
+
+    @Test
+    @DisplayName("Should rebuild stale deck under lock")
+    void testEnsureDeckRebuildsStaleDeck() {
+        SharedProfileDto candidate = createProfile(UUID.randomUUID(), "Alice", 28, null);
+
+        when(deckCache.size(viewerId)).thenReturn(Mono.just(10L), Mono.just(10L));
+        when(deckCache.getBuildInstant(viewerId)).thenReturn(
+                Mono.just(Optional.of(Instant.now().minus(Duration.ofHours(2)))),
+                Mono.just(Optional.of(Instant.now().minus(Duration.ofHours(2))))
+        );
+        when(deckCache.withLock(eq(viewerId), any())).thenAnswer(invocation -> invocation.getArgument(1));
+        when(profilesHttp.getProfile(viewerId)).thenReturn(Mono.just(viewerProfile));
+        when(profilesHttp.searchProfiles(eq(viewerId), eq(preferences), eq(2000)))
+                .thenReturn(Flux.just(candidate));
+        when(swipesHttp.betweenBatch(eq(viewerId), anyList()))
+                .thenReturn(Mono.just(Collections.emptyMap()));
+        when(scoringService.score(eq(viewerProfile), eq(candidate))).thenReturn(42.0);
+        when(deckCache.writeDeck(eq(viewerId), anyList(), any(Duration.class))).thenReturn(Mono.empty());
+        when(deckCache.exists(viewerId)).thenReturn(Mono.just(true));
+
+        StepVerifier.create(deckService.ensureDeck(viewerId))
+                .expectNext(true)
+                .verifyComplete();
+
+        verify(deckCache).withLock(eq(viewerId), any());
+        verify(profilesHttp).getProfile(viewerId);
+        verify(deckCache).writeDeck(eq(viewerId), anyList(), any(Duration.class));
+    }
+
+    @Test
+    @DisplayName("Should return false when viewer is missing during ensure")
+    void testEnsureDeckReturnsFalseWhenViewerMissing() {
+        when(deckCache.size(viewerId)).thenReturn(Mono.just(0L));
+        when(deckCache.withLock(eq(viewerId), any())).thenAnswer(invocation -> invocation.getArgument(1));
+        when(profilesHttp.getProfile(viewerId)).thenReturn(Mono.empty());
+
+        StepVerifier.create(deckService.ensureDeck(viewerId))
+                .expectNext(false)
+                .verifyComplete();
+
+        verify(deckCache, never()).writeDeck(any(), anyList(), any(Duration.class));
     }
 
     // Helper method to create profile

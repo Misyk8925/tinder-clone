@@ -20,22 +20,55 @@ import java.util.stream.Collectors;
 public class DeckService {
 
     private final DeckCacheReader cacheReader;
+    private final DeckClient deckClient;
     private final ProfileRepository repo;
     private final SharedProfileMapper sharedMapper;
     private final InternalProfileService internalProfileService;
 
     public List<SharedProfileDto> listWithProfiles(UUID viewerId, int offset, int limit) {
+        DeckRequest request = new DeckRequest(viewerId, offset, limit);
+        rememberViewerForScheduledDeckRefresh(request);
 
-        List<UUID> deckUUIDs = cacheReader.readDeck(viewerId, offset, limit);
+        return readProfilesFromCachedDeck(request, "cache")
+                .or(() -> ensureDeckThenReadCache(request))
+                .orElseGet(() -> buildEmergencyDeckOnTheFly(request));
+    }
 
-        if (!deckUUIDs.isEmpty()) {
-            log.info("DECKSERVICE: Found {} profiles in cache for viewer {}", deckUUIDs.size(), viewerId);
-            return getProfilesByIds(deckUUIDs);
+    private void rememberViewerForScheduledDeckRefresh(DeckRequest request) {
+        cacheReader.markViewerActive(request.viewerId());
+    }
+
+    private Optional<List<SharedProfileDto>> readProfilesFromCachedDeck(DeckRequest request, String source) {
+        List<UUID> candidateIds = cacheReader.readDeck(request.viewerId(), request.offset(), request.limit());
+        if (candidateIds.isEmpty()) {
+            return Optional.empty();
         }
 
-        // Fallback: build deck on the fly for new users
-        log.info("DECKSERVICE: No cache found for viewer {}, building deck on the fly", viewerId);
-        return buildDeckOnTheFly(viewerId, limit);
+        List<SharedProfileDto> profiles = getProfilesByIds(candidateIds);
+        if (profiles.isEmpty()) {
+            log.info("DECKSERVICE: {} returned only missing/deleted profiles for viewer {}",
+                    source, request.viewerId());
+            return Optional.empty();
+        }
+
+        log.info("DECKSERVICE: Loaded {} profiles from {} for viewer {}",
+                profiles.size(), source, request.viewerId());
+        return Optional.of(profiles);
+    }
+
+    private Optional<List<SharedProfileDto>> ensureDeckThenReadCache(DeckRequest request) {
+        log.info("DECKSERVICE: No readable cached deck for viewer {}, requesting deck ensure", request.viewerId());
+
+        if (!deckClient.ensureDeck(request.viewerId())) {
+            return Optional.empty();
+        }
+
+        return readProfilesFromCachedDeck(request, "ensured deck");
+    }
+
+    private List<SharedProfileDto> buildEmergencyDeckOnTheFly(DeckRequest request) {
+        log.info("DECKSERVICE: Falling back to on-the-fly deck for viewer {}", request.viewerId());
+        return buildDeckOnTheFly(request.viewerId(), request.limit());
     }
 
     private List<SharedProfileDto> getProfilesByIds(List<UUID> candidateIds) {
@@ -48,6 +81,7 @@ public class DeckService {
         return candidateIds.stream()
                 .map(profileMap::get)
                 .filter(Objects::nonNull)
+                .filter(profile -> !profile.isDeleted())
                 .map(sharedMapper::toSharedProfileDto)
                 .collect(Collectors.toList());
     }
@@ -68,4 +102,6 @@ public class DeckService {
 
         return internalProfileService.searchByViewerPrefs(userId, prefs, limit);
     }
+
+    private record DeckRequest(UUID viewerId, int offset, int limit) {}
 }

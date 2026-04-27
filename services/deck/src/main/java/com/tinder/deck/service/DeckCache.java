@@ -34,6 +34,9 @@ public class DeckCache {
     private static String deckTsKey(UUID id)      { return "deck:build:ts:" + id; }
     private static String staleKey(UUID viewerId) { return "deck:stale:" + viewerId; }
     private static String lockKey(UUID viewerId)  { return "deck:lock:" + viewerId; }
+    private static String invalidatedProfileKey(UUID profileId) { return "deck:profile:invalidated-at:" + profileId; }
+    private static final String deletedProfilesKey = "deck:profile:deleted";
+    private static final String recentViewersKey = "deck:recent:viewers";
     // Matches only primary deck data keys of the form "deck:{uuid}" and intentionally
     // excludes other "deck:"-prefixed keys such as "deck:build:ts:*", "deck:stale:*",
     // and "deck:lock:*".
@@ -53,6 +56,9 @@ public class DeckCache {
     @Value("${deck.preferences-cache-ttl-minutes:5}")
     private long preferencesCacheTtlMinutes;
 
+    @Value("${deck.rebuild.stale.ttl-hours:24}")
+    private long invalidationTtlHours;
+
 
     public Mono<Void> writeDeck(UUID viewerId, List<Entry<UUID, Double>> deck, Duration ttl) {
         String key   = deckKey(viewerId);
@@ -68,7 +74,7 @@ public class DeckCache {
         return redis.delete(key, tsKey)
                 .then(addAll)
                 .then(redis.expire(key, ttl))
-                .then(redis.opsForValue().set(tsKey, String.valueOf(System.currentTimeMillis())))
+                .then(redis.opsForValue().set(tsKey, String.valueOf(System.currentTimeMillis()), ttl))
                 .then();
     }
 
@@ -92,6 +98,35 @@ public class DeckCache {
 
     public Mono<Long> invalidate(UUID viewerId) {
         return redis.delete(deckKey(viewerId), deckTsKey(viewerId));
+    }
+
+    public Mono<Boolean> markProfileInvalidated(UUID profileId) {
+        Duration ttl = Duration.ofHours(invalidationTtlHours);
+        return redis.opsForValue()
+                .set(invalidatedProfileKey(profileId), String.valueOf(System.currentTimeMillis()), ttl);
+    }
+
+    public Mono<Boolean> markProfileDeleted(UUID profileId) {
+        Duration ttl = Duration.ofHours(invalidationTtlHours);
+        return redis.opsForSet()
+                .add(deletedProfilesKey, profileId.toString())
+                .flatMap(count -> redis.expire(deletedProfilesKey, ttl).thenReturn(count > 0));
+    }
+
+    public Mono<Void> touchRecentViewer(UUID viewerId) {
+        double now = System.currentTimeMillis();
+        return redis.opsForZSet()
+                .add(recentViewersKey, viewerId.toString(), now)
+                .then();
+    }
+
+    public Flux<UUID> getRecentViewerIds(Duration window, int limit) {
+        double cutoff = System.currentTimeMillis() - window.toMillis();
+        return redis.opsForZSet()
+                .reverseRangeByScore(recentViewersKey,
+                        org.springframework.data.domain.Range.closed(cutoff, Double.MAX_VALUE))
+                .take(limit)
+                .map(UUID::fromString);
     }
 
     public Mono<List<UUID>> readTop(UUID viewerId, int topN) {

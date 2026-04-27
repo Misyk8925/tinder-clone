@@ -191,6 +191,26 @@ class DeckCacheIntegrationTest {
     }
 
     @Test
+    @DisplayName("Should expire build timestamp together with the deck")
+    void testBuildTimestampExpiresWithDeck() throws InterruptedException {
+        List<Entry<UUID, Double>> deck = List.of(
+                Map.entry(UUID.randomUUID(), 10.0)
+        );
+
+        deckCache.writeDeck(testViewerId, deck, Duration.ofMillis(150)).block();
+
+        Thread.sleep(250);
+
+        StepVerifier.create(deckCache.size(testViewerId))
+                .expectNext(0L)
+                .verifyComplete();
+
+        StepVerifier.create(deckCache.getBuildInstant(testViewerId))
+                .expectNext(Optional.empty())
+                .verifyComplete();
+    }
+
+    @Test
     @DisplayName("Should return empty optional for non-existent build timestamp")
     void testBuildTimestampForNonExistentDeck() {
         UUID nonExistentViewerId = UUID.randomUUID();
@@ -328,4 +348,3 @@ class DeckCacheIntegrationTest {
                 .verifyComplete();
     }
 }
-

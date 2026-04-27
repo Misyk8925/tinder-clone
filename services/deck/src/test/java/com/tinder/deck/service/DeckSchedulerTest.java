@@ -10,6 +10,8 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.test.util.ReflectionTestUtils;
+import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
 import java.time.LocalDateTime;
@@ -31,72 +33,76 @@ class DeckSchedulerTest {
     @Mock
     private ProfilesHttp profilesHttp;
 
+    @Mock
+    private DeckCache deckCache;
+
     private DeckScheduler deckScheduler;
 
     @BeforeEach
     void setUp() {
-        deckScheduler = new DeckScheduler(deckService, profilesHttp);
+        deckScheduler = new DeckScheduler(deckService, profilesHttp, deckCache);
+        ReflectionTestUtils.setField(deckScheduler, "recentViewersWindowMinutes", 30);
+        ReflectionTestUtils.setField(deckScheduler, "maxRecentViewers", 1000);
+        ReflectionTestUtils.setField(deckScheduler, "maxConcurrentRebuilds", 10);
+        ReflectionTestUtils.setField(deckScheduler, "userRebuildTimeoutSeconds", 30);
     }
 
     @Test
-    @DisplayName("rebuildAllDecks should fetch active users and rebuild decks")
+    @DisplayName("rebuildAllDecks should fetch recent viewers and rebuild decks")
     void testRebuildAllDecks() throws InterruptedException {
-        // Given: Active users
-        SharedProfileDto user1 = createProfile(UUID.randomUUID(), "Alice", 25);
-        SharedProfileDto user2 = createProfile(UUID.randomUUID(), "Bob", 30);
+        UUID user1Id = UUID.randomUUID();
+        UUID user2Id = UUID.randomUUID();
+        SharedProfileDto user1 = createProfile(user1Id, "Alice", 25);
+        SharedProfileDto user2 = createProfile(user2Id, "Bob", 30);
 
-        when(profilesHttp.getActiveUsers())
-                .thenReturn(reactor.core.publisher.Flux.just(user1, user2));
+        when(deckCache.getRecentViewerIds(any(), anyInt()))
+                .thenReturn(Flux.just(user1Id, user2Id));
+        when(profilesHttp.getProfilesByIds(List.of(user1Id, user2Id)))
+                .thenReturn(Flux.just(user1, user2));
         when(deckService.rebuildOneDeck(any(SharedProfileDto.class)))
                 .thenReturn(Mono.empty());
 
-        // When: Scheduled method is called
         deckScheduler.rebuildAllDecks();
-
-        // Wait for async processing
         Thread.sleep(200);
 
-        // Then: Should fetch active users and rebuild decks for each
-        verify(profilesHttp, times(1)).getActiveUsers();
+        verify(deckCache, times(1)).getRecentViewerIds(any(), anyInt());
+        verify(profilesHttp, times(1)).getProfilesByIds(List.of(user1Id, user2Id));
         verify(deckService, timeout(1000).times(2)).rebuildOneDeck(any(SharedProfileDto.class));
     }
 
     @Test
-    @DisplayName("rebuildAllDecks should handle null active users gracefully")
-    void testRebuildAllDecksWithNullUsers() {
-        // Given: getActiveUsers returns null
-        when(profilesHttp.getActiveUsers()).thenReturn(null);
+    @DisplayName("rebuildAllDecks should handle no recent viewers gracefully")
+    void testRebuildAllDecksWithNoRecentUsers() {
+        when(deckCache.getRecentViewerIds(any(), anyInt())).thenReturn(Flux.empty());
 
-        // When: Scheduled method is called
         deckScheduler.rebuildAllDecks();
 
-        // Then: Should handle gracefully without errors
-        verify(profilesHttp, times(1)).getActiveUsers();
+        verify(deckCache, times(1)).getRecentViewerIds(any(), anyInt());
         verifyNoInteractions(deckService);
     }
 
     @Test
     @DisplayName("rebuildAllDecks should continue on individual user errors")
     void testRebuildAllDecksWithIndividualErrors() throws InterruptedException {
-        // Given: Active users, one rebuild fails
-        SharedProfileDto user1 = createProfile(UUID.randomUUID(), "Alice", 25);
-        SharedProfileDto user2 = createProfile(UUID.randomUUID(), "Bob", 30);
+        UUID user1Id = UUID.randomUUID();
+        UUID user2Id = UUID.randomUUID();
+        SharedProfileDto user1 = createProfile(user1Id, "Alice", 25);
+        SharedProfileDto user2 = createProfile(user2Id, "Bob", 30);
 
-        when(profilesHttp.getActiveUsers())
-                .thenReturn(reactor.core.publisher.Flux.just(user1, user2));
+        when(deckCache.getRecentViewerIds(any(), anyInt()))
+                .thenReturn(Flux.just(user1Id, user2Id));
+        when(profilesHttp.getProfilesByIds(List.of(user1Id, user2Id)))
+                .thenReturn(Flux.just(user1, user2));
         when(deckService.rebuildOneDeck(user1))
                 .thenReturn(Mono.error(new RuntimeException("Rebuild failed for Alice")));
         when(deckService.rebuildOneDeck(user2))
                 .thenReturn(Mono.empty());
 
-        // When: Scheduled method is called
         deckScheduler.rebuildAllDecks();
-
-        // Wait for async processing
         Thread.sleep(200);
 
-        // Then: Should attempt both rebuilds (error handled gracefully)
-        verify(profilesHttp, times(1)).getActiveUsers();
+        verify(deckCache, times(1)).getRecentViewerIds(any(), anyInt());
+        verify(profilesHttp, times(1)).getProfilesByIds(List.of(user1Id, user2Id));
         verify(deckService, timeout(1000).times(2)).rebuildOneDeck(any(SharedProfileDto.class));
     }
 
