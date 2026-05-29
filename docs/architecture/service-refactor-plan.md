@@ -97,7 +97,7 @@ New/changed services:
 - **`deck-read`** *(new)* — serves `GET .../deck`; reads the Redis deck and hydrates profiles. Scales independently of profile writes.
 - **`location`** *(new)* — owns the `location` table, geocoding (Nominatim), and PostGIS proximity/distance. Removes the duplicated geo logic.
 - **`profiles`** *(shrinks)* — pure profile/preferences/photos CRUD + write-side events.
-- **`deck`** *(builder, unchanged role)* — keeps building/scoring, but calls `location` for proximity instead of its own Haversine util.
+- **`deck`** *(builder, unchanged role)* — keeps building/scoring, but uses the shared geo library locally for hot-path scoring and the location bulk API where a server-side proximity query is needed.
 - **`tinder-contracts`** *(new shared lib)* — single home for cross-service DTOs and Kafka event schemas.
 
 And cross-cutting: every service adopts the **same internal layering** (next section).
