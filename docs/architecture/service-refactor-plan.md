@@ -248,7 +248,7 @@ deck-read/
 
 - Own the **`location` table** and its PostGIS `geography(Point,4326)` data.
 - **Geocoding**: city → coordinates via Nominatim (move `NominatimService` + `GeocodingConfig` here), with the existing L1/L2 cache + per-city lock behaviour preserved.
-- **Proximity & distance**: replace the duplicated `LocationProximityStrategy` (Haversine) and `LocationFilterUtil` with a single authoritative implementation, ideally **pushed into PostGIS** (`ST_DWithin`, `ST_Distance`) instead of in-JVM Haversine.
+- **Proximity & distance**: move the existing Haversine implementation used by `LocationProximityStrategy`/`LocationFilterUtil` into a single authoritative implementation, ideally **pushed into PostGIS** (`ST_DWithin`, `ST_Distance`) for server-side bulk queries.
 - Expose APIs for: resolve-or-create location (by city / by coords), and **bulk** proximity filter + distance for a viewer against many candidates.
 
 ### 5.2 Service shape (`services/location`)
