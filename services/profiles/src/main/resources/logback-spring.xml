@@ -37,6 +37,5 @@
 
     <root level="INFO">
         <appender-ref ref="CONSOLE" />   <!-- Still see logs in console -->
-        <appender-ref ref="LOGSTASH" />  <!-- ALSO send to ELK -->
     </root>
 </configuration>

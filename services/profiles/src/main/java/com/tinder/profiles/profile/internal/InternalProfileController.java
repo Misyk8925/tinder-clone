@@ -9,6 +9,8 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -78,6 +80,15 @@ public class InternalProfileController {
         }
     }
 
+    @GetMapping("/{id}")
+    public ResponseEntity<SharedProfileDto> getOne(@PathVariable UUID id) {
+        List<SharedProfileDto> results = profileService.getMany(List.of(id));
+        if (results.isEmpty()) {
+            return ResponseEntity.notFound().build();
+        }
+        return ResponseEntity.ok(results.get(0));
+    }
+
 
     @GetMapping("/deck")
     public ResponseEntity<List<SharedProfileDto>> getDeck(
@@ -93,6 +104,21 @@ public class InternalProfileController {
 
         List<SharedProfileDto> deck = deckService.listWithProfiles(viewerId, offset, limit);
         return ResponseEntity.ok(deck);
+    }
+
+    @PostMapping("/deck-page/prebuild")
+    public ResponseEntity<Boolean> prebuildDeckPage(
+            @RequestParam UUID viewerId,
+            @RequestParam(defaultValue = "0") int offset,
+            @RequestParam(defaultValue = "20") int limit,
+            @RequestParam(defaultValue = "false") boolean force) {
+
+        if (offset < 0 || limit < 1 || limit > 100) {
+            log.warn("Invalid deck prebuild parameters: offset={}, limit={}. Limit must be 1-100", offset, limit);
+            return ResponseEntity.badRequest().body(false);
+        }
+
+        return ResponseEntity.ok(deckService.prebuildDeckPage(viewerId, offset, limit, force));
     }
 
     @GetMapping("/active")

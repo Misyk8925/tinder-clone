@@ -18,20 +18,22 @@ services:
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-postgres}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
-      POSTGRES_INITDB_ARGS: "-c max_connections=80 -c shared_buffers=128MB"
+      POSTGRES_INITDB_ARGS: "-c max_connections=120 -c shared_buffers=2GB"
       PROFILES_DB_PASSWORD: ${PROFILES_DB_PASSWORD:?PROFILES_DB_PASSWORD is required}
       MATCH_DB_PASSWORD: ${MATCH_DB_PASSWORD:?MATCH_DB_PASSWORD is required}
       CONSUMER_DB_PASSWORD: ${CONSUMER_DB_PASSWORD:?CONSUMER_DB_PASSWORD is required}
       SUBSCRIPTIONS_DB_PASSWORD: ${SUBSCRIPTIONS_DB_PASSWORD:?SUBSCRIPTIONS_DB_PASSWORD is required}
       SWIPES_DB_PASSWORD: ${SWIPES_DB_PASSWORD:?SWIPES_DB_PASSWORD is required}
+    command: postgres -c max_connections=120 -c shared_buffers=2GB -c effective_cache_size=12GB -c maintenance_work_mem=1GB -c work_mem=32MB -c max_wal_size=8GB -c synchronous_commit=off
     volumes:
       - profiles-pgdata:/var/lib/postgresql/data
       - ./docker/postgres/init-databases.sh:/docker-entrypoint-initdb.d/init-databases.sh
       - ./migrations/migration:/docker-entrypoint-initdb.d/migration:ro
     networks:
       - app
-    mem_limit: 512m
-    cpus: "1.00"
+    mem_limit: 10g
+    shm_size: 1g
+    cpus: "4.00"
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres}"]
       interval: 10s
@@ -85,11 +87,11 @@ services:
     <<: *prod-mid-defaults
     ports:
       - "127.0.0.1:6379:6379"
-    command: redis-server --maxmemory 128mb --maxmemory-policy allkeys-lru
+    command: redis-server --maxmemory 2gb --maxmemory-policy allkeys-lru
     networks:
       - app
-    mem_limit: 128m
-    cpus: "0.35"
+    mem_limit: 4g
+    cpus: "1.00"
     healthcheck:
       test: redis-cli ping
       interval: 10s
@@ -281,8 +283,8 @@ services:
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/profiles_db
       SPRING_DATASOURCE_USERNAME: ${PROFILES_DB_USER:?PROFILES_DB_USER is required}
       SPRING_DATASOURCE_PASSWORD: ${PROFILES_DB_PASSWORD:?PROFILES_DB_PASSWORD is required}
-      SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE: 8
-      SPRING_DATASOURCE_HIKARI_MINIMUM_IDLE: 3
+      SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE: 16
+      SPRING_DATASOURCE_HIKARI_MINIMUM_IDLE: 4
       SPRING_DATA_REDIS_HOST: redis
       SPRING_DATA_REDIS_PORT: 6379
       SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:29092
@@ -293,6 +295,7 @@ services:
       LOGSTASH_HOST: localhost
       LOGSTASH_PORT: 5000
       MANAGEMENT_TRACING_ENABLED: "false"
+      INTERNAL_PROFILES_AUTH_SECRET: ${INTERNAL_PROFILES_AUTH_SECRET:-}
 
       PROFILES_KEYSTORE_PATH: file:/certs/profiles-service.p12
       PROFILES_KEYSTORE_PASSWORD: ${MTLS_KEYSTORE_PASSWORD:?MTLS_KEYSTORE_PASSWORD is required}
@@ -308,8 +311,8 @@ services:
       - /etc/dokploy/certs/tinderclone/truststore.jks:/certs/truststore.jks:ro
     networks:
       - app
-    mem_limit: 640m
-    cpus: "1.00"
+    mem_limit: 3g
+    cpus: "6.00"
 
   deck:
     build:
@@ -373,6 +376,7 @@ services:
       SPRING_CLOUD_DISCOVERY_ENABLED: "false"
       SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_JWK_SET_URI: ${KEYCLOAK_JWK_SET_URI:-http://keycloak:9080/realms/spring/protocol/openid-connect/certs}
       PROFILES_SERVICE_URL: http://profiles:8010
+      INTERNAL_PROFILES_AUTH_SECRET: ${INTERNAL_PROFILES_AUTH_SECRET:-}
       SWIPES_SERVICE_URL: http://swipes:8040
       CONSUMER_SERVICE_URL: http://consumer:8050
       DECK_SERVICE_URL: http://deck:8030
@@ -382,8 +386,8 @@ services:
       JAVA_TOOL_OPTIONS: "-XX:+UseContainerSupport -XX:+UseG1GC -XX:InitialRAMPercentage=40.0 -XX:MaxRAMPercentage=75.0 -Dfile.encoding=UTF-8 -Dsun.net.inetaddr.ttl=60 -Djava.io.tmpdir=/tmp"
     networks:
       - app
-    mem_limit: 384m
-    cpus: "0.60"
+    mem_limit: 1g
+    cpus: "4.00"
     healthcheck:
       test: ["CMD-SHELL", "nc -z localhost 8222 || exit 1"]
       interval: 15s

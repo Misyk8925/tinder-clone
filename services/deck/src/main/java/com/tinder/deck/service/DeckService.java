@@ -26,12 +26,19 @@ public class DeckService {
     @Value("${deck.ttl-minutes:60}")
     private long ttlMinutes;
 
+    @Value("${deck.page-prebuild.enabled:true}")
+    private boolean pagePrebuildEnabled;
+
+    @Value("${deck.page-prebuild.limit:20}")
+    private int pagePrebuildLimit;
+
     public Mono<Void> rebuildOneDeck(SharedProfileDto viewer) {
         log.info("Rebuilding deck for viewer: {}", viewer.id());
 
         Instant start = Instant.now();
 
         return pipeline.buildDeck(viewer)
+                .then(prebuildFirstPage(viewer.id()))
                 .doOnSuccess(v -> {
                     long duration = Duration.between(start, Instant.now()).toMillis();
                     log.info("Deck rebuild completed for viewer {} in {}ms",
@@ -42,6 +49,20 @@ public class DeckService {
                     log.error("Deck rebuild failed for viewer {} after {}ms: {}",
                             viewer.id(), duration, e.getMessage());
                 });
+    }
+
+    private Mono<Void> prebuildFirstPage(UUID viewerId) {
+        if (!pagePrebuildEnabled) {
+            return Mono.empty();
+        }
+
+        return profilesHttp.prebuildDeckPage(viewerId, 0, pagePrebuildLimit)
+                .doOnNext(prebuilt -> {
+                    if (!prebuilt) {
+                        log.debug("Profiles did not prebuild first deck page for viewer {}", viewerId);
+                    }
+                })
+                .then();
     }
 
     public Mono<Boolean> ensureDeck(UUID viewerId) {

@@ -14,8 +14,11 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
+import java.time.Duration;
+import java.util.concurrent.ConcurrentHashMap;
 
 @Service
 @RequiredArgsConstructor
@@ -27,19 +30,27 @@ public class DeckCacheReader {
     private static final String DECK_BUILD_TIMESTAMP_KEY_PREFIX = "deck:build:ts:";
     private static final String DELETED_PROFILES_KEY = "deck:profile:deleted";
     private static final String PROFILE_INVALIDATED_AT_KEY_PREFIX = "deck:profile:invalidated-at:";
-    private static final int READ_AHEAD_MULTIPLIER = 3;
-    private static final int MIN_RAW_BATCH_SIZE = 50;
+    private static final int READ_AHEAD_MULTIPLIER = 1;
+    private static final int MIN_RAW_BATCH_SIZE = 1;
     private static final int MAX_RAW_BATCH_SIZE = 500;
+    private static final long RECENT_VIEWER_TOUCH_INTERVAL_MS = 60_000L;
 
     private final StringRedisTemplate redis;
     private final ObjectMapper objectMapper;
+    private final ConcurrentHashMap<UUID, Long> recentViewerTouches = new ConcurrentHashMap<>();
 
     public String deckKey(UUID id) {
         return DECK_KEY_PREFIX + id;
     }
 
     public void markViewerActive(UUID viewerId) {
-        redis.opsForZSet().add(RECENT_VIEWERS_KEY, viewerId.toString(), System.currentTimeMillis());
+        long now = System.currentTimeMillis();
+        Long lastTouchedAt = recentViewerTouches.get(viewerId);
+        if (lastTouchedAt != null && now - lastTouchedAt < RECENT_VIEWER_TOUCH_INTERVAL_MS) {
+            return;
+        }
+        recentViewerTouches.put(viewerId, now);
+        redis.opsForZSet().add(RECENT_VIEWERS_KEY, viewerId.toString(), now);
     }
 
     public List<UUID> readDeck(UUID viewerId, int offset, int limit) {
@@ -78,6 +89,24 @@ public class DeckCacheReader {
             return size != null && size > 0;
         }
         return false;
+    }
+
+    public List<UUID> getRecentViewerIds(Duration window, int limit) {
+        if (limit <= 0) {
+            return List.of();
+        }
+
+        double cutoff = System.currentTimeMillis() - window.toMillis();
+        Set<String> viewerIds = redis.opsForZSet()
+                .reverseRangeByScore(RECENT_VIEWERS_KEY, cutoff, Double.MAX_VALUE, 0, limit);
+        if (viewerIds == null || viewerIds.isEmpty()) {
+            return List.of();
+        }
+
+        return viewerIds.stream()
+                .map(this::parseUuid)
+                .filter(Objects::nonNull)
+                .toList();
     }
 
     private List<DeckEntryDto> readRawDeckBatch(UUID viewerId, int rawOffset, int batchSize) {
@@ -244,11 +273,45 @@ public class DeckCacheReader {
     }
 
     private DeckEntryDto parseMember(String member) {
+        DeckEntryDto fastParsed = parseJsonMemberFast(member);
+        if (fastParsed != null) {
+            return fastParsed;
+        }
+
         try {
             return objectMapper.readValue(member, DeckEntryDto.class);
         } catch (Exception jsonError) {
             return parseLegacyUuidMember(member, jsonError);
         }
+    }
+
+    private DeckEntryDto parseJsonMemberFast(String member) {
+        if (member == null || member.isBlank()) {
+            return null;
+        }
+        if (member.length() == 36 && member.charAt(8) == '-') {
+            return new DeckEntryDto(UUID.fromString(member), false);
+        }
+
+        int profileIdKey = member.indexOf("\"profileId\"");
+        if (profileIdKey < 0) {
+            return null;
+        }
+        int colon = member.indexOf(':', profileIdKey);
+        int startQuote = colon >= 0 ? member.indexOf('"', colon) : -1;
+        int endQuote = startQuote >= 0 ? member.indexOf('"', startQuote + 1) : -1;
+        if (endQuote < 0) {
+            return null;
+        }
+
+        int swipedKey = member.indexOf("\"isSwiped\"");
+        boolean swiped = false;
+        if (swipedKey >= 0) {
+            int swipedColon = member.indexOf(':', swipedKey);
+            swiped = swipedColon >= 0 && member.regionMatches(swipedColon + 1, "true", 0, 4);
+        }
+
+        return new DeckEntryDto(UUID.fromString(member.substring(startQuote + 1, endQuote)), swiped);
     }
 
     private DeckEntryDto parseLegacyUuidMember(String member, Exception jsonError) {
@@ -257,6 +320,15 @@ public class DeckCacheReader {
         } catch (IllegalArgumentException uuidError) {
             log.warn("Failed to parse deck member as JSON or UUID: {}", member, jsonError);
             throw uuidError;
+        }
+    }
+
+    private UUID parseUuid(String value) {
+        try {
+            return UUID.fromString(value);
+        } catch (Exception e) {
+            log.debug("Skipping malformed recent viewer id {}", value);
+            return null;
         }
     }
 

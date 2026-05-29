@@ -102,7 +102,7 @@ public class Profile {
 
     @JsonManagedReference
     @OneToMany(mappedBy = "profile", fetch = FetchType.LAZY, cascade = CascadeType.ALL, orphanRemoval = true)
-    @BatchSize(size = 10)
+    @BatchSize(size = 100)
     private List<Photo> photos;
 
     /**
@@ -110,9 +110,14 @@ public class Profile {
      * Stored in a separate join table "profile_hobbies" with string representation.
      */
     @ElementCollection(targetClass = Hobby.class, fetch = FetchType.EAGER)
-    @CollectionTable(name = "profile_hobbies", joinColumns = @JoinColumn(name = "profile_id"))
+    @CollectionTable(
+            name = "profile_hobbies",
+            joinColumns = @JoinColumn(name = "profile_id"),
+            indexes = @Index(name = "idx_profile_hobbies_profile_id", columnList = "profile_id")
+    )
     @Column(name = "hobby")
     @Enumerated(EnumType.STRING)
+    @BatchSize(size = 100)
     private List<Hobby> hobbies = new java.util.ArrayList<>();
 
     @CreatedDate

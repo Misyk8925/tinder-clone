@@ -104,7 +104,7 @@ CREATE INDEX idx_name_lower ON profiles (name);
 
 CREATE INDEX idx_photo_profile_id ON photo (profile_id);
 CREATE INDEX idx_photo_primary_profile ON photo (profile_id, is_primary);
+CREATE INDEX idx_profile_hobbies_profile_id ON profile_hobbies (profile_id);
 
 CREATE INDEX idx_outbox_publish_window ON profile_event_outbox (published_at, dead_lettered_at, next_attempt_at, created_at);
 CREATE INDEX idx_outbox_profile ON profile_event_outbox (profile_id);
-

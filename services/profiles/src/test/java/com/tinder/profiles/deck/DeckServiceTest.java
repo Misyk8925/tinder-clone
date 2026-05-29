@@ -3,11 +3,11 @@ package com.tinder.profiles.deck;
 import com.tinder.profiles.preferences.Preferences;
 import com.tinder.profiles.profile.Profile;
 import com.tinder.profiles.profile.ProfileRepository;
+import com.tinder.profiles.profile.cache.DeckPageCacheService;
 import com.tinder.profiles.profile.dto.profileData.shared.SharedLocationDto;
 import com.tinder.profiles.profile.dto.profileData.shared.SharedPreferencesDto;
 import com.tinder.profiles.profile.dto.profileData.shared.SharedProfileDto;
 import com.tinder.profiles.profile.internal.InternalProfileService;
-import com.tinder.profiles.profile.mapper.SharedProfileMapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -35,10 +35,10 @@ class DeckServiceTest {
     private ProfileRepository repo;
 
     @Mock
-    private SharedProfileMapper sharedMapper;
+    private InternalProfileService internalProfileService;
 
     @Mock
-    private InternalProfileService internalProfileService;
+    private DeckPageCacheService deckPageCacheService;
 
     private DeckService deckService;
 
@@ -46,7 +46,7 @@ class DeckServiceTest {
 
     @BeforeEach
     void setUp() {
-        deckService = new DeckService(cacheReader, deckClient, repo, sharedMapper, internalProfileService);
+        deckService = new DeckService(cacheReader, deckClient, repo, internalProfileService, deckPageCacheService);
         viewerId = UUID.randomUUID();
     }
 
@@ -54,13 +54,10 @@ class DeckServiceTest {
     @DisplayName("Should return cached deck without calling deck service")
     void shouldReturnCachedDeck() {
         UUID candidateId = UUID.randomUUID();
-        Profile candidate = new Profile();
-        candidate.setProfileId(candidateId);
         SharedProfileDto dto = createSharedProfile(candidateId);
 
         when(cacheReader.readDeck(viewerId, 0, 20)).thenReturn(List.of(candidateId));
-        when(repo.findAllById(List.of(candidateId))).thenReturn(List.of(candidate));
-        when(sharedMapper.toSharedProfileDto(candidate)).thenReturn(dto);
+        when(internalProfileService.getMany(List.of(candidateId))).thenReturn(List.of(dto));
 
         List<SharedProfileDto> result = deckService.listWithProfiles(viewerId, 0, 20);
 
@@ -73,16 +70,13 @@ class DeckServiceTest {
     @DisplayName("Should ensure deck and reread cache on miss")
     void shouldEnsureDeckOnCacheMiss() {
         UUID candidateId = UUID.randomUUID();
-        Profile candidate = new Profile();
-        candidate.setProfileId(candidateId);
         SharedProfileDto dto = createSharedProfile(candidateId);
 
         when(cacheReader.readDeck(viewerId, 0, 20))
                 .thenReturn(List.of())
                 .thenReturn(List.of(candidateId));
         when(deckClient.ensureDeck(viewerId)).thenReturn(true);
-        when(repo.findAllById(List.of(candidateId))).thenReturn(List.of(candidate));
-        when(sharedMapper.toSharedProfileDto(candidate)).thenReturn(dto);
+        when(internalProfileService.getMany(List.of(candidateId))).thenReturn(List.of(dto));
 
         List<SharedProfileDto> result = deckService.listWithProfiles(viewerId, 0, 20);
 
@@ -96,17 +90,14 @@ class DeckServiceTest {
     void shouldEnsureDeckWhenCachedIdsCannotBeHydrated() {
         UUID staleCandidateId = UUID.randomUUID();
         UUID refreshedCandidateId = UUID.randomUUID();
-        Profile refreshedCandidate = new Profile();
-        refreshedCandidate.setProfileId(refreshedCandidateId);
         SharedProfileDto dto = createSharedProfile(refreshedCandidateId);
 
         when(cacheReader.readDeck(viewerId, 0, 20))
                 .thenReturn(List.of(staleCandidateId))
                 .thenReturn(List.of(refreshedCandidateId));
-        when(repo.findAllById(List.of(staleCandidateId))).thenReturn(List.of());
+        when(internalProfileService.getMany(List.of(staleCandidateId))).thenReturn(List.of());
         when(deckClient.ensureDeck(viewerId)).thenReturn(true);
-        when(repo.findAllById(List.of(refreshedCandidateId))).thenReturn(List.of(refreshedCandidate));
-        when(sharedMapper.toSharedProfileDto(refreshedCandidate)).thenReturn(dto);
+        when(internalProfileService.getMany(List.of(refreshedCandidateId))).thenReturn(List.of(dto));
 
         List<SharedProfileDto> result = deckService.listWithProfiles(viewerId, 0, 20);
 

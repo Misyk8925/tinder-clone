@@ -3,6 +3,9 @@ package com.tinder.profiles.profile.internal;
 import com.tinder.profiles.preferences.PreferencesDto;
 import com.tinder.profiles.profile.Profile;
 import com.tinder.profiles.profile.ProfileRepository;
+import com.tinder.profiles.profile.cache.DeckProfileSnapshotCache;
+import com.tinder.profiles.profile.cache.SharedProfileSnapshotCache;
+import com.tinder.profiles.profile.dto.profileData.deck.DeckProfileDto;
 import com.tinder.profiles.profile.dto.profileData.shared.SharedProfileDto;
 import com.tinder.profiles.profile.mapper.SharedProfileMapper;
 import lombok.RequiredArgsConstructor;
@@ -25,6 +28,10 @@ public class InternalProfileService {
 
     private final ProfileRepository repo;
     private final SharedProfileMapper sharedMapper;
+    private final SharedProfileRowMapper sharedProfileRowMapper;
+    private final SharedProfileSnapshotCache sharedProfileSnapshotCache;
+    private final DeckProfileRowMapper deckProfileRowMapper;
+    private final DeckProfileSnapshotCache deckProfileSnapshotCache;
 
     public List<SharedProfileDto> fetchPage(int page, int size) {
         log.debug("Fetching page {} with size {}", page, size);
@@ -41,37 +48,65 @@ public class InternalProfileService {
         log.debug("searchByViewerPrefs: viewer {} searching with prefs: minAge={}, maxAge={}, gender={}, limit={}",
                 viewerId, prefs.getMinAge(), prefs.getMaxAge(), prefs.getGender(), limit);
 
-        // Verify viewer exists
-        repo.findById(viewerId)
-                .orElseThrow(() -> {
-                    log.error("Viewer not found: {}", viewerId);
-                    return new NoSuchElementException("Viewer not found: " + viewerId);
-                });
+        if (!repo.existsById(viewerId)) {
+            log.error("Viewer not found: {}", viewerId);
+            throw new NoSuchElementException("Viewer not found: " + viewerId);
+        }
 
-        // Use database-level filtering for efficiency
-        Pageable pageable = PageRequest.of(0, limit);
-        List<Profile> matchingProfiles = repo.searchByPreferences(
+        List<Object[]> matchingProfiles = repo.searchSharedProfileRowsByPreferences(
                 viewerId,
                 prefs.getMinAge(),
                 prefs.getMaxAge(),
                 prefs.getGender(),
-                pageable
+                limit
         );
 
         log.debug("searchByViewerPrefs: viewer {} found {} matching profiles", viewerId, matchingProfiles.size());
 
-        return matchingProfiles.stream()
-                .map(sharedMapper::toSharedProfileDto)
-                .toList();
+        List<SharedProfileDto> results = sharedProfileRowMapper.toDtos(matchingProfiles);
+        sharedProfileSnapshotCache.putAll(results);
+        return results;
+    }
+
+    public List<DeckProfileDto> searchDeckCardsByViewerPrefs(UUID viewerId, PreferencesDto prefs, int limit) {
+        log.debug("searchDeckCardsByViewerPrefs: viewer {} searching with prefs: minAge={}, maxAge={}, gender={}, limit={}",
+                viewerId, prefs.getMinAge(), prefs.getMaxAge(), prefs.getGender(), limit);
+
+        if (!repo.existsById(viewerId)) {
+            log.error("Viewer not found: {}", viewerId);
+            throw new NoSuchElementException("Viewer not found: " + viewerId);
+        }
+
+        List<Object[]> matchingProfiles = repo.searchDeckProfileRowsByPreferences(
+                viewerId,
+                prefs.getMinAge(),
+                prefs.getMaxAge(),
+                prefs.getGender(),
+                limit
+        );
+
+        List<DeckProfileDto> results = deckProfileRowMapper.toDtos(matchingProfiles);
+        deckProfileSnapshotCache.putAll(results);
+        return results;
     }
 
     public List<SharedProfileDto> getMany(List<UUID> ids) {
         log.debug("Fetching {} profiles by ID", ids.size());
-        List<Profile> foundProfiles = repo.findAllById(ids);
+        if (ids.isEmpty()) {
+            return List.of();
+        }
+
+        List<SharedProfileDto> foundProfiles = sharedProfileSnapshotCache.getMany(
+                ids,
+                missingIds -> sharedProfileRowMapper.toDtosInOrder(
+                        missingIds,
+                        repo.findSharedProfileRowsByIds(missingIds)
+                )
+        );
 
         if (foundProfiles.size() < ids.size()) {
             Set<UUID> foundIds = foundProfiles.stream()
-                    .map(Profile::getProfileId)
+                    .map(SharedProfileDto::id)
                     .collect(Collectors.toSet());
             List<UUID> missingIds = ids.stream()
                     .filter(id -> !foundIds.contains(id))
@@ -80,9 +115,35 @@ public class InternalProfileService {
                     ids.size(), foundProfiles.size(), missingIds);
         }
 
-        return foundProfiles.stream()
-                .map(sharedMapper::toSharedProfileDto)
-                .toList();
+        return foundProfiles;
+    }
+
+    public List<DeckProfileDto> getDeckCards(List<UUID> ids) {
+        log.debug("Fetching {} deck profiles by ID", ids.size());
+        if (ids.isEmpty()) {
+            return List.of();
+        }
+
+        List<DeckProfileDto> foundProfiles = deckProfileSnapshotCache.getMany(
+                ids,
+                missingIds -> deckProfileRowMapper.toDtosInOrder(
+                        missingIds,
+                        repo.findDeckProfileRowsByIds(missingIds)
+                )
+        );
+
+        if (foundProfiles.size() < ids.size()) {
+            Set<UUID> foundIds = foundProfiles.stream()
+                    .map(DeckProfileDto::id)
+                    .collect(Collectors.toSet());
+            List<UUID> missingIds = ids.stream()
+                    .filter(id -> !foundIds.contains(id))
+                    .toList();
+            log.warn("Requested {} deck profiles, found only {}. Missing IDs: {}",
+                    ids.size(), foundProfiles.size(), missingIds);
+        }
+
+        return foundProfiles;
     }
 
 

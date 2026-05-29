@@ -89,6 +89,10 @@ class DeckServiceTest {
 
         deckService = new DeckService(profilesHttp, deckCache, pipeline);
         ReflectionTestUtils.setField(deckService, "ttlMinutes", 60L);
+        ReflectionTestUtils.setField(deckService, "pagePrebuildEnabled", true);
+        ReflectionTestUtils.setField(deckService, "pagePrebuildLimit", 20);
+        lenient().when(profilesHttp.prebuildDeckPage(any(UUID.class), anyInt(), anyInt()))
+                .thenReturn(Mono.just(true));
     }
 
     @Test
@@ -216,8 +220,7 @@ class DeckServiceTest {
     @DisplayName("Should handle swipes service error gracefully")
     void testRebuildDeckWithSwipesServiceError() {
         // Given: Candidates from profiles service
-        UUID candidate1Id = UUID.randomUUID();
-        SharedProfileDto candidate1 = createProfile(candidate1Id, "Alice", 28, null);
+        SharedProfileDto candidate1 = createProfile(UUID.randomUUID(), "Alice", 28, null);
 
         when(profilesHttp.searchProfiles(eq(viewerId), eq(preferences), eq(2000)))
                 .thenReturn(Flux.just(candidate1));
@@ -226,23 +229,13 @@ class DeckServiceTest {
         when(swipesHttp.betweenBatch(eq(viewerId), anyList()))
                 .thenReturn(Mono.error(new RuntimeException("Swipes service error")));
 
-        // Mock scoring
-        when(scoringService.score(eq(viewerProfile), eq(candidate1))).thenReturn(10.0);
-
-        // Mock cache write
-        when(deckCache.writeDeck(eq(viewerId), anyList(), any(Duration.class)))
-                .thenReturn(Mono.empty());
-
         // When: Rebuilding deck
         StepVerifier.create(deckService.rebuildOneDeck(viewerProfile))
                 .verifyComplete();
 
-        // Then: All candidates should be included (error returns empty map, so no filtering)
-        verify(deckCache).writeDeck(eq(viewerId), deckCaptor.capture(), any(Duration.class));
-
-        List<Map.Entry<UUID, Double>> deck = deckCaptor.getValue();
-        assertThat(deck).hasSize(1);
-        assertThat(deck.get(0).getKey()).isEqualTo(candidate1Id);
+        // Then: Candidates should not be cached when swipe history could not be checked
+        verify(scoringService, never()).score(eq(viewerProfile), eq(candidate1));
+        verify(deckCache, never()).writeDeck(any(), any(), any());
     }
 
     @Test

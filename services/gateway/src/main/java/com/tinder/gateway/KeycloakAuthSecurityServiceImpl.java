@@ -1,16 +1,16 @@
 package com.tinder.gateway;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.security.authentication.AnonymousAuthenticationToken;
-import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.ReactiveSecurityContextHolder;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Mono;
 
-import lombok.extern.slf4j.Slf4j;
-
-@Slf4j
 @Service
 public class KeycloakAuthSecurityServiceImpl implements SecurityService{
+
+    private static final Logger log = LoggerFactory.getLogger(KeycloakAuthSecurityServiceImpl.class);
 
     @Override
     public Mono<Boolean> isBasicUser() {
@@ -44,32 +44,32 @@ public class KeycloakAuthSecurityServiceImpl implements SecurityService{
             return Mono.just(false);
         }
 
-        log.info("Checking role: {}", role);
+        log.debug("Checking role: {}", role);
 
         // Use reactive security context for WebFlux
         return ReactiveSecurityContextHolder.getContext()
                 .map(securityContext -> {
-                    log.info("SecurityContext found: {}", securityContext);
+                    log.debug("SecurityContext found: {}", securityContext);
                     return securityContext.getAuthentication();
                 })
                 .switchIfEmpty(Mono.defer(() -> {
-                    log.warn("No SecurityContext found");
+                    log.debug("No SecurityContext found");
                     return Mono.empty();
                 }))
                 .map(auth -> {
                     if (auth == null || !auth.isAuthenticated() || auth instanceof AnonymousAuthenticationToken) {
-                        log.warn("No authenticated user found");
+                        log.debug("No authenticated user found");
                         return false;
                     }
 
-                    log.info("Found authenticated user: {} with authorities: {}", auth.getName(), auth.getAuthorities());
+                    log.debug("Found authenticated user: {} with authorities: {}", auth.getName(), auth.getAuthorities());
 
                     String roleWithPrefix = "ROLE_" + role.toUpperCase();
 
                     boolean hasRole = auth.getAuthorities() != null && auth.getAuthorities().stream()
                             .anyMatch(authority -> authority.getAuthority().equals(roleWithPrefix));
 
-                    log.info("User {} has role {}: {}", auth.getName(), roleWithPrefix, hasRole);
+                    log.debug("User {} has role {}: {}", auth.getName(), roleWithPrefix, hasRole);
 
                     return hasRole;
                 })

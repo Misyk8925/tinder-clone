@@ -1,7 +1,8 @@
 logging:
   level:
-    org.hibernate.SQL: DEBUG
-    org.hibernate.type.descriptor.sql.BasicBinder: TRACE
+    org.hibernate.SQL: WARN
+    org.hibernate.orm.jdbc.bind: WARN
+    org.hibernate.type.descriptor.sql.BasicBinder: WARN
 server:
   port: 8010
   servlet:
@@ -150,6 +151,38 @@ keycloak:
 
 deck:
   base-url: ${DECK_SERVICE_URL:http://localhost:8030}
+
+profiles:
+  internal-auth-secret: ${INTERNAL_PROFILES_AUTH_SECRET:}
+  cache:
+    jwt-profile-id:
+      ttl: ${PROFILES_JWT_PROFILE_ID_CACHE_TTL:30m}
+      max-size: ${PROFILES_JWT_PROFILE_ID_CACHE_MAX_SIZE:250000}
+    jwt-token:
+      ttl: ${PROFILES_JWT_TOKEN_CACHE_TTL:5m}
+      max-size: ${PROFILES_JWT_TOKEN_CACHE_MAX_SIZE:250000}
+    shared-profile:
+      ttl: ${PROFILES_SHARED_PROFILE_CACHE_TTL:30m}
+      max-size: ${PROFILES_SHARED_PROFILE_CACHE_MAX_SIZE:250000}
+    deck-profile:
+      ttl: ${PROFILES_DECK_PROFILE_CACHE_TTL:30m}
+      max-size: ${PROFILES_DECK_PROFILE_CACHE_MAX_SIZE:250000}
+    deck-page:
+      enabled: ${PROFILES_DECK_PAGE_CACHE_ENABLED:true}
+      ttl: ${PROFILES_DECK_PAGE_CACHE_TTL:10m}
+      max-size: ${PROFILES_DECK_PAGE_CACHE_MAX_SIZE:100000}
+      prebuild:
+        enabled: ${PROFILES_DECK_PAGE_PREBUILD_ENABLED:true}
+        fixed-delay-ms: ${PROFILES_DECK_PAGE_PREBUILD_FIXED_DELAY_MS:30000}
+        initial-delay-ms: ${PROFILES_DECK_PAGE_PREBUILD_INITIAL_DELAY_MS:15000}
+        recent-viewers-window-minutes: ${PROFILES_DECK_PAGE_PREBUILD_RECENT_VIEWERS_WINDOW_MINUTES:30}
+        max-viewers: ${PROFILES_DECK_PAGE_PREBUILD_MAX_VIEWERS:5000}
+        page-limit: ${PROFILES_DECK_PAGE_PREBUILD_PAGE_LIMIT:20}
+    deck-hot-path:
+      enabled: ${PROFILES_DECK_HOT_PATH_ENABLED:true}
+      ttl: ${PROFILES_DECK_HOT_PATH_TTL:60s}
+      max-size: ${PROFILES_DECK_HOT_PATH_MAX_SIZE:250000}
+      max-token-length: ${PROFILES_DECK_HOT_PATH_MAX_TOKEN_LENGTH:8192}
 
 
 # Kafka topics

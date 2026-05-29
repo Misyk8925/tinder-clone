@@ -1,14 +1,17 @@
 package com.tinder.gateway;
 
+import com.github.benmanes.caffeine.cache.Cache;
+import com.github.benmanes.caffeine.cache.Caffeine;
 import org.springframework.core.convert.converter.Converter;
 import org.springframework.security.authentication.AbstractAuthenticationToken;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken;
-import org.springframework.security.oauth2.server.resource.authentication.ReactiveJwtAuthenticationConverterAdapter;
 import reactor.core.publisher.Mono;
 
+import java.time.Duration;
+import java.time.Instant;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -16,15 +19,29 @@ public class KeycloakJwtAuthenticationConverter implements Converter<Jwt, Mono<A
 
     private final Converter<Jwt, Collection<GrantedAuthority>> jwtGrantedAuthoritiesConverter =
         new KeycloakGrantedAuthoritiesConverter();
+    private final Cache<String, CachedAuthentication> authenticationCache = Caffeine.newBuilder()
+            .maximumSize(10_000)
+            .expireAfterWrite(Duration.ofMinutes(5))
+            .build();
 
     @Override
     public Mono<AbstractAuthenticationToken> convert(Jwt jwt) {
-        Collection<GrantedAuthority> authorities = jwtGrantedAuthoritiesConverter.convert(jwt);
-        String principalClaimName = jwt.getClaimAsString("preferred_username");
-        if (principalClaimName == null) {
-            principalClaimName = jwt.getSubject();
+        CachedAuthentication cached = authenticationCache.getIfPresent(jwt.getTokenValue());
+        if (cached != null && cached.isUsable()) {
+            return Mono.just(new JwtAuthenticationToken(jwt, cached.authorities(), cached.principalName()));
         }
-        return Mono.just(new JwtAuthenticationToken(jwt, authorities, principalClaimName));
+
+        Collection<GrantedAuthority> authorities = List.copyOf(jwtGrantedAuthoritiesConverter.convert(jwt));
+        String principalName = jwt.getClaimAsString("preferred_username");
+        if (principalName == null) {
+            principalName = jwt.getSubject();
+        }
+
+        CachedAuthentication resolved = new CachedAuthentication(authorities, principalName, jwt.getExpiresAt());
+        if (resolved.isUsable()) {
+            authenticationCache.put(jwt.getTokenValue(), resolved);
+        }
+        return Mono.just(new JwtAuthenticationToken(jwt, authorities, principalName));
     }
 
     private static class KeycloakGrantedAuthoritiesConverter implements Converter<Jwt, Collection<GrantedAuthority>> {
@@ -60,5 +77,14 @@ public class KeycloakJwtAuthenticationConverter implements Converter<Jwt, Mono<A
             return grantedAuthorities;
         }
     }
-}
 
+    private record CachedAuthentication(
+            Collection<GrantedAuthority> authorities,
+            String principalName,
+            Instant expiresAt
+    ) {
+        boolean isUsable() {
+            return expiresAt == null || expiresAt.isAfter(Instant.now());
+        }
+    }
+}

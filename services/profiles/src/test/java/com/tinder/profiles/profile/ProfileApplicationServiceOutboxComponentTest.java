@@ -1,14 +1,20 @@
 package com.tinder.profiles.profile;
 
 import com.tinder.profiles.hobbies.Hobby;
+import com.tinder.profiles.location.LocationService;
 import com.tinder.profiles.outbox.ProfileOutboxService;
 import com.tinder.profiles.preferences.Preferences;
 import com.tinder.profiles.preferences.PreferencesDto;
 import com.tinder.profiles.preferences.PreferencesService;
+import com.tinder.profiles.profile.cache.DeckPageCacheService;
+import com.tinder.profiles.profile.cache.DeckProfileSnapshotCache;
+import com.tinder.profiles.profile.cache.ProfileIdentityCacheService;
+import com.tinder.profiles.profile.cache.SharedProfileSnapshotCache;
 import com.tinder.profiles.profile.dto.profileData.CreateProfileDtoV1;
 import com.tinder.profiles.profile.mapper.CreateProfileMapper;
 import com.tinder.profiles.profile.mapper.GetProfileMapper;
 import com.tinder.profiles.redis.ResilientCacheManager;
+import com.tinder.profiles.security.DeckHotPathTokenCache;
 import com.tinder.profiles.security.InputSanitizationService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -48,6 +54,18 @@ class ProfileApplicationServiceOutboxComponentTest {
     private PreferencesService preferencesService;
     @Mock
     private ProfileOutboxService profileOutboxService;
+    @Mock
+    private LocationService locationService;
+    @Mock
+    private ProfileIdentityCacheService profileIdentityCacheService;
+    @Mock
+    private SharedProfileSnapshotCache sharedProfileSnapshotCache;
+    @Mock
+    private DeckProfileSnapshotCache deckProfileSnapshotCache;
+    @Mock
+    private DeckPageCacheService deckPageCacheService;
+    @Mock
+    private DeckHotPathTokenCache deckHotPathTokenCache;
 
     private ProfileApplicationService service;
 
@@ -62,7 +80,12 @@ class ProfileApplicationServiceOutboxComponentTest {
                 sanitizationService,
                 preferencesService,
                 profileOutboxService,
-                null
+                locationService,
+                profileIdentityCacheService,
+                sharedProfileSnapshotCache,
+                deckProfileSnapshotCache,
+                deckPageCacheService,
+                deckHotPathTokenCache
         );
     }
 

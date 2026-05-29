@@ -6,10 +6,8 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 import reactor.core.publisher.Flux;
-import reactor.core.publisher.Mono;
 
 import java.time.Duration;
-import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -50,14 +48,6 @@ public class SwipeFilterStage extends BasicStage {
         return swipesHttp.betweenBatch(viewerId, candidateIds)
                 .timeout(Duration.ofMillis(timeoutMs))
                 .retry(retries)
-                .onErrorResume(error -> {
-                    // Fail-open: if swipes service is unavailable, skip filtering for this batch.
-                    // Candidates are NOT excluded — this is intentional to keep decks populated
-                    // even when the swipes service is temporarily down.
-                    log.warn("Swipes service error for viewer {} (batch size {}), skipping filter (fail-open): {}",
-                            viewerId, candidateIds.size(), error.getMessage());
-                    return Mono.just(Collections.emptyMap());
-                })
                 .flatMapMany(swipeMap -> {
                     long before = batch.size();
                     List<SharedProfileDto> filtered = batch.stream()
@@ -66,6 +56,11 @@ public class SwipeFilterStage extends BasicStage {
                     log.debug("Swipe filter: viewer={} batch={} kept={} excluded={}",
                             viewerId, before, filtered.size(), before - filtered.size());
                     return Flux.fromIterable(filtered);
+                })
+                .onErrorResume(error -> {
+                    log.warn("Swipes service error for viewer {} (batch size {}), excluding batch to avoid resurfacing swiped profiles: {}",
+                            viewerId, candidateIds.size(), error.getMessage());
+                    return Flux.empty();
                 });
     }
 

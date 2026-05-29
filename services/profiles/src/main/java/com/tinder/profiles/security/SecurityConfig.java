@@ -5,22 +5,33 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.core.annotation.Order;
 import org.springframework.core.convert.converter.Converter;
 import org.springframework.security.authentication.AbstractAuthenticationToken;
+import org.springframework.security.authentication.AnonymousAuthenticationToken;
+import org.springframework.security.authorization.AuthorizationDecision;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.config.http.SessionCreationPolicy;
+import org.springframework.security.core.Authentication;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.security.oauth2.jwt.JwtDecoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.util.matcher.RequestMatcher;
+import org.springframework.security.web.util.matcher.AntPathRequestMatcher;
 
 import jakarta.servlet.http.HttpServletRequest;
+import java.util.function.Supplier;
 
 @Configuration("ProfilesSecurityConfig")
 @EnableMethodSecurity
 @EnableWebSecurity
 public class SecurityConfig {
+
+    private final InternalAuthVerifier internalAuthVerifier;
+
+    public SecurityConfig(InternalAuthVerifier internalAuthVerifier) {
+        this.internalAuthVerifier = internalAuthVerifier;
+    }
 
     @Bean
     Converter<Jwt, AbstractAuthenticationToken> jwtAbstractAuthenticationTokenConverter() {
@@ -56,10 +67,34 @@ public class SecurityConfig {
     }
 
     /**
-     * Security chain for all public endpoints (JWT bearer token).
+     * Deck reads can be called either directly with JWT or from the gateway
+     * with internal auth and a trusted user-subject header.
      */
     @Bean
     @Order(2)
+    public SecurityFilterChain deckSecurityFilterChain(HttpSecurity http, JwtDecoder jwtDecoder) throws Exception {
+        return http
+                .securityMatcher(new AntPathRequestMatcher("/api/v1/profiles/deck"))
+                .csrf(AbstractHttpConfigurer::disable)
+                .authorizeHttpRequests(auth -> auth
+                        .anyRequest().access((authentication, context) ->
+                                jwtOrInternalAuth(authentication, context.getRequest()))
+                )
+                .oauth2ResourceServer(oauth2 -> oauth2
+                        .jwt(jwt -> jwt
+                                .decoder(jwtDecoder)
+                                .jwtAuthenticationConverter(jwtAbstractAuthenticationTokenConverter())
+                        )
+                )
+                .sessionManagement(sess -> sess.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+                .build();
+    }
+
+    /**
+     * Security chain for all public endpoints (JWT bearer token).
+     */
+    @Bean
+    @Order(3)
     public SecurityFilterChain publicSecurityFilterChain(HttpSecurity http, JwtDecoder jwtDecoder) throws Exception {
         return http
                 .csrf(AbstractHttpConfigurer::disable)
@@ -75,5 +110,18 @@ public class SecurityConfig {
                 )
                 .sessionManagement(sess -> sess.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .build();
+    }
+
+    private AuthorizationDecision jwtOrInternalAuth(Supplier<Authentication> authentication,
+                                                    HttpServletRequest request) {
+        if (internalAuthVerifier.isValid(request.getHeader(InternalAuthVerifier.HEADER_NAME))) {
+            return new AuthorizationDecision(true);
+        }
+
+        Authentication current = authentication.get();
+        boolean authenticated = current != null
+                && current.isAuthenticated()
+                && !(current instanceof AnonymousAuthenticationToken);
+        return new AuthorizationDecision(authenticated);
     }
 }

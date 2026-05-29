@@ -15,9 +15,14 @@ import com.tinder.profiles.profile.exception.ProfileAlreadyExistsException;
 import com.tinder.profiles.profile.exception.ProfileNotFoundException;
 import com.tinder.profiles.profile.exception.PatchOperationException;
 import com.tinder.profiles.profile.exception.ProfileValidationException;
+import com.tinder.profiles.profile.cache.DeckPageCacheService;
+import com.tinder.profiles.profile.cache.DeckProfileSnapshotCache;
+import com.tinder.profiles.profile.cache.ProfileIdentityCacheService;
+import com.tinder.profiles.profile.cache.SharedProfileSnapshotCache;
 import com.tinder.profiles.profile.mapper.CreateProfileMapper;
 import com.tinder.profiles.profile.mapper.GetProfileMapper;
 import com.tinder.profiles.redis.ResilientCacheManager;
+import com.tinder.profiles.security.DeckHotPathTokenCache;
 import com.tinder.profiles.security.InputSanitizationService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -45,6 +50,11 @@ public class ProfileApplicationService {
     private final PreferencesService preferencesService;
     private final ProfileOutboxService profileOutboxService;
     private final LocationService locationService;
+    private final ProfileIdentityCacheService profileIdentityCacheService;
+    private final SharedProfileSnapshotCache sharedProfileSnapshotCache;
+    private final DeckProfileSnapshotCache deckProfileSnapshotCache;
+    private final DeckPageCacheService deckPageCacheService;
+    private final DeckHotPathTokenCache deckHotPathTokenCache;
 
 
     private static final String PROFILE_CACHE_NAME = "PROFILE_ENTITY_CACHE";
@@ -108,6 +118,14 @@ public class ProfileApplicationService {
         return profileRepository.findByUserId(userId);
     }
 
+    public UUID getActiveProfileIdByUserId(String userId) {
+        if (userId == null || userId.isBlank()) {
+            return null;
+        }
+
+        return profileIdentityCacheService.getProfileId(userId, profileRepository::findActiveProfileIdByUserId);
+    }
+
     public GetProfileDto getMyProfile(String userID){
         return getMapper.toGetProfileDto(getByUserId(userID));
     }
@@ -150,6 +168,7 @@ public class ProfileApplicationService {
         }
 
         Profile savedProfile = profileRepository.save(profile);
+        profileIdentityCacheService.put(userId, savedProfile.getProfileId());
 
         ProfileCreateEvent event = ProfileCreateEvent.builder()
                 .eventId(UUID.randomUUID())
@@ -226,7 +245,7 @@ public class ProfileApplicationService {
         enqueueProfileUpdatedEvent(savedProfile, changeType, changedFields);
 
         // Update cache
-        putInCache(savedProfile.getProfileId(), savedProfile);
+        refreshProfileCaches(userId, savedProfile.getProfileId(), savedProfile);
 
         log.info("Profile updated successfully for userId: {} with changeType: {} and fields: {}",
                 userId, changeType, changedFields);
@@ -320,7 +339,7 @@ public class ProfileApplicationService {
         enqueueProfileUpdatedEvent(savedProfile, changeType, changedFields);
 
         // Update cache
-        putInCache(savedProfile.getProfileId(), savedProfile);
+        refreshProfileCaches(userId, savedProfile.getProfileId(), savedProfile);
 
         log.info("Profile patched successfully for userId: {} with changeType: {} and fields: {}",
                 userId, changeType, changedFields);
@@ -338,6 +357,7 @@ public class ProfileApplicationService {
             domainService.markAsDeleted(profile);
             profileRepository.save(profile);
             evictFromCache(profile.getProfileId());
+            evictReadCaches(userId, profile.getProfileId());
             log.info("Profile deleted successfully: {}", id);
         }
 
@@ -353,8 +373,19 @@ public class ProfileApplicationService {
 
     @Transactional
     public void deleteMany(List<UUID> ids) {
+        List<Profile> profiles = profileRepository.findAllById(ids);
+        List<String> userIds = profiles.stream()
+                .map(Profile::getUserId)
+                .filter(Objects::nonNull)
+                .toList();
+
         profileRepository.deleteAllById(ids);
         ids.forEach(this::evictFromCache);
+        ids.forEach(sharedProfileSnapshotCache::evict);
+        ids.forEach(deckProfileSnapshotCache::evict);
+        ids.forEach(deckHotPathTokenCache::evictProfile);
+        deckPageCacheService.evictViewers(ids);
+        userIds.forEach(profileIdentityCacheService::evict);
     }
 
     @Transactional
@@ -382,6 +413,23 @@ public class ProfileApplicationService {
 
     private void evictFromCache(UUID profileId) {
         resilientCacheManager.evict(PROFILE_CACHE_NAME, profileId);
+    }
+
+    private void refreshProfileCaches(String userId, UUID profileId, Profile profile) {
+        putInCache(profileId, profile);
+        profileIdentityCacheService.put(userId, profileId);
+        sharedProfileSnapshotCache.evict(profileId);
+        deckProfileSnapshotCache.evict(profileId);
+        deckPageCacheService.evictViewer(profileId);
+        deckHotPathTokenCache.evictProfile(profileId);
+    }
+
+    private void evictReadCaches(String userId, UUID profileId) {
+        profileIdentityCacheService.evict(userId);
+        sharedProfileSnapshotCache.evict(profileId);
+        deckProfileSnapshotCache.evict(profileId);
+        deckPageCacheService.evictViewer(profileId);
+        deckHotPathTokenCache.evictProfile(profileId);
     }
 
     // Event handling helper methods

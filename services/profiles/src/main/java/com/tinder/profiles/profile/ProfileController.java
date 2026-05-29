@@ -2,15 +2,20 @@ package com.tinder.profiles.profile;
 
 import com.tinder.profiles.deck.DeckService;
 import com.tinder.profiles.profile.dto.profileData.GetProfileDto;
+import com.tinder.profiles.profile.dto.profileData.deck.DeckProfileDto;
 import com.tinder.profiles.profile.dto.success.ApiResponse;
 import com.tinder.profiles.profile.dto.profileData.CreateProfileDtoV1;
 import com.tinder.profiles.profile.dto.profileData.PatchProfileDto;
 import com.tinder.profiles.profile.dto.profileData.shared.SharedProfileDto;
+import com.tinder.profiles.profile.cache.DeckPageCacheService;
 import com.tinder.profiles.profile.internal.InternalProfileService;
+import com.tinder.profiles.security.DeckHotPathTokenCache;
+import com.tinder.profiles.security.InternalAuthVerifier;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
@@ -29,6 +34,9 @@ public class ProfileController {
     private final DeckService deckService;
     private final InternalProfileService internalProfileService;
     private final IdsQueryParamParser idsQueryParamParser;
+    private final DeckPageCacheService deckPageCacheService;
+    private final InternalAuthVerifier internalAuthVerifier;
+    private final DeckHotPathTokenCache deckHotPathTokenCache;
 
     @GetMapping("/by-ids")
     public ResponseEntity<List<SharedProfileDto>> getManyByIds(@RequestParam String ids) {
@@ -40,23 +48,45 @@ public class ProfileController {
         }
     }
 
-    @GetMapping("/deck")
-    public ResponseEntity<List<SharedProfileDto>> getDeck(
+    @GetMapping(value = "/deck", produces = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseEntity<?> getDeck(
             @AuthenticationPrincipal Jwt jwt,
+            @RequestHeader(name = InternalAuthVerifier.HEADER_NAME, required = false) String internalAuth,
+            @RequestHeader(name = InternalAuthVerifier.USER_SUBJECT_HEADER, required = false) String internalUserSubject,
             @RequestParam(defaultValue = "0") int offset,
             @RequestParam(defaultValue = "20") int limit) {
 
-        // Resolve profileId from the authenticated user's JWT subject (Keycloak userId)
-        Profile viewer = applicationService.getByUserId(jwt.getSubject());
-        if (viewer == null) {
-            return ResponseEntity.notFound().build();
+        String userSubject = resolveUserSubject(jwt, internalAuth, internalUserSubject);
+        if (userSubject == null || userSubject.isBlank()) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
         }
 
-        log.info("GET /deck called for userId={}, profileId={}, offset={}, limit={}",
-                jwt.getSubject(), viewer.getProfileId(), offset, limit);
+        UUID viewerId = applicationService.getActiveProfileIdByUserId(userSubject);
+        if (viewerId == null) {
+            return ResponseEntity.notFound().build();
+        }
+        deckHotPathTokenCache.put(jwt, viewerId);
 
-        List<SharedProfileDto> deck = deckService.listWithProfiles(viewer.getProfileId(), offset, limit);
+        log.debug("GET /deck called for userId={}, profileId={}, offset={}, limit={}",
+                userSubject, viewerId, offset, limit);
+
+        String cachedJson = deckPageCacheService.get(viewerId, offset, limit);
+        if (cachedJson != null) {
+            return ResponseEntity.ok()
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .body(cachedJson);
+        }
+
+        List<DeckProfileDto> deck = deckService.listDeckCards(viewerId, offset, limit);
+        deckPageCacheService.put(viewerId, offset, limit, deck);
         return ResponseEntity.ok(deck);
+    }
+
+    private String resolveUserSubject(Jwt jwt, String internalAuth, String internalUserSubject) {
+        if (internalAuthVerifier.isValid(internalAuth)) {
+            return internalUserSubject;
+        }
+        return jwt == null ? null : jwt.getSubject();
     }
 
     @GetMapping("/{id}")
@@ -67,7 +97,7 @@ public class ProfileController {
 
     @GetMapping("/me")
     public ResponseEntity<GetProfileDto> getMe(@AuthenticationPrincipal Jwt jwt) {
-        log.info("getMe called for userId: {}", jwt.getSubject());
+        log.debug("getMe called for userId: {}", jwt.getSubject());
         GetProfileDto profileDto = applicationService.getMyProfile(jwt.getSubject());
         if (profileDto == null) {
             return ResponseEntity.notFound().build();

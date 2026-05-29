@@ -9,6 +9,7 @@ import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.context.request.async.AsyncRequestNotUsableException;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.util.HashMap;
@@ -78,6 +79,14 @@ public class ProfileExceptionHandler {
         return ResponseEntity
                 .status(ex.getStatusCode())
                 .body(errorSummary);
+    }
+
+    @ExceptionHandler(AsyncRequestNotUsableException.class)
+    public ResponseEntity<Void> handleClientAbort(AsyncRequestNotUsableException ex) {
+        log.debug("Client aborted response [traceId={}, userId={}, correlationId={}]: {}",
+                MDC.get("traceId"), MDC.get("userId"), MDC.get("correlationId"), ex.getMessage());
+
+        return ResponseEntity.status(499).build();
     }
 
     @ExceptionHandler(Exception.class)

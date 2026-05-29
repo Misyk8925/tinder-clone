@@ -1,9 +1,11 @@
 package com.tinder.gateway;
 
+import org.springframework.core.annotation.Order;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.config.web.server.ServerHttpSecurity;
 import org.springframework.security.web.server.SecurityWebFilterChain;
+import org.springframework.security.web.server.util.matcher.ServerWebExchangeMatchers;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.reactive.CorsConfigurationSource;
 import org.springframework.web.cors.reactive.UrlBasedCorsConfigurationSource;
@@ -33,6 +35,18 @@ public class SecurityConfig {
     }
 
     @Bean
+    @Order(1)
+    public SecurityWebFilterChain profileDeckSecurityFilterChain(ServerHttpSecurity http) {
+        return http
+                .securityMatcher(ServerWebExchangeMatchers.pathMatchers("/api/v1/profiles/deck"))
+                .csrf(ServerHttpSecurity.CsrfSpec::disable)
+                .cors(cors -> cors.configurationSource(corsConfigurationSource()))
+                .authorizeExchange(exchange -> exchange.anyExchange().permitAll())
+                .build();
+    }
+
+    @Bean
+    @Order(2)
     public SecurityWebFilterChain securityFilterChain(ServerHttpSecurity http) {
         KeycloakJwtAuthenticationConverter keycloakConverter = new KeycloakJwtAuthenticationConverter();
 
@@ -44,6 +58,8 @@ public class SecurityConfig {
                         .pathMatchers(org.springframework.http.HttpMethod.OPTIONS, "/**").permitAll()
                         // Stripe sends its own signature header — no JWT involved
                         .pathMatchers("/api/v1/webhook/**").permitAll()
+                        // Deck reads use a route-local JWT filter to avoid full security-context work on the hot path.
+                        .pathMatchers("/api/v1/profiles/deck").permitAll()
                         // WebSocket upgrade — JWT auth handled inside the match service via STOMP channel interceptor
                         .pathMatchers("/ws", "/ws/**").permitAll()
                         // Match-service paths use no /api/v1 prefix but still require authentication
@@ -56,7 +72,5 @@ public class SecurityConfig {
                 .build();
     }
 }
-
-
 
 

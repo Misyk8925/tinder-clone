@@ -11,6 +11,8 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.cloud.gateway.filter.GatewayFilter;
 import org.springframework.cloud.gateway.filter.factory.AbstractGatewayFilterFactory;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken;
 import org.springframework.stereotype.Component;
 import org.springframework.web.server.ServerWebExchange;
 import reactor.core.publisher.Mono;
@@ -23,25 +25,28 @@ public class RoleBasedRateLimitFilter extends AbstractGatewayFilterFactory<RoleB
 
     private final ProxyManager<byte[]> proxyManager;
     private final SecurityService securityService;
+    private final GatewayJwtSubjectResolver jwtSubjectResolver;
 
     @Autowired
-    public RoleBasedRateLimitFilter(RedisClient redisClient, SecurityService securityService) {
+    public RoleBasedRateLimitFilter(
+            RedisClient redisClient,
+            SecurityService securityService,
+            GatewayJwtSubjectResolver jwtSubjectResolver
+    ) {
         super(Config.class);
         this.proxyManager = LettuceBasedProxyManager
                 .builderFor(redisClient)
                 .build();
         this.securityService = securityService;
+        this.jwtSubjectResolver = jwtSubjectResolver;
     }
 
     @Override
     public GatewayFilter apply(Config config) {
         return (exchange, chain) -> {
-            InetSocketAddress remoteAddress = exchange.getRequest().getRemoteAddress();
-            String userId = remoteAddress != null ? remoteAddress.getHostString() : extractKeyFromHeaders(exchange);
-
-            // Get user role from SecurityService reactively using RoleResolver
-            return resolveRole(securityService)
-                    .flatMap(role -> {
+            return resolveRateLimitKey(exchange)
+                    .flatMap(userId -> resolveRole(securityService)
+                            .flatMap(role -> {
                         // Create unique key with role
                         String key = userId + "-" + role;
 
@@ -59,8 +64,33 @@ public class RoleBasedRateLimitFilter extends AbstractGatewayFilterFactory<RoleB
                                 String.valueOf(roleLimit.getPeriodInSeconds()));
                             return exchange.getResponse().setComplete();
                         }
-                    });
+                    }));
         };
+    }
+
+    private Mono<String> resolveRateLimitKey(ServerWebExchange exchange) {
+        return exchange.getPrincipal()
+                .filter(Authentication.class::isInstance)
+                .cast(Authentication.class)
+                .filter(this::isAuthenticated)
+                .map(authentication -> {
+                    if (authentication instanceof JwtAuthenticationToken jwtAuth) {
+                        return "user:" + jwtAuth.getToken().getSubject();
+                    }
+                    return "user:" + authentication.getName();
+                })
+                .defaultIfEmpty(jwtSubjectResolver.resolve(exchange)
+                        .map(subject -> "user:" + subject)
+                        .orElse("ip:" + resolveIp(exchange)));
+    }
+
+    private boolean isAuthenticated(Authentication authentication) {
+        return authentication != null && authentication.isAuthenticated();
+    }
+
+    private String resolveIp(ServerWebExchange exchange) {
+        InetSocketAddress remoteAddress = exchange.getRequest().getRemoteAddress();
+        return remoteAddress != null ? remoteAddress.getHostString() : extractKeyFromHeaders(exchange);
     }
 
     private String extractKeyFromHeaders(ServerWebExchange exchange) {
@@ -175,4 +205,3 @@ public class RoleBasedRateLimitFilter extends AbstractGatewayFilterFactory<RoleB
         }
     }
 }
-
