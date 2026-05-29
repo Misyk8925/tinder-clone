@@ -218,10 +218,12 @@ deck-read/
 ### 4.3 Data ownership & contracts
 
 - **Redis is shared by contract**: `deck` (builder) writes the ZSETs; `deck-read` only
-  reads them. Freeze the key schema (`deck:{id}`, `deck:build:ts:{id}`,
-  `deck:profile:deleted`, `deck:profile:invalidated-at:{id}`) in `tinder-contracts` so the
-  two services can't drift. This is the one place we intentionally share a datastore — it
-  is the read-model handoff, and both sides are owned by the deck domain.
+  reads them. Freeze the complete key schema (`deck:{id}`, `deck:build:ts:{id}`,
+  `deck:stale:{viewerId}`, `deck:lock:{viewerId}`, `deck:recent:viewers`,
+  `deck:profile:deleted`, `deck:profile:invalidated-at:{id}`, and
+  `prefs:{minAge}:{maxAge}:{gender}`) in `tinder-contracts` so the two services
+  can't drift. This is the one place we intentionally share a datastore — it is
+  the read-model handoff, and both sides are owned by the deck domain.
 - **Profile hydration**: `deck-read` calls `profiles` `/by-ids` (already exists) or gRPC.
   Prefer **gRPC** for this hot batch lookup; add a small local cache + Resilience4j.
 - The on-the-fly emergency fallback (`buildDeckOnTheFly` → `internalProfileService.searchByViewerPrefs`)
