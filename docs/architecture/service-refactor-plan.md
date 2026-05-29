@@ -315,7 +315,7 @@ double implementation while still allowing the builder to compute locally in its
 
 Create one Maven library, depended on by all services, owning:
 
-- Cross-service DTOs currently **copied**: `SharedProfileDto`, `SharedLocationDto`, `SharedPreferencesDto`, `SharedPhotoDto`, `SharedSwipeRecordDto`, `DeckEntry`.
+- Cross-service DTOs currently **copied or divergent**: `SharedLocationDto`, `SharedPreferencesDto`, `SharedPhotoDto`, `SharedSwipeRecordDto`, `DeckEntry`, plus a versioned neutral contract for `SharedProfileDto` that reconciles the current profiles shape (photos + hobbies JPA entities) with the deck shape (shared photos only).
 - **Kafka event schemas**: `ProfileCreated/Updated/Deleted`, `ChangeType`, `SwipeCreated`, `MatchCreated` — **versioned** (e.g. `v1` packages) so producers/consumers evolve safely.
 - The frozen **Redis deck key schema** constants (shared by `deck` and `deck-read`).
 - Optionally the `tinder-geo` distance/score functions (§5.4).
