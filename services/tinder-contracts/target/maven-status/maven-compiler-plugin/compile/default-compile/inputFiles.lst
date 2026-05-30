@@ -1,0 +1,10 @@
+/Users/michael/Desktop/development/private/tinder-clone/services/tinder-contracts/src/main/java/com/tinder/contracts/dto/Hobby.java
+/Users/michael/Desktop/development/private/tinder-clone/services/tinder-contracts/src/main/java/com/tinder/contracts/dto/SharedLocationDto.java
+/Users/michael/Desktop/development/private/tinder-clone/services/tinder-contracts/src/main/java/com/tinder/contracts/dto/SharedPhotoDto.java
+/Users/michael/Desktop/development/private/tinder-clone/services/tinder-contracts/src/main/java/com/tinder/contracts/dto/SharedPreferencesDto.java
+/Users/michael/Desktop/development/private/tinder-clone/services/tinder-contracts/src/main/java/com/tinder/contracts/dto/SharedProfileDto.java
+/Users/michael/Desktop/development/private/tinder-clone/services/tinder-contracts/src/main/java/com/tinder/contracts/dto/SharedSwipeRecordDto.java
+/Users/michael/Desktop/development/private/tinder-clone/services/tinder-contracts/src/main/java/com/tinder/contracts/event/v1/ChangeType.java
+/Users/michael/Desktop/development/private/tinder-clone/services/tinder-contracts/src/main/java/com/tinder/contracts/event/v1/ProfileCreatedEvent.java
+/Users/michael/Desktop/development/private/tinder-clone/services/tinder-contracts/src/main/java/com/tinder/contracts/event/v1/ProfileDeletedEvent.java
+/Users/michael/Desktop/development/private/tinder-clone/services/tinder-contracts/src/main/java/com/tinder/contracts/event/v1/ProfileUpdatedEvent.java
