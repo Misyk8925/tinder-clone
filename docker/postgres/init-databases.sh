@@ -9,12 +9,14 @@ psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" <<-E
     CREATE ROLE consumer_app      LOGIN PASSWORD '$CONSUMER_DB_PASSWORD';
     CREATE ROLE subscriptions_app LOGIN PASSWORD '$SUBSCRIPTIONS_DB_PASSWORD';
     CREATE ROLE swipes_app        LOGIN PASSWORD '$SWIPES_DB_PASSWORD';
+    CREATE ROLE location_app      LOGIN PASSWORD '$LOCATION_DB_PASSWORD';
 
     CREATE DATABASE profiles_db;
     CREATE DATABASE match_db;
     CREATE DATABASE consumer_db;
     CREATE DATABASE subscriptions_db;
     CREATE DATABASE swipes_db;
+    CREATE DATABASE location_db;
 EOSQL
 
 # profiles_db — PostGIS + migrations + grants
@@ -95,4 +97,21 @@ psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "swipes_db" <<-EOSQ
     GRANT USAGE, SELECT, UPDATE ON ALL SEQUENCES IN SCHEMA public TO swipes_app;
     ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO swipes_app;
     ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT USAGE, SELECT, UPDATE ON SEQUENCES TO swipes_app;
+EOSQL
+
+# location_db
+psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "location_db" <<-EOSQL
+    CREATE EXTENSION IF NOT EXISTS postgis;
+EOSQL
+psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "location_db" \
+    -f /docker-entrypoint-initdb.d/migration/V1_location.sql
+psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "location_db" <<-EOSQL
+    ALTER TABLE location OWNER TO location_app;
+    REVOKE ALL ON DATABASE location_db FROM PUBLIC;
+    GRANT CONNECT ON DATABASE location_db TO location_app;
+    GRANT USAGE, CREATE ON SCHEMA public TO location_app;
+    GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO location_app;
+    GRANT USAGE, SELECT, UPDATE ON ALL SEQUENCES IN SCHEMA public TO location_app;
+    ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO location_app;
+    ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT USAGE, SELECT, UPDATE ON SEQUENCES TO location_app;
 EOSQL

@@ -2,7 +2,7 @@ package com.tinder.deck.service;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.tinder.deck.dto.DeckEntry;
+import com.tinder.contracts.dto.DeckEntry;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -35,6 +35,12 @@ public class DeckCache {
     private static String staleKey(UUID viewerId) { return "deck:stale:" + viewerId; }
     private static String lockKey(UUID viewerId)  { return "deck:lock:" + viewerId; }
     private static String invalidatedProfileKey(UUID profileId) { return "deck:profile:invalidated-at:" + profileId; }
+    // Reverse index: profileId -> set of viewerIds whose deck currently contains the profile.
+    // Maintained by writeDeck() and consumed by removeFromAllDecks() so fan-out on profile
+    // delete/critical-change scales with the number of AFFECTED decks, not the total user count
+    // (i.e. avoids a full "KEYS deck:*" keyspace scan). Over-inclusion is tolerated (a stale
+    // viewer entry just makes the corresponding ZREM a no-op); TTL bounds growth.
+    private static String deckContainsKey(UUID profileId) { return "deck:contains:" + profileId; }
     private static final String deletedProfilesKey = "deck:profile:deleted";
     private static final String recentViewersKey = "deck:recent:viewers";
     // Matches only primary deck data keys of the form "deck:{uuid}" and intentionally
@@ -71,10 +77,21 @@ public class DeckCache {
                 .collect(Collectors.toSet())
                 .flatMap(tuples -> z.addAll(key, tuples));
 
+        // Maintain the reverse index so deletions/critical-changes can fan out cheaply.
+        // For each profile in this deck, record that viewerId's deck contains it.
+        Mono<Void> indexAll = Flux.fromIterable(deck)
+                .flatMap(e -> {
+                    String containsKey = deckContainsKey(e.getKey());
+                    return redis.opsForSet().add(containsKey, viewerId.toString())
+                            .then(redis.expire(containsKey, ttl));
+                })
+                .then();
+
         return redis.delete(key, tsKey)
                 .then(addAll)
                 .then(redis.expire(key, ttl))
                 .then(redis.opsForValue().set(tsKey, String.valueOf(System.currentTimeMillis()), ttl))
+                .then(indexAll)
                 .then();
     }
 
@@ -404,21 +421,38 @@ public class DeckCache {
     }
 
     /**
-     * Remove a profile from all cached decks.
-     * Used when a profile is deleted and must disappear from every viewer deck.
+     * Remove a profile from all cached decks that contain it.
+     * Used when a profile is deleted or its critical fields change and it must disappear from
+     * every viewer's deck before the next rebuild.
      *
-     * @param profileId The deleted profile ID
-     * @return Mono<Long> number of decks affected
+     * <p>Uses the {@code deck:contains:{profileId}} reverse index to touch only the AFFECTED
+     * decks — no {@code KEYS deck:*} keyspace scan. The reverse index is then deleted; rebuilds
+     * repopulate it. Reverse-index entries may be stale (over-inclusive), in which case the
+     * per-deck {@code findMemberByProfileId} simply finds nothing and the ZREM is a no-op.
+     *
+     * @param profileId The profile to purge from all decks
+     * @return Mono<Long> number of decks actually affected
      */
     public Mono<Long> removeFromAllDecks(UUID profileId) {
-        return redis.keys("deck:*")
-                .filter(key -> DECK_KEY_PATTERN.matcher(key).matches())
-                .flatMap(key -> findMemberByProfileId(key, profileId)
-                        .flatMap(member -> redis.opsForZSet().remove(key, member))
-                        .defaultIfEmpty(0L))
-                .map(removed -> removed > 0 ? 1L : 0L)
+        String containsKey = deckContainsKey(profileId);
+        return redis.opsForSet().members(containsKey)
+                .flatMap(viewerIdStr -> {
+                    UUID viewerId;
+                    try {
+                        viewerId = UUID.fromString(viewerIdStr);
+                    } catch (IllegalArgumentException e) {
+                        log.warn("Skipping malformed viewerId {} in reverse index for profile {}", viewerIdStr, profileId);
+                        return Mono.just(0L);
+                    }
+                    String dKey = deckKey(viewerId);
+                    return findMemberByProfileId(dKey, profileId)
+                            .flatMap(member -> redis.opsForZSet().remove(dKey, member))
+                            .defaultIfEmpty(0L)
+                            .map(removed -> removed > 0 ? 1L : 0L);
+                })
                 .reduce(0L, Long::sum)
-                .doOnNext(count -> log.info("Removed deleted profile {} from {} decks", profileId, count));
+                .flatMap(count -> redis.delete(containsKey).thenReturn(count))
+                .doOnNext(count -> log.info("Removed profile {} from {} decks (via reverse index)", profileId, count));
     }
 
     /**
