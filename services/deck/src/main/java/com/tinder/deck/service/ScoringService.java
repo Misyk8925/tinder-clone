@@ -1,6 +1,6 @@
 package com.tinder.deck.service;
 
-import com.tinder.deck.dto.SharedProfileDto;
+import com.tinder.contracts.dto.SharedProfileDto;
 import com.tinder.deck.service.scoring.ScoringStrategy;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;

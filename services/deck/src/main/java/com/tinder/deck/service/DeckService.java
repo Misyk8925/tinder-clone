@@ -1,7 +1,7 @@
 package com.tinder.deck.service;
 
 import com.tinder.deck.adapters.ProfilesHttp;
-import com.tinder.deck.dto.SharedProfileDto;
+import com.tinder.contracts.dto.SharedProfileDto;
 import com.tinder.deck.service.pipeline.DeckPipeline;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;

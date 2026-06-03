@@ -1,9 +1,9 @@
 package com.tinder.profiles.kafka;
 
 import com.tinder.profiles.config.OutboxPublisherProperties;
-import com.tinder.profiles.kafka.dto.ProfileCreateEvent;
-import com.tinder.profiles.kafka.dto.ProfileDeleteEvent;
-import com.tinder.profiles.kafka.dto.ProfileUpdatedEvent;
+import com.tinder.contracts.event.v1.ProfileCreatedEvent;
+import com.tinder.contracts.event.v1.ProfileDeletedEvent;
+import com.tinder.contracts.event.v1.ProfileUpdatedEvent;
 import io.github.resilience4j.circuitbreaker.CircuitBreaker;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -25,15 +25,15 @@ import java.util.function.Supplier;
 public class ResilientProfileEventProducer {
 
     private final KafkaTemplate<String, ProfileUpdatedEvent> profileUpdatedEventKafkaTemplate;
-    private final KafkaTemplate<String, ProfileDeleteEvent> profileDeleteEventKafkaTemplate;
-    private final KafkaTemplate<String, ProfileCreateEvent> profileCreateEventKafkaTemplate;
+    private final KafkaTemplate<String, ProfileDeletedEvent> profileDeleteEventKafkaTemplate;
+    private final KafkaTemplate<String, ProfileCreatedEvent> profileCreateEventKafkaTemplate;
     private final CircuitBreaker circuitBreaker;
     private final long sendTimeoutMs;
 
     public ResilientProfileEventProducer(
             KafkaTemplate<String, ProfileUpdatedEvent> profileUpdatedEventKafkaTemplate,
-            KafkaTemplate<String, ProfileDeleteEvent> profileDeleteEventKafkaTemplate,
-            KafkaTemplate<String, ProfileCreateEvent> profileCreateEventKafkaTemplate,
+            KafkaTemplate<String, ProfileDeletedEvent> profileDeleteEventKafkaTemplate,
+            KafkaTemplate<String, ProfileCreatedEvent> profileCreateEventKafkaTemplate,
             @Qualifier("kafkaCircuitBreaker") CircuitBreaker circuitBreaker,
             OutboxPublisherProperties outboxPublisherProperties
     ) {
@@ -55,7 +55,7 @@ public class ResilientProfileEventProducer {
         );
     }
 
-    public void sendProfileDeleteEvent(ProfileDeleteEvent event, String key, String topic) {
+    public void sendProfileDeleteEvent(ProfileDeletedEvent event, String key, String topic) {
         log.debug("Sending profile delete event to topic: {} with key: {}", topic, key);
 
         executeWithCircuitBreaker(
@@ -66,7 +66,7 @@ public class ResilientProfileEventProducer {
         );
     }
 
-    public void sendProfileCreateEvent(ProfileCreateEvent event, String key, String topic) {
+    public void sendProfileCreateEvent(ProfileCreatedEvent event, String key, String topic) {
         log.debug("Sending profile create event to topic: {} with key: {}", topic, key);
 
         executeWithCircuitBreaker(

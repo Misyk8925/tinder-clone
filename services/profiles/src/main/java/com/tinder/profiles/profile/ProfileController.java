@@ -6,7 +6,7 @@ import com.tinder.profiles.profile.dto.profileData.deck.DeckProfileDto;
 import com.tinder.profiles.profile.dto.success.ApiResponse;
 import com.tinder.profiles.profile.dto.profileData.CreateProfileDtoV1;
 import com.tinder.profiles.profile.dto.profileData.PatchProfileDto;
-import com.tinder.profiles.profile.dto.profileData.shared.SharedProfileDto;
+import com.tinder.contracts.dto.SharedProfileDto;
 import com.tinder.profiles.profile.cache.DeckPageCacheService;
 import com.tinder.profiles.profile.internal.InternalProfileService;
 import com.tinder.profiles.security.DeckHotPathTokenCache;

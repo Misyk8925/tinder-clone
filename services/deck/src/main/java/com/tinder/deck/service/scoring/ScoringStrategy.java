@@ -1,6 +1,6 @@
 package com.tinder.deck.service.scoring;
 
-import com.tinder.deck.dto.SharedProfileDto;
+import com.tinder.contracts.dto.SharedProfileDto;
 
 public interface ScoringStrategy {
 

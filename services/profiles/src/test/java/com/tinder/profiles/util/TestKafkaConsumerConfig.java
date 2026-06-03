@@ -1,9 +1,9 @@
 package com.tinder.profiles.util;
 
+import com.tinder.contracts.event.v1.ProfileCreatedEvent;
+import com.tinder.contracts.event.v1.ProfileDeletedEvent;
+import com.tinder.contracts.event.v1.ProfileUpdatedEvent;
 import com.tinder.profiles.kafka.dto.MatchCreateEvent;
-import com.tinder.profiles.kafka.dto.ProfileCreateEvent;
-import com.tinder.profiles.kafka.dto.ProfileDeleteEvent;
-import com.tinder.profiles.kafka.dto.ProfileUpdatedEvent;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
@@ -80,7 +80,7 @@ public class TestKafkaConsumerConfig {
         props.put(ErrorHandlingDeserializer.VALUE_DESERIALIZER_CLASS, JsonDeserializer.class);
 
         // JSON deserializer specific config
-        props.put(JsonDeserializer.TRUSTED_PACKAGES, "com.tinder.profiles.kafka.dto");
+        props.put(JsonDeserializer.TRUSTED_PACKAGES, "com.tinder.contracts.event.v1,com.tinder.profiles.kafka.dto");
         props.put(JsonDeserializer.USE_TYPE_INFO_HEADERS, false);
 
         return props;
@@ -124,8 +124,8 @@ public class TestKafkaConsumerConfig {
     }
 
     @Bean
-    public ConsumerFactory<String, ProfileCreateEvent> testProfileCreateEventConsumerFactory(String testConsumerGroupId) {
-        return createConsumerFactory(ProfileCreateEvent.class, testConsumerGroupId);
+    public ConsumerFactory<String, ProfileCreatedEvent> testProfileCreateEventConsumerFactory(String testConsumerGroupId) {
+        return createConsumerFactory(ProfileCreatedEvent.class, testConsumerGroupId);
     }
 
     @Bean
@@ -134,8 +134,8 @@ public class TestKafkaConsumerConfig {
     }
 
     @Bean
-    public ConsumerFactory<String, ProfileDeleteEvent> testProfileDeleteEventConsumerFactory(String testConsumerGroupId) {
-        return createConsumerFactory(ProfileDeleteEvent.class, testConsumerGroupId);
+    public ConsumerFactory<String, ProfileDeletedEvent> testProfileDeleteEventConsumerFactory(String testConsumerGroupId) {
+        return createConsumerFactory(ProfileDeletedEvent.class, testConsumerGroupId);
     }
 
     @Bean
@@ -144,7 +144,7 @@ public class TestKafkaConsumerConfig {
     }
 
     @Bean
-    public ConcurrentKafkaListenerContainerFactory<String, ProfileCreateEvent> testProfileCreateKafkaListenerContainerFactory(String testConsumerGroupId) {
+    public ConcurrentKafkaListenerContainerFactory<String, ProfileCreatedEvent> testProfileCreateKafkaListenerContainerFactory(String testConsumerGroupId) {
         return createListenerFactory(testProfileCreateEventConsumerFactory(testConsumerGroupId));
     }
 
@@ -154,7 +154,7 @@ public class TestKafkaConsumerConfig {
     }
 
     @Bean
-    public ConcurrentKafkaListenerContainerFactory<String, ProfileDeleteEvent> testProfileDeleteKafkaListenerContainerFactory(String testConsumerGroupId) {
+    public ConcurrentKafkaListenerContainerFactory<String, ProfileDeletedEvent> testProfileDeleteKafkaListenerContainerFactory(String testConsumerGroupId) {
         return createListenerFactory(testProfileDeleteEventConsumerFactory(testConsumerGroupId));
     }
 
@@ -171,11 +171,11 @@ public class TestKafkaConsumerConfig {
     @Getter
     public static class TestKafkaEventCollector {
 
-        private final List<ProfileCreateEvent> profileCreatedEvents =
+        private final List<ProfileCreatedEvent> profileCreatedEvents =
             Collections.synchronizedList(new ArrayList<>());
         private final List<ProfileUpdatedEvent> profileUpdatedEvents =
             Collections.synchronizedList(new ArrayList<>());
-        private final List<ProfileDeleteEvent> profileDeletedEvents =
+        private final List<ProfileDeletedEvent> profileDeletedEvents =
             Collections.synchronizedList(new ArrayList<>());
         private final List<MatchCreateEvent> matchCreatedEvents =
             Collections.synchronizedList(new ArrayList<>());
@@ -186,11 +186,11 @@ public class TestKafkaConsumerConfig {
             autoStartup = "true"
         )
         public void consumeProfileCreated(
-                ProfileCreateEvent event,
+                ProfileCreatedEvent event,
                 org.springframework.kafka.support.Acknowledgment acknowledgment) {
             try {
-                log.info("Test consumer received ProfileCreateEvent: eventId={}, profileId={}",
-                    event.getEventId(), event.getProfileId());
+                log.info("Test consumer received ProfileCreatedEvent: eventId={}, profileId={}",
+                    event.eventId(), event.profileId());
                 profileCreatedEvents.add(event);
 
                 // Manual acknowledgment
@@ -198,7 +198,7 @@ public class TestKafkaConsumerConfig {
                     acknowledgment.acknowledge();
                 }
             } catch (Exception e) {
-                log.error("Error processing ProfileCreateEvent: {}", event, e);
+                log.error("Error processing ProfileCreatedEvent: {}", event, e);
             }
         }
 
@@ -212,7 +212,7 @@ public class TestKafkaConsumerConfig {
                 org.springframework.kafka.support.Acknowledgment acknowledgment) {
             try {
                 log.info("Test consumer received ProfileUpdatedEvent: eventId={}, profileId={}",
-                    event.getEventId(), event.getProfileId());
+                    event.eventId(), event.profileId());
                 profileUpdatedEvents.add(event);
 
                 if (acknowledgment != null) {
@@ -229,18 +229,18 @@ public class TestKafkaConsumerConfig {
             autoStartup = "true"
         )
         public void consumeProfileDeleted(
-                ProfileDeleteEvent event,
+                ProfileDeletedEvent event,
                 org.springframework.kafka.support.Acknowledgment acknowledgment) {
             try {
-                log.info("Test consumer received ProfileDeleteEvent: eventId={}, profileId={}",
-                    event.getEventId(), event.getProfileId());
+                log.info("Test consumer received ProfileDeletedEvent: eventId={}, profileId={}",
+                    event.eventId(), event.profileId());
                 profileDeletedEvents.add(event);
 
                 if (acknowledgment != null) {
                     acknowledgment.acknowledge();
                 }
             } catch (Exception e) {
-                log.error("Error processing ProfileDeleteEvent: {}", event, e);
+                log.error("Error processing ProfileDeletedEvent: {}", event, e);
             }
         }
 
@@ -287,9 +287,9 @@ public class TestKafkaConsumerConfig {
         }
 
         /**
-         * Get collected ProfileCreateEvent events (thread-safe copy)
+         * Get collected ProfileCreatedEvent events (thread-safe copy)
          */
-        public List<ProfileCreateEvent> getProfileCreatedEvents() {
+        public List<ProfileCreatedEvent> getProfileCreatedEvents() {
             synchronized (profileCreatedEvents) {
                 return new ArrayList<>(profileCreatedEvents);
             }
@@ -305,9 +305,9 @@ public class TestKafkaConsumerConfig {
         }
 
         /**
-         * Get collected ProfileDeleteEvent events (thread-safe copy)
+         * Get collected ProfileDeletedEvent events (thread-safe copy)
          */
-        public List<ProfileDeleteEvent> getProfileDeletedEvents() {
+        public List<ProfileDeletedEvent> getProfileDeletedEvents() {
             synchronized (profileDeletedEvents) {
                 return new ArrayList<>(profileDeletedEvents);
             }

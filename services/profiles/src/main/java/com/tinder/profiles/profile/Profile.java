@@ -3,7 +3,7 @@ package com.tinder.profiles.profile;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonManagedReference;
-import com.tinder.profiles.hobbies.Hobby;
+import com.tinder.contracts.dto.Hobby;
 import com.tinder.profiles.location.Location;
 import com.tinder.profiles.photos.Photo;
 import com.tinder.profiles.preferences.Preferences;

@@ -2,9 +2,9 @@ package com.tinder.profiles.outbox;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.tinder.profiles.kafka.dto.ProfileCreateEvent;
-import com.tinder.profiles.kafka.dto.ProfileDeleteEvent;
-import com.tinder.profiles.kafka.dto.ProfileUpdatedEvent;
+import com.tinder.contracts.event.v1.ProfileCreatedEvent;
+import com.tinder.contracts.event.v1.ProfileDeletedEvent;
+import com.tinder.contracts.event.v1.ProfileUpdatedEvent;
 import com.tinder.profiles.outbox.model.ProfileEventOutbox;
 import com.tinder.profiles.outbox.model.ProfileOutboxEventType;
 import lombok.RequiredArgsConstructor;
@@ -21,16 +21,16 @@ public class ProfileOutboxService {
     private final ProfileEventOutboxRepository outboxRepository;
     private final ObjectMapper objectMapper;
 
-    public void enqueueProfileCreated(ProfileCreateEvent event) {
-        enqueue(event.getEventId(), event.getProfileId(), ProfileOutboxEventType.PROFILE_CREATED, event);
+    public void enqueueProfileCreated(ProfileCreatedEvent event) {
+        enqueue(event.eventId(), event.profileId(), ProfileOutboxEventType.PROFILE_CREATED, event);
     }
 
     public void enqueueProfileUpdated(ProfileUpdatedEvent event) {
-        enqueue(event.getEventId(), event.getProfileId(), ProfileOutboxEventType.PROFILE_UPDATED, event);
+        enqueue(event.eventId(), event.profileId(), ProfileOutboxEventType.PROFILE_UPDATED, event);
     }
 
-    public void enqueueProfileDeleted(ProfileDeleteEvent event) {
-        enqueue(event.getEventId(), event.getProfileId(), ProfileOutboxEventType.PROFILE_DELETED, event);
+    public void enqueueProfileDeleted(ProfileDeletedEvent event) {
+        enqueue(event.eventId(), event.profileId(), ProfileOutboxEventType.PROFILE_DELETED, event);
     }
 
     private void enqueue(UUID eventId, UUID profileId, ProfileOutboxEventType eventType, Object eventPayload) {

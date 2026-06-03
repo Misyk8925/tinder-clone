@@ -1,6 +1,6 @@
 package com.tinder.profiles.profile.internal;
 
-import com.tinder.profiles.hobbies.Hobby;
+import com.tinder.contracts.dto.Hobby;
 import com.tinder.profiles.profile.dto.profileData.deck.DeckPhotoDto;
 import com.tinder.profiles.profile.dto.profileData.deck.DeckProfileDto;
 import org.springframework.stereotype.Component;

@@ -1,8 +1,10 @@
 package com.tinder.deck.kafka.consumer;
 
-import com.tinder.deck.kafka.dto.ChangeType;
-import com.tinder.deck.kafka.dto.ProfileUpdateEvent;
+import com.tinder.contracts.event.v1.ChangeType;
+import com.tinder.contracts.event.v1.ProfileUpdatedEvent;
+import com.tinder.deck.adapters.ProfilesHttp;
 import com.tinder.deck.service.DeckCache;
+import com.tinder.deck.service.DeckService;
 import java.time.Instant;
 import java.util.Set;
 import java.util.UUID;
@@ -26,24 +28,26 @@ class ProfileEventConsumerTest {
     @Mock
     private DeckCache deckCache;
 
+    @Mock
+    private ProfilesHttp profilesHttp;
+
+    @Mock
+    private DeckService deckService;
+
     private ProfileEventConsumer consumer;
 
     @BeforeEach
     void setUp() {
-        consumer = new ProfileEventConsumer(deckCache);
+        consumer = new ProfileEventConsumer(deckCache, profilesHttp, deckService);
     }
 
     @Test
     @DisplayName("PREFERENCES change invalidates only personal deck")
     void preferencesChangeInvalidatesPersonalDeck() {
         UUID profileId = UUID.randomUUID();
-        ProfileUpdateEvent event = ProfileUpdateEvent.builder()
-                .eventId(UUID.randomUUID())
-                .profileId(profileId)
-                .changeType(ChangeType.PREFERENCES)
-                .changedFields(Set.of("preferences.minAge", "preferences.maxAge"))
-                .timestamp(Instant.now())
-                .build();
+        ProfileUpdatedEvent event = new ProfileUpdatedEvent(
+                UUID.randomUUID(), profileId, ChangeType.PREFERENCES,
+                Set.of("preferences.minAge", "preferences.maxAge"), Instant.now(), null);
 
         when(deckCache.invalidate(profileId)).thenReturn(Mono.just(1L));
 
@@ -57,19 +61,17 @@ class ProfileEventConsumerTest {
     @DisplayName("CRITICAL_FIELDS change marks profile invalidated globally")
     void criticalFieldsChangeMarksInvalidated() {
         UUID profileId = UUID.randomUUID();
-        ProfileUpdateEvent event = ProfileUpdateEvent.builder()
-                .eventId(UUID.randomUUID())
-                .profileId(profileId)
-                .changeType(ChangeType.CRITICAL_FIELDS)
-                .changedFields(Set.of("age", "gender"))
-                .timestamp(Instant.now())
-                .build();
+        ProfileUpdatedEvent event = new ProfileUpdatedEvent(
+                UUID.randomUUID(), profileId, ChangeType.CRITICAL_FIELDS,
+                Set.of("age", "gender"), Instant.now(), null);
 
         when(deckCache.markProfileInvalidated(profileId)).thenReturn(Mono.just(true));
+        when(deckCache.removeFromAllDecks(profileId)).thenReturn(Mono.just(0L));
 
         consumer.consumeProfileUpdate(event, 0, 2L);
 
         verify(deckCache).markProfileInvalidated(profileId);
+        verify(deckCache).removeFromAllDecks(profileId);
         verify(deckCache, never()).invalidate(any(UUID.class));
     }
 
@@ -77,34 +79,30 @@ class ProfileEventConsumerTest {
     @DisplayName("LOCATION_CHANGE invalidates personal deck and marks profile invalidated globally")
     void locationChangeInvalidatesAndMarksInvalidated() {
         UUID profileId = UUID.randomUUID();
-        ProfileUpdateEvent event = ProfileUpdateEvent.builder()
-                .eventId(UUID.randomUUID())
-                .profileId(profileId)
-                .changeType(ChangeType.LOCATION_CHANGE)
-                .changedFields(Set.of("location.city"))
-                .timestamp(Instant.now())
-                .build();
+        ProfileUpdatedEvent event = new ProfileUpdatedEvent(
+                UUID.randomUUID(), profileId, ChangeType.LOCATION_CHANGE,
+                Set.of("location.city"), Instant.now(), null);
 
         when(deckCache.invalidate(profileId)).thenReturn(Mono.just(1L));
         when(deckCache.markProfileInvalidated(profileId)).thenReturn(Mono.just(true));
+        when(deckCache.removeFromAllDecks(profileId)).thenReturn(Mono.just(0L));
+        // getProfile returns empty -> proactive rebuild is skipped (deckService not invoked).
+        when(profilesHttp.getProfile(profileId)).thenReturn(Mono.empty());
 
         consumer.consumeProfileUpdate(event, 0, 3L);
 
         verify(deckCache).invalidate(profileId);
         verify(deckCache).markProfileInvalidated(profileId);
+        verify(deckCache).removeFromAllDecks(profileId);
     }
 
     @Test
     @DisplayName("DeckCache failures propagate (to allow retry/DLT)")
     void failuresPropagate() {
         UUID profileId = UUID.randomUUID();
-        ProfileUpdateEvent event = ProfileUpdateEvent.builder()
-                .eventId(UUID.randomUUID())
-                .profileId(profileId)
-                .changeType(ChangeType.PREFERENCES)
-                .changedFields(Set.of("preferences"))
-                .timestamp(Instant.now())
-                .build();
+        ProfileUpdatedEvent event = new ProfileUpdatedEvent(
+                UUID.randomUUID(), profileId, ChangeType.PREFERENCES,
+                Set.of("preferences"), Instant.now(), null);
 
         when(deckCache.invalidate(profileId)).thenReturn(Mono.error(new RuntimeException("Redis down")));
 

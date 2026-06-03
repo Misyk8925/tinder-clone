@@ -3,9 +3,9 @@ package com.tinder.profiles.outbox;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.tinder.profiles.kafka.ResilientProfileEventProducer;
-import com.tinder.profiles.kafka.dto.ProfileCreateEvent;
-import com.tinder.profiles.kafka.dto.ProfileDeleteEvent;
-import com.tinder.profiles.kafka.dto.ProfileUpdatedEvent;
+import com.tinder.contracts.event.v1.ProfileCreatedEvent;
+import com.tinder.contracts.event.v1.ProfileDeletedEvent;
+import com.tinder.contracts.event.v1.ProfileUpdatedEvent;
 import com.tinder.profiles.outbox.model.ProfileEventOutbox;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
@@ -32,7 +32,7 @@ public class ProfileOutboxEventDispatcher {
 
         switch (outboxRow.getEventType()) {
             case PROFILE_CREATED -> resilientProfileEventProducer.sendProfileCreateEvent(
-                    deserialize(outboxRow, ProfileCreateEvent.class),
+                    deserialize(outboxRow, ProfileCreatedEvent.class),
                     key,
                     profileCreatedEventsTopic
             );
@@ -42,7 +42,7 @@ public class ProfileOutboxEventDispatcher {
                     profileUpdatedEventsTopic
             );
             case PROFILE_DELETED -> resilientProfileEventProducer.sendProfileDeleteEvent(
-                    deserialize(outboxRow, ProfileDeleteEvent.class),
+                    deserialize(outboxRow, ProfileDeletedEvent.class),
                     key,
                     profileDeletedEventsTopic
             );

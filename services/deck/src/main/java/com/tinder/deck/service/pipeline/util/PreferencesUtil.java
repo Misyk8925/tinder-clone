@@ -1,7 +1,7 @@
 package com.tinder.deck.service.pipeline.util;
 
-import com.tinder.deck.dto.SharedPreferencesDto;
-import com.tinder.deck.dto.SharedProfileDto;
+import com.tinder.contracts.dto.SharedPreferencesDto;
+import com.tinder.contracts.dto.SharedProfileDto;
 import lombok.experimental.UtilityClass;
 import lombok.extern.slf4j.Slf4j;
 

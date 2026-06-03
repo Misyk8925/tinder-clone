@@ -1,7 +1,7 @@
 package com.tinder.deck.kafka.consumer;
 
-import com.tinder.deck.kafka.dto.ChangeType;
-import com.tinder.deck.kafka.dto.ProfileUpdateEvent;
+import com.tinder.contracts.event.v1.ChangeType;
+import com.tinder.contracts.event.v1.ProfileUpdatedEvent;
 import com.tinder.deck.service.DeckCache;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -80,14 +80,10 @@ class ProfileEventConsumerCacheIntegrationTest {
 
         // When: ProfileEvent with PREFERENCES change (user changes their preferences)
         UUID profileId = UUID.randomUUID();
-        ProfileUpdateEvent event = ProfileUpdateEvent.builder()
-                .eventId(UUID.randomUUID())
-                .profileId(profileId)
-                .changeType(ChangeType.PREFERENCES)
-                .changedFields(Set.of("preferences.minAge", "preferences.maxAge"))
-                .timestamp(Instant.now())
-                .metadata("minAge:18,maxAge:25,gender:FEMALE")
-                .build();
+        ProfileUpdatedEvent event = new ProfileUpdatedEvent(
+                UUID.randomUUID(), profileId, ChangeType.PREFERENCES,
+                Set.of("preferences.minAge", "preferences.maxAge"), Instant.now(),
+                "minAge:18,maxAge:25,gender:FEMALE");
 
         consumer.consumeProfileUpdate(event, 0, 1L);
 
@@ -116,14 +112,9 @@ class ProfileEventConsumerCacheIntegrationTest {
                 .verifyComplete();
 
         // When: ProfileEvent with PREFERENCES change
-        ProfileUpdateEvent event = ProfileUpdateEvent.builder()
-                .eventId(UUID.randomUUID())
-                .profileId(profileId)
-                .changeType(ChangeType.PREFERENCES)
-                .changedFields(Set.of("preferences"))
-                .timestamp(Instant.now())
-                .metadata("minAge:22,maxAge:30,gender:MALE")
-                .build();
+        ProfileUpdatedEvent event = new ProfileUpdatedEvent(
+                UUID.randomUUID(), profileId, ChangeType.PREFERENCES,
+                Set.of("preferences"), Instant.now(), "minAge:22,maxAge:30,gender:MALE");
 
         consumer.consumeProfileUpdate(event, 0, 1L);
 
@@ -146,14 +137,9 @@ class ProfileEventConsumerCacheIntegrationTest {
 
         // When: ProfileEvent with CRITICAL_FIELDS change
         UUID profileId = UUID.randomUUID();
-        ProfileUpdateEvent event = ProfileUpdateEvent.builder()
-                .eventId(UUID.randomUUID())
-                .profileId(profileId)
-                .changeType(ChangeType.CRITICAL_FIELDS)
-                .changedFields(Set.of("age", "gender"))
-                .timestamp(Instant.now())
-                .metadata("minAge:22,maxAge:30,gender:MALE")
-                .build();
+        ProfileUpdatedEvent event = new ProfileUpdatedEvent(
+                UUID.randomUUID(), profileId, ChangeType.CRITICAL_FIELDS,
+                Set.of("age", "gender"), Instant.now(), "minAge:22,maxAge:30,gender:MALE");
 
         consumer.consumeProfileUpdate(event, 0, 1L);
 
@@ -176,13 +162,9 @@ class ProfileEventConsumerCacheIntegrationTest {
 
         // When: ProfileEvent with NON_CRITICAL change
         UUID profileId = UUID.randomUUID();
-        ProfileUpdateEvent event = ProfileUpdateEvent.builder()
-                .eventId(UUID.randomUUID())
-                .profileId(profileId)
-                .changeType(ChangeType.NON_CRITICAL)
-                .changedFields(Set.of("bio", "name"))
-                .timestamp(Instant.now())
-                .build();
+        ProfileUpdatedEvent event = new ProfileUpdatedEvent(
+                UUID.randomUUID(), profileId, ChangeType.NON_CRITICAL,
+                Set.of("bio", "name"), Instant.now(), null);
 
         consumer.consumeProfileUpdate(event, 0, 1L);
 
@@ -204,14 +186,9 @@ class ProfileEventConsumerCacheIntegrationTest {
         deckCache.writeDeck(profileId, deck, java.time.Duration.ofMinutes(60)).block();
 
         // When: ProfileEvent without metadata
-        ProfileUpdateEvent event = ProfileUpdateEvent.builder()
-                .eventId(UUID.randomUUID())
-                .profileId(profileId)
-                .changeType(ChangeType.PREFERENCES)
-                .changedFields(Set.of("preferences"))
-                .timestamp(Instant.now())
-                .metadata(null)
-                .build();
+        ProfileUpdatedEvent event = new ProfileUpdatedEvent(
+                UUID.randomUUID(), profileId, ChangeType.PREFERENCES,
+                Set.of("preferences"), Instant.now(), null);
 
         consumer.consumeProfileUpdate(event, 0, 1L);
 
@@ -234,14 +211,9 @@ class ProfileEventConsumerCacheIntegrationTest {
         deckCache.cachePreferencesResult(minAge, maxAge, gender, candidateIds).block();
 
         // When: Candidate changes their age (CRITICAL_FIELDS change)
-        ProfileUpdateEvent event = ProfileUpdateEvent.builder()
-                .eventId(UUID.randomUUID())
-                .profileId(candidateId)
-                .changeType(ChangeType.CRITICAL_FIELDS)
-                .changedFields(Set.of("age"))
-                .timestamp(Instant.now())
-                .metadata("minAge:18,maxAge:25,gender:FEMALE")
-                .build();
+        ProfileUpdatedEvent event = new ProfileUpdatedEvent(
+                UUID.randomUUID(), candidateId, ChangeType.CRITICAL_FIELDS,
+                Set.of("age"), Instant.now(), "minAge:18,maxAge:25,gender:FEMALE");
 
         consumer.consumeProfileUpdate(event, 0, 1L);
 

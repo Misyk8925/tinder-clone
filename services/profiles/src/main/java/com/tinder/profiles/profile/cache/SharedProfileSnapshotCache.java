@@ -3,7 +3,7 @@ package com.tinder.profiles.profile.cache;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
-import com.tinder.profiles.profile.dto.profileData.shared.SharedProfileDto;
+import com.tinder.contracts.dto.SharedProfileDto;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;

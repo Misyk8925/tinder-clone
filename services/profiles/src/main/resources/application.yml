@@ -3,6 +3,11 @@ logging:
     org.hibernate.SQL: WARN
     org.hibernate.orm.jdbc.bind: WARN
     org.hibernate.type.descriptor.sql.BasicBinder: WARN
+
+location:
+  service:
+    url: ${LOCATION_SERVICE_URL:http://localhost:8065}
+
 server:
   port: 8010
   servlet:

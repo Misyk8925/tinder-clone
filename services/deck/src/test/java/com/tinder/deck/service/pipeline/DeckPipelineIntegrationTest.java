@@ -2,9 +2,9 @@ package com.tinder.deck.service.pipeline;
 
 import com.tinder.deck.adapters.ProfilesHttp;
 import com.tinder.deck.adapters.SwipesHttp;
-import com.tinder.deck.dto.SharedLocationDto;
-import com.tinder.deck.dto.SharedPreferencesDto;
-import com.tinder.deck.dto.SharedProfileDto;
+import com.tinder.contracts.dto.SharedLocationDto;
+import com.tinder.contracts.dto.SharedPreferencesDto;
+import com.tinder.contracts.dto.SharedProfileDto;
 import com.tinder.deck.service.DeckCache;
 import com.tinder.deck.service.ScoringService;
 import com.tinder.deck.service.pipeline.util.PreferencesCacheHelper;
@@ -409,6 +409,6 @@ class DeckPipelineIntegrationTest {
         );
         SharedPreferencesDto preferences = new SharedPreferencesDto(18, 50, "M", 100);
 
-        return new SharedProfileDto(id, name, age, "Bio", "Test City", true, locationDto, preferences, false, List.of());
+        return new SharedProfileDto(id, name, age, "Bio", "Test City", true, locationDto, preferences, false, List.of(), List.of());
     }
 }

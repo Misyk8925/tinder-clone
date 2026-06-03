@@ -1,9 +1,9 @@
 package com.tinder.deck.service.pipeline;
 
 import com.tinder.deck.adapters.ProfilesHttp;
-import com.tinder.deck.dto.SharedLocationDto;
-import com.tinder.deck.dto.SharedPreferencesDto;
-import com.tinder.deck.dto.SharedProfileDto;
+import com.tinder.contracts.dto.SharedLocationDto;
+import com.tinder.contracts.dto.SharedPreferencesDto;
+import com.tinder.contracts.dto.SharedProfileDto;
 import com.tinder.deck.service.DeckCache;
 import com.tinder.deck.service.pipeline.util.PreferencesCacheHelper;
 import org.junit.jupiter.api.BeforeEach;
@@ -150,7 +150,7 @@ class CandidateSearchStageTest {
         );
         SharedPreferencesDto preferences = new SharedPreferencesDto(18, 50, "ANY", 100);
 
-        return new SharedProfileDto(id, name, age, "Bio", "Test City", true, locationDto, preferences, false, List.of());
+        return new SharedProfileDto(id, name, age, "Bio", "Test City", true, locationDto, preferences, false, List.of(), List.of());
     }
 
     /**
@@ -166,6 +166,6 @@ class CandidateSearchStageTest {
                 LocalDateTime.now()
         );
 
-        return new SharedProfileDto(id, name, age, "Bio", "Test City", true, locationDto, null, false, List.of());
+        return new SharedProfileDto(id, name, age, "Bio", "Test City", true, locationDto, null, false, List.of(), List.of());
     }
 }

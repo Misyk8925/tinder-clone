@@ -43,10 +43,12 @@ class SwipeEventConsumerTest {
                 .timestamp(System.currentTimeMillis())
                 .build();
 
+        when(deckCache.markAsSwiped(profile1Id, profile2Id)).thenReturn(Mono.empty());
         when(deckCache.removeFromDeck(profile1Id, profile2Id)).thenReturn(Mono.just(1L));
 
         consumer.consume(event, 0, 1L);
 
+        verify(deckCache).markAsSwiped(profile1Id, profile2Id);
         verify(deckCache).removeFromDeck(profile1Id, profile2Id);
     }
 
@@ -75,6 +77,8 @@ class SwipeEventConsumerTest {
                 .timestamp(System.currentTimeMillis())
                 .build();
 
+        when(deckCache.markAsSwiped(any(UUID.class), any(UUID.class)))
+                .thenReturn(Mono.empty());
         when(deckCache.removeFromDeck(any(UUID.class), any(UUID.class)))
                 .thenReturn(Mono.error(new RuntimeException("Redis down")));
 

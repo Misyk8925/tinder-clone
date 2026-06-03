@@ -15,3 +15,5 @@
 /services/swipes-demo/load-tests/README.md
 /clients/tinder-client/src/assets/icons/README.md
 /services/swipes-demo/benchmark-isolate-vps.sh
+/services/deck-read/target/
+/services/deck-read/target

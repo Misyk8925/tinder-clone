@@ -1,8 +1,8 @@
 package com.tinder.profiles.profile.internal;
 
-import com.tinder.profiles.profile.dto.profileData.shared.SharedLocationDto;
-import com.tinder.profiles.profile.dto.profileData.shared.SharedPreferencesDto;
-import com.tinder.profiles.profile.dto.profileData.shared.SharedProfileDto;
+import com.tinder.contracts.dto.SharedLocationDto;
+import com.tinder.contracts.dto.SharedPreferencesDto;
+import com.tinder.contracts.dto.SharedProfileDto;
 import org.springframework.stereotype.Component;
 
 import java.sql.Timestamp;

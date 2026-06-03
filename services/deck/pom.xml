@@ -86,6 +86,13 @@
             <optional>true</optional>
         </dependency>
 
+        <!-- Shared contracts (DTOs + Kafka event schemas) -->
+        <dependency>
+            <groupId>com.tinder</groupId>
+            <artifactId>tinder-contracts</artifactId>
+            <version>1.0.0</version>
+        </dependency>
+
         <!-- Kafka -->
         <dependency>
             <groupId>org.springframework.kafka</groupId>

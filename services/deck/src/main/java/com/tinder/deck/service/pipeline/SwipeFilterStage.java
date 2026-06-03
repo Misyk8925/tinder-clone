@@ -1,7 +1,7 @@
 package com.tinder.deck.service.pipeline;
 
 import com.tinder.deck.adapters.SwipesHttp;
-import com.tinder.deck.dto.SharedProfileDto;
+import com.tinder.contracts.dto.SharedProfileDto;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;

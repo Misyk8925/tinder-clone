@@ -2,8 +2,8 @@ package com.tinder.deck.service.pipeline;
 
 
 import com.tinder.deck.adapters.ProfilesHttp;
-import com.tinder.deck.dto.SharedPreferencesDto;
-import com.tinder.deck.dto.SharedProfileDto;
+import com.tinder.contracts.dto.SharedPreferencesDto;
+import com.tinder.contracts.dto.SharedProfileDto;
 import com.tinder.deck.service.DeckCache;
 import com.tinder.deck.service.pipeline.util.LocationFilterUtil;
 import com.tinder.deck.service.pipeline.util.PreferencesCacheHelper;

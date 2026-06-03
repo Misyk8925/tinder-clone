@@ -2,9 +2,9 @@ package com.tinder.profiles.outbox;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
-import com.tinder.profiles.kafka.dto.ChangeType;
-import com.tinder.profiles.kafka.dto.ProfileCreateEvent;
-import com.tinder.profiles.kafka.dto.ProfileUpdatedEvent;
+import com.tinder.contracts.event.v1.ChangeType;
+import com.tinder.contracts.event.v1.ProfileCreatedEvent;
+import com.tinder.contracts.event.v1.ProfileUpdatedEvent;
 import com.tinder.profiles.outbox.model.ProfileEventOutbox;
 import com.tinder.profiles.outbox.model.ProfileOutboxEventType;
 import org.junit.jupiter.api.BeforeEach;
@@ -44,11 +44,12 @@ class ProfileOutboxServiceTest {
     void enqueueProfileCreated_ShouldPersistPendingOutboxRow() {
         UUID eventId = UUID.randomUUID();
         UUID profileId = UUID.randomUUID();
-        ProfileCreateEvent event = ProfileCreateEvent.builder()
-                .eventId(eventId)
-                .profileId(profileId)
-                .timestamp(Instant.parse("2026-02-15T09:00:00Z"))
-                .build();
+        ProfileCreatedEvent event = new ProfileCreatedEvent(
+                eventId,
+                profileId,
+                "user-123",
+                Instant.parse("2026-02-15T09:00:00Z")
+        );
 
         outboxService.enqueueProfileCreated(event);
 
@@ -70,14 +71,14 @@ class ProfileOutboxServiceTest {
     void enqueueProfileUpdated_ShouldPersistSerializedPayload() {
         UUID eventId = UUID.randomUUID();
         UUID profileId = UUID.randomUUID();
-        ProfileUpdatedEvent event = ProfileUpdatedEvent.builder()
-                .eventId(eventId)
-                .profileId(profileId)
-                .changeType(ChangeType.CRITICAL_FIELDS)
-                .changedFields(Set.of("age", "gender"))
-                .timestamp(Instant.parse("2026-02-15T09:10:00Z"))
-                .metadata("Profile updated: CRITICAL_FIELDS")
-                .build();
+        ProfileUpdatedEvent event = new ProfileUpdatedEvent(
+                eventId,
+                profileId,
+                ChangeType.CRITICAL_FIELDS,
+                Set.of("age", "gender"),
+                Instant.parse("2026-02-15T09:10:00Z"),
+                "Profile updated: CRITICAL_FIELDS"
+        );
 
         outboxService.enqueueProfileUpdated(event);
 

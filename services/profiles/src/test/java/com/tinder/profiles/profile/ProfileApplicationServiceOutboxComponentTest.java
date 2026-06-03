@@ -1,7 +1,8 @@
 package com.tinder.profiles.profile;
 
-import com.tinder.profiles.hobbies.Hobby;
+import com.tinder.contracts.dto.Hobby;
 import com.tinder.profiles.location.LocationService;
+import com.tinder.profiles.location.client.LocationServiceClient;
 import com.tinder.profiles.outbox.ProfileOutboxService;
 import com.tinder.profiles.preferences.Preferences;
 import com.tinder.profiles.preferences.PreferencesDto;
@@ -57,6 +58,8 @@ class ProfileApplicationServiceOutboxComponentTest {
     @Mock
     private LocationService locationService;
     @Mock
+    private LocationServiceClient locationServiceClient;
+    @Mock
     private ProfileIdentityCacheService profileIdentityCacheService;
     @Mock
     private SharedProfileSnapshotCache sharedProfileSnapshotCache;
@@ -81,6 +84,7 @@ class ProfileApplicationServiceOutboxComponentTest {
                 preferencesService,
                 profileOutboxService,
                 locationService,
+                locationServiceClient,
                 profileIdentityCacheService,
                 sharedProfileSnapshotCache,
                 deckProfileSnapshotCache,
@@ -110,7 +114,7 @@ class ProfileApplicationServiceOutboxComponentTest {
 
         assertThat(result.getProfileId()).isEqualTo(savedProfileId);
         verify(profileOutboxService).enqueueProfileCreated(
-                argThat(event -> event.getProfileId().equals(savedProfileId))
+                argThat(event -> event.profileId().equals(savedProfileId))
         );
     }
 
@@ -160,7 +164,7 @@ class ProfileApplicationServiceOutboxComponentTest {
 
         assertThat(result.getProfileId()).isEqualTo(profileId);
         verify(profileOutboxService).enqueueProfileDeleted(
-                argThat(event -> event.getProfileId().equals(profileId))
+                argThat(event -> event.profileId().equals(profileId))
         );
         verify(resilientCacheManager).evict(eq("PROFILE_ENTITY_CACHE"), eq(profileId));
     }

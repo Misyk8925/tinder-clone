@@ -282,6 +282,12 @@
             <scope>runtime</scope>
         </dependency>
 
+        <dependency>
+            <groupId>com.tinder</groupId>
+            <artifactId>tinder-contracts</artifactId>
+            <version>1.0.0</version>
+        </dependency>
+
     </dependencies>
 
     <dependencyManagement>

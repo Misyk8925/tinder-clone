@@ -1,7 +1,7 @@
 package com.tinder.deck.kafka.consumer;
 
-import com.tinder.deck.kafka.dto.ChangeType;
-import com.tinder.deck.kafka.dto.ProfileUpdateEvent;
+import com.tinder.contracts.event.v1.ChangeType;
+import com.tinder.contracts.event.v1.ProfileUpdatedEvent;
 import com.tinder.deck.service.DeckCache;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -60,7 +60,7 @@ class ProfileEventConsumerIntegrationTest {
     }
 
     @Autowired
-    private KafkaTemplate<String, ProfileUpdateEvent> kafkaTemplate;
+    private KafkaTemplate<String, ProfileUpdatedEvent> kafkaTemplate;
 
     @Autowired
     private ProfileEventConsumer consumer;
@@ -82,14 +82,9 @@ class ProfileEventConsumerIntegrationTest {
     void testConsumeProfileUpdatePreferencesChangeEvent() {
         // Given
         UUID profileId = UUID.randomUUID();
-        ProfileUpdateEvent event = ProfileUpdateEvent.builder()
-                .eventId(UUID.randomUUID())
-                .profileId(profileId)
-                .changeType(ChangeType.PREFERENCES)
-                .changedFields(Set.of("preferences.minAge"))
-                .timestamp(Instant.now())
-                .metadata("Test preferences change")
-                .build();
+        ProfileUpdatedEvent event = new ProfileUpdatedEvent(
+                UUID.randomUUID(), profileId, ChangeType.PREFERENCES,
+                Set.of("preferences.minAge"), Instant.now(), "Test preferences change");
 
         // When
         kafkaTemplate.send(TOPIC, profileId.toString(), event);
@@ -110,14 +105,9 @@ class ProfileEventConsumerIntegrationTest {
     void testConsumeProfileUpdateCriticalFieldsChangeEvent() {
         // Given
         UUID profileId = UUID.randomUUID();
-        ProfileUpdateEvent event = ProfileUpdateEvent.builder()
-                .eventId(UUID.randomUUID())
-                .profileId(profileId)
-                .changeType(ChangeType.CRITICAL_FIELDS)
-                .changedFields(Set.of("age", "gender"))
-                .timestamp(Instant.now())
-                .metadata("Test critical fields change")
-                .build();
+        ProfileUpdatedEvent event = new ProfileUpdatedEvent(
+                UUID.randomUUID(), profileId, ChangeType.CRITICAL_FIELDS,
+                Set.of("age", "gender"), Instant.now(), "Test critical fields change");
 
         // When
         kafkaTemplate.send(TOPIC, profileId.toString(), event);
@@ -138,21 +128,13 @@ class ProfileEventConsumerIntegrationTest {
         // Given
         UUID profileId = UUID.randomUUID();
 
-        ProfileUpdateEvent event1 = ProfileUpdateEvent.builder()
-                .eventId(UUID.randomUUID())
-                .profileId(profileId)
-                .changeType(ChangeType.PREFERENCES)
-                .changedFields(Set.of("preferences.minAge"))
-                .timestamp(Instant.now())
-                .build();
+        ProfileUpdatedEvent event1 = new ProfileUpdatedEvent(
+                UUID.randomUUID(), profileId, ChangeType.PREFERENCES,
+                Set.of("preferences.minAge"), Instant.now(), null);
 
-        ProfileUpdateEvent event2 = ProfileUpdateEvent.builder()
-                .eventId(UUID.randomUUID())
-                .profileId(profileId)
-                .changeType(ChangeType.CRITICAL_FIELDS)
-                .changedFields(Set.of("age"))
-                .timestamp(Instant.now().plusSeconds(1))
-                .build();
+        ProfileUpdatedEvent event2 = new ProfileUpdatedEvent(
+                UUID.randomUUID(), profileId, ChangeType.CRITICAL_FIELDS,
+                Set.of("age"), Instant.now().plusSeconds(1), null);
 
         // When
         kafkaTemplate.send(TOPIC, profileId.toString(), event1);
@@ -173,14 +155,9 @@ class ProfileEventConsumerIntegrationTest {
     void testConsumeProfileUpdateNonCriticalChangeEvent() {
         // Given
         UUID profileId = UUID.randomUUID();
-        ProfileUpdateEvent event = ProfileUpdateEvent.builder()
-                .eventId(UUID.randomUUID())
-                .profileId(profileId)
-                .changeType(ChangeType.NON_CRITICAL)
-                .changedFields(Set.of("bio", "name"))
-                .timestamp(Instant.now())
-                .metadata("Test non-critical change")
-                .build();
+        ProfileUpdatedEvent event = new ProfileUpdatedEvent(
+                UUID.randomUUID(), profileId, ChangeType.NON_CRITICAL,
+                Set.of("bio", "name"), Instant.now(), "Test non-critical change");
 
         // When
         kafkaTemplate.send(TOPIC, profileId.toString(), event);
@@ -202,29 +179,17 @@ class ProfileEventConsumerIntegrationTest {
         UUID profileId2 = UUID.randomUUID();
         UUID profileId3 = UUID.randomUUID();
 
-        ProfileUpdateEvent event1 = ProfileUpdateEvent.builder()
-                .eventId(UUID.randomUUID())
-                .profileId(profileId1)
-                .changeType(ChangeType.PREFERENCES)
-                .changedFields(Set.of("preferences.maxAge"))
-                .timestamp(Instant.now())
-                .build();
+        ProfileUpdatedEvent event1 = new ProfileUpdatedEvent(
+                UUID.randomUUID(), profileId1, ChangeType.PREFERENCES,
+                Set.of("preferences.maxAge"), Instant.now(), null);
 
-        ProfileUpdateEvent event2 = ProfileUpdateEvent.builder()
-                .eventId(UUID.randomUUID())
-                .profileId(profileId2)
-                .changeType(ChangeType.LOCATION_CHANGE)
-                .changedFields(Set.of("location"))
-                .timestamp(Instant.now())
-                .build();
+        ProfileUpdatedEvent event2 = new ProfileUpdatedEvent(
+                UUID.randomUUID(), profileId2, ChangeType.LOCATION_CHANGE,
+                Set.of("location"), Instant.now(), null);
 
-        ProfileUpdateEvent event3 = ProfileUpdateEvent.builder()
-                .eventId(UUID.randomUUID())
-                .profileId(profileId3)
-                .changeType(ChangeType.PREFERENCES)
-                .changedFields(Set.of("preferences.distance"))
-                .timestamp(Instant.now())
-                .build();
+        ProfileUpdatedEvent event3 = new ProfileUpdatedEvent(
+                UUID.randomUUID(), profileId3, ChangeType.PREFERENCES,
+                Set.of("preferences.distance"), Instant.now(), null);
 
         // When: Send events to different partitions (different keys)
         kafkaTemplate.send(TOPIC, profileId1.toString(), event1);

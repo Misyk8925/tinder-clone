@@ -1,7 +1,7 @@
 package com.tinder.deck.kafka.config;
 
-import com.tinder.deck.kafka.dto.ProfileDeleteEvent;
-import com.tinder.deck.kafka.dto.ProfileUpdateEvent;
+import com.tinder.contracts.event.v1.ProfileDeletedEvent;
+import com.tinder.contracts.event.v1.ProfileUpdatedEvent;
 import com.tinder.deck.kafka.dto.SwipeSavedEvent;
 import java.time.Duration;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
@@ -76,14 +76,14 @@ public class KafkaConsumerConfig {
      * Consumer factory for ProfileEvent deserialization
      */
     @Bean
-    public ConsumerFactory<String, ProfileUpdateEvent> profileEventConsumerFactory() {
+    public ConsumerFactory<String, ProfileUpdatedEvent> profileEventConsumerFactory() {
         Map<String, Object> props = new HashMap<>();
         props.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers);
         props.put(ConsumerConfig.GROUP_ID_CONFIG, groupId);
         props.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class);
         props.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, JsonDeserializer.class);
-        props.put(JsonDeserializer.TRUSTED_PACKAGES, "com.tinder.deck.kafka.dto");
-        props.put(JsonDeserializer.VALUE_DEFAULT_TYPE, ProfileUpdateEvent.class.getName());
+        props.put(JsonDeserializer.TRUSTED_PACKAGES, "com.tinder.contracts.event.v1,com.tinder.deck.kafka.dto");
+        props.put(JsonDeserializer.VALUE_DEFAULT_TYPE, ProfileUpdatedEvent.class.getName());
         props.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest");
 
         // Performance tuning
@@ -104,7 +104,7 @@ public class KafkaConsumerConfig {
         props.put(ConsumerConfig.GROUP_ID_CONFIG, groupId + "-swipe");
         props.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class);
         props.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, JsonDeserializer.class);
-        props.put(JsonDeserializer.TRUSTED_PACKAGES, "com.tinder.deck.kafka.dto");
+        props.put(JsonDeserializer.TRUSTED_PACKAGES, "com.tinder.contracts.event.v1,com.tinder.deck.kafka.dto");
         props.put(JsonDeserializer.VALUE_DEFAULT_TYPE, SwipeSavedEvent.class.getName());
         props.put(JsonDeserializer.USE_TYPE_INFO_HEADERS, false);
         props.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest");
@@ -118,17 +118,17 @@ public class KafkaConsumerConfig {
     }
 
     /**
-     * Consumer factory for ProfileDeleteEvent deserialization
+     * Consumer factory for ProfileDeletedEvent deserialization
      */
     @Bean
-    public ConsumerFactory<String, ProfileDeleteEvent> profileDeleteEventConsumerFactory() {
+    public ConsumerFactory<String, ProfileDeletedEvent> profileDeleteEventConsumerFactory() {
         Map<String, Object> props = new HashMap<>();
         props.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers);
         props.put(ConsumerConfig.GROUP_ID_CONFIG, groupId + "-delete");
         props.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class);
         props.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, JsonDeserializer.class);
-        props.put(JsonDeserializer.TRUSTED_PACKAGES, "com.tinder.deck.kafka.dto");
-        props.put(JsonDeserializer.VALUE_DEFAULT_TYPE, ProfileDeleteEvent.class.getName());
+        props.put(JsonDeserializer.TRUSTED_PACKAGES, "com.tinder.contracts.event.v1,com.tinder.deck.kafka.dto");
+        props.put(JsonDeserializer.VALUE_DEFAULT_TYPE, ProfileDeletedEvent.class.getName());
         props.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest");
 
         // Performance tuning
@@ -143,9 +143,9 @@ public class KafkaConsumerConfig {
      * Listener container factory with manual acknowledgment
      */
     @Bean
-    public ConcurrentKafkaListenerContainerFactory<String, ProfileUpdateEvent> kafkaListenerContainerFactory(
+    public ConcurrentKafkaListenerContainerFactory<String, ProfileUpdatedEvent> kafkaListenerContainerFactory(
             DefaultErrorHandler kafkaErrorHandler) {
-        ConcurrentKafkaListenerContainerFactory<String, ProfileUpdateEvent> factory =
+        ConcurrentKafkaListenerContainerFactory<String, ProfileUpdatedEvent> factory =
                 new ConcurrentKafkaListenerContainerFactory<>();
         factory.setConsumerFactory(profileEventConsumerFactory());
         factory.setConcurrency(concurrency);
@@ -174,12 +174,12 @@ public class KafkaConsumerConfig {
     }
 
     /**
-     * Listener container factory for ProfileDeleteEvent with manual acknowledgment
+     * Listener container factory for ProfileDeletedEvent with manual acknowledgment
      */
     @Bean
-    public ConcurrentKafkaListenerContainerFactory<String, ProfileDeleteEvent> deleteKafkaListenerContainerFactory(
+    public ConcurrentKafkaListenerContainerFactory<String, ProfileDeletedEvent> deleteKafkaListenerContainerFactory(
             DefaultErrorHandler kafkaErrorHandler) {
-        ConcurrentKafkaListenerContainerFactory<String, ProfileDeleteEvent> factory =
+        ConcurrentKafkaListenerContainerFactory<String, ProfileDeletedEvent> factory =
                 new ConcurrentKafkaListenerContainerFactory<>();
         factory.setConsumerFactory(profileDeleteEventConsumerFactory());
         factory.setConcurrency(concurrency);

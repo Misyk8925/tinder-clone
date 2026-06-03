@@ -1,9 +1,9 @@
 package com.tinder.deck.service;
 
 import com.tinder.deck.adapters.ProfilesHttp;
-import com.tinder.deck.dto.SharedLocationDto;
-import com.tinder.deck.dto.SharedPreferencesDto;
-import com.tinder.deck.dto.SharedProfileDto;
+import com.tinder.contracts.dto.SharedLocationDto;
+import com.tinder.contracts.dto.SharedPreferencesDto;
+import com.tinder.contracts.dto.SharedProfileDto;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -192,6 +192,6 @@ class DeckSchedulerTest {
 
         SharedPreferencesDto prefs = new SharedPreferencesDto(18, 50, "ANY", 100);
 
-        return new SharedProfileDto(id, name, age, "Bio", "City", true, location, prefs, false, List.of());
+        return new SharedProfileDto(id, name, age, "Bio", "City", true, location, prefs, false, List.of(), List.of());
     }
 }

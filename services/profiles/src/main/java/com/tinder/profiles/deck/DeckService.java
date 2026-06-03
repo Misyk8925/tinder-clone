@@ -5,7 +5,7 @@ import com.tinder.profiles.preferences.PreferencesDto;
 import com.tinder.profiles.profile.ProfileRepository;
 import com.tinder.profiles.profile.cache.DeckPageCacheService;
 import com.tinder.profiles.profile.dto.profileData.deck.DeckProfileDto;
-import com.tinder.profiles.profile.dto.profileData.shared.SharedProfileDto;
+import com.tinder.contracts.dto.SharedProfileDto;
 import com.tinder.profiles.profile.internal.InternalProfileService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;

@@ -2,9 +2,9 @@ package com.tinder.profiles.outbox;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
+import com.tinder.contracts.event.v1.ProfileCreatedEvent;
+import com.tinder.contracts.event.v1.ProfileDeletedEvent;
 import com.tinder.profiles.kafka.ResilientProfileEventProducer;
-import com.tinder.profiles.kafka.dto.ProfileCreateEvent;
-import com.tinder.profiles.kafka.dto.ProfileDeleteEvent;
 import com.tinder.profiles.outbox.model.ProfileEventOutbox;
 import com.tinder.profiles.outbox.model.ProfileOutboxEventType;
 import org.junit.jupiter.api.BeforeEach;
@@ -44,11 +44,7 @@ class ProfileOutboxEventDispatcherTest {
     void publish_ShouldRouteCreateEventByType() throws Exception {
         UUID eventId = UUID.randomUUID();
         UUID profileId = UUID.randomUUID();
-        ProfileCreateEvent event = ProfileCreateEvent.builder()
-                .eventId(eventId)
-                .profileId(profileId)
-                .timestamp(Instant.now())
-                .build();
+        ProfileCreatedEvent event = new ProfileCreatedEvent(eventId, profileId, "user-123", Instant.now());
 
         ProfileEventOutbox outboxRow = ProfileEventOutbox.pending(
                 eventId,
@@ -61,7 +57,7 @@ class ProfileOutboxEventDispatcherTest {
         dispatcher.publish(outboxRow);
 
         verify(resilientProfileEventProducer).sendProfileCreateEvent(
-                argThat(actual -> actual.getEventId().equals(eventId) && actual.getProfileId().equals(profileId)),
+                argThat(actual -> actual.eventId().equals(eventId) && actual.profileId().equals(profileId)),
                 eq(profileId.toString()),
                 eq("profile.created")
         );
@@ -71,11 +67,7 @@ class ProfileOutboxEventDispatcherTest {
     void publish_ShouldRouteDeleteEventByType() throws Exception {
         UUID eventId = UUID.randomUUID();
         UUID profileId = UUID.randomUUID();
-        ProfileDeleteEvent event = ProfileDeleteEvent.builder()
-                .eventId(eventId)
-                .profileId(profileId)
-                .timestamp(Instant.now())
-                .build();
+        ProfileDeletedEvent event = new ProfileDeletedEvent(eventId, profileId, Instant.now());
 
         ProfileEventOutbox outboxRow = ProfileEventOutbox.pending(
                 eventId,
@@ -88,7 +80,7 @@ class ProfileOutboxEventDispatcherTest {
         dispatcher.publish(outboxRow);
 
         verify(resilientProfileEventProducer).sendProfileDeleteEvent(
-                argThat(actual -> actual.getEventId().equals(eventId) && actual.getProfileId().equals(profileId)),
+                argThat(actual -> actual.eventId().equals(eventId) && actual.profileId().equals(profileId)),
                 eq(profileId.toString()),
                 eq("profile.deleted")
         );

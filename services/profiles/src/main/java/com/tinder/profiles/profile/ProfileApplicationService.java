@@ -1,10 +1,11 @@
 package com.tinder.profiles.profile;
 
-import com.tinder.profiles.kafka.dto.ChangeType;
-import com.tinder.profiles.kafka.dto.ProfileCreateEvent;
-import com.tinder.profiles.kafka.dto.ProfileDeleteEvent;
-import com.tinder.profiles.kafka.dto.ProfileUpdatedEvent;
+import com.tinder.contracts.event.v1.ChangeType;
+import com.tinder.contracts.event.v1.ProfileCreatedEvent;
+import com.tinder.contracts.event.v1.ProfileDeletedEvent;
+import com.tinder.contracts.event.v1.ProfileUpdatedEvent;
 import com.tinder.profiles.location.LocationService;
+import com.tinder.profiles.location.client.LocationServiceClient;
 import com.tinder.profiles.outbox.ProfileOutboxService;
 import com.tinder.profiles.preferences.Preferences;
 import com.tinder.profiles.preferences.PreferencesService;
@@ -26,6 +27,7 @@ import com.tinder.profiles.security.DeckHotPathTokenCache;
 import com.tinder.profiles.security.InputSanitizationService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.cache.Cache;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -50,6 +52,7 @@ public class ProfileApplicationService {
     private final PreferencesService preferencesService;
     private final ProfileOutboxService profileOutboxService;
     private final LocationService locationService;
+    private final LocationServiceClient locationServiceClient;
     private final ProfileIdentityCacheService profileIdentityCacheService;
     private final SharedProfileSnapshotCache sharedProfileSnapshotCache;
     private final DeckProfileSnapshotCache deckProfileSnapshotCache;
@@ -58,6 +61,10 @@ public class ProfileApplicationService {
 
 
     private static final String PROFILE_CACHE_NAME = "PROFILE_ENTITY_CACHE";
+
+    /** Minimum movement in kilometres before a GPS coordinate update is treated as a location change. */
+    @Value("${location.change.threshold-km:1.0}")
+    double locationChangeThresholdKm;
 
 
     public Page<Profile> getAll(Pageable pageable) {
@@ -170,12 +177,12 @@ public class ProfileApplicationService {
         Profile savedProfile = profileRepository.save(profile);
         profileIdentityCacheService.put(userId, savedProfile.getProfileId());
 
-        ProfileCreateEvent event = ProfileCreateEvent.builder()
-                .eventId(UUID.randomUUID())
-                .profileId(savedProfile.getProfileId())
-                .userId(savedProfile.getUserId())
-                .timestamp(Instant.now())
-                .build();
+        ProfileCreatedEvent event = new ProfileCreatedEvent(
+                UUID.randomUUID(),
+                savedProfile.getProfileId(),
+                savedProfile.getUserId(),
+                Instant.now()
+        );
         profileOutboxService.enqueueProfileCreated(event);
 
         log.info("Profile created successfully for userId: {}", userId);
@@ -211,12 +218,18 @@ public class ProfileApplicationService {
 
         // Update Location entity when city changed or GPS coordinates provided
         boolean hasCoords = sanitizedProfile.latitude() != null && sanitizedProfile.longitude() != null;
-        if (changedFields.contains("city") || hasCoords) {
-            if (hasCoords) {
-                existingProfile.setLocation(locationService.createFromCoordinates(
-                        sanitizedProfile.latitude(), sanitizedProfile.longitude(), sanitizedProfile.city()));
-            } else {
-                existingProfile.setLocation(locationService.create(sanitizedProfile.city()));
+        boolean cityNameChanged = changedFields.contains("city");
+        if (cityNameChanged || hasCoords) {
+            boolean significantMove = !hasCoords || hasMovedSignificantly(
+                    existingProfile, sanitizedProfile.latitude(), sanitizedProfile.longitude());
+            if (cityNameChanged || significantMove) {
+                if (hasCoords) {
+                    existingProfile.setLocation(locationServiceClient.resolveFromCoordinates(
+                            sanitizedProfile.latitude(), sanitizedProfile.longitude(), sanitizedProfile.city()));
+                } else {
+                    existingProfile.setLocation(locationServiceClient.resolve(sanitizedProfile.city()));
+                }
+                changedFields.add("city");
             }
         }
 
@@ -294,19 +307,29 @@ public class ProfileApplicationService {
             changedFields.add("city");
         }
 
-        // Update Location entity when city changed or GPS coordinates provided
+        // Update Location entity when city changed or GPS coordinates provided.
+        // For coordinate-only updates (browser geolocation), skip if the user
+        // has not moved beyond locationChangeThresholdKm to suppress GPS jitter.
         boolean hasCoords = patchDto.latitude() != null && patchDto.longitude() != null;
-        if (hasCoords || changedFields.contains("city")) {
-            String cityForLocation = patchDto.city() != null
-                    ? sanitizationService.sanitizePlainText(patchDto.city())
-                    : existingProfile.getCity();
-            if (hasCoords) {
-                existingProfile.setLocation(locationService.createFromCoordinates(
-                        patchDto.latitude(), patchDto.longitude(), cityForLocation));
+        boolean cityNameChanged = changedFields.contains("city");
+        if (cityNameChanged || hasCoords) {
+            boolean significantMove = !hasCoords || hasMovedSignificantly(
+                    existingProfile, patchDto.latitude(), patchDto.longitude());
+            if (cityNameChanged || significantMove) {
+                String cityForLocation = patchDto.city() != null
+                        ? sanitizationService.sanitizePlainText(patchDto.city())
+                        : existingProfile.getCity();
+                if (hasCoords) {
+                    existingProfile.setLocation(locationServiceClient.resolveFromCoordinates(
+                            patchDto.latitude(), patchDto.longitude(), cityForLocation));
+                } else {
+                    existingProfile.setLocation(locationServiceClient.resolve(cityForLocation));
+                }
+                changedFields.add("city");
             } else {
-                existingProfile.setLocation(locationService.create(cityForLocation));
+                log.debug("Ignoring coordinate update for profile {}: moved less than {}km",
+                        existingProfile.getProfileId(), locationChangeThresholdKm);
             }
-            changedFields.add("city");
         }
 
         // Handle preferences update
@@ -334,15 +357,22 @@ public class ProfileApplicationService {
 
         Profile savedProfile = profileRepository.save(existingProfile);
 
-        // Determine change type and send event
-        ChangeType changeType = determineChangeType(changedFields, preferencesChanged);
-        enqueueProfileUpdatedEvent(savedProfile, changeType, changedFields);
+        // Only enqueue an event when something actually changed. A coordinate-only
+        // PATCH that didn't cross the movement threshold produces an empty changedFields
+        // set — publishing a NON_CRITICAL event in that case would trigger unnecessary
+        // cache refreshes and Kafka noise.
+        if (!changedFields.isEmpty() || preferencesChanged) {
+            ChangeType changeType = determineChangeType(changedFields, preferencesChanged);
+            enqueueProfileUpdatedEvent(savedProfile, changeType, changedFields);
+            log.info("Profile patched successfully for userId: {} with changeType: {} and fields: {}",
+                    userId, changeType, changedFields);
+        } else {
+            log.debug("No effective changes for patch on profile {} (coordinate jitter suppressed)", userId);
+        }
 
         // Update cache
         refreshProfileCaches(userId, savedProfile.getProfileId(), savedProfile);
 
-        log.info("Profile patched successfully for userId: {} with changeType: {} and fields: {}",
-                userId, changeType, changedFields);
         return savedProfile;
     }
 
@@ -361,11 +391,11 @@ public class ProfileApplicationService {
             log.info("Profile deleted successfully: {}", id);
         }
 
-        ProfileDeleteEvent event = ProfileDeleteEvent.builder()
-                .eventId(UUID.randomUUID())
-                .profileId(profile.getProfileId())
-                .timestamp(Instant.now())
-                .build();
+        ProfileDeletedEvent event = new ProfileDeletedEvent(
+                UUID.randomUUID(),
+                profile.getProfileId(),
+                Instant.now()
+        );
         profileOutboxService.enqueueProfileDeleted(event);
 
         return profile;
@@ -433,6 +463,30 @@ public class ProfileApplicationService {
     }
 
     // Event handling helper methods
+
+    /**
+     * Returns true if the new GPS coordinates are at least locationChangeThresholdKm
+     * away from the profile's current location. Always returns true when the
+     * profile has no stored location so the first coordinate update is accepted.
+     */
+    boolean hasMovedSignificantly(Profile profile, double newLat, double newLon) {
+        var loc = profile.getLocation();
+        if (loc == null || loc.getLatitude() == null || loc.getLongitude() == null) {
+            return true;
+        }
+        return haversineKm(loc.getLatitude(), loc.getLongitude(), newLat, newLon)
+                >= locationChangeThresholdKm;
+    }
+
+    static double haversineKm(double lat1, double lon1, double lat2, double lon2) {
+        final double R = 6371.0;
+        double dLat = Math.toRadians(lat2 - lat1);
+        double dLon = Math.toRadians(lon2 - lon1);
+        double a = Math.sin(dLat / 2) * Math.sin(dLat / 2)
+                + Math.cos(Math.toRadians(lat1)) * Math.cos(Math.toRadians(lat2))
+                * Math.sin(dLon / 2) * Math.sin(dLon / 2);
+        return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    }
 
     /**
      * Detect which fields changed between existing profile and new DTO
@@ -509,18 +563,18 @@ public class ProfileApplicationService {
      * Build and enqueue profile updated event in outbox.
      */
     private void enqueueProfileUpdatedEvent(Profile profile, ChangeType changeType, Set<String> changedFields) {
-        ProfileUpdatedEvent event = ProfileUpdatedEvent.builder()
-                .eventId(UUID.randomUUID())
-                .profileId(profile.getProfileId())
-                .changeType(changeType)
-                .changedFields(changedFields)
-                .timestamp(Instant.now())
-                .metadata(String.format("Profile updated: %s", changeType))
-                .build();
+        ProfileUpdatedEvent event = new ProfileUpdatedEvent(
+                UUID.randomUUID(),
+                profile.getProfileId(),
+                changeType,
+                changedFields,
+                Instant.now(),
+                String.format("Profile updated: %s", changeType)
+        );
 
         profileOutboxService.enqueueProfileUpdated(event);
 
         log.debug("Queued ProfileUpdatedEvent in outbox: eventId={}, profileId={}, changeType={}, fields={}",
-                event.getEventId(), event.getProfileId(), changeType, changedFields);
+                event.eventId(), event.profileId(), changeType, changedFields);
     }
 }

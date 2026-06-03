@@ -2,6 +2,7 @@ com/tinder/contracts/dto/SharedLocationDto.class
 com/tinder/contracts/dto/Hobby.class
 com/tinder/contracts/dto/SharedPreferencesDto.class
 com/tinder/contracts/dto/SharedPhotoDto.class
+com/tinder/contracts/dto/DeckEntry.class
 com/tinder/contracts/event/v1/ProfileCreatedEvent.class
 com/tinder/contracts/event/v1/ChangeType.class
 com/tinder/contracts/event/v1/ProfileUpdatedEvent.class

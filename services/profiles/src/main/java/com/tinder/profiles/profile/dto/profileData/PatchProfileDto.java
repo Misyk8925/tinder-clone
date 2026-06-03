@@ -1,7 +1,7 @@
 package com.tinder.profiles.profile.dto.profileData;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
-import com.tinder.profiles.hobbies.Hobby;
+import com.tinder.contracts.dto.Hobby;
 import com.tinder.profiles.preferences.PreferencesDto;
 import com.tinder.profiles.profile.Profile;
 import jakarta.validation.Valid;

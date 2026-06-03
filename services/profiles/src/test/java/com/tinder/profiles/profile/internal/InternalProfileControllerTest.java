@@ -2,7 +2,7 @@ package com.tinder.profiles.profile.internal;
 
 import com.tinder.profiles.profile.Profile;
 import com.tinder.profiles.profile.ProfileRepository;
-import com.tinder.profiles.profile.dto.profileData.shared.SharedProfileDto;
+import com.tinder.contracts.dto.SharedProfileDto;
 import com.tinder.profiles.profile.mapper.SharedProfileMapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;

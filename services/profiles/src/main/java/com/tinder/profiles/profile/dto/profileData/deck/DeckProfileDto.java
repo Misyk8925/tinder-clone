@@ -1,7 +1,7 @@
 package com.tinder.profiles.profile.dto.profileData.deck;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.tinder.profiles.hobbies.Hobby;
+import com.tinder.contracts.dto.Hobby;
 
 import java.util.List;
 import java.util.UUID;

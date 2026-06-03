@@ -1,7 +1,7 @@
 package com.tinder.deck.adapters;
 
-import com.tinder.deck.dto.SharedPreferencesDto;
-import com.tinder.deck.dto.SharedProfileDto;
+import com.tinder.contracts.dto.SharedPreferencesDto;
+import com.tinder.contracts.dto.SharedProfileDto;
 import com.tinder.deck.resilience.DeckResilience;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;

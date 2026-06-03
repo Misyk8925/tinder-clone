@@ -1,6 +1,6 @@
 package com.tinder.deck.service.pipeline.util;
 
-import com.tinder.deck.dto.SharedProfileDto;
+import com.tinder.contracts.dto.SharedProfileDto;
 import com.tinder.deck.service.scoring.LocationProximityStrategy;
 import lombok.experimental.UtilityClass;
 import lombok.extern.slf4j.Slf4j;

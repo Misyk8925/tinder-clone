@@ -36,6 +36,8 @@
         <option value="$PROJECT_DIR$/services/media-service/pom.xml" />
         <option value="$PROJECT_DIR$/services/subscriptions/pom.xml" />
         <option value="$PROJECT_DIR$/services/consumer/pom.xml" />
+        <option value="$PROJECT_DIR$/services/tinder-contracts/pom.xml" />
+        <option value="$PROJECT_DIR$/services/deck-read/pom.xml" />
       </list>
     </option>
     <option name="ignoredFiles">

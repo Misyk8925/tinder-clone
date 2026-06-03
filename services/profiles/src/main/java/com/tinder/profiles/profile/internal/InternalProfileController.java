@@ -4,7 +4,7 @@ package com.tinder.profiles.profile.internal;
 import com.tinder.profiles.deck.DeckService;
 import com.tinder.profiles.profile.IdsQueryParamParser;
 import com.tinder.profiles.preferences.PreferencesDto;
-import com.tinder.profiles.profile.dto.profileData.shared.SharedProfileDto;
+import com.tinder.contracts.dto.SharedProfileDto;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;

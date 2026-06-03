@@ -2,7 +2,7 @@ package com.tinder.profiles;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.tinder.profiles.kafka.dto.MatchCreateEvent;
-import com.tinder.profiles.kafka.dto.ProfileCreateEvent;
+import com.tinder.contracts.event.v1.ProfileCreatedEvent;
 import com.tinder.profiles.profile.Profile;
 import com.tinder.profiles.user.NewUserRecord;
 import com.tinder.profiles.user.UserService;
@@ -481,9 +481,9 @@ public class ComprehensiveIntegrationTest extends AbstractProfilesIntegrationTes
             .pollInterval(5, TimeUnit.SECONDS)
             .untilAsserted(() -> {
                 long coveredIds = kafkaEventCollector.getProfileCreatedEvents().stream()
-                        .filter(e -> e.getProfileId() != null
-                                && createdProfileIds.contains(e.getProfileId().toString()))
-                        .map(e -> e.getProfileId().toString())
+                        .filter(e -> e.profileId() != null
+                                && createdProfileIds.contains(e.profileId().toString()))
+                        .map(e -> e.profileId().toString())
                         .distinct()
                         .count();
                 log.info("  Covered {}/{} unique profileIds with ProfileCreateEvent",
@@ -495,19 +495,19 @@ public class ComprehensiveIntegrationTest extends AbstractProfilesIntegrationTes
 
         int finalEventCount = kafkaEventCollector.getProfileCreatedEvents().size();
 
-        List<ProfileCreateEvent> events = kafkaEventCollector.getProfileCreatedEvents().stream()
-            .filter(e -> e.getProfileId() != null && createdProfileIds.contains(e.getProfileId().toString()))
+        List<ProfileCreatedEvent> events = kafkaEventCollector.getProfileCreatedEvents().stream()
+            .filter(e -> e.profileId() != null && createdProfileIds.contains(e.profileId().toString()))
             .collect(Collectors.toList());
 
         // Deduplicate by profileId — Kafka at-least-once delivery may produce duplicates;
         // keep only the first event received per profileId.
-        Map<String, ProfileCreateEvent> deduplicatedByProfileId = new java.util.LinkedHashMap<>();
-        for (ProfileCreateEvent event : events) {
-            if (event.getProfileId() != null) {
-                deduplicatedByProfileId.putIfAbsent(event.getProfileId().toString(), event);
+        Map<String, ProfileCreatedEvent> deduplicatedByProfileId = new java.util.LinkedHashMap<>();
+        for (ProfileCreatedEvent event : events) {
+            if (event.profileId() != null) {
+                deduplicatedByProfileId.putIfAbsent(event.profileId().toString(), event);
             }
         }
-        List<ProfileCreateEvent> uniqueEvents = new ArrayList<>(deduplicatedByProfileId.values());
+        List<ProfileCreatedEvent> uniqueEvents = new ArrayList<>(deduplicatedByProfileId.values());
 
         int duplicatesDropped = events.size() - uniqueEvents.size();
         if (duplicatesDropped > 0) {
@@ -520,11 +520,11 @@ public class ComprehensiveIntegrationTest extends AbstractProfilesIntegrationTes
             finalEventCount - initialCreateEventCount, finalEventCount, events.size(), uniqueEvents.size());
 
         int validEvents = 0, eventsWithValidId = 0, eventsWithValidTimestamp = 0, eventsMatchingProfiles = 0;
-        for (ProfileCreateEvent event : uniqueEvents) {
+        for (ProfileCreatedEvent event : uniqueEvents) {
             boolean isValid = true;
-            if (event.getEventId()   != null) eventsWithValidId++; else isValid = false;
-            if (event.getProfileId() != null) eventsMatchingProfiles++; else isValid = false;
-            if (event.getTimestamp() != null) eventsWithValidTimestamp++; else isValid = false;
+            if (event.eventId()   != null) eventsWithValidId++; else isValid = false;
+            if (event.profileId() != null) eventsMatchingProfiles++; else isValid = false;
+            if (event.occurredAt() != null) eventsWithValidTimestamp++; else isValid = false;
             if (isValid) validEvents++;
         }
 
@@ -533,10 +533,10 @@ public class ComprehensiveIntegrationTest extends AbstractProfilesIntegrationTes
         assertThat(eventsWithValidTimestamp).as("All events should have timestamp").isEqualTo(uniqueEvents.size());
         assertThat(validEvents).as("All events should be fully valid").isEqualTo(uniqueEvents.size());
 
-        Set<String> eventIds = uniqueEvents.stream().map(e -> e.getEventId().toString()).collect(Collectors.toSet());
+        Set<String> eventIds = uniqueEvents.stream().map(e -> e.eventId().toString()).collect(Collectors.toSet());
         assertThat(eventIds).as("All eventIds should be unique").hasSize(uniqueEvents.size());
 
-        Set<String> eventProfileIds = uniqueEvents.stream().map(e -> e.getProfileId().toString()).collect(Collectors.toSet());
+        Set<String> eventProfileIds = uniqueEvents.stream().map(e -> e.profileId().toString()).collect(Collectors.toSet());
         assertThat(eventProfileIds).as("All profileIds in events should be unique").hasSize(uniqueEvents.size());
 
         // Assert against the SET size (unique profiles), not TEST_USER_COUNT.
@@ -1458,27 +1458,27 @@ public class ComprehensiveIntegrationTest extends AbstractProfilesIntegrationTes
         int newEvents         = afterUpdateEvents - beforeUpdateEvents;
         stats.kafkaUpdateEventsReceived = newEvents;
 
-        List<com.tinder.profiles.kafka.dto.ProfileUpdatedEvent> updateEvents =
+        List<com.tinder.contracts.event.v1.ProfileUpdatedEvent> updateEvents =
                 kafkaEventCollector.getProfileUpdatedEvents().subList(beforeUpdateEvents, afterUpdateEvents);
 
         int validEvents = 0, preferencesEvents = 0, criticalFieldsEvents = 0,
                 nonCriticalEvents = 0, locationChangeEvents = 0;
         Set<UUID> locationChangeProfileIds = new HashSet<>();
 
-        for (com.tinder.profiles.kafka.dto.ProfileUpdatedEvent event : updateEvents) {
-            boolean isValid = event.getEventId() != null && event.getProfileId() != null
-                    && event.getChangeType() != null
-                    && event.getChangedFields() != null && !event.getChangedFields().isEmpty()
-                    && event.getTimestamp() != null;
+        for (com.tinder.contracts.event.v1.ProfileUpdatedEvent event : updateEvents) {
+            boolean isValid = event.eventId() != null && event.profileId() != null
+                    && event.changeType() != null
+                    && event.changedFields() != null && !event.changedFields().isEmpty()
+                    && event.occurredAt() != null;
             if (isValid) validEvents++;
-            if (event.getChangeType() != null) {
-                switch (event.getChangeType()) {
+            if (event.changeType() != null) {
+                switch (event.changeType()) {
                     case PREFERENCES    -> preferencesEvents++;
                     case CRITICAL_FIELDS -> criticalFieldsEvents++;
                     case NON_CRITICAL   -> nonCriticalEvents++;
                     case LOCATION_CHANGE -> {
                         locationChangeEvents++;
-                        if (event.getProfileId() != null) locationChangeProfileIds.add(event.getProfileId());
+                        if (event.profileId() != null) locationChangeProfileIds.add(event.profileId());
                     }
                 }
             }
@@ -1545,20 +1545,20 @@ public class ComprehensiveIntegrationTest extends AbstractProfilesIntegrationTes
         int newEvents         = afterDeleteEvents - beforeDeleteEvents;
         stats.kafkaDeleteEventsReceived = newEvents;
 
-        List<com.tinder.profiles.kafka.dto.ProfileDeleteEvent> deleteEvents =
+        List<com.tinder.contracts.event.v1.ProfileDeletedEvent> deleteEvents =
                 kafkaEventCollector.getProfileDeletedEvents().subList(beforeDeleteEvents, afterDeleteEvents);
 
         Set<UUID> deletedProfileIds = deletedProfiles.stream()
                 .map(p -> UUID.fromString(p.profileId())).collect(Collectors.toSet());
 
         int validEvents = 0;
-        for (com.tinder.profiles.kafka.dto.ProfileDeleteEvent event : deleteEvents) {
-            boolean isValid = event.getEventId() != null && event.getProfileId() != null
-                    && deletedProfileIds.contains(event.getProfileId())
-                    && event.getTimestamp() != null;
+        for (com.tinder.contracts.event.v1.ProfileDeletedEvent event : deleteEvents) {
+            boolean isValid = event.eventId() != null && event.profileId() != null
+                    && deletedProfileIds.contains(event.profileId())
+                    && event.occurredAt() != null;
             if (isValid) validEvents++;
             else log.warn("  Invalid ProfileDeleteEvent: eventId={}, profileId={}",
-                    event.getEventId(), event.getProfileId());
+                    event.eventId(), event.profileId());
         }
 
         assertThat(validEvents).as("All ProfileDeleteEvent should be valid").isEqualTo(newEvents);
