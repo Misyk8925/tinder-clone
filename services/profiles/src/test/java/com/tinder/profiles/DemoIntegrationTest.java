@@ -4,7 +4,7 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.tinder.profiles.infrastructure.external.deck.DeckCacheReader;
 import com.tinder.profiles.infrastructure.persistence.location.LocationService;
-import com.tinder.profiles.profile.Profile;
+import com.tinder.profiles.infrastructure.persistence.profile.ProfileJpaEntity;
 import com.tinder.profiles.profile.ProfileRepository;
 import com.tinder.profiles.infrastructure.external.keycloak.NewUserRecord;
 import com.tinder.profiles.infrastructure.external.keycloak.UserService;
@@ -365,7 +365,7 @@ public class DemoIntegrationTest {
         String profileId = (String) profileData.get("data");
 
         if (profileId == null) {
-            throw new IllegalStateException("Profile creation returned null id for user: " + user.username());
+            throw new IllegalStateException("ProfileJpaEntity creation returned null id for user: " + user.username());
         }
 
         return new ProfileTestData(profileId, token, user.username(), user.firstName(), age, gender, preferredGender);
@@ -578,7 +578,7 @@ public class DemoIntegrationTest {
      * 4. Returns explicit success/failure status
      *
      * @param deckClient WebClient configured for deck service
-     * @param profileId Profile ID to check
+     * @param profileId ProfileJpaEntity ID to check
      * @return DeckPollResult with explicit success/failure and error details
      */
     private DeckPollResult pollForDeckReadiness(WebClient deckClient, String profileId) throws InterruptedException {
@@ -844,7 +844,7 @@ public class DemoIntegrationTest {
     @DisplayName("Users can create profiles and have correct deck cache in Redis")
     public void testUserCanCreateProfileWithCorrectDeckCache() {
         log.info("========================================");
-        log.info("TEST: User Profile Creation & Deck Cache");
+        log.info("TEST: User ProfileJpaEntity Creation & Deck Cache");
         log.info("========================================");
         log.info("Redis Testcontainer: {}:{}", redisContainer.getHost(), redisContainer.getFirstMappedPort());
 
@@ -852,7 +852,7 @@ public class DemoIntegrationTest {
 
         // Step 1: Create profiles directly in DB (simulating user registration)
         log.info("Step 1: Creating {} user profiles...", TEST_USER_COUNT);
-        List<Profile> createdProfiles = createDeterministicProfilesInDB();
+        List<ProfileJpaEntity> createdProfiles = createDeterministicProfilesInDB();
 
         assertThat(createdProfiles)
             .as("All profiles should be created successfully")
@@ -883,7 +883,7 @@ public class DemoIntegrationTest {
         // Step 4: Verify each user has correct deck cache
         log.info("Step 4: Verifying deck cache for each user...");
 
-        for (Profile profile : createdProfiles) {
+        for (ProfileJpaEntity profile : createdProfiles) {
             UUID viewerId = profile.getProfileId();
             List<Map.Entry<UUID, Double>> correctDeck = deckHelper.getCorrectDeck(viewerId);
 
@@ -926,7 +926,7 @@ public class DemoIntegrationTest {
 
             // Verify all candidates match preferences
             for (UUID candidateId : readerDeck) {
-                Profile candidate = createdProfiles.stream()
+                ProfileJpaEntity candidate = createdProfiles.stream()
                     .filter(p -> p.getProfileId().equals(candidateId))
                     .findFirst()
                     .orElseThrow();
@@ -986,10 +986,10 @@ public class DemoIntegrationTest {
     /**
      * Create deterministic profiles directly in DB without Keycloak dependency
      */
-    private List<Profile> createDeterministicProfilesInDB() {
+    private List<ProfileJpaEntity> createDeterministicProfilesInDB() {
         log.info("Creating {} deterministic profiles directly in DB...", TEST_USER_COUNT);
 
-        List<Profile> profiles = new ArrayList<>();
+        List<ProfileJpaEntity> profiles = new ArrayList<>();
         String[] names = {"Alexander", "Maria", "Dmitry", "Anna", "Ivan",
                          "Catherine", "Sergey", "Olga", "Andrew", "Natalie"};
 
@@ -1000,7 +1000,7 @@ public class DemoIntegrationTest {
             String preferredGender = (i % 2 == 0) ? "female" : "male";
             String userId = "test-user-" + (i + 1);
 
-            Profile profile = createProfileDirectly(name, age, gender, userId, preferredGender);
+            ProfileJpaEntity profile = createProfileDirectly(name, age, gender, userId, preferredGender);
             profiles.add(profile);
 
             log.info("  [{}/{}] Created: {} (Age: {}, Gender: {}, Prefers: {})",
@@ -1013,7 +1013,7 @@ public class DemoIntegrationTest {
     /**
      * Create a single profile directly in DB
      */
-    private Profile createProfileDirectly(String name, int age, String gender, String userId, String preferredGender) {
+    private ProfileJpaEntity createProfileDirectly(String name, int age, String gender, String userId, String preferredGender) {
         // Create/find preferences
         com.tinder.profiles.infrastructure.persistence.preferences.Preferences preferences = preferencesRepository
             .findByValues(MIN_AGE, MAX_AGE, preferredGender, DEFAULT_MAX_RANGE)
@@ -1028,11 +1028,11 @@ public class DemoIntegrationTest {
                 return preferencesRepository.save(newPrefs);
             });
 
-        // Create location (persisted so it is managed when Profile is saved)
+        // Create location (persisted so it is managed when ProfileJpaEntity is saved)
         com.tinder.profiles.infrastructure.persistence.location.Location location = locationService.create(DEFAULT_CITY);
 
         // Create profile
-        Profile profile = Profile.builder()
+        ProfileJpaEntity profile = ProfileJpaEntity.builder()
             .name(name)
             .age(age)
             .gender(gender)

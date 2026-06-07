@@ -2,7 +2,7 @@ package com.tinder.profiles.infrastructure.external.photos;
 import com.tinder.profiles.infrastructure.persistence.photos.PhotoRepository;
 import com.tinder.profiles.infrastructure.persistence.photos.Photo;
 
-import com.tinder.profiles.profile.Profile;
+import com.tinder.profiles.infrastructure.persistence.profile.ProfileJpaEntity;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -57,7 +57,7 @@ public class S3PhotoService {
 
 
 
-    public PhotoUrls uploadProfilePhoto(MultipartFile file, Profile profile, String position) throws IOException {
+    public PhotoUrls uploadProfilePhoto(MultipartFile file, ProfileJpaEntity profile, String position) throws IOException {
 
         int iPosition = Integer.parseInt(position);
         List<Photo> existingPhotos = photoRepository.findAllByProfile_ProfileId(profile.getProfileId());

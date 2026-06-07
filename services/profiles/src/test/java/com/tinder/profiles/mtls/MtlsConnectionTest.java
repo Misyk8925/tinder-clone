@@ -1,7 +1,7 @@
 package com.tinder.profiles.mtls;
 
 import com.tinder.profiles.AbstractProfilesIntegrationTest;
-import com.tinder.profiles.profile.Profile;
+import com.tinder.profiles.infrastructure.persistence.profile.ProfileJpaEntity;
 import io.netty.handler.ssl.SslContext;
 import io.netty.handler.ssl.SslContextBuilder;
 import org.junit.jupiter.api.*;
@@ -112,7 +112,7 @@ public class MtlsConnectionTest extends AbstractProfilesIntegrationTest {
 
     // ── Test data ─────────────────────────────────────────────────────────────
 
-    private Profile savedProfile;
+    private ProfileJpaEntity savedProfile;
 
     // ── Lifecycle ─────────────────────────────────────────────────────────────
 
@@ -133,7 +133,7 @@ public class MtlsConnectionTest extends AbstractProfilesIntegrationTest {
     @BeforeEach
     void seedProfile() {
         // Seed at least one profile so /internal/active and /internal/page are not trivially empty
-        Profile p = new Profile();
+        ProfileJpaEntity p = new ProfileJpaEntity();
         p.setName("mtls-test-user");
         p.setAge(25);
         p.setGender("MALE");

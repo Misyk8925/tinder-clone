@@ -1,7 +1,7 @@
 package com.tinder.profiles.infrastructure.persistence.preferences;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
-import com.tinder.profiles.profile.Profile;
+import com.tinder.profiles.infrastructure.persistence.profile.ProfileJpaEntity;
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -47,7 +47,7 @@ public class Preferences {
 
     @JsonIgnore // Ignore field during serialization
     @OneToMany(mappedBy = "preferences", fetch = FetchType.LAZY)
-    private List<Profile> profiles;
+    private List<ProfileJpaEntity> profiles;
 
     @Override
     public boolean equals(Object o) {

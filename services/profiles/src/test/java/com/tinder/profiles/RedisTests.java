@@ -2,7 +2,7 @@ package com.tinder.profiles;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.tinder.profiles.profile.Profile;
+import com.tinder.profiles.infrastructure.persistence.profile.ProfileJpaEntity;
 import com.tinder.profiles.profile.ProfileRepository;
 
 import com.tinder.profiles.util.KeycloakTestHelper;
@@ -127,7 +127,7 @@ class RedisTests {
 
         Object cached = Objects.requireNonNull(Objects.requireNonNull(cacheManager.getCache("PROFILE_ENTITY_CACHE")).get(profileId)).get();
 
-        Assertions.assertTrue(cached instanceof Profile profile1);
+        Assertions.assertTrue(cached instanceof ProfileJpaEntity profile1);
     }
 
 

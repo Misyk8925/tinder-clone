@@ -1,6 +1,6 @@
 package com.tinder.profiles.profile.internal;
 
-import com.tinder.profiles.profile.Profile;
+import com.tinder.profiles.infrastructure.persistence.profile.ProfileJpaEntity;
 import com.tinder.profiles.profile.ProfileRepository;
 import com.tinder.contracts.dto.SharedProfileDto;
 import com.tinder.profiles.profile.mapper.SharedProfileMapper;
@@ -51,7 +51,7 @@ class InternalProfileControllerTest {
 
         // Create test profiles
         for (int i = 0; i < 5; i++) {
-            Profile profile = new Profile();
+            ProfileJpaEntity profile = new ProfileJpaEntity();
             profile.setName("TestUser" + i);
             profile.setAge(20 + i);
             profile.setGender("MALE");
@@ -59,7 +59,7 @@ class InternalProfileControllerTest {
             profile.setCity("TestCity");
             profile.setUserId("user-" + i);
 
-            Profile saved = profileRepository.save(profile);
+            ProfileJpaEntity saved = profileRepository.save(profile);
             testProfileIds.add(saved.getProfileId());
         }
     }

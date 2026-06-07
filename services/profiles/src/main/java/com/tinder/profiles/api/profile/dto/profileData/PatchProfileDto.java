@@ -3,7 +3,7 @@ package com.tinder.profiles.api.profile.dto.profileData;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.tinder.contracts.dto.Hobby;
 import com.tinder.profiles.infrastructure.persistence.preferences.PreferencesDto;
-import com.tinder.profiles.profile.Profile;
+import com.tinder.profiles.infrastructure.persistence.profile.ProfileJpaEntity;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.*;
 

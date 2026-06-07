@@ -1,7 +1,7 @@
 package com.tinder.profiles.grpc;
 import com.tinder.profiles.infrastructure.messaging.scheduler.PremiumExpirationScheduler;
 
-import com.tinder.profiles.profile.Profile;
+import com.tinder.profiles.infrastructure.persistence.profile.ProfileJpaEntity;
 import com.tinder.profiles.profile.ProfileApplicationService;
 import com.tinder.profiles.profile.ProfileRepository;
 import com.tinder.profiles.infrastructure.external.keycloak.KeycloakAdminClient;
@@ -60,7 +60,7 @@ class PremiumExpirationSchedulerTest {
 
     @Test
     void revokeExpiredPremiumSubscriptions_singleExpiredProfile_revokesDbAndKeycloak() {
-        Profile expired = buildExpiredProfile("user-123", LocalDateTime.now().minusMinutes(1));
+        ProfileJpaEntity expired = buildExpiredProfile("user-123", LocalDateTime.now().minusMinutes(1));
 
         when(profileRepository.findAllByIsPremiumTrueAndPremiumExpiresAtBefore(any(LocalDateTime.class)))
                 .thenReturn(List.of(expired));
@@ -75,9 +75,9 @@ class PremiumExpirationSchedulerTest {
 
     @Test
     void revokeExpiredPremiumSubscriptions_multipleExpiredProfiles_revokesAll() {
-        Profile p1 = buildExpiredProfile("user-A", LocalDateTime.now().minusDays(1));
-        Profile p2 = buildExpiredProfile("user-B", LocalDateTime.now().minusHours(2));
-        Profile p3 = buildExpiredProfile("user-C", LocalDateTime.now().minusMinutes(5));
+        ProfileJpaEntity p1 = buildExpiredProfile("user-A", LocalDateTime.now().minusDays(1));
+        ProfileJpaEntity p2 = buildExpiredProfile("user-B", LocalDateTime.now().minusHours(2));
+        ProfileJpaEntity p3 = buildExpiredProfile("user-C", LocalDateTime.now().minusMinutes(5));
 
         when(profileRepository.findAllByIsPremiumTrueAndPremiumExpiresAtBefore(any(LocalDateTime.class)))
                 .thenReturn(List.of(p1, p2, p3));
@@ -97,8 +97,8 @@ class PremiumExpirationSchedulerTest {
 
     @Test
     void revokeExpiredPremiumSubscriptions_dbFailureForOneProfile_continuesWithOthers() {
-        Profile failing = buildExpiredProfile("user-FAIL", LocalDateTime.now().minusDays(2));
-        Profile ok      = buildExpiredProfile("user-OK",   LocalDateTime.now().minusDays(1));
+        ProfileJpaEntity failing = buildExpiredProfile("user-FAIL", LocalDateTime.now().minusDays(2));
+        ProfileJpaEntity ok      = buildExpiredProfile("user-OK",   LocalDateTime.now().minusDays(1));
 
         when(profileRepository.findAllByIsPremiumTrueAndPremiumExpiresAtBefore(any(LocalDateTime.class)))
                 .thenReturn(List.of(failing, ok));
@@ -119,8 +119,8 @@ class PremiumExpirationSchedulerTest {
 
     @Test
     void revokeExpiredPremiumSubscriptions_keycloakFailureForOneProfile_continuesWithOthers() {
-        Profile failing = buildExpiredProfile("user-KC-FAIL", LocalDateTime.now().minusDays(1));
-        Profile ok      = buildExpiredProfile("user-KC-OK",   LocalDateTime.now().minusDays(1));
+        ProfileJpaEntity failing = buildExpiredProfile("user-KC-FAIL", LocalDateTime.now().minusDays(1));
+        ProfileJpaEntity ok      = buildExpiredProfile("user-KC-OK",   LocalDateTime.now().minusDays(1));
 
         when(profileRepository.findAllByIsPremiumTrueAndPremiumExpiresAtBefore(any(LocalDateTime.class)))
                 .thenReturn(List.of(failing, ok));
@@ -157,8 +157,8 @@ class PremiumExpirationSchedulerTest {
 
     // ── Helpers ───────────────────────────────────────────────────────────────
 
-    private Profile buildExpiredProfile(String userId, LocalDateTime expiresAt) {
-        Profile p = new Profile();
+    private ProfileJpaEntity buildExpiredProfile(String userId, LocalDateTime expiresAt) {
+        ProfileJpaEntity p = new ProfileJpaEntity();
         p.setUserId(userId);
         p.setPremium(true);
         p.setPremiumExpiresAt(expiresAt);

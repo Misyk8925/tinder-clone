@@ -1,4 +1,5 @@
 package com.tinder.profiles.profile;
+import com.tinder.profiles.infrastructure.persistence.profile.ProfileJpaEntity;
 
 import com.tinder.contracts.dto.Hobby;
 import com.tinder.profiles.infrastructure.persistence.location.LocationService;
@@ -96,9 +97,9 @@ class ProfileApplicationServiceOutboxComponentTest {
     @Test
     void create_ShouldEnqueueOutboxEvent() {
         CreateProfileDtoV1 dto = createDto();
-        Profile toSave = new Profile();
+        ProfileJpaEntity toSave = new ProfileJpaEntity();
         UUID savedProfileId = UUID.randomUUID();
-        Profile savedProfile = new Profile();
+        ProfileJpaEntity savedProfile = new ProfileJpaEntity();
         savedProfile.setProfileId(savedProfileId);
 
         Preferences preferences = new Preferences();
@@ -110,7 +111,7 @@ class ProfileApplicationServiceOutboxComponentTest {
         when(preferencesService.findOrCreate(dto.preferences())).thenReturn(preferences);
         when(profileRepository.save(toSave)).thenReturn(savedProfile);
 
-        Profile result = service.create(dto, "user-1");
+        ProfileJpaEntity result = service.create(dto, "user-1");
 
         assertThat(result.getProfileId()).isEqualTo(savedProfileId);
         verify(profileOutboxService).enqueueProfileCreated(
@@ -121,8 +122,8 @@ class ProfileApplicationServiceOutboxComponentTest {
     @Test
     void create_ShouldFailWhenOutboxWriteFails() {
         CreateProfileDtoV1 dto = createDto();
-        Profile toSave = new Profile();
-        Profile savedProfile = new Profile();
+        ProfileJpaEntity toSave = new ProfileJpaEntity();
+        ProfileJpaEntity savedProfile = new ProfileJpaEntity();
         savedProfile.setProfileId(UUID.randomUUID());
 
         Preferences preferences = new Preferences();
@@ -144,7 +145,7 @@ class ProfileApplicationServiceOutboxComponentTest {
 
     @Test
     void delete_ShouldEnqueueOutboxEvent() {
-        Profile profile = new Profile();
+        ProfileJpaEntity profile = new ProfileJpaEntity();
         UUID profileId = UUID.randomUUID();
         profile.setProfileId(profileId);
         profile.setDeleted(false);
@@ -153,14 +154,14 @@ class ProfileApplicationServiceOutboxComponentTest {
         when(profileRepository.findByUserId("user-3")).thenReturn(profile);
         when(domainService.canDeleteProfile(profile)).thenReturn(true);
         doAnswer(invocation -> {
-            Profile p = invocation.getArgument(0);
+            ProfileJpaEntity p = invocation.getArgument(0);
             p.setDeleted(true);
             p.setActive(false);
             return null;
         }).when(domainService).markAsDeleted(profile);
         when(profileRepository.save(profile)).thenReturn(profile);
 
-        Profile result = service.delete("user-3");
+        ProfileJpaEntity result = service.delete("user-3");
 
         assertThat(result.getProfileId()).isEqualTo(profileId);
         verify(profileOutboxService).enqueueProfileDeleted(

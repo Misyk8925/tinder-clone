@@ -1,7 +1,7 @@
 package com.tinder.profiles.infrastructure.persistence.photos;
 
 import com.fasterxml.jackson.annotation.JsonBackReference;
-import com.tinder.profiles.profile.Profile;
+import com.tinder.profiles.infrastructure.persistence.profile.ProfileJpaEntity;
 import jakarta.persistence.*;
 import lombok.Builder;
 import lombok.Getter;
@@ -52,6 +52,6 @@ public class Photo {
     @ManyToOne(fetch = FetchType.LAZY)
     @JsonBackReference
     @JoinColumn(name = "profile_id", nullable = false)
-    private Profile profile;
+    private ProfileJpaEntity profile;
 
 }

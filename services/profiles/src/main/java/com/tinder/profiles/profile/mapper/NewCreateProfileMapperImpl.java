@@ -3,7 +3,7 @@ package com.tinder.profiles.profile.mapper;
 import com.tinder.profiles.infrastructure.persistence.location.LocationService;
 import com.tinder.profiles.infrastructure.persistence.preferences.Preferences;
 import com.tinder.profiles.infrastructure.persistence.preferences.PreferencesDto;
-import com.tinder.profiles.profile.Profile;
+import com.tinder.profiles.infrastructure.persistence.profile.ProfileJpaEntity;
 import com.tinder.profiles.api.profile.dto.profileData.CreateProfileDtoV1;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Primary;
@@ -20,12 +20,12 @@ public class NewCreateProfileMapperImpl implements CreateProfileMapper {
     private final LocationService locationService;
 
     @Override
-    public Profile toEntity(CreateProfileDtoV1 createProfileDtoV1) {
+    public ProfileJpaEntity toEntity(CreateProfileDtoV1 createProfileDtoV1) {
         if ( createProfileDtoV1 == null ) {
             return null;
         }
 
-        Profile.ProfileBuilder profile = Profile.builder();
+        ProfileJpaEntity.ProfileJpaEntityBuilder profile = ProfileJpaEntity.builder();
 
         profile.name( createProfileDtoV1.name() );
         profile.age( createProfileDtoV1.age() );
@@ -51,7 +51,7 @@ public class NewCreateProfileMapperImpl implements CreateProfileMapper {
     }
 
     @Override
-    public CreateProfileDtoV1 toCreateProfileDtoV1(Profile profile) {
+    public CreateProfileDtoV1 toCreateProfileDtoV1(ProfileJpaEntity profile) {
         if ( profile == null ) {
             return null;
         }

@@ -1,4 +1,5 @@
 package com.tinder.profiles.profile;
+import com.tinder.profiles.infrastructure.persistence.profile.ProfileJpaEntity;
 
 import com.tinder.contracts.event.v1.ChangeType;
 import com.tinder.contracts.event.v1.ProfileUpdatedEvent;
@@ -123,7 +124,7 @@ class ProfileLocationChangeTest {
 
     @Test
     void hasMovedSignificantly_returnsTrueWhenProfileHasNoLocation() {
-        Profile profile = new Profile();
+        ProfileJpaEntity profile = new ProfileJpaEntity();
         profile.setLocation(null);
 
         assertThat(service.hasMovedSignificantly(profile, BERLIN_LAT, BERLIN_LON)).isTrue();
@@ -131,21 +132,21 @@ class ProfileLocationChangeTest {
 
     @Test
     void hasMovedSignificantly_returnsTrueWhenMovedBeyondThreshold() {
-        Profile profile = profileWithLocation(VIENNA_LAT, VIENNA_LON);
+        ProfileJpaEntity profile = profileWithLocation(VIENNA_LAT, VIENNA_LON);
 
         assertThat(service.hasMovedSignificantly(profile, BERLIN_LAT, BERLIN_LON)).isTrue();
     }
 
     @Test
     void hasMovedSignificantly_returnsFalseForGpsJitter() {
-        Profile profile = profileWithLocation(VIENNA_LAT, VIENNA_LON);
+        ProfileJpaEntity profile = profileWithLocation(VIENNA_LAT, VIENNA_LON);
         // Move ~11 metres north — below 1 km threshold
         assertThat(service.hasMovedSignificantly(profile, VIENNA_LAT + 0.0001, VIENNA_LON)).isFalse();
     }
 
     @Test
     void hasMovedSignificantly_returnsTrueAtExactlyThreshold() {
-        Profile profile = profileWithLocation(VIENNA_LAT, VIENNA_LON);
+        ProfileJpaEntity profile = profileWithLocation(VIENNA_LAT, VIENNA_LON);
         // ~1.11 km north — just over the 1 km threshold
         assertThat(service.hasMovedSignificantly(profile, VIENNA_LAT + 0.01, VIENNA_LON)).isTrue();
     }
@@ -156,7 +157,7 @@ class ProfileLocationChangeTest {
 
     @Test
     void patch_withSignificantCoordMove_firesLocationChangeEvent() {
-        Profile profile = profileWithLocation(VIENNA_LAT, VIENNA_LON);
+        ProfileJpaEntity profile = profileWithLocation(VIENNA_LAT, VIENNA_LON);
         Location newLocation = locationFor(BERLIN_LAT, BERLIN_LON, "Berlin");
 
         when(profileRepository.findByUserId("user-1")).thenReturn(profile);
@@ -177,7 +178,7 @@ class ProfileLocationChangeTest {
 
     @Test
     void patch_withGpsJitter_doesNotFireAnyEvent() {
-        Profile profile = profileWithLocation(VIENNA_LAT, VIENNA_LON);
+        ProfileJpaEntity profile = profileWithLocation(VIENNA_LAT, VIENNA_LON);
 
         when(profileRepository.findByUserId("user-2")).thenReturn(profile);
         when(profileRepository.save(any())).thenReturn(profile);
@@ -194,7 +195,7 @@ class ProfileLocationChangeTest {
 
     @Test
     void patch_withGpsJitter_doesNotUpdateLocationEntity() {
-        Profile profile = profileWithLocation(VIENNA_LAT, VIENNA_LON);
+        ProfileJpaEntity profile = profileWithLocation(VIENNA_LAT, VIENNA_LON);
 
         when(profileRepository.findByUserId("user-3")).thenReturn(profile);
         when(profileRepository.save(any())).thenReturn(profile);
@@ -210,7 +211,7 @@ class ProfileLocationChangeTest {
 
     @Test
     void patch_withCityChange_firesLocationChangeEventRegardlessOfCoords() {
-        Profile profile = profileWithLocation(VIENNA_LAT, VIENNA_LON);
+        ProfileJpaEntity profile = profileWithLocation(VIENNA_LAT, VIENNA_LON);
         Location berlinLocation = locationFor(BERLIN_LAT, BERLIN_LON, "Berlin");
 
         when(profileRepository.findByUserId("user-4")).thenReturn(profile);
@@ -230,7 +231,7 @@ class ProfileLocationChangeTest {
 
     @Test
     void patch_firstCoordUpdateOnProfileWithNoLocation_firesLocationChangeEvent() {
-        Profile profile = new Profile();
+        ProfileJpaEntity profile = new ProfileJpaEntity();
         profile.setProfileId(UUID.randomUUID());
         profile.setLocation(null);
         profile.setPreferences(new Preferences());
@@ -257,7 +258,7 @@ class ProfileLocationChangeTest {
     // Helpers
     // -----------------------------------------------------------------------
 
-    private Profile profileWithLocation(double lat, double lon) {
+    private ProfileJpaEntity profileWithLocation(double lat, double lon) {
         var point = GEO.createPoint(new Coordinate(lon, lat));
         point.setSRID(4326);
 
@@ -265,7 +266,7 @@ class ProfileLocationChangeTest {
         loc.setGeo(point);
         loc.setCity("Vienna");
 
-        Profile p = new Profile();
+        ProfileJpaEntity p = new ProfileJpaEntity();
         p.setProfileId(UUID.randomUUID());
         p.setCity("Vienna");
         p.setLocation(loc);

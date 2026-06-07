@@ -1,6 +1,6 @@
 package com.tinder.profiles.infrastructure.messaging.scheduler;
 
-import com.tinder.profiles.profile.Profile;
+import com.tinder.profiles.infrastructure.persistence.profile.ProfileJpaEntity;
 import com.tinder.profiles.profile.ProfileApplicationService;
 import com.tinder.profiles.profile.ProfileRepository;
 import com.tinder.profiles.infrastructure.external.keycloak.KeycloakAdminClient;
@@ -43,7 +43,7 @@ public class PremiumExpirationScheduler {
         Span rootSpan = tracer.nextSpan().name("premium-expiration-check").start();
         try (Tracer.SpanInScope ignored = tracer.withSpan(rootSpan)) {
 
-            List<Profile> expired = profileRepository
+            List<ProfileJpaEntity> expired = profileRepository
                     .findAllByIsPremiumTrueAndPremiumExpiresAtBefore(LocalDateTime.now());
 
             if (expired.isEmpty()) {
@@ -53,7 +53,7 @@ public class PremiumExpirationScheduler {
 
             log.info("Found {} expired premium subscription(s) — revoking", expired.size());
 
-            for (Profile profile : expired) {
+            for (ProfileJpaEntity profile : expired) {
                 String userId = profile.getUserId();
                 // Create a child span per user so Zipkin shows each revocation separately
                 Span childSpan = tracer.nextSpan().name("revoke-premium").start();

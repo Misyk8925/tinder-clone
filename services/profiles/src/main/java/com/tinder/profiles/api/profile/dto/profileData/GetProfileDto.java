@@ -3,7 +3,7 @@ package com.tinder.profiles.api.profile.dto.profileData;
 import com.tinder.contracts.dto.Hobby;
 import com.tinder.contracts.dto.SharedPreferencesDto;
 import com.tinder.profiles.infrastructure.persistence.photos.Photo;
-import com.tinder.profiles.profile.Profile;
+import com.tinder.profiles.infrastructure.persistence.profile.ProfileJpaEntity;
 
 import java.time.LocalDateTime;
 import java.util.List;

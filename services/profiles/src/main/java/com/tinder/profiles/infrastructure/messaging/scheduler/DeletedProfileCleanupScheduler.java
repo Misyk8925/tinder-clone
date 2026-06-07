@@ -1,5 +1,5 @@
 package com.tinder.profiles.infrastructure.messaging.scheduler;
-import com.tinder.profiles.profile.Profile;
+import com.tinder.profiles.infrastructure.persistence.profile.ProfileJpaEntity;
 import com.tinder.profiles.profile.ProfileRepository;
 import com.tinder.profiles.profile.ProfileApplicationService;
 
@@ -32,7 +32,7 @@ public class DeletedProfileCleanupScheduler {
     public void purgeStaleDeletedProfiles() {
         LocalDateTime cutoff = LocalDateTime.now().minusDays(SOFT_DELETE_RETENTION_DAYS);
 
-        List<Profile> stale = profileRepository.findAllByIsDeletedTrueAndDeletedAtBefore(cutoff);
+        List<ProfileJpaEntity> stale = profileRepository.findAllByIsDeletedTrueAndDeletedAtBefore(cutoff);
 
         if (stale.isEmpty()) {
             log.debug("No stale deleted profiles found for purging");
@@ -40,7 +40,7 @@ public class DeletedProfileCleanupScheduler {
         }
 
         List<UUID> ids = stale.stream()
-                .map(Profile::getProfileId)
+                .map(ProfileJpaEntity::getProfileId)
                 .toList();
 
         log.info("Purging {} profile(s) soft-deleted before {}", ids.size(), cutoff);

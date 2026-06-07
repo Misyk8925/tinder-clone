@@ -2,7 +2,7 @@ package com.tinder.profiles.api.photos;
 import com.tinder.profiles.infrastructure.persistence.photos.Photo;
 import com.tinder.profiles.infrastructure.external.photos.S3PhotoService;
 
-import com.tinder.profiles.profile.Profile;
+import com.tinder.profiles.infrastructure.persistence.profile.ProfileJpaEntity;
 import com.tinder.profiles.profile.ProfileApplicationService;
 import com.tinder.profiles.api.profile.dto.errors.ErrorSummary;
 import com.tinder.profiles.api.profile.dto.success.ApiResponse;
@@ -42,7 +42,7 @@ public class S3PhotoController {
             // Get user ID from JWT
             UUID userId = UUID.fromString(jwt.getSubject());
 
-            Profile profile = profileService.getByUserId(String.valueOf(userId));
+            ProfileJpaEntity profile = profileService.getByUserId(String.valueOf(userId));
 
 
 

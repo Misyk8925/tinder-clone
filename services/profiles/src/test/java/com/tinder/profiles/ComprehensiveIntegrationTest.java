@@ -3,7 +3,7 @@ package com.tinder.profiles;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.tinder.profiles.infrastructure.messaging.kafka.dto.MatchCreateEvent;
 import com.tinder.contracts.event.v1.ProfileCreatedEvent;
-import com.tinder.profiles.profile.Profile;
+import com.tinder.profiles.infrastructure.persistence.profile.ProfileJpaEntity;
 import com.tinder.profiles.infrastructure.external.keycloak.NewUserRecord;
 import com.tinder.profiles.infrastructure.external.keycloak.UserService;
 import com.tinder.profiles.util.KafkaAdminHelper;
@@ -351,7 +351,7 @@ public class ComprehensiveIntegrationTest extends AbstractProfilesIntegrationTes
                 .subscribeOn(Schedulers.boundedElastic())
                 .onErrorResume(e -> {
                     failCount.incrementAndGet();
-                    log.error("[{}] Profile creation failed for {}: {}", i + 1, user.username(), e.getMessage());
+                    log.error("[{}] ProfileJpaEntity creation failed for {}: {}", i + 1, user.username(), e.getMessage());
                     return Mono.empty();
                 });
             }, PARALLEL_THREADS * 2)
@@ -361,7 +361,7 @@ public class ComprehensiveIntegrationTest extends AbstractProfilesIntegrationTes
         stats.profilesCreated = successCount.get();
         stats.profilesFailed  = failCount.get();
 
-        log.info("Profile creation done in {} ms: {}/{} succeeded, {} failed",
+        log.info("ProfileJpaEntity creation done in {} ms: {}/{} succeeded, {} failed",
                 System.currentTimeMillis() - profileStart,
                 stats.profilesCreated, keycloakUsers.size(), stats.profilesFailed);
 
@@ -826,13 +826,13 @@ public class ComprehensiveIntegrationTest extends AbstractProfilesIntegrationTes
         log.info("========================================");
 
         Map<String, Set<String>> userSwipedProfiles = buildSwipeMap(createdProfiles);
-        List<Profile> allProfiles = profileRepository.findAll();
+        List<ProfileJpaEntity> allProfiles = profileRepository.findAll();
         allProfiles.sort(Comparator.comparing(p -> p.getProfileId().toString()));
         log.info("Loaded {} profiles from database for validation", allProfiles.size());
 
         // Build O(1) lookup index for profiles
-        Map<String, Profile> profileIndex = new HashMap<>(allProfiles.size());
-        for (Profile p : allProfiles) profileIndex.put(p.getProfileId().toString(), p);
+        Map<String, ProfileJpaEntity> profileIndex = new HashMap<>(allProfiles.size());
+        for (ProfileJpaEntity p : allProfiles) profileIndex.put(p.getProfileId().toString(), p);
 
         // Build O(1) lookup index for test data
         Map<String, ProfileTestData> testDataIndex = new HashMap<>(createdProfiles.size());
@@ -1193,7 +1193,7 @@ public class ComprehensiveIntegrationTest extends AbstractProfilesIntegrationTes
 
         Map<String, Object> profileData = objectMapper.readValue(response, new TypeReference<>() {});
         String profileId = (String) profileData.get("data");
-        if (profileId == null) throw new IllegalStateException("Profile creation returned null id");
+        if (profileId == null) throw new IllegalStateException("ProfileJpaEntity creation returned null id");
 
         return new ProfileTestData(profileId, token, user.username(),
                 user.firstName(), age, gender, preferredGender);
@@ -1599,15 +1599,15 @@ public class ComprehensiveIntegrationTest extends AbstractProfilesIntegrationTes
     }
 
     private boolean verifyCandidatesMatchPreferences(ProfileTestData profile, List<String> deckContents,
-                                                     Map<String, Profile> profileIndex) {
-        Profile viewer = profileIndex.get(profile.profileId());
+                                                     Map<String, ProfileJpaEntity> profileIndex) {
+        ProfileJpaEntity viewer = profileIndex.get(profile.profileId());
         if (viewer == null) return false;
         com.tinder.profiles.infrastructure.persistence.preferences.Preferences prefs = viewer.getPreferences();
         if (prefs == null) return false;
 
         List<String> invalid = new ArrayList<>();
         for (String candidateId : deckContents) {
-            Profile candidate = profileIndex.get(candidateId);
+            ProfileJpaEntity candidate = profileIndex.get(candidateId);
             if (candidate == null) { invalid.add(candidateId + " (not found)"); continue; }
             if (!matchesGenderPreference(candidate.getGender(), prefs.getGender()))
                 { invalid.add(candidateId + " (wrong gender)"); continue; }
@@ -1619,10 +1619,10 @@ public class ComprehensiveIntegrationTest extends AbstractProfilesIntegrationTes
     }
 
     private boolean verifyDeckQuality(ProfileTestData profile, List<String> deckContents,
-                                      Map<String, Profile> profileIndex) {
+                                      Map<String, ProfileJpaEntity> profileIndex) {
         if (deckContents.isEmpty() || deckContents.size() > 1000) return false;
         for (String candidateId : deckContents) {
-            Profile candidate = profileIndex.get(candidateId);
+            ProfileJpaEntity candidate = profileIndex.get(candidateId);
             if (candidate == null) return false;
             if (candidate.getProfileId().toString().equals(profile.profileId())) return false;
             if (candidate.isDeleted()) return false;

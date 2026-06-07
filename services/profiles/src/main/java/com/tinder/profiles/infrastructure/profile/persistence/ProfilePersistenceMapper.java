@@ -9,7 +9,7 @@ import org.springframework.stereotype.Component;
 
 /**
  * Translates between the JPA persistence entity
- * ({@link com.tinder.profiles.profile.Profile}) and the pure domain aggregate
+ * ({@link com.tinder.profiles.infrastructure.persistence.profile.ProfileJpaEntity}) and the pure domain aggregate
  * ({@link Profile}).
  *
  * <p>The JPA→domain direction is total and stateless. The domain→JPA direction
@@ -24,7 +24,7 @@ import org.springframework.stereotype.Component;
 public class ProfilePersistenceMapper {
 
     /** Maps a JPA entity to the domain aggregate. */
-    public Profile toDomain(com.tinder.profiles.profile.Profile entity) {
+    public Profile toDomain(com.tinder.profiles.infrastructure.persistence.profile.ProfileJpaEntity entity) {
         if (entity == null) {
             return null;
         }
@@ -54,7 +54,7 @@ public class ProfilePersistenceMapper {
      * {@code preferences} FK rows (the aggregate does not carry them).
      */
     public void applyTo(Profile domain,
-                        com.tinder.profiles.profile.Profile entity,
+                        com.tinder.profiles.infrastructure.persistence.profile.ProfileJpaEntity entity,
                         Location location,
                         Preferences preferences) {
         entity.setUserId(domain.getUserId());

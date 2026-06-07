@@ -48,7 +48,7 @@ class ProfilePersistenceMapperTest {
             UUID id = UUID.randomUUID();
             LocalDateTime created = LocalDateTime.now().minusDays(3);
             Location location = Location.builder().city("Vienna").geo(point(48.2, 16.37)).build();
-            com.tinder.profiles.profile.Profile entity = com.tinder.profiles.profile.Profile.builder()
+            com.tinder.profiles.infrastructure.persistence.profile.ProfileJpaEntity entity = com.tinder.profiles.infrastructure.persistence.profile.ProfileJpaEntity.builder()
                     .profileId(id)
                     .userId("user-1")
                     .name("Alice")
@@ -91,7 +91,7 @@ class ProfilePersistenceMapperTest {
         @DisplayName("yields a null position when the entity has no location")
         void nullLocationYieldsNullPosition() {
             // given
-            com.tinder.profiles.profile.Profile entity = com.tinder.profiles.profile.Profile.builder()
+            com.tinder.profiles.infrastructure.persistence.profile.ProfileJpaEntity entity = com.tinder.profiles.infrastructure.persistence.profile.ProfileJpaEntity.builder()
                     .profileId(UUID.randomUUID())
                     .userId("user-1")
                     .name("Alice")
@@ -135,7 +135,7 @@ class ProfilePersistenceMapperTest {
                     .premium(false)
                     .hobbies(List.of(Hobby.COOKING))
                     .build();
-            com.tinder.profiles.profile.Profile entity = new com.tinder.profiles.profile.Profile();
+            com.tinder.profiles.infrastructure.persistence.profile.ProfileJpaEntity entity = new com.tinder.profiles.infrastructure.persistence.profile.ProfileJpaEntity();
             Location location = Location.builder().city("Berlin").geo(point(52.52, 13.40)).build();
             Preferences prefs = preferences();
 

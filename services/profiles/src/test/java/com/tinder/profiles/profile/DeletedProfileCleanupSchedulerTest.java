@@ -1,4 +1,5 @@
 package com.tinder.profiles.profile;
+import com.tinder.profiles.infrastructure.persistence.profile.ProfileJpaEntity;
 import com.tinder.profiles.infrastructure.messaging.scheduler.DeletedProfileCleanupScheduler;
 
 import org.junit.jupiter.api.BeforeEach;
@@ -46,7 +47,7 @@ class DeletedProfileCleanupSchedulerTest {
     @Test
     void purgeStaleDeletedProfiles_singleStaleProfile_callsDeleteManyWithItsId() {
         UUID id = UUID.randomUUID();
-        Profile stale = buildDeletedProfile(id, LocalDateTime.now().minusDays(31));
+        ProfileJpaEntity stale = buildDeletedProfile(id, LocalDateTime.now().minusDays(31));
 
         when(profileRepository.findAllByIsDeletedTrueAndDeletedAtBefore(any(LocalDateTime.class)))
                 .thenReturn(List.of(stale));
@@ -62,7 +63,7 @@ class DeletedProfileCleanupSchedulerTest {
         UUID id2 = UUID.randomUUID();
         UUID id3 = UUID.randomUUID();
 
-        List<Profile> stale = List.of(
+        List<ProfileJpaEntity> stale = List.of(
                 buildDeletedProfile(id1, LocalDateTime.now().minusDays(31)),
                 buildDeletedProfile(id2, LocalDateTime.now().minusDays(45)),
                 buildDeletedProfile(id3, LocalDateTime.now().minusDays(60))
@@ -102,7 +103,7 @@ class DeletedProfileCleanupSchedulerTest {
     @Test
     void purgeStaleDeletedProfiles_deleteManyThrows_doesNotPropagateException() {
         UUID id = UUID.randomUUID();
-        Profile stale = buildDeletedProfile(id, LocalDateTime.now().minusDays(35));
+        ProfileJpaEntity stale = buildDeletedProfile(id, LocalDateTime.now().minusDays(35));
 
         when(profileRepository.findAllByIsDeletedTrueAndDeletedAtBefore(any(LocalDateTime.class)))
                 .thenReturn(List.of(stale));
@@ -119,7 +120,7 @@ class DeletedProfileCleanupSchedulerTest {
 
     @Test
     void profile_markAsDeleted_setsDeletedAt() {
-        Profile profile = new Profile();
+        ProfileJpaEntity profile = new ProfileJpaEntity();
         LocalDateTime before = LocalDateTime.now().minusSeconds(1);
 
         profile.markAsDeleted();
@@ -135,7 +136,7 @@ class DeletedProfileCleanupSchedulerTest {
 
     @Test
     void profile_markAsDeleted_setsDeletedAtOnlyOnce() {
-        Profile profile = new Profile();
+        ProfileJpaEntity profile = new ProfileJpaEntity();
         profile.markAsDeleted();
         LocalDateTime firstDeletedAt = profile.getDeletedAt();
 
@@ -150,8 +151,8 @@ class DeletedProfileCleanupSchedulerTest {
 
     // ── Helper ────────────────────────────────────────────────────────────────
 
-    private Profile buildDeletedProfile(UUID id, LocalDateTime deletedAt) {
-        Profile p = new Profile();
+    private ProfileJpaEntity buildDeletedProfile(UUID id, LocalDateTime deletedAt) {
+        ProfileJpaEntity p = new ProfileJpaEntity();
         p.setProfileId(id);
         p.setDeleted(true);
         p.setActive(false);

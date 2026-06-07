@@ -1,4 +1,4 @@
-package com.tinder.profiles.profile;
+package com.tinder.profiles.infrastructure.persistence.profile;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
@@ -24,7 +24,7 @@ import java.util.UUID;
 @NoArgsConstructor
 @Getter
 @Setter
-@Entity
+@Entity(name = "Profile")
 @Table(name = "profiles", indexes = {
         @Index(name = "idx_age", columnList = "age"),
         @Index(name = "idx_gender", columnList = "gender"),
@@ -41,7 +41,7 @@ import java.util.UUID;
 })
 @EntityListeners(AuditingEntityListener.class)
 @JsonIgnoreProperties(value = {"hibernateLazyInitializer", "handler"}, ignoreUnknown = true)
-public class Profile {
+public class ProfileJpaEntity {
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
     @Column(name = "id", nullable = false)

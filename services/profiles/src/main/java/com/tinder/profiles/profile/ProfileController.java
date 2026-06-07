@@ -1,4 +1,5 @@
 package com.tinder.profiles.profile;
+import com.tinder.profiles.infrastructure.persistence.profile.ProfileJpaEntity;
 
 import com.tinder.profiles.infrastructure.external.deck.DeckService;
 import com.tinder.profiles.api.profile.dto.profileData.GetProfileDto;
@@ -108,23 +109,23 @@ public class ProfileController {
     @PostMapping({"", "/"})
     public ResponseEntity<Object> create(@RequestBody @Valid CreateProfileDtoV1 profile,
                                          @AuthenticationPrincipal Jwt jwt) {
-        Profile newProfile = applicationService.create(profile, jwt.getSubject());
+        ProfileJpaEntity newProfile = applicationService.create(profile, jwt.getSubject());
         return ResponseEntity
                 .status(HttpStatus.CREATED)
-                .body(ApiResponse.created("Profile created successfully", newProfile.getProfileId()));
+                .body(ApiResponse.created("ProfileJpaEntity created successfully", newProfile.getProfileId()));
     }
 
     @PutMapping({"", "/"})
     public ResponseEntity<Object> update(@RequestBody @Valid CreateProfileDtoV1 profile,
                                          @AuthenticationPrincipal Jwt jwt) {
-        Profile updatedProfile = applicationService.update(profile, jwt.getSubject());
+        ProfileJpaEntity updatedProfile = applicationService.update(profile, jwt.getSubject());
         return ResponseEntity
                 .status(HttpStatus.OK)
-                .body(ApiResponse.success("Profile updated successfully", updatedProfile.getProfileId()));
+                .body(ApiResponse.success("ProfileJpaEntity updated successfully", updatedProfile.getProfileId()));
     }
 
     @PatchMapping({"", "/"})
-    public Profile patch(@AuthenticationPrincipal Jwt jwt,
+    public ProfileJpaEntity patch(@AuthenticationPrincipal Jwt jwt,
                         @RequestBody @Valid PatchProfileDto patchDto) {
         return applicationService.patch(jwt.getSubject(), patchDto);
     }

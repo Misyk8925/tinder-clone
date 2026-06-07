@@ -1,4 +1,5 @@
 package com.tinder.profiles.profile;
+import com.tinder.profiles.infrastructure.persistence.profile.ProfileJpaEntity;
 
 import com.tinder.profiles.infrastructure.persistence.preferences.Preferences;
 import com.tinder.profiles.infrastructure.persistence.preferences.PreferencesDto;
@@ -45,7 +46,7 @@ public class ProfileDomainService {
     }
 
 
-    public void updateProfileFromDto(@NonNull Profile profile, @NonNull CreateProfileDtoV1 dto) {
+    public void updateProfileFromDto(@NonNull ProfileJpaEntity profile, @NonNull CreateProfileDtoV1 dto) {
         // When city is null (GPS-only flow), fall back to the existing city value
         String effectiveCity = (dto.city() != null && !dto.city().isBlank())
                 ? dto.city()
@@ -62,24 +63,24 @@ public class ProfileDomainService {
 
 
 
-    public boolean canDeleteProfile(@NonNull Profile profile) {
+    public boolean canDeleteProfile(@NonNull ProfileJpaEntity profile) {
         // Add business rules here, e.g., check if profile has pending matches
         return !profile.isDeleted();
     }
 
 
-    public void markAsDeleted(@NonNull Profile profile) {
+    public void markAsDeleted(@NonNull ProfileJpaEntity profile) {
         profile.markAsDeleted();
     }
 
-    public void activateProfile(@NonNull Profile profile) {
+    public void activateProfile(@NonNull ProfileJpaEntity profile) {
         profile.activate();
     }
 
     /**
      * Deactivates a profile
      */
-    public void deactivateProfile(@NonNull Profile profile) {
+    public void deactivateProfile(@NonNull ProfileJpaEntity profile) {
         profile.deactivate();
     }
 }

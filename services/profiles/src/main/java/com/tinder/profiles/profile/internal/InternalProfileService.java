@@ -1,7 +1,7 @@
 package com.tinder.profiles.profile.internal;
 
 import com.tinder.profiles.infrastructure.persistence.preferences.PreferencesDto;
-import com.tinder.profiles.profile.Profile;
+import com.tinder.profiles.infrastructure.persistence.profile.ProfileJpaEntity;
 import com.tinder.profiles.profile.ProfileRepository;
 import com.tinder.profiles.infrastructure.cache.DeckProfileSnapshotCache;
 import com.tinder.profiles.infrastructure.cache.SharedProfileSnapshotCache;

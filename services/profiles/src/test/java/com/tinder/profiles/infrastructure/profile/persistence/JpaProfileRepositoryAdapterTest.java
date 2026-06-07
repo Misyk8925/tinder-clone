@@ -88,17 +88,17 @@ class JpaProfileRepositoryAdapterTest {
         // given a brand-new aggregate (no id → insert path)
         given(locationRepository.findByCity("Vienna")).willReturn(Optional.of(viennaLocation()));
         given(preferencesService.findOrCreate(any(PreferencesDto.class))).willReturn(preferences());
-        given(profileRepository.save(any(com.tinder.profiles.profile.Profile.class)))
+        given(profileRepository.save(any(com.tinder.profiles.infrastructure.persistence.profile.ProfileJpaEntity.class)))
                 .willAnswer(inv -> inv.getArgument(0));
 
         // when
         Profile saved = adapter.save(domainProfile(null));
 
         // then the entity handed to the repository carries the reconciled state
-        ArgumentCaptor<com.tinder.profiles.profile.Profile> captor =
-                ArgumentCaptor.forClass(com.tinder.profiles.profile.Profile.class);
+        ArgumentCaptor<com.tinder.profiles.infrastructure.persistence.profile.ProfileJpaEntity> captor =
+                ArgumentCaptor.forClass(com.tinder.profiles.infrastructure.persistence.profile.ProfileJpaEntity.class);
         verify(profileRepository).save(captor.capture());
-        com.tinder.profiles.profile.Profile entity = captor.getValue();
+        com.tinder.profiles.infrastructure.persistence.profile.ProfileJpaEntity entity = captor.getValue();
         then(entity.getName()).isEqualTo("Alice");
         then(entity.getCity()).isEqualTo("Vienna");
         then(entity.getLocation().getCity()).isEqualTo("Vienna");
@@ -121,7 +121,7 @@ class JpaProfileRepositoryAdapterTest {
         // given an existing entity with a version and createdAt that must survive
         UUID id = UUID.randomUUID();
         LocalDateTime created = LocalDateTime.now().minusDays(5);
-        com.tinder.profiles.profile.Profile existing = com.tinder.profiles.profile.Profile.builder()
+        com.tinder.profiles.infrastructure.persistence.profile.ProfileJpaEntity existing = com.tinder.profiles.infrastructure.persistence.profile.ProfileJpaEntity.builder()
                 .profileId(id)
                 .userId("user-1")
                 .name("OldName")
@@ -134,17 +134,17 @@ class JpaProfileRepositoryAdapterTest {
         given(profileRepository.findById(id)).willReturn(Optional.of(existing));
         given(locationRepository.findByCity("Vienna")).willReturn(Optional.of(viennaLocation()));
         given(preferencesService.findOrCreate(any(PreferencesDto.class))).willReturn(preferences());
-        given(profileRepository.save(any(com.tinder.profiles.profile.Profile.class)))
+        given(profileRepository.save(any(com.tinder.profiles.infrastructure.persistence.profile.ProfileJpaEntity.class)))
                 .willAnswer(inv -> inv.getArgument(0));
 
         // when
         adapter.save(domainProfile(id));
 
         // then the same managed entity is saved with its version/createdAt intact
-        ArgumentCaptor<com.tinder.profiles.profile.Profile> captor =
-                ArgumentCaptor.forClass(com.tinder.profiles.profile.Profile.class);
+        ArgumentCaptor<com.tinder.profiles.infrastructure.persistence.profile.ProfileJpaEntity> captor =
+                ArgumentCaptor.forClass(com.tinder.profiles.infrastructure.persistence.profile.ProfileJpaEntity.class);
         verify(profileRepository).save(captor.capture());
-        com.tinder.profiles.profile.Profile entity = captor.getValue();
+        com.tinder.profiles.infrastructure.persistence.profile.ProfileJpaEntity entity = captor.getValue();
         then(entity).isSameAs(existing);
         then(entity.getVersion()).isEqualTo(7L);
         then(entity.getCreatedAt()).isEqualTo(created);
@@ -171,7 +171,7 @@ class JpaProfileRepositoryAdapterTest {
     @Test
     @DisplayName("findByUserId maps the row to the domain aggregate when present")
     void findByUserIdMaps() {
-        com.tinder.profiles.profile.Profile entity = com.tinder.profiles.profile.Profile.builder()
+        com.tinder.profiles.infrastructure.persistence.profile.ProfileJpaEntity entity = com.tinder.profiles.infrastructure.persistence.profile.ProfileJpaEntity.builder()
                 .profileId(UUID.randomUUID())
                 .userId("user-1")
                 .name("Alice")

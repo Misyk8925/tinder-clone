@@ -1,7 +1,7 @@
 package com.tinder.profiles.util;
 
 import com.tinder.profiles.infrastructure.persistence.preferences.Preferences;
-import com.tinder.profiles.profile.Profile;
+import com.tinder.profiles.infrastructure.persistence.profile.ProfileJpaEntity;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.redis.core.StringRedisTemplate;
@@ -38,11 +38,11 @@ public class DeckCacheTestHelper {
      *
      * @param profiles all profiles to calculate decks for
      */
-    public void calculateCorrectDecks(List<Profile> profiles) {
+    public void calculateCorrectDecks(List<ProfileJpaEntity> profiles) {
         log.info("Calculating correct decks for {} profiles", profiles.size());
         correctDecksMap.clear();
 
-        for (Profile viewer : profiles) {
+        for (ProfileJpaEntity viewer : profiles) {
             List<Map.Entry<UUID, Double>> candidates = calculateDeckForViewer(viewer, profiles);
             correctDecksMap.put(viewer.getProfileId(), candidates);
 
@@ -64,7 +64,7 @@ public class DeckCacheTestHelper {
      * @param allProfiles all available profiles
      * @return list of candidate IDs with scores, sorted by score descending
      */
-    private List<Map.Entry<UUID, Double>> calculateDeckForViewer(Profile viewer, List<Profile> allProfiles) {
+    private List<Map.Entry<UUID, Double>> calculateDeckForViewer(ProfileJpaEntity viewer, List<ProfileJpaEntity> allProfiles) {
         Preferences prefs = viewer.getPreferences();
 
         return allProfiles.stream()
@@ -82,7 +82,7 @@ public class DeckCacheTestHelper {
                 // 1. Age proximity score (closer age = higher score)
                 double ageScore = 100.0 - Math.abs(p.getAge() - viewer.getAge());
 
-                // 2. Profile ID ordering score (for deterministic ordering)
+                // 2. ProfileJpaEntity ID ordering score (for deterministic ordering)
                 double idScore = p.getProfileId().compareTo(viewer.getProfileId()) > 0 ? 10.0 : 5.0;
 
                 double totalScore = ageScore + idScore;

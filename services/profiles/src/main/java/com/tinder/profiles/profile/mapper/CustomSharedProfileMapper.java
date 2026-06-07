@@ -7,7 +7,7 @@ import com.tinder.contracts.dto.SharedProfileDto;
 import com.tinder.profiles.infrastructure.persistence.location.Location;
 import com.tinder.profiles.infrastructure.persistence.photos.Photo;
 import com.tinder.profiles.infrastructure.persistence.preferences.Preferences;
-import com.tinder.profiles.profile.Profile;
+import com.tinder.profiles.infrastructure.persistence.profile.ProfileJpaEntity;
 import com.tinder.profiles.api.profile.dto.profileData.GetProfileDto;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Primary;
@@ -26,13 +26,13 @@ import java.util.List;
 public class CustomSharedProfileMapper implements SharedProfileMapper {
 
     @Override
-    public Profile toEntity(GetProfileDto getProfileDto) {
+    public ProfileJpaEntity toEntity(GetProfileDto getProfileDto) {
         // Not implemented - not needed for current use case
-        throw new UnsupportedOperationException("Conversion from GetProfileDto to Profile is not supported");
+        throw new UnsupportedOperationException("Conversion from GetProfileDto to ProfileJpaEntity is not supported");
     }
 
     @Override
-    public SharedProfileDto toSharedProfileDto(Profile profile) {
+    public SharedProfileDto toSharedProfileDto(ProfileJpaEntity profile) {
         if (profile == null) {
             return null;
         }

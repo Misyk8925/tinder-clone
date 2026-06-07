@@ -1,4 +1,5 @@
 package com.tinder.profiles.profile;
+import com.tinder.profiles.infrastructure.persistence.profile.ProfileJpaEntity;
 
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -10,9 +11,9 @@ import java.util.Collection;
 import java.util.List;
 import java.util.UUID;
 
-public interface ProfileRepository extends JpaRepository<Profile, UUID> {
-    Profile findByName(String username);
-    Profile findByUserId(String userId);
+public interface ProfileRepository extends JpaRepository<ProfileJpaEntity, UUID> {
+    ProfileJpaEntity findByName(String username);
+    ProfileJpaEntity findByUserId(String userId);
 
     @Query("""
         SELECT p.profileId FROM Profile p
@@ -21,18 +22,18 @@ public interface ProfileRepository extends JpaRepository<Profile, UUID> {
         """)
     UUID findActiveProfileIdByUserId(@Param("userId") String userId);
 
-    List<Profile> findAllByIsDeletedFalse();
+    List<ProfileJpaEntity> findAllByIsDeletedFalse();
 
     /**
      * Find all premium profiles whose subscription has expired.
      */
-    List<Profile> findAllByIsPremiumTrueAndPremiumExpiresAtBefore(LocalDateTime now);
+    List<ProfileJpaEntity> findAllByIsPremiumTrueAndPremiumExpiresAtBefore(LocalDateTime now);
 
     /**
      * Find all soft-deleted profiles that were deleted before the given cutoff date.
      * Used by the cleanup scheduler to permanently purge stale records.
      */
-    List<Profile> findAllByIsDeletedTrueAndDeletedAtBefore(LocalDateTime cutoff);
+    List<ProfileJpaEntity> findAllByIsDeletedTrueAndDeletedAtBefore(LocalDateTime cutoff);
 
     /**
      * Search profiles by age and gender preferences.
@@ -49,7 +50,7 @@ public interface ProfileRepository extends JpaRepository<Profile, UUID> {
              OR LOWER(p.gender) = LOWER(:gender))
         ORDER BY p.createdAt DESC
         """)
-    List<Profile> searchByPreferences(
+    List<ProfileJpaEntity> searchByPreferences(
         @Param("viewerId") UUID viewerId,
         @Param("minAge") Integer minAge,
         @Param("maxAge") Integer maxAge,

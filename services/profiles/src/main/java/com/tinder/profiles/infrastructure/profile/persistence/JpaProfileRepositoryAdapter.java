@@ -71,10 +71,10 @@ public class JpaProfileRepositoryAdapter implements ProfileRepositoryPort {
 
     @Override
     public Profile save(Profile profile) {
-        com.tinder.profiles.profile.Profile entity = profile.getId() != null
+        com.tinder.profiles.infrastructure.persistence.profile.ProfileJpaEntity entity = profile.getId() != null
                 ? profileRepository.findById(profile.getId())
-                        .orElseGet(com.tinder.profiles.profile.Profile::new)
-                : new com.tinder.profiles.profile.Profile();
+                        .orElseGet(com.tinder.profiles.infrastructure.persistence.profile.ProfileJpaEntity::new)
+                : new com.tinder.profiles.infrastructure.persistence.profile.ProfileJpaEntity();
 
         Location location = resolveLocation(profile, entity);
         Preferences preferences = resolvePreferences(profile, entity);
@@ -96,7 +96,7 @@ public class JpaProfileRepositoryAdapter implements ProfileRepositoryPort {
      * Falls back to the entity's existing location when the aggregate has no
      * city (e.g. premium-only updates that never touch location).
      */
-    private Location resolveLocation(Profile profile, com.tinder.profiles.profile.Profile entity) {
+    private Location resolveLocation(Profile profile, com.tinder.profiles.infrastructure.persistence.profile.ProfileJpaEntity entity) {
         String city = profile.getCity();
         if (city == null || city.isBlank()) {
             return entity.getLocation();
@@ -107,7 +107,7 @@ public class JpaProfileRepositoryAdapter implements ProfileRepositoryPort {
                                 + "LocationPort before saving the profile."));
     }
 
-    private Preferences resolvePreferences(Profile profile, com.tinder.profiles.profile.Profile entity) {
+    private Preferences resolvePreferences(Profile profile, com.tinder.profiles.infrastructure.persistence.profile.ProfileJpaEntity entity) {
         MatchingPreferences prefs = profile.getPreferences();
         if (prefs == null) {
             return entity.getPreferences();
