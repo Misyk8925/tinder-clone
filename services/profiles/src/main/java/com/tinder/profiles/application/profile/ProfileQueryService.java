@@ -30,7 +30,7 @@ import java.util.UUID;
 @Service
 @RequiredArgsConstructor
 @Slf4j
-public class ProfileApplicationService {
+public class ProfileQueryService {
 
     private final ProfileRepository profileRepository;
     private final GetProfileMapper getMapper;

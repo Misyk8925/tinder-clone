@@ -3,7 +3,7 @@ import com.tinder.profiles.infrastructure.persistence.photos.Photo;
 import com.tinder.profiles.infrastructure.external.photos.S3PhotoService;
 
 import com.tinder.profiles.infrastructure.persistence.profile.ProfileJpaEntity;
-import com.tinder.profiles.application.profile.ProfileApplicationService;
+import com.tinder.profiles.application.profile.ProfileQueryService;
 import com.tinder.profiles.api.profile.dto.errors.ErrorSummary;
 import com.tinder.profiles.api.profile.dto.success.ApiResponse;
 import lombok.RequiredArgsConstructor;
@@ -26,7 +26,7 @@ import java.util.UUID;
 public class S3PhotoController {
 
     private final S3PhotoService photoService;
-    private final ProfileApplicationService profileService;
+    private final ProfileQueryService profileService;
 
     /**
      * Upload profile photo - creates 4 versions (original, large, medium, small)

@@ -1,5 +1,5 @@
 package com.tinder.profiles.api.profile;
-import com.tinder.profiles.application.profile.ProfileApplicationService;
+import com.tinder.profiles.application.profile.ProfileQueryService;
 import com.tinder.profiles.application.profile.command.DeleteProfileCommand;
 import com.tinder.profiles.application.profile.command.DeleteProfilesCommand;
 import com.tinder.profiles.application.profile.port.in.CreateProfileUseCase;
@@ -39,7 +39,7 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class ProfileController {
 
-    private final ProfileApplicationService applicationService;
+    private final ProfileQueryService applicationService;
     private final CreateProfileUseCase createProfileUseCase;
     private final UpdateProfileUseCase updateProfileUseCase;
     private final PatchProfileUseCase patchProfileUseCase;
