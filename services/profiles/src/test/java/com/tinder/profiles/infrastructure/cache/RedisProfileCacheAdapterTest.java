@@ -43,25 +43,14 @@ class RedisProfileCacheAdapterTest {
     }
 
     @Test
-    @DisplayName("put caches the domain profile under its id")
-    void put() {
-        UUID id = UUID.randomUUID();
-        Profile profile = profile(id);
-
-        adapter.put(profile);
-
-        verify(resilientCacheManager).put(RedisProfileCacheAdapter.PROFILE_CACHE_NAME, id, profile);
-    }
-
-    @Test
-    @DisplayName("refreshOnWrite re-caches the entity, refreshes identity and evicts the read models")
+    @DisplayName("refreshOnWrite evicts the stale entity entry, refreshes identity and evicts the read models")
     void refreshOnWrite() {
         UUID id = UUID.randomUUID();
         Profile profile = profile(id);
 
         adapter.refreshOnWrite("user-1", profile);
 
-        verify(resilientCacheManager).put(RedisProfileCacheAdapter.PROFILE_CACHE_NAME, id, profile);
+        verify(resilientCacheManager).evict(RedisProfileCacheAdapter.PROFILE_CACHE_NAME, id);
         verify(profileIdentityCacheService).put("user-1", id);
         verify(sharedProfileSnapshotCache).evict(id);
         verify(deckProfileSnapshotCache).evict(id);

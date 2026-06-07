@@ -2,30 +2,20 @@ package com.tinder.profiles.infrastructure.cache;
 
 import com.tinder.profiles.application.profile.port.out.ProfileCachePort;
 import com.tinder.profiles.domain.profile.Profile;
-import com.tinder.profiles.infrastructure.cache.DeckPageCacheService;
-import com.tinder.profiles.infrastructure.cache.DeckProfileSnapshotCache;
-import com.tinder.profiles.infrastructure.cache.ProfileIdentityCacheService;
-import com.tinder.profiles.infrastructure.cache.SharedProfileSnapshotCache;
-import com.tinder.profiles.infrastructure.cache.ResilientCacheManager;
-import com.tinder.profiles.infrastructure.cache.DeckHotPathTokenCache;
 import lombok.RequiredArgsConstructor;
-import org.springframework.cache.Cache;
 import org.springframework.stereotype.Component;
 
 import java.util.Collection;
-import java.util.Optional;
 import java.util.UUID;
 
 /**
- * Cache adapter implementing {@link ProfileCachePort} by fanning out to the five
- * existing cache services. Consolidates the cache-name constant and the
- * eviction fan-out that currently live as private helpers in
- * {@code ProfileApplicationService}.
+ * Cache adapter implementing {@link ProfileCachePort} by fanning out to the
+ * existing cache services. Consolidates the cache-name constant and the eviction
+ * fan-out that used to live as private helpers in {@code ProfileApplicationService}.
  *
- * <p>Note: this adapter caches the <em>domain</em> {@link Profile} (the port is
- * domain-typed), whereas the legacy entity cache stored the JPA entity. The
- * cache name is shared, so the two must not be mixed at runtime — relevant only
- * once a use case is wired onto this port.
+ * <p>The write path evicts the entity cache rather than storing the domain
+ * aggregate (which lacks photos and is not a serializable cache shape); the read
+ * path repopulates it with the full JPA entity on the next {@code getOne}.
  */
 @Component
 @RequiredArgsConstructor
@@ -41,21 +31,6 @@ public class RedisProfileCacheAdapter implements ProfileCachePort {
     private final DeckHotPathTokenCache deckHotPathTokenCache;
 
     @Override
-    public Optional<Profile> find(UUID profileId) {
-        Cache.ValueWrapper wrapper = resilientCacheManager.get(PROFILE_CACHE_NAME, profileId);
-        if (wrapper == null) {
-            return Optional.empty();
-        }
-        Object cached = wrapper.get();
-        return cached instanceof Profile profile ? Optional.of(profile) : Optional.empty();
-    }
-
-    @Override
-    public void put(Profile profile) {
-        resilientCacheManager.put(PROFILE_CACHE_NAME, profile.getId(), profile);
-    }
-
-    @Override
     public void evict(UUID profileId) {
         resilientCacheManager.evict(PROFILE_CACHE_NAME, profileId);
     }
@@ -63,7 +38,7 @@ public class RedisProfileCacheAdapter implements ProfileCachePort {
     @Override
     public void refreshOnWrite(String userId, Profile profile) {
         UUID profileId = profile.getId();
-        put(profile);
+        evict(profileId);
         profileIdentityCacheService.put(userId, profileId);
         evictReadModelSnapshots(profileId);
     }
