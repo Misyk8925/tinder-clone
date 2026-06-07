@@ -1,4 +1,4 @@
-package com.tinder.profiles.api.profile.exception;
+package com.tinder.profiles.application.profile.exception;
 
 import org.springframework.http.HttpStatus;
 

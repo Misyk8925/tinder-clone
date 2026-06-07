@@ -1,73 +1,43 @@
 package com.tinder.profiles.application.profile;
+
 import com.tinder.profiles.infrastructure.persistence.profile.ProfileRepository;
 import com.tinder.profiles.infrastructure.persistence.profile.ProfileJpaEntity;
-
-import com.tinder.contracts.event.v1.ChangeType;
-import com.tinder.contracts.event.v1.ProfileCreatedEvent;
-import com.tinder.contracts.event.v1.ProfileDeletedEvent;
-import com.tinder.contracts.event.v1.ProfileUpdatedEvent;
-import com.tinder.profiles.infrastructure.persistence.location.LocationService;
-import com.tinder.profiles.infrastructure.external.location.LocationServiceClient;
-import com.tinder.profiles.infrastructure.messaging.outbox.ProfileOutboxService;
-import com.tinder.profiles.infrastructure.persistence.preferences.Preferences;
-import com.tinder.profiles.infrastructure.persistence.preferences.PreferencesService;
-import com.tinder.profiles.api.profile.dto.profileData.CreateProfileDtoV1;
 import com.tinder.profiles.api.profile.dto.profileData.GetProfileDto;
-import com.tinder.profiles.api.profile.dto.profileData.PatchProfileDto;
-import com.tinder.profiles.api.profile.exception.ProfileAlreadyExistsException;
-import com.tinder.profiles.api.profile.exception.ProfileNotFoundException;
-import com.tinder.profiles.api.profile.exception.PatchOperationException;
-import com.tinder.profiles.api.profile.exception.ProfileValidationException;
-import com.tinder.profiles.infrastructure.cache.DeckPageCacheService;
-import com.tinder.profiles.infrastructure.cache.DeckProfileSnapshotCache;
+import com.tinder.profiles.application.profile.exception.ProfileNotFoundException;
 import com.tinder.profiles.infrastructure.cache.ProfileIdentityCacheService;
-import com.tinder.profiles.infrastructure.cache.SharedProfileSnapshotCache;
-import com.tinder.profiles.infrastructure.persistence.profile.mapper.CreateProfileMapper;
 import com.tinder.profiles.infrastructure.persistence.profile.mapper.GetProfileMapper;
 import com.tinder.profiles.infrastructure.cache.ResilientCacheManager;
-import com.tinder.profiles.infrastructure.cache.DeckHotPathTokenCache;
-import com.tinder.profiles.application.profile.support.InputSanitizationService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.cache.Cache;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
-import java.time.Instant;
-import java.time.LocalDateTime;
-import java.util.*;
+import java.util.UUID;
 
+/**
+ * Read-side application service for profiles (queries only). The write path —
+ * create / update / patch / delete / premium — lives in the
+ * {@code application.profile.usecase} services, which operate on the domain
+ * aggregate through the outbound ports.
+ *
+ * <p>Reads deliberately stay on the JPA read path (entity + {@link GetProfileMapper}
+ * + read-optimised projections); routing them through the aggregate would cost a
+ * double mapping for no invariant gain (CQRS asymmetry). A follow-up (Stage 4)
+ * extracts these into dedicated query services.
+ */
 @Service
 @RequiredArgsConstructor
 @Slf4j
 public class ProfileApplicationService {
 
     private final ProfileRepository profileRepository;
-    private final ProfileSanitizationService domainService;
-    private final CreateProfileMapper createMapper;
     private final GetProfileMapper getMapper;
     private final ResilientCacheManager resilientCacheManager;
-    private final InputSanitizationService sanitizationService;
-    private final PreferencesService preferencesService;
-    private final ProfileOutboxService profileOutboxService;
-    private final LocationService locationService;
-    private final LocationServiceClient locationServiceClient;
     private final ProfileIdentityCacheService profileIdentityCacheService;
-    private final SharedProfileSnapshotCache sharedProfileSnapshotCache;
-    private final DeckProfileSnapshotCache deckProfileSnapshotCache;
-    private final DeckPageCacheService deckPageCacheService;
-    private final DeckHotPathTokenCache deckHotPathTokenCache;
-
 
     private static final String PROFILE_CACHE_NAME = "PROFILE_ENTITY_CACHE";
-
-    /** Minimum movement in kilometres before a GPS coordinate update is treated as a location change. */
-    @Value("${location.change.threshold-km:1.0}")
-    double locationChangeThresholdKm;
-
 
     public Page<ProfileJpaEntity> getAll(Pageable pageable) {
         return profileRepository.findAll(pageable);
@@ -75,46 +45,25 @@ public class ProfileApplicationService {
 
     public GetProfileDto getOne(UUID id) {
         try {
-            // Try to get from cache first using resilient cache manager
             Cache.ValueWrapper profileCache = resilientCacheManager.get(PROFILE_CACHE_NAME, id);
-
-            if (profileCache != null) {
-                Object cached = profileCache.get();
-
-                if (cached instanceof ProfileJpaEntity profile) {
-                    if (profile.isDeleted()) {
-                        return null;
-                    }
-                    return getMapper.toGetProfileDto(profile);
-                } else {
-                    String cachedType = (cached != null) ? cached.getClass().getName() : "null";
-                    log.warn("Invalid object type in cache for key {}: {}", id, cachedType);
-                }
+            if (profileCache != null && profileCache.get() instanceof ProfileJpaEntity profile) {
+                return profile.isDeleted() ? null : getMapper.toGetProfileDto(profile);
             }
 
-            // Load from database if not in cache or cache unavailable
-            Optional<ProfileJpaEntity> profileOptional = profileRepository.findById(id);
-            if (profileOptional.isEmpty()) {
-                throw new ProfileNotFoundException(id.toString(), "id");
-            }
-
-            ProfileJpaEntity profile = profileOptional.get();
+            ProfileJpaEntity profile = profileRepository.findById(id)
+                    .orElseThrow(() -> new ProfileNotFoundException(id.toString(), "id"));
             if (profile.isDeleted()) {
                 return null;
             }
-
-            // Cache the profile using resilient cache manager
-            putInCache(id, profile);
+            resilientCacheManager.put(PROFILE_CACHE_NAME, id, profile);
             return getMapper.toGetProfileDto(profile);
 
+        } catch (ProfileNotFoundException e) {
+            throw e;
         } catch (Exception e) {
             log.error("Error retrieving profile {}: {}. Loading from database.", id, e.getMessage());
-            // Continue without cache - load from database
-            Optional<ProfileJpaEntity> profileOptional = profileRepository.findById(id);
-            if (profileOptional.isEmpty()) {
-                throw new ProfileNotFoundException(id.toString(), "id");
-            }
-            ProfileJpaEntity profile = profileOptional.get();
+            ProfileJpaEntity profile = profileRepository.findById(id)
+                    .orElseThrow(() -> new ProfileNotFoundException(id.toString(), "id"));
             return profile.isDeleted() ? null : getMapper.toGetProfileDto(profile);
         }
     }
@@ -131,452 +80,10 @@ public class ProfileApplicationService {
         if (userId == null || userId.isBlank()) {
             return null;
         }
-
         return profileIdentityCacheService.getProfileId(userId, profileRepository::findActiveProfileIdByUserId);
     }
 
-    public GetProfileDto getMyProfile(String userID){
+    public GetProfileDto getMyProfile(String userID) {
         return getMapper.toGetProfileDto(getByUserId(userID));
-    }
-
-    @Transactional
-    public ProfileJpaEntity create(CreateProfileDtoV1 profileDto, String userId) {
-        // Check if profile already exists
-        ProfileJpaEntity existing = profileRepository.findByUserId(userId);
-        if (existing != null) {
-            throw new ProfileAlreadyExistsException(userId);
-        }
-
-        // Require either city or GPS coordinates
-        boolean hasCity = profileDto.city() != null && !profileDto.city().isBlank();
-        boolean hasCoordinates = profileDto.latitude() != null && profileDto.longitude() != null;
-        if (!hasCity && !hasCoordinates) {
-            throw new ProfileValidationException("Either city or GPS coordinates must be provided");
-        }
-
-        // Validate cross-field business rules (Bean Validation handles basic constraints)
-        if (profileDto.preferences() != null) {
-            domainService.validatePreferencesBusinessRules(profileDto.preferences());
-        }
-
-        // Sanitize input data
-        CreateProfileDtoV1 sanitizedProfile = domainService.sanitizeProfileData(profileDto);
-
-        // Map to entity
-        ProfileJpaEntity profile = createMapper.toEntity(sanitizedProfile);
-        profile.setUserId(userId);
-
-        // Handle preferences — findOrCreate commits in its own transaction (REQUIRES_NEW),
-        // so the preferences row is visible to PostgreSQL's FK check on profile INSERT.
-        Preferences preferences = preferencesService.findOrCreate(sanitizedProfile.preferences());
-        profile.setPreferences(preferences);
-
-        // Set hobbies if provided
-        if (sanitizedProfile.hobbies() != null) {
-            profile.setHobbies(sanitizedProfile.hobbies());
-        }
-
-        ProfileJpaEntity savedProfile = profileRepository.save(profile);
-        profileIdentityCacheService.put(userId, savedProfile.getProfileId());
-
-        ProfileCreatedEvent event = new ProfileCreatedEvent(
-                UUID.randomUUID(),
-                savedProfile.getProfileId(),
-                savedProfile.getUserId(),
-                Instant.now()
-        );
-        profileOutboxService.enqueueProfileCreated(event);
-
-        log.info("ProfileJpaEntity created successfully for userId: {}", userId);
-        return savedProfile;
-    }
-
-    @Transactional
-    public ProfileJpaEntity update(CreateProfileDtoV1 profileDto, String userId) {
-
-        ProfileJpaEntity existingProfile = profileRepository.findByUserId(userId);
-        if (existingProfile == null) {
-            throw new ProfileNotFoundException(userId);
-        }
-
-        boolean hasCity = profileDto.city() != null && !profileDto.city().isBlank();
-        boolean hasCoordinates = profileDto.latitude() != null && profileDto.longitude() != null;
-        if (!hasCity && !hasCoordinates) {
-            throw new ProfileValidationException("Either city or GPS coordinates must be provided");
-        }
-
-        if (profileDto.preferences() != null) {
-            domainService.validatePreferencesBusinessRules(profileDto.preferences());
-        }
-
-        CreateProfileDtoV1 sanitizedProfile = domainService.sanitizeProfileData(profileDto);
-
-        // Track changed fields before update
-        Set<String> changedFields = detectChangedFields(existingProfile, sanitizedProfile);
-        boolean preferencesChanged = false;
-
-        // Update profile fields
-        domainService.updateProfileFromDto(existingProfile, sanitizedProfile);
-
-        // Update Location entity when city changed or GPS coordinates provided
-        boolean hasCoords = sanitizedProfile.latitude() != null && sanitizedProfile.longitude() != null;
-        boolean cityNameChanged = changedFields.contains("city");
-        if (cityNameChanged || hasCoords) {
-            boolean significantMove = !hasCoords || hasMovedSignificantly(
-                    existingProfile, sanitizedProfile.latitude(), sanitizedProfile.longitude());
-            if (cityNameChanged || significantMove) {
-                if (hasCoords) {
-                    existingProfile.setLocation(locationServiceClient.resolveFromCoordinates(
-                            sanitizedProfile.latitude(), sanitizedProfile.longitude(), sanitizedProfile.city()));
-                } else {
-                    existingProfile.setLocation(locationServiceClient.resolve(sanitizedProfile.city()));
-                }
-                changedFields.add("city");
-            }
-        }
-
-        // Handle preferences — findOrCreate commits in its own transaction (REQUIRES_NEW)
-        Preferences oldPreferences = existingProfile.getPreferences();
-        Preferences preferences = preferencesService.findOrCreate(sanitizedProfile.preferences());
-
-        // Check if preferences changed
-        if (!preferencesEqual(oldPreferences, preferences)) {
-            preferencesChanged = true;
-            changedFields.add("preferences");
-        }
-
-        existingProfile.setPreferences(preferences);
-
-        // Update hobbies if provided
-        if (sanitizedProfile.hobbies() != null) {
-            existingProfile.setHobbies(sanitizedProfile.hobbies());
-            changedFields.add("hobbies");
-        }
-
-        ProfileJpaEntity savedProfile = profileRepository.save(existingProfile);
-
-        // Determine change type and send event
-        ChangeType changeType = determineChangeType(changedFields, preferencesChanged);
-        enqueueProfileUpdatedEvent(savedProfile, changeType, changedFields);
-
-        // Update cache
-        refreshProfileCaches(userId, savedProfile.getProfileId(), savedProfile);
-
-        log.info("ProfileJpaEntity updated successfully for userId: {} with changeType: {} and fields: {}",
-                userId, changeType, changedFields);
-        return savedProfile;
-    }
-
-    @Transactional
-    public ProfileJpaEntity patch(String userId, PatchProfileDto patchDto) {
-        ProfileJpaEntity existingProfile = profileRepository.findByUserId(userId);
-        if (existingProfile == null) {
-            throw new ProfileNotFoundException(userId);
-        }
-
-        // Check if at least one field is provided
-        if (!patchDto.hasAnyField()) {
-            throw PatchOperationException.noFieldsProvided();
-        }
-
-        // Track changed fields
-        Set<String> changedFields = new HashSet<>();
-        boolean preferencesChanged = false;
-
-        // Apply patches (Bean Validation already validated the format)
-        if (patchDto.name() != null) {
-            existingProfile.setName(sanitizationService.sanitizePlainText(patchDto.name()));
-            changedFields.add("name");
-        }
-
-        if (patchDto.age() != null) {
-            existingProfile.setAge(patchDto.age());
-            changedFields.add("age");
-        }
-
-        if (patchDto.gender() != null) {
-            existingProfile.setGender(sanitizationService.sanitizePlainText(patchDto.gender()));
-            changedFields.add("gender");
-        }
-
-        if (patchDto.bio() != null) {
-            existingProfile.setBio(sanitizationService.sanitizePlainText(patchDto.bio()));
-            changedFields.add("bio");
-        }
-
-        if (patchDto.city() != null) {
-            existingProfile.setCity(sanitizationService.sanitizePlainText(patchDto.city()));
-            changedFields.add("city");
-        }
-
-        // Update Location entity when city changed or GPS coordinates provided.
-        // For coordinate-only updates (browser geolocation), skip if the user
-        // has not moved beyond locationChangeThresholdKm to suppress GPS jitter.
-        boolean hasCoords = patchDto.latitude() != null && patchDto.longitude() != null;
-        boolean cityNameChanged = changedFields.contains("city");
-        if (cityNameChanged || hasCoords) {
-            boolean significantMove = !hasCoords || hasMovedSignificantly(
-                    existingProfile, patchDto.latitude(), patchDto.longitude());
-            if (cityNameChanged || significantMove) {
-                String cityForLocation = patchDto.city() != null
-                        ? sanitizationService.sanitizePlainText(patchDto.city())
-                        : existingProfile.getCity();
-                if (hasCoords) {
-                    existingProfile.setLocation(locationServiceClient.resolveFromCoordinates(
-                            patchDto.latitude(), patchDto.longitude(), cityForLocation));
-                } else {
-                    existingProfile.setLocation(locationServiceClient.resolve(cityForLocation));
-                }
-                changedFields.add("city");
-            } else {
-                log.debug("Ignoring coordinate update for profile {}: moved less than {}km",
-                        existingProfile.getProfileId(), locationChangeThresholdKm);
-            }
-        }
-
-        // Handle preferences update
-        if (patchDto.preferences() != null) {
-            domainService.validatePreferencesBusinessRules(patchDto.preferences());
-
-            Preferences oldPreferences = existingProfile.getPreferences();
-            // findOrCreate commits in its own transaction (REQUIRES_NEW) — always returns persisted entity
-            Preferences newPreferences = preferencesService.findOrCreate(patchDto.preferences());
-
-
-            // Check if preferences actually changed
-            if (!preferencesEqual(oldPreferences, newPreferences)) {
-                existingProfile.setPreferences(newPreferences);
-                preferencesChanged = true;
-                changedFields.add("preferences");
-            }
-        }
-
-        // Handle hobbies update — replace the entire list when provided
-        if (patchDto.hobbies() != null) {
-            existingProfile.setHobbies(patchDto.hobbies());
-            changedFields.add("hobbies");
-        }
-
-        ProfileJpaEntity savedProfile = profileRepository.save(existingProfile);
-
-        // Only enqueue an event when something actually changed. A coordinate-only
-        // PATCH that didn't cross the movement threshold produces an empty changedFields
-        // set — publishing a NON_CRITICAL event in that case would trigger unnecessary
-        // cache refreshes and Kafka noise.
-        if (!changedFields.isEmpty() || preferencesChanged) {
-            ChangeType changeType = determineChangeType(changedFields, preferencesChanged);
-            enqueueProfileUpdatedEvent(savedProfile, changeType, changedFields);
-            log.info("ProfileJpaEntity patched successfully for userId: {} with changeType: {} and fields: {}",
-                    userId, changeType, changedFields);
-        } else {
-            log.debug("No effective changes for patch on profile {} (coordinate jitter suppressed)", userId);
-        }
-
-        // Update cache
-        refreshProfileCaches(userId, savedProfile.getProfileId(), savedProfile);
-
-        return savedProfile;
-    }
-
-    @Transactional
-    public ProfileJpaEntity delete( String userId) {
-        ProfileJpaEntity profile = profileRepository.findByUserId(userId);
-        UUID id = profile != null ? profile.getProfileId() : null;
-        if (profile == null || profile.isDeleted()) {
-            throw new ProfileNotFoundException(String.valueOf(id), "id");
-        }
-        if (domainService.canDeleteProfile(profile)) {
-            domainService.markAsDeleted(profile);
-            profileRepository.save(profile);
-            evictFromCache(profile.getProfileId());
-            evictReadCaches(userId, profile.getProfileId());
-            log.info("ProfileJpaEntity deleted successfully: {}", id);
-        }
-
-        ProfileDeletedEvent event = new ProfileDeletedEvent(
-                UUID.randomUUID(),
-                profile.getProfileId(),
-                Instant.now()
-        );
-        profileOutboxService.enqueueProfileDeleted(event);
-
-        return profile;
-    }
-
-    @Transactional
-    public void deleteMany(List<UUID> ids) {
-        List<ProfileJpaEntity> profiles = profileRepository.findAllById(ids);
-        List<String> userIds = profiles.stream()
-                .map(ProfileJpaEntity::getUserId)
-                .filter(Objects::nonNull)
-                .toList();
-
-        profileRepository.deleteAllById(ids);
-        ids.forEach(this::evictFromCache);
-        ids.forEach(sharedProfileSnapshotCache::evict);
-        ids.forEach(deckProfileSnapshotCache::evict);
-        ids.forEach(deckHotPathTokenCache::evictProfile);
-        deckPageCacheService.evictViewers(ids);
-        userIds.forEach(profileIdentityCacheService::evict);
-    }
-
-    @Transactional
-    public void updatePremiumStatus(String userId, boolean isPremium) {
-        updatePremiumStatus(userId, isPremium, null);
-    }
-
-    @Transactional
-    public void updatePremiumStatus(String userId, boolean isPremium, LocalDateTime expiresAt) {
-        ProfileJpaEntity profile = profileRepository.findByUserId(userId);
-        if (profile == null) {
-            throw new ProfileNotFoundException(userId);
-        }
-        profile.setPremium(isPremium);
-        // Store expiry only when activating; clear it when revoking
-        profile.setPremiumExpiresAt(isPremium ? expiresAt : null);
-        profileRepository.save(profile);
-    }
-
-    // Cache management methods
-
-    private void putInCache(UUID profileId, ProfileJpaEntity profile) {
-        resilientCacheManager.put(PROFILE_CACHE_NAME, profileId, profile);
-    }
-
-    private void evictFromCache(UUID profileId) {
-        resilientCacheManager.evict(PROFILE_CACHE_NAME, profileId);
-    }
-
-    private void refreshProfileCaches(String userId, UUID profileId, ProfileJpaEntity profile) {
-        putInCache(profileId, profile);
-        profileIdentityCacheService.put(userId, profileId);
-        sharedProfileSnapshotCache.evict(profileId);
-        deckProfileSnapshotCache.evict(profileId);
-        deckPageCacheService.evictViewer(profileId);
-        deckHotPathTokenCache.evictProfile(profileId);
-    }
-
-    private void evictReadCaches(String userId, UUID profileId) {
-        profileIdentityCacheService.evict(userId);
-        sharedProfileSnapshotCache.evict(profileId);
-        deckProfileSnapshotCache.evict(profileId);
-        deckPageCacheService.evictViewer(profileId);
-        deckHotPathTokenCache.evictProfile(profileId);
-    }
-
-    // Event handling helper methods
-
-    /**
-     * Returns true if the new GPS coordinates are at least locationChangeThresholdKm
-     * away from the profile's current location. Always returns true when the
-     * profile has no stored location so the first coordinate update is accepted.
-     */
-    boolean hasMovedSignificantly(ProfileJpaEntity profile, double newLat, double newLon) {
-        var loc = profile.getLocation();
-        if (loc == null || loc.getLatitude() == null || loc.getLongitude() == null) {
-            return true;
-        }
-        return haversineKm(loc.getLatitude(), loc.getLongitude(), newLat, newLon)
-                >= locationChangeThresholdKm;
-    }
-
-    static double haversineKm(double lat1, double lon1, double lat2, double lon2) {
-        final double R = 6371.0;
-        double dLat = Math.toRadians(lat2 - lat1);
-        double dLon = Math.toRadians(lon2 - lon1);
-        double a = Math.sin(dLat / 2) * Math.sin(dLat / 2)
-                + Math.cos(Math.toRadians(lat1)) * Math.cos(Math.toRadians(lat2))
-                * Math.sin(dLon / 2) * Math.sin(dLon / 2);
-        return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-    }
-
-    /**
-     * Detect which fields changed between existing profile and new DTO
-     */
-    private Set<String> detectChangedFields(ProfileJpaEntity existing, CreateProfileDtoV1 newDto) {
-        Set<String> changed = new HashSet<>();
-
-        if (!Objects.equals(existing.getName(), newDto.name())) {
-            changed.add("name");
-        }
-        if (!Objects.equals(existing.getAge(), newDto.age())) {
-            changed.add("age");
-        }
-        if (!Objects.equals(existing.getGender(), newDto.gender())) {
-            changed.add("gender");
-        }
-        if (!Objects.equals(existing.getBio(), newDto.bio())) {
-            changed.add("bio");
-        }
-        if (!Objects.equals(existing.getCity(), newDto.city())) {
-            changed.add("city");
-        }
-
-        return changed;
-    }
-
-    /**
-     * Check if preferences are equal
-     */
-    private boolean preferencesEqual(Preferences old, Preferences newPrefs) {
-        if (old == null && newPrefs == null) {
-            return true;
-        }
-        if (old == null || newPrefs == null) {
-            return false;
-        }
-
-        return Objects.equals(old.getMinAge(), newPrefs.getMinAge())
-                && Objects.equals(old.getMaxAge(), newPrefs.getMaxAge())
-                && Objects.equals(old.getGender(), newPrefs.getGender())
-                && Objects.equals(old.getMaxRange(), newPrefs.getMaxRange());
-    }
-
-    /**
-     * Determine the type of change based on changed fields
-     *
-     * Priority order:
-     * 1. LOCATION_CHANGE - if city changed (superset: affects both the owner's deck and viewers' decks)
-     * 2. PREFERENCES - if preferences changed
-     * 3. CRITICAL_FIELDS - if age or gender changed
-     * 4. NON_CRITICAL - for name, bio changes
-     */
-    private ChangeType determineChangeType(Set<String> changedFields, boolean preferencesChanged) {
-        if (changedFields.contains("city")) {
-            return ChangeType.LOCATION_CHANGE;
-        }
-
-        if (preferencesChanged) {
-            return ChangeType.PREFERENCES;
-        }
-
-        // Critical fields that affect matching
-        Set<String> criticalFields = Set.of("age", "gender");
-        for (String field : changedFields) {
-            if (criticalFields.contains(field)) {
-                return ChangeType.CRITICAL_FIELDS;
-            }
-        }
-
-        return ChangeType.NON_CRITICAL;
-    }
-
-    /**
-     * Build and enqueue profile updated event in outbox.
-     */
-    private void enqueueProfileUpdatedEvent(ProfileJpaEntity profile, ChangeType changeType, Set<String> changedFields) {
-        ProfileUpdatedEvent event = new ProfileUpdatedEvent(
-                UUID.randomUUID(),
-                profile.getProfileId(),
-                changeType,
-                changedFields,
-                Instant.now(),
-                String.format("ProfileJpaEntity updated: %s", changeType)
-        );
-
-        profileOutboxService.enqueueProfileUpdated(event);
-
-        log.debug("Queued ProfileUpdatedEvent in outbox: eventId={}, profileId={}, changeType={}, fields={}",
-                event.eventId(), event.profileId(), changeType, changedFields);
     }
 }

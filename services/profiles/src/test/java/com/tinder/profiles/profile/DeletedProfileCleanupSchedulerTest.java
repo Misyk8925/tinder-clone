@@ -1,5 +1,6 @@
 package com.tinder.profiles.profile;
-import com.tinder.profiles.application.profile.ProfileApplicationService;
+import com.tinder.profiles.application.profile.port.in.DeleteProfilesUseCase;
+import com.tinder.profiles.application.profile.command.DeleteProfilesCommand;
 import com.tinder.profiles.infrastructure.persistence.profile.ProfileRepository;
 import com.tinder.profiles.infrastructure.persistence.profile.ProfileJpaEntity;
 import com.tinder.profiles.infrastructure.messaging.scheduler.DeletedProfileCleanupScheduler;
@@ -25,13 +26,13 @@ class DeletedProfileCleanupSchedulerTest {
     private ProfileRepository profileRepository;
 
     @Mock
-    private ProfileApplicationService profileApplicationService;
+    private DeleteProfilesUseCase deleteProfilesUseCase;
 
     private DeletedProfileCleanupScheduler scheduler;
 
     @BeforeEach
     void setUp() {
-        scheduler = new DeletedProfileCleanupScheduler(profileRepository, profileApplicationService);
+        scheduler = new DeletedProfileCleanupScheduler(profileRepository, deleteProfilesUseCase);
     }
 
     // ── Happy path ────────────────────────────────────────────────────────────
@@ -43,7 +44,7 @@ class DeletedProfileCleanupSchedulerTest {
 
         scheduler.purgeStaleDeletedProfiles();
 
-        verifyNoInteractions(profileApplicationService);
+        verifyNoInteractions(deleteProfilesUseCase);
     }
 
     @Test
@@ -56,7 +57,7 @@ class DeletedProfileCleanupSchedulerTest {
 
         scheduler.purgeStaleDeletedProfiles();
 
-        verify(profileApplicationService).deleteMany(List.of(id));
+        verify(deleteProfilesUseCase).handle(new DeleteProfilesCommand(List.of(id)));
     }
 
     @Test
@@ -77,13 +78,13 @@ class DeletedProfileCleanupSchedulerTest {
         scheduler.purgeStaleDeletedProfiles();
 
         // All IDs must be sent in a single deleteMany call
-        verify(profileApplicationService).deleteMany(
-                argThat(ids -> ids.size() == 3
-                        && ids.contains(id1)
-                        && ids.contains(id2)
-                        && ids.contains(id3))
+        verify(deleteProfilesUseCase).handle(
+                argThat(cmd -> cmd.ids().size() == 3
+                        && cmd.ids().contains(id1)
+                        && cmd.ids().contains(id2)
+                        && cmd.ids().contains(id3))
         );
-        verifyNoMoreInteractions(profileApplicationService);
+        verifyNoMoreInteractions(deleteProfilesUseCase);
     }
 
     @Test
@@ -111,8 +112,8 @@ class DeletedProfileCleanupSchedulerTest {
                 .thenReturn(List.of(stale));
 
         doThrow(new RuntimeException("DB constraint violation"))
-                .when(profileApplicationService)
-                .deleteMany(any());
+                .when(deleteProfilesUseCase)
+                .handle(any());
 
         // Must not throw — error is logged and swallowed so scheduler continues on next run
         scheduler.purgeStaleDeletedProfiles();

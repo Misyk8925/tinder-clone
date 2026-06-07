@@ -1,6 +1,7 @@
 package com.tinder.profiles.grpc;
 
-import com.tinder.profiles.application.profile.ProfileApplicationService;
+import com.tinder.profiles.application.profile.port.in.UpdatePremiumStatusUseCase;
+import com.tinder.profiles.application.profile.command.UpdatePremiumStatusCommand;
 import com.tinder.profiles.infrastructure.external.keycloak.KeycloakAdminClient;
 import io.grpc.StatusRuntimeException;
 import io.grpc.stub.StreamObserver;
@@ -23,7 +24,7 @@ class SubscriptionsGrpcServiceTest {
     private static final String PREMIUM_ROLE = "USER_PREMIUM";
 
     @Mock
-    private ProfileApplicationService profileApplicationService;
+    private UpdatePremiumStatusUseCase updatePremiumStatusUseCase;
 
     @Mock
     private KeycloakAdminClient keycloakAdminClient;
@@ -35,7 +36,7 @@ class SubscriptionsGrpcServiceTest {
 
     @BeforeEach
     void setUp() {
-        grpcService = new SubscriptionsGrpcService(profileApplicationService, keycloakAdminClient);
+        grpcService = new SubscriptionsGrpcService(updatePremiumStatusUseCase, keycloakAdminClient);
     }
 
     // ── Happy path ────────────────────────────────────────────────────────────
@@ -65,12 +66,14 @@ class SubscriptionsGrpcServiceTest {
         grpcService.updatePremiumUser(request, responseObserver);
         LocalDateTime after = LocalDateTime.now().plusDays(30).plusSeconds(5);
 
-        // Capture the expiresAt argument passed to updatePremiumStatus
-        ArgumentCaptor<LocalDateTime> expiryCaptor = ArgumentCaptor.forClass(LocalDateTime.class);
-        verify(profileApplicationService)
-                .updatePremiumStatus(eq("user-abc"), eq(true), expiryCaptor.capture());
+        // Capture the command passed to the use case
+        ArgumentCaptor<UpdatePremiumStatusCommand> cmdCaptor =
+                ArgumentCaptor.forClass(UpdatePremiumStatusCommand.class);
+        verify(updatePremiumStatusUseCase).handle(cmdCaptor.capture());
 
-        LocalDateTime captured = expiryCaptor.getValue();
+        assertThat(cmdCaptor.getValue().userId()).isEqualTo("user-abc");
+        assertThat(cmdCaptor.getValue().premium()).isTrue();
+        LocalDateTime captured = cmdCaptor.getValue().expiresAt();
         assertThat(captured).isAfterOrEqualTo(before);
         assertThat(captured).isBeforeOrEqualTo(after);
     }
@@ -84,9 +87,9 @@ class SubscriptionsGrpcServiceTest {
         grpcService.updatePremiumUser(request, responseObserver);
 
         // DB update must be first, then Keycloak
-        var order = inOrder(profileApplicationService, keycloakAdminClient);
-        order.verify(profileApplicationService)
-                .updatePremiumStatus(eq("user-abc"), eq(true), any(LocalDateTime.class));
+        var order = inOrder(updatePremiumStatusUseCase, keycloakAdminClient);
+        order.verify(updatePremiumStatusUseCase)
+                .handle(argThat(cmd -> cmd.userId().equals("user-abc") && cmd.premium()));
         order.verify(keycloakAdminClient).assignRealmRole("user-abc", PREMIUM_ROLE);
     }
 
@@ -107,7 +110,7 @@ class SubscriptionsGrpcServiceTest {
         assertThat(errorCaptor.getValue().getStatus().getCode())
                 .isEqualTo(io.grpc.Status.INVALID_ARGUMENT.getCode());
 
-        verifyNoInteractions(profileApplicationService, keycloakAdminClient);
+        verifyNoInteractions(updatePremiumStatusUseCase, keycloakAdminClient);
     }
 
     @Test
@@ -135,8 +138,8 @@ class SubscriptionsGrpcServiceTest {
                 .build();
 
         doThrow(new RuntimeException("DB is down"))
-                .when(profileApplicationService)
-                .updatePremiumStatus(any(), anyBoolean(), any());
+                .when(updatePremiumStatusUseCase)
+                .handle(any());
 
         grpcService.updatePremiumUser(request, responseObserver);
 

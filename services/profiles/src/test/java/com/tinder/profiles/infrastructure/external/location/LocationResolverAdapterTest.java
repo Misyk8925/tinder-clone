@@ -1,5 +1,6 @@
 package com.tinder.profiles.infrastructure.external.location;
 
+import com.tinder.profiles.application.profile.port.out.ResolvedLocation;
 import com.tinder.profiles.domain.profile.GeoPoint;
 import com.tinder.profiles.infrastructure.persistence.location.Location;
 import com.tinder.profiles.infrastructure.external.location.LocationServiceClient;
@@ -44,9 +45,10 @@ class LocationResolverAdapterTest {
     void resolveByCity() {
         given(locationServiceClient.resolve("Vienna")).willReturn(location(48.2, 16.37));
 
-        GeoPoint point = adapter.resolve("Vienna");
+        ResolvedLocation resolved = adapter.resolve("Vienna");
 
-        then(point).isEqualTo(new GeoPoint(48.2, 16.37));
+        then(resolved.position()).isEqualTo(new GeoPoint(48.2, 16.37));
+        then(resolved.city()).isEqualTo("Vienna");
     }
 
     @Test
@@ -55,9 +57,9 @@ class LocationResolverAdapterTest {
         given(locationServiceClient.resolveFromCoordinates(52.52, 13.40, "Berlin"))
                 .willReturn(location(52.52, 13.40));
 
-        GeoPoint point = adapter.resolveFromCoordinates(52.52, 13.40, "Berlin");
+        ResolvedLocation resolved = adapter.resolveFromCoordinates(52.52, 13.40, "Berlin");
 
-        then(point).isEqualTo(new GeoPoint(52.52, 13.40));
+        then(resolved.position()).isEqualTo(new GeoPoint(52.52, 13.40));
     }
 
     @Test

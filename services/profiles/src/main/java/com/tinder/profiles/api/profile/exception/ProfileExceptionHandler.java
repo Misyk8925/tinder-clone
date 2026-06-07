@@ -1,4 +1,5 @@
 package com.tinder.profiles.api.profile.exception;
+import com.tinder.profiles.application.profile.exception.ProfileException;
 
 import com.tinder.profiles.api.profile.dto.errors.ErrorSummary;
 import lombok.extern.slf4j.Slf4j;
@@ -38,6 +39,19 @@ public class ProfileExceptionHandler {
         return ResponseEntity
                 .status(ex.getStatus())
                 .body(errorSummary);
+    }
+
+    /**
+     * Domain invariant violations (e.g. minAge &gt; maxAge from the
+     * {@code MatchingPreferences} value object) surface as 400 Bad Request,
+     * preserving the behaviour of the former {@code ProfileValidationException} path.
+     */
+    @ExceptionHandler(com.tinder.profiles.domain.profile.DomainValidationException.class)
+    public ResponseEntity<ErrorSummary> handleDomainValidation(
+            com.tinder.profiles.domain.profile.DomainValidationException ex) {
+        log.warn("Domain validation failed: {}", ex.getMessage());
+        return ResponseEntity.badRequest()
+                .body(ErrorSummary.builder().code("VALIDATION_ERROR").message(ex.getMessage()).build());
     }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)

@@ -1,7 +1,8 @@
 package com.tinder.profiles.infrastructure.messaging.scheduler;
 
 import com.tinder.profiles.infrastructure.persistence.profile.ProfileJpaEntity;
-import com.tinder.profiles.application.profile.ProfileApplicationService;
+import com.tinder.profiles.application.profile.command.UpdatePremiumStatusCommand;
+import com.tinder.profiles.application.profile.port.in.UpdatePremiumStatusUseCase;
 import com.tinder.profiles.infrastructure.persistence.profile.ProfileRepository;
 import com.tinder.profiles.infrastructure.external.keycloak.KeycloakAdminClient;
 
@@ -24,7 +25,7 @@ public class PremiumExpirationScheduler {
     private static final String PREMIUM_ROLE = "USER_PREMIUM";
 
     private final ProfileRepository profileRepository;
-    private final ProfileApplicationService profileApplicationService;
+    private final UpdatePremiumStatusUseCase updatePremiumStatusUseCase;
     private final KeycloakAdminClient keycloakAdminClient;
     private final Tracer tracer;   // injected by Micrometer Tracing auto-configuration
 
@@ -62,7 +63,7 @@ public class PremiumExpirationScheduler {
                     MDC.put("userId", userId);
 
                     // 1. Clear premium flag and expiry date in the DB
-                    profileApplicationService.updatePremiumStatus(userId, false);
+                    updatePremiumStatusUseCase.handle(new UpdatePremiumStatusCommand(userId, false, null));
 
                     // 2. Remove the Keycloak role so the JWT no longer contains it
                     keycloakAdminClient.removeRealmRole(userId, PREMIUM_ROLE);

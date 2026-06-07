@@ -1,6 +1,7 @@
 package com.tinder.profiles.grpc;
 
-import com.tinder.profiles.application.profile.ProfileApplicationService;
+import com.tinder.profiles.application.profile.command.UpdatePremiumStatusCommand;
+import com.tinder.profiles.application.profile.port.in.UpdatePremiumStatusUseCase;
 import com.tinder.profiles.infrastructure.external.keycloak.KeycloakAdminClient;
 import io.grpc.Status;
 import io.grpc.stub.StreamObserver;
@@ -18,7 +19,7 @@ public class SubscriptionsGrpcService extends SubscriptionsServiceGrpc.Subscript
     private static final String PREMIUM_ROLE = "USER_PREMIUM";
     private static final int PREMIUM_DURATION_DAYS = 30;
 
-    private final ProfileApplicationService service;
+    private final UpdatePremiumStatusUseCase updatePremiumStatusUseCase;
     private final KeycloakAdminClient keycloakAdminClient;
 
     @Override
@@ -37,7 +38,7 @@ public class SubscriptionsGrpcService extends SubscriptionsServiceGrpc.Subscript
             LocalDateTime expiresAt = LocalDateTime.now().plusDays(PREMIUM_DURATION_DAYS);
 
             // 1. Mark premium in profiles DB with a 30-day expiry (commits immediately)
-            service.updatePremiumStatus(userId, true, expiresAt);
+            updatePremiumStatusUseCase.handle(new UpdatePremiumStatusCommand(userId, true, expiresAt));
 
             // 2. Assign Keycloak role so the JWT reflects the new status.
             //    Runs outside the DB transaction — safe to fail independently.

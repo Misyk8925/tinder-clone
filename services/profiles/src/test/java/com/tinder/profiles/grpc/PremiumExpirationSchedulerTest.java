@@ -2,9 +2,12 @@ package com.tinder.profiles.grpc;
 import com.tinder.profiles.infrastructure.messaging.scheduler.PremiumExpirationScheduler;
 
 import com.tinder.profiles.infrastructure.persistence.profile.ProfileJpaEntity;
-import com.tinder.profiles.application.profile.ProfileApplicationService;
+import com.tinder.profiles.application.profile.port.in.UpdatePremiumStatusUseCase;
+import com.tinder.profiles.application.profile.command.UpdatePremiumStatusCommand;
 import com.tinder.profiles.infrastructure.persistence.profile.ProfileRepository;
 import com.tinder.profiles.infrastructure.external.keycloak.KeycloakAdminClient;
+import io.micrometer.tracing.Span;
+import io.micrometer.tracing.Tracer;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -18,6 +21,7 @@ import java.util.List;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
@@ -29,20 +33,34 @@ class PremiumExpirationSchedulerTest {
     private ProfileRepository profileRepository;
 
     @Mock
-    private ProfileApplicationService profileApplicationService;
+    private UpdatePremiumStatusUseCase updatePremiumStatusUseCase;
 
     @Mock
     private KeycloakAdminClient keycloakAdminClient;
+
+    @Mock(lenient = true)
+    private Tracer tracer;
+
+    @Mock(lenient = true)
+    private Span span;
+
+    @Mock(lenient = true)
+    private Tracer.SpanInScope spanInScope;
 
     private PremiumExpirationScheduler scheduler;
 
     @BeforeEach
     void setUp() {
+        when(tracer.nextSpan()).thenReturn(span);
+        when(span.name(any())).thenReturn(span);
+        when(span.start()).thenReturn(span);
+        when(span.tag(anyString(), anyString())).thenReturn(span);
+        when(tracer.withSpan(any())).thenReturn(spanInScope);
         scheduler = new PremiumExpirationScheduler(
                 profileRepository,
-                profileApplicationService,
+                updatePremiumStatusUseCase,
                 keycloakAdminClient,
-                null
+                tracer
         );
     }
 
@@ -55,7 +73,7 @@ class PremiumExpirationSchedulerTest {
 
         scheduler.revokeExpiredPremiumSubscriptions();
 
-        verifyNoInteractions(profileApplicationService, keycloakAdminClient);
+        verifyNoInteractions(updatePremiumStatusUseCase, keycloakAdminClient);
     }
 
     @Test
@@ -68,8 +86,8 @@ class PremiumExpirationSchedulerTest {
         scheduler.revokeExpiredPremiumSubscriptions();
 
         // DB must be cleared before Keycloak call
-        InOrder order = inOrder(profileApplicationService, keycloakAdminClient);
-        order.verify(profileApplicationService).updatePremiumStatus("user-123", false);
+        InOrder order = inOrder(updatePremiumStatusUseCase, keycloakAdminClient);
+        order.verify(updatePremiumStatusUseCase).handle(new UpdatePremiumStatusCommand("user-123", false, null));
         order.verify(keycloakAdminClient).removeRealmRole("user-123", PREMIUM_ROLE);
     }
 
@@ -84,9 +102,9 @@ class PremiumExpirationSchedulerTest {
 
         scheduler.revokeExpiredPremiumSubscriptions();
 
-        verify(profileApplicationService).updatePremiumStatus("user-A", false);
-        verify(profileApplicationService).updatePremiumStatus("user-B", false);
-        verify(profileApplicationService).updatePremiumStatus("user-C", false);
+        verify(updatePremiumStatusUseCase).handle(new UpdatePremiumStatusCommand("user-A", false, null));
+        verify(updatePremiumStatusUseCase).handle(new UpdatePremiumStatusCommand("user-B", false, null));
+        verify(updatePremiumStatusUseCase).handle(new UpdatePremiumStatusCommand("user-C", false, null));
 
         verify(keycloakAdminClient).removeRealmRole("user-A", PREMIUM_ROLE);
         verify(keycloakAdminClient).removeRealmRole("user-B", PREMIUM_ROLE);
@@ -104,13 +122,13 @@ class PremiumExpirationSchedulerTest {
                 .thenReturn(List.of(failing, ok));
 
         doThrow(new RuntimeException("DB connection lost"))
-                .when(profileApplicationService)
-                .updatePremiumStatus("user-FAIL", false);
+                .when(updatePremiumStatusUseCase)
+                .handle(new UpdatePremiumStatusCommand("user-FAIL", false, null));
 
         // Should not throw, should process user-OK despite failure on user-FAIL
         scheduler.revokeExpiredPremiumSubscriptions();
 
-        verify(profileApplicationService).updatePremiumStatus("user-OK", false);
+        verify(updatePremiumStatusUseCase).handle(new UpdatePremiumStatusCommand("user-OK", false, null));
         verify(keycloakAdminClient).removeRealmRole("user-OK", PREMIUM_ROLE);
 
         // Keycloak must NOT be called for the failed user
@@ -133,8 +151,8 @@ class PremiumExpirationSchedulerTest {
         scheduler.revokeExpiredPremiumSubscriptions();
 
         // Both DB updates are called
-        verify(profileApplicationService).updatePremiumStatus("user-KC-FAIL", false);
-        verify(profileApplicationService).updatePremiumStatus("user-KC-OK",   false);
+        verify(updatePremiumStatusUseCase).handle(new UpdatePremiumStatusCommand("user-KC-FAIL", false, null));
+        verify(updatePremiumStatusUseCase).handle(new UpdatePremiumStatusCommand("user-KC-OK", false, null));
 
         // Keycloak succeeds for the second user even though the first failed
         verify(keycloakAdminClient).removeRealmRole("user-KC-OK", PREMIUM_ROLE);

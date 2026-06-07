@@ -1,7 +1,8 @@
 package com.tinder.profiles.infrastructure.messaging.scheduler;
 import com.tinder.profiles.infrastructure.persistence.profile.ProfileJpaEntity;
 import com.tinder.profiles.infrastructure.persistence.profile.ProfileRepository;
-import com.tinder.profiles.application.profile.ProfileApplicationService;
+import com.tinder.profiles.application.profile.command.DeleteProfilesCommand;
+import com.tinder.profiles.application.profile.port.in.DeleteProfilesUseCase;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -21,7 +22,7 @@ public class DeletedProfileCleanupScheduler {
     private static final int SOFT_DELETE_RETENTION_DAYS = 30;
 
     private final ProfileRepository profileRepository;
-    private final ProfileApplicationService profileApplicationService;
+    private final DeleteProfilesUseCase deleteProfilesUseCase;
 
     /**
      * Runs once a day and permanently purges profiles that were soft-deleted
@@ -46,7 +47,7 @@ public class DeletedProfileCleanupScheduler {
         log.info("Purging {} profile(s) soft-deleted before {}", ids.size(), cutoff);
 
         try {
-            profileApplicationService.deleteMany(ids);
+            deleteProfilesUseCase.handle(new DeleteProfilesCommand(ids));
             log.info("Successfully purged {} profile(s)", ids.size());
         } catch (Exception e) {
             log.error("Failed to purge stale deleted profiles: {}", e.getMessage(), e);

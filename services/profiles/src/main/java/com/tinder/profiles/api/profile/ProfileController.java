@@ -1,6 +1,13 @@
 package com.tinder.profiles.api.profile;
 import com.tinder.profiles.application.profile.ProfileApplicationService;
-import com.tinder.profiles.infrastructure.persistence.profile.ProfileJpaEntity;
+import com.tinder.profiles.application.profile.command.DeleteProfileCommand;
+import com.tinder.profiles.application.profile.command.DeleteProfilesCommand;
+import com.tinder.profiles.application.profile.port.in.CreateProfileUseCase;
+import com.tinder.profiles.application.profile.port.in.DeleteProfileUseCase;
+import com.tinder.profiles.application.profile.port.in.DeleteProfilesUseCase;
+import com.tinder.profiles.application.profile.port.in.PatchProfileUseCase;
+import com.tinder.profiles.application.profile.port.in.UpdateProfileUseCase;
+import com.tinder.profiles.api.profile.mapper.ProfileApiMapper;
 
 import com.tinder.profiles.infrastructure.external.deck.DeckService;
 import com.tinder.profiles.api.profile.dto.profileData.GetProfileDto;
@@ -33,6 +40,12 @@ import java.util.UUID;
 public class ProfileController {
 
     private final ProfileApplicationService applicationService;
+    private final CreateProfileUseCase createProfileUseCase;
+    private final UpdateProfileUseCase updateProfileUseCase;
+    private final PatchProfileUseCase patchProfileUseCase;
+    private final DeleteProfileUseCase deleteProfileUseCase;
+    private final DeleteProfilesUseCase deleteProfilesUseCase;
+    private final ProfileApiMapper apiMapper;
     private final DeckService deckService;
     private final InternalProfileService internalProfileService;
     private final IdsQueryParamParser idsQueryParamParser;
@@ -110,38 +123,39 @@ public class ProfileController {
     @PostMapping({"", "/"})
     public ResponseEntity<Object> create(@RequestBody @Valid CreateProfileDtoV1 profile,
                                          @AuthenticationPrincipal Jwt jwt) {
-        ProfileJpaEntity newProfile = applicationService.create(profile, jwt.getSubject());
+        UUID newProfileId = createProfileUseCase.handle(apiMapper.toCreateCommand(profile, jwt.getSubject()));
         return ResponseEntity
                 .status(HttpStatus.CREATED)
-                .body(ApiResponse.created("ProfileJpaEntity created successfully", newProfile.getProfileId()));
+                .body(ApiResponse.created("Profile created successfully", newProfileId));
     }
 
     @PutMapping({"", "/"})
     public ResponseEntity<Object> update(@RequestBody @Valid CreateProfileDtoV1 profile,
                                          @AuthenticationPrincipal Jwt jwt) {
-        ProfileJpaEntity updatedProfile = applicationService.update(profile, jwt.getSubject());
+        UUID updatedProfileId = updateProfileUseCase.handle(apiMapper.toUpdateCommand(profile, jwt.getSubject()));
         return ResponseEntity
                 .status(HttpStatus.OK)
-                .body(ApiResponse.success("ProfileJpaEntity updated successfully", updatedProfile.getProfileId()));
+                .body(ApiResponse.success("Profile updated successfully", updatedProfileId));
     }
 
     @PatchMapping({"", "/"})
-    public ProfileJpaEntity patch(@AuthenticationPrincipal Jwt jwt,
-                        @RequestBody @Valid PatchProfileDto patchDto) {
-        return applicationService.patch(jwt.getSubject(), patchDto);
+    public ResponseEntity<GetProfileDto> patch(@AuthenticationPrincipal Jwt jwt,
+                                               @RequestBody @Valid PatchProfileDto patchDto) {
+        UUID profileId = patchProfileUseCase.handle(apiMapper.toPatchCommand(patchDto, jwt.getSubject()));
+        return ResponseEntity.ok(applicationService.getOne(profileId));
     }
 
 
     @DeleteMapping({"", "/"})
     public ResponseEntity<Void> delete(
                                        @AuthenticationPrincipal Jwt jwt) {
-        applicationService.delete(jwt.getSubject());
+        deleteProfileUseCase.handle(new DeleteProfileCommand(jwt.getSubject()));
         return ResponseEntity.noContent().build();
     }
 
     @DeleteMapping("/delete-many")
     public void deleteMany(@RequestParam List<UUID> ids) {
-        applicationService.deleteMany(ids);
+        deleteProfilesUseCase.handle(new DeleteProfilesCommand(ids));
     }
 
 }
