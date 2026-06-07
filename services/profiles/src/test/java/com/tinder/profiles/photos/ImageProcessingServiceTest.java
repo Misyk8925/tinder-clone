@@ -1,4 +1,5 @@
 package com.tinder.profiles.photos;
+import com.tinder.profiles.infrastructure.external.photos.ImageProcessingService;
 
 import lombok.extern.slf4j.Slf4j;
 import org.junit.jupiter.api.BeforeEach;

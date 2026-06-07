@@ -2,12 +2,12 @@ package com.tinder.profiles;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.tinder.profiles.deck.DeckCacheReader;
-import com.tinder.profiles.location.LocationService;
+import com.tinder.profiles.infrastructure.external.deck.DeckCacheReader;
+import com.tinder.profiles.infrastructure.persistence.location.LocationService;
 import com.tinder.profiles.profile.Profile;
 import com.tinder.profiles.profile.ProfileRepository;
-import com.tinder.profiles.user.NewUserRecord;
-import com.tinder.profiles.user.UserService;
+import com.tinder.profiles.infrastructure.external.keycloak.NewUserRecord;
+import com.tinder.profiles.infrastructure.external.keycloak.UserService;
 import com.tinder.profiles.util.DeckCacheTestHelper;
 import com.tinder.profiles.util.KeycloakTestHelper;
 import org.junit.jupiter.api.*;
@@ -142,7 +142,7 @@ public class DemoIntegrationTest {
     private ProfileRepository profileRepository;
 
     @Autowired
-    private com.tinder.profiles.preferences.PreferencesRepository preferencesRepository;
+    private com.tinder.profiles.infrastructure.persistence.preferences.PreferencesRepository preferencesRepository;
 
     @Autowired
     private LocationService locationService;
@@ -1015,11 +1015,11 @@ public class DemoIntegrationTest {
      */
     private Profile createProfileDirectly(String name, int age, String gender, String userId, String preferredGender) {
         // Create/find preferences
-        com.tinder.profiles.preferences.Preferences preferences = preferencesRepository
+        com.tinder.profiles.infrastructure.persistence.preferences.Preferences preferences = preferencesRepository
             .findByValues(MIN_AGE, MAX_AGE, preferredGender, DEFAULT_MAX_RANGE)
             .orElseGet(() -> {
-                com.tinder.profiles.preferences.Preferences newPrefs =
-                    com.tinder.profiles.preferences.Preferences.builder()
+                com.tinder.profiles.infrastructure.persistence.preferences.Preferences newPrefs =
+                    com.tinder.profiles.infrastructure.persistence.preferences.Preferences.builder()
                         .minAge(MIN_AGE)
                         .maxAge(MAX_AGE)
                         .gender(preferredGender)
@@ -1029,7 +1029,7 @@ public class DemoIntegrationTest {
             });
 
         // Create location (persisted so it is managed when Profile is saved)
-        com.tinder.profiles.location.Location location = locationService.create(DEFAULT_CITY);
+        com.tinder.profiles.infrastructure.persistence.location.Location location = locationService.create(DEFAULT_CITY);
 
         // Create profile
         Profile profile = Profile.builder()

@@ -1,12 +1,12 @@
-package com.tinder.profiles.outbox;
+package com.tinder.profiles.infrastructure.messaging.outbox;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import com.tinder.contracts.event.v1.ProfileCreatedEvent;
 import com.tinder.contracts.event.v1.ProfileDeletedEvent;
-import com.tinder.profiles.kafka.ResilientProfileEventProducer;
-import com.tinder.profiles.outbox.model.ProfileEventOutbox;
-import com.tinder.profiles.outbox.model.ProfileOutboxEventType;
+import com.tinder.profiles.infrastructure.messaging.kafka.ResilientProfileEventProducer;
+import com.tinder.profiles.infrastructure.messaging.outbox.model.ProfileEventOutbox;
+import com.tinder.profiles.infrastructure.messaging.outbox.model.ProfileOutboxEventType;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;

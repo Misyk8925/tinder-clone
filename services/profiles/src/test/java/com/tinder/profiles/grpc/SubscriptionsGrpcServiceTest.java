@@ -1,7 +1,7 @@
 package com.tinder.profiles.grpc;
 
 import com.tinder.profiles.profile.ProfileApplicationService;
-import com.tinder.profiles.user.KeycloakAdminClient;
+import com.tinder.profiles.infrastructure.external.keycloak.KeycloakAdminClient;
 import io.grpc.StatusRuntimeException;
 import io.grpc.stub.StreamObserver;
 import org.junit.jupiter.api.BeforeEach;

@@ -1,4 +1,5 @@
 package com.tinder.profiles.deck;
+import com.tinder.profiles.infrastructure.external.deck.DeckCacheReader;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.BeforeEach;

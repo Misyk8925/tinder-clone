@@ -1,11 +1,11 @@
 package com.tinder.profiles;
 
 import com.fasterxml.jackson.core.type.TypeReference;
-import com.tinder.profiles.kafka.dto.MatchCreateEvent;
+import com.tinder.profiles.infrastructure.messaging.kafka.dto.MatchCreateEvent;
 import com.tinder.contracts.event.v1.ProfileCreatedEvent;
 import com.tinder.profiles.profile.Profile;
-import com.tinder.profiles.user.NewUserRecord;
-import com.tinder.profiles.user.UserService;
+import com.tinder.profiles.infrastructure.external.keycloak.NewUserRecord;
+import com.tinder.profiles.infrastructure.external.keycloak.UserService;
 import com.tinder.profiles.util.KafkaAdminHelper;
 import com.tinder.profiles.util.KeycloakTestHelper;
 import io.netty.handler.ssl.SslContext;
@@ -1602,7 +1602,7 @@ public class ComprehensiveIntegrationTest extends AbstractProfilesIntegrationTes
                                                      Map<String, Profile> profileIndex) {
         Profile viewer = profileIndex.get(profile.profileId());
         if (viewer == null) return false;
-        com.tinder.profiles.preferences.Preferences prefs = viewer.getPreferences();
+        com.tinder.profiles.infrastructure.persistence.preferences.Preferences prefs = viewer.getPreferences();
         if (prefs == null) return false;
 
         List<String> invalid = new ArrayList<>();

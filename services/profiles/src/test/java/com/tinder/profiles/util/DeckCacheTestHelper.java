@@ -1,6 +1,6 @@
 package com.tinder.profiles.util;
 
-import com.tinder.profiles.preferences.Preferences;
+import com.tinder.profiles.infrastructure.persistence.preferences.Preferences;
 import com.tinder.profiles.profile.Profile;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;

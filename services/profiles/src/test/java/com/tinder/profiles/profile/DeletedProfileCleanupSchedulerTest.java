@@ -1,4 +1,5 @@
 package com.tinder.profiles.profile;
+import com.tinder.profiles.infrastructure.messaging.scheduler.DeletedProfileCleanupScheduler;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;

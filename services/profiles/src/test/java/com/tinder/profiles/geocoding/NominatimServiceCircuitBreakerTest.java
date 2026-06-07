@@ -1,4 +1,5 @@
 package com.tinder.profiles.geocoding;
+import com.tinder.profiles.infrastructure.external.geocoding.NominatimService;
 
 import io.github.resilience4j.bulkhead.Bulkhead;
 import io.github.resilience4j.bulkhead.BulkheadConfig;

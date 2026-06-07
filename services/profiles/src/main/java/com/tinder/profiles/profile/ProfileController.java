@@ -1,16 +1,16 @@
 package com.tinder.profiles.profile;
 
-import com.tinder.profiles.deck.DeckService;
-import com.tinder.profiles.profile.dto.profileData.GetProfileDto;
-import com.tinder.profiles.profile.dto.profileData.deck.DeckProfileDto;
-import com.tinder.profiles.profile.dto.success.ApiResponse;
-import com.tinder.profiles.profile.dto.profileData.CreateProfileDtoV1;
-import com.tinder.profiles.profile.dto.profileData.PatchProfileDto;
+import com.tinder.profiles.infrastructure.external.deck.DeckService;
+import com.tinder.profiles.api.profile.dto.profileData.GetProfileDto;
+import com.tinder.profiles.api.profile.dto.profileData.deck.DeckProfileDto;
+import com.tinder.profiles.api.profile.dto.success.ApiResponse;
+import com.tinder.profiles.api.profile.dto.profileData.CreateProfileDtoV1;
+import com.tinder.profiles.api.profile.dto.profileData.PatchProfileDto;
 import com.tinder.contracts.dto.SharedProfileDto;
-import com.tinder.profiles.profile.cache.DeckPageCacheService;
+import com.tinder.profiles.infrastructure.cache.DeckPageCacheService;
 import com.tinder.profiles.profile.internal.InternalProfileService;
-import com.tinder.profiles.security.DeckHotPathTokenCache;
-import com.tinder.profiles.security.InternalAuthVerifier;
+import com.tinder.profiles.infrastructure.cache.DeckHotPathTokenCache;
+import com.tinder.profiles.config.security.InternalAuthVerifier;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;

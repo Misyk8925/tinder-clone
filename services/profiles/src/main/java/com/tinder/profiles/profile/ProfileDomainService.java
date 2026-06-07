@@ -1,11 +1,11 @@
 package com.tinder.profiles.profile;
 
-import com.tinder.profiles.preferences.Preferences;
-import com.tinder.profiles.preferences.PreferencesDto;
-import com.tinder.profiles.preferences.PreferencesRepository;
-import com.tinder.profiles.profile.dto.profileData.CreateProfileDtoV1;
-import com.tinder.profiles.profile.exception.ProfileValidationException;
-import com.tinder.profiles.security.InputSanitizationService;
+import com.tinder.profiles.infrastructure.persistence.preferences.Preferences;
+import com.tinder.profiles.infrastructure.persistence.preferences.PreferencesDto;
+import com.tinder.profiles.infrastructure.persistence.preferences.PreferencesRepository;
+import com.tinder.profiles.api.profile.dto.profileData.CreateProfileDtoV1;
+import com.tinder.profiles.api.profile.exception.ProfileValidationException;
+import com.tinder.profiles.application.profile.support.InputSanitizationService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.jspecify.annotations.NonNull;

@@ -1,7 +1,7 @@
 package com.tinder.profiles.profile.mapper;
 
 import com.tinder.profiles.profile.Profile;
-import com.tinder.profiles.profile.dto.profileData.CreateProfileDtoV1;
+import com.tinder.profiles.api.profile.dto.profileData.CreateProfileDtoV1;
 import org.mapstruct.Mapper;
 import org.mapstruct.ReportingPolicy;
 

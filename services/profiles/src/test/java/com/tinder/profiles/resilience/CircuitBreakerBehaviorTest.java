@@ -1,4 +1,4 @@
-package com.tinder.profiles.resilience;
+package com.tinder.profiles.config.resilience;
 
 import io.github.resilience4j.circuitbreaker.CircuitBreaker;
 import io.github.resilience4j.circuitbreaker.CircuitBreakerRegistry;

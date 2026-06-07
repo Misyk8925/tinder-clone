@@ -1,10 +1,10 @@
-package com.tinder.profiles.outbox;
+package com.tinder.profiles.infrastructure.messaging.outbox;
 
-import com.tinder.profiles.config.OutboxPublisherProperties;
-import com.tinder.profiles.outbox.model.OutboxPublishResult;
-import com.tinder.profiles.outbox.model.OutboxRetryBackoffPolicy;
-import com.tinder.profiles.outbox.model.ProfileEventOutbox;
-import com.tinder.profiles.outbox.model.ProfileOutboxEventType;
+import com.tinder.profiles.config.props.OutboxPublisherProperties;
+import com.tinder.profiles.infrastructure.messaging.outbox.model.OutboxPublishResult;
+import com.tinder.profiles.infrastructure.messaging.outbox.model.OutboxRetryBackoffPolicy;
+import com.tinder.profiles.infrastructure.messaging.outbox.model.ProfileEventOutbox;
+import com.tinder.profiles.infrastructure.messaging.outbox.model.ProfileOutboxEventType;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;

@@ -740,7 +740,7 @@ public class MtlsConnectionTest extends AbstractProfilesIntegrationTest {
      * Builds a {@link org.springframework.test.web.servlet.request.RequestPostProcessor}
      * that injects a fake x509 UserDetails with ROLE_INTERNAL_CLIENT (if CN is allowed)
      * or without it (if CN is unknown), replicating the behaviour of
-     * {@link com.tinder.profiles.security.MtlsUserDetailsService}.
+     * {@link com.tinder.profiles.config.security.MtlsUserDetailsService}.
      */
     private static org.springframework.test.web.servlet.request.RequestPostProcessor x509InternalClient(String cn) {
         // MtlsUserDetailsService allows only "deck-service"

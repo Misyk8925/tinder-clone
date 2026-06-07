@@ -74,7 +74,7 @@ public abstract class AbstractProfilesIntegrationTest {
     protected ProfileRepository profileRepository;
 
     @Autowired
-    protected com.tinder.profiles.preferences.PreferencesRepository preferencesRepository;
+    protected com.tinder.profiles.infrastructure.persistence.preferences.PreferencesRepository preferencesRepository;
 
     @Autowired
     protected StringRedisTemplate redisTemplate;

@@ -1,7 +1,7 @@
-package com.tinder.profiles.outbox;
+package com.tinder.profiles.infrastructure.messaging.outbox;
 
-import com.tinder.profiles.config.OutboxPublisherProperties;
-import com.tinder.profiles.outbox.model.OutboxRetryBackoffPolicy;
+import com.tinder.profiles.config.props.OutboxPublisherProperties;
+import com.tinder.profiles.infrastructure.messaging.outbox.model.OutboxRetryBackoffPolicy;
 import org.junit.jupiter.api.Test;
 
 import java.time.Duration;

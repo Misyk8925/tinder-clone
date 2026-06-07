@@ -1,9 +1,10 @@
 package com.tinder.profiles.grpc;
+import com.tinder.profiles.infrastructure.messaging.scheduler.PremiumExpirationScheduler;
 
 import com.tinder.profiles.profile.Profile;
 import com.tinder.profiles.profile.ProfileApplicationService;
 import com.tinder.profiles.profile.ProfileRepository;
-import com.tinder.profiles.user.KeycloakAdminClient;
+import com.tinder.profiles.infrastructure.external.keycloak.KeycloakAdminClient;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;

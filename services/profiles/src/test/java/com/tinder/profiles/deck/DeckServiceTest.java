@@ -1,9 +1,12 @@
 package com.tinder.profiles.deck;
+import com.tinder.profiles.infrastructure.external.deck.DeckClient;
+import com.tinder.profiles.infrastructure.external.deck.DeckCacheReader;
+import com.tinder.profiles.infrastructure.external.deck.DeckService;
 
-import com.tinder.profiles.preferences.Preferences;
+import com.tinder.profiles.infrastructure.persistence.preferences.Preferences;
 import com.tinder.profiles.profile.Profile;
 import com.tinder.profiles.profile.ProfileRepository;
-import com.tinder.profiles.profile.cache.DeckPageCacheService;
+import com.tinder.profiles.infrastructure.cache.DeckPageCacheService;
 import com.tinder.contracts.dto.SharedLocationDto;
 import com.tinder.contracts.dto.SharedPreferencesDto;
 import com.tinder.contracts.dto.SharedProfileDto;

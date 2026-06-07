@@ -1,6 +1,7 @@
 package com.tinder.profiles.security;
+import com.tinder.profiles.infrastructure.cache.DeckHotPathTokenCache;
 
-import com.tinder.profiles.profile.cache.ProfileCacheProperties;
+import com.tinder.profiles.config.props.ProfileCacheProperties;
 import org.junit.jupiter.api.Test;
 import org.springframework.security.oauth2.jwt.Jwt;
 

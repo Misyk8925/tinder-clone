@@ -3,7 +3,7 @@ package com.tinder.profiles.util;
 import com.tinder.contracts.event.v1.ProfileCreatedEvent;
 import com.tinder.contracts.event.v1.ProfileDeletedEvent;
 import com.tinder.contracts.event.v1.ProfileUpdatedEvent;
-import com.tinder.profiles.kafka.dto.MatchCreateEvent;
+import com.tinder.profiles.infrastructure.messaging.kafka.dto.MatchCreateEvent;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
@@ -80,7 +80,7 @@ public class TestKafkaConsumerConfig {
         props.put(ErrorHandlingDeserializer.VALUE_DESERIALIZER_CLASS, JsonDeserializer.class);
 
         // JSON deserializer specific config
-        props.put(JsonDeserializer.TRUSTED_PACKAGES, "com.tinder.contracts.event.v1,com.tinder.profiles.kafka.dto");
+        props.put(JsonDeserializer.TRUSTED_PACKAGES, "com.tinder.contracts.event.v1,com.tinder.profiles.infrastructure.messaging.kafka.dto");
         props.put(JsonDeserializer.USE_TYPE_INFO_HEADERS, false);
 
         return props;

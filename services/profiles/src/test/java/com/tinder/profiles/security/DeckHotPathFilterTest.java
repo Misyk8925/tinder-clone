@@ -1,8 +1,11 @@
 package com.tinder.profiles.security;
+import com.tinder.profiles.infrastructure.cache.DeckHotPathTokenCache;
+import com.tinder.profiles.config.security.InternalAuthVerifier;
+import com.tinder.profiles.config.security.DeckHotPathFilter;
 
-import com.tinder.profiles.profile.cache.DeckPageCacheService;
-import com.tinder.profiles.profile.cache.ProfileCacheProperties;
-import com.tinder.profiles.profile.cache.ProfileIdentityCacheService;
+import com.tinder.profiles.infrastructure.cache.DeckPageCacheService;
+import com.tinder.profiles.config.props.ProfileCacheProperties;
+import com.tinder.profiles.infrastructure.cache.ProfileIdentityCacheService;
 import jakarta.servlet.FilterChain;
 import org.junit.jupiter.api.Test;
 import org.springframework.mock.web.MockHttpServletRequest;

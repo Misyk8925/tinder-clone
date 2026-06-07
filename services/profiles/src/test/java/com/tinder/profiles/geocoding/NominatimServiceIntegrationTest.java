@@ -1,4 +1,5 @@
 package com.tinder.profiles.geocoding;
+import com.tinder.profiles.infrastructure.external.geocoding.NominatimService;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;

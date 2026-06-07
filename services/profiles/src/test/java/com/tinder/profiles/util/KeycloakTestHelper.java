@@ -1,6 +1,6 @@
 package com.tinder.profiles.util;
 
-import com.tinder.profiles.user.NewUserRecord;
+import com.tinder.profiles.infrastructure.external.keycloak.NewUserRecord;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
