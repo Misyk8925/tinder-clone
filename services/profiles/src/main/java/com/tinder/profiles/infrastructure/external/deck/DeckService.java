@@ -2,11 +2,11 @@ package com.tinder.profiles.infrastructure.external.deck;
 
 import com.tinder.profiles.infrastructure.persistence.preferences.Preferences;
 import com.tinder.profiles.infrastructure.persistence.preferences.PreferencesDto;
-import com.tinder.profiles.profile.ProfileRepository;
+import com.tinder.profiles.infrastructure.persistence.profile.ProfileRepository;
 import com.tinder.profiles.infrastructure.cache.DeckPageCacheService;
 import com.tinder.profiles.api.profile.dto.profileData.deck.DeckProfileDto;
 import com.tinder.contracts.dto.SharedProfileDto;
-import com.tinder.profiles.profile.internal.InternalProfileService;
+import com.tinder.profiles.infrastructure.persistence.profile.internal.InternalProfileService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;

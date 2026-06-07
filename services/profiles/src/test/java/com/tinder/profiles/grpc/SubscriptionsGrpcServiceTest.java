@@ -1,6 +1,6 @@
 package com.tinder.profiles.grpc;
 
-import com.tinder.profiles.profile.ProfileApplicationService;
+import com.tinder.profiles.application.profile.ProfileApplicationService;
 import com.tinder.profiles.infrastructure.external.keycloak.KeycloakAdminClient;
 import io.grpc.StatusRuntimeException;
 import io.grpc.stub.StreamObserver;

@@ -1,7 +1,7 @@
 package com.tinder.profiles.infrastructure.messaging.scheduler;
 import com.tinder.profiles.infrastructure.persistence.profile.ProfileJpaEntity;
-import com.tinder.profiles.profile.ProfileRepository;
-import com.tinder.profiles.profile.ProfileApplicationService;
+import com.tinder.profiles.infrastructure.persistence.profile.ProfileRepository;
+import com.tinder.profiles.application.profile.ProfileApplicationService;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;

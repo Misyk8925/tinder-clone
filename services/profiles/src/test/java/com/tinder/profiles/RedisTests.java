@@ -3,7 +3,7 @@ package com.tinder.profiles;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.tinder.profiles.infrastructure.persistence.profile.ProfileJpaEntity;
-import com.tinder.profiles.profile.ProfileRepository;
+import com.tinder.profiles.infrastructure.persistence.profile.ProfileRepository;
 
 import com.tinder.profiles.util.KeycloakTestHelper;
 import org.junit.jupiter.api.Assertions;

@@ -5,7 +5,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.tinder.profiles.infrastructure.external.deck.DeckCacheReader;
 import com.tinder.profiles.infrastructure.persistence.location.LocationService;
 import com.tinder.profiles.infrastructure.persistence.profile.ProfileJpaEntity;
-import com.tinder.profiles.profile.ProfileRepository;
+import com.tinder.profiles.infrastructure.persistence.profile.ProfileRepository;
 import com.tinder.profiles.infrastructure.external.keycloak.NewUserRecord;
 import com.tinder.profiles.infrastructure.external.keycloak.UserService;
 import com.tinder.profiles.util.DeckCacheTestHelper;

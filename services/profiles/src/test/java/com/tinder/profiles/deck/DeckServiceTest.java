@@ -5,12 +5,12 @@ import com.tinder.profiles.infrastructure.external.deck.DeckService;
 
 import com.tinder.profiles.infrastructure.persistence.preferences.Preferences;
 import com.tinder.profiles.infrastructure.persistence.profile.ProfileJpaEntity;
-import com.tinder.profiles.profile.ProfileRepository;
+import com.tinder.profiles.infrastructure.persistence.profile.ProfileRepository;
 import com.tinder.profiles.infrastructure.cache.DeckPageCacheService;
 import com.tinder.contracts.dto.SharedLocationDto;
 import com.tinder.contracts.dto.SharedPreferencesDto;
 import com.tinder.contracts.dto.SharedProfileDto;
-import com.tinder.profiles.profile.internal.InternalProfileService;
+import com.tinder.profiles.infrastructure.persistence.profile.internal.InternalProfileService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;

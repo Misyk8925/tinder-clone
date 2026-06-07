@@ -1,4 +1,5 @@
 package com.tinder.profiles.profile;
+import com.tinder.profiles.api.profile.IdsQueryParamParser;
 
 import org.junit.jupiter.api.Test;
 

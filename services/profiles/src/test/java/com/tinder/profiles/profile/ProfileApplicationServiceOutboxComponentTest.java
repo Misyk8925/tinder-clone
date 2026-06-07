@@ -1,4 +1,7 @@
 package com.tinder.profiles.profile;
+import com.tinder.profiles.application.profile.ProfileApplicationService;
+import com.tinder.profiles.application.profile.ProfileSanitizationService;
+import com.tinder.profiles.infrastructure.persistence.profile.ProfileRepository;
 import com.tinder.profiles.infrastructure.persistence.profile.ProfileJpaEntity;
 
 import com.tinder.contracts.dto.Hobby;
@@ -13,8 +16,8 @@ import com.tinder.profiles.infrastructure.cache.DeckProfileSnapshotCache;
 import com.tinder.profiles.infrastructure.cache.ProfileIdentityCacheService;
 import com.tinder.profiles.infrastructure.cache.SharedProfileSnapshotCache;
 import com.tinder.profiles.api.profile.dto.profileData.CreateProfileDtoV1;
-import com.tinder.profiles.profile.mapper.CreateProfileMapper;
-import com.tinder.profiles.profile.mapper.GetProfileMapper;
+import com.tinder.profiles.infrastructure.persistence.profile.mapper.CreateProfileMapper;
+import com.tinder.profiles.infrastructure.persistence.profile.mapper.GetProfileMapper;
 import com.tinder.profiles.infrastructure.cache.ResilientCacheManager;
 import com.tinder.profiles.infrastructure.cache.DeckHotPathTokenCache;
 import com.tinder.profiles.application.profile.support.InputSanitizationService;
@@ -43,7 +46,7 @@ class ProfileApplicationServiceOutboxComponentTest {
     @Mock
     private ProfileRepository profileRepository;
     @Mock
-    private ProfileDomainService domainService;
+    private ProfileSanitizationService domainService;
     @Mock
     private CreateProfileMapper createMapper;
     @Mock
