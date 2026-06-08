@@ -45,7 +45,7 @@ class LocationResolverAdapterTest {
     void resolveByCity() {
         given(locationServiceClient.resolve("Vienna")).willReturn(location(48.2, 16.37));
 
-        ResolvedLocation resolved = adapter.resolve("Vienna");
+        ResolvedLocation resolved = adapter.resolve(null, null, "Vienna");
 
         then(resolved.position()).isEqualTo(new GeoPoint(48.2, 16.37));
         then(resolved.city()).isEqualTo("Vienna");
@@ -57,7 +57,7 @@ class LocationResolverAdapterTest {
         given(locationServiceClient.resolveFromCoordinates(52.52, 13.40, "Berlin"))
                 .willReturn(location(52.52, 13.40));
 
-        ResolvedLocation resolved = adapter.resolveFromCoordinates(52.52, 13.40, "Berlin");
+        ResolvedLocation resolved = adapter.resolve(52.52, 13.40, "Berlin");
 
         then(resolved.position()).isEqualTo(new GeoPoint(52.52, 13.40));
     }
@@ -67,6 +67,6 @@ class LocationResolverAdapterTest {
     void nullLocation() {
         given(locationServiceClient.resolve("Nowhere")).willReturn(null);
 
-        then(adapter.resolve("Nowhere")).isNull();
+        then(adapter.resolve(null, null, "Nowhere")).isNull();
     }
 }

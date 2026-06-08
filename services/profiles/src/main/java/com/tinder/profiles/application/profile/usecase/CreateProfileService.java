@@ -6,7 +6,7 @@ import com.tinder.profiles.application.profile.port.out.DomainEventPublisherPort
 import com.tinder.profiles.application.profile.port.out.ProfileCachePort;
 import com.tinder.profiles.application.profile.port.out.ProfileRepositoryPort;
 import com.tinder.profiles.application.profile.port.out.ResolvedLocation;
-import com.tinder.profiles.application.profile.support.LocationResolutionService;
+import com.tinder.profiles.application.profile.port.out.LocationPort;
 import com.tinder.profiles.domain.profile.GeoPoint;
 import com.tinder.profiles.domain.profile.Profile;
 import com.tinder.profiles.domain.profile.ProfileDomainService;
@@ -24,7 +24,7 @@ import java.util.UUID;
 public class CreateProfileService {
 
     private final ProfileRepositoryPort profiles;
-    private final LocationResolutionService locations;
+    private final LocationPort location;
     private final DomainEventPublisherPort events;
     private final ProfileCachePort cache;
     private final ProfileDomainService domainService;
@@ -43,7 +43,7 @@ public class CreateProfileService {
                 requested, cmd.preferences(), cmd.hobbies()));
 
         String city = (cmd.city() != null && !cmd.city().isBlank()) ? cmd.city() : "Unknown";
-        ResolvedLocation resolved = locations.resolve(cmd.latitude(), cmd.longitude(), city);
+        ResolvedLocation resolved = location.resolve(cmd.latitude(), cmd.longitude(), city);
 
         Profile profile = Profile.builder()
                 .userId(cmd.userId())

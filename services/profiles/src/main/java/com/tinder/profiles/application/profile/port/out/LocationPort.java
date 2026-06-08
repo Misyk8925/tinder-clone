@@ -9,12 +9,10 @@ package com.tinder.profiles.application.profile.port.out;
  */
 public interface LocationPort {
 
-    /** Resolves a city name to coordinates + the canonical stored city. */
-    ResolvedLocation resolve(String city);
-
     /**
-     * Resolves explicit GPS coordinates (associating them with {@code city} for
-     * reverse-geocoding / storage), returning the canonical resolved location.
+     * Resolves a location: by GPS coordinates when {@code latitude}/{@code longitude}
+     * are present (associating them with {@code city} for storage), otherwise by
+     * city name. Returns the canonical coordinates + stored city.
      */
-    ResolvedLocation resolveFromCoordinates(double latitude, double longitude, String city);
+    ResolvedLocation resolve(Double latitude, Double longitude, String city);
 }

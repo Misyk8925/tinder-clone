@@ -22,16 +22,10 @@ public class LocationResolverAdapter implements LocationPort {
     private final LocationServiceClient locationServiceClient;
 
     @Override
-    public ResolvedLocation resolve(String city) {
-        return toResolved(locationServiceClient.resolve(city));
-    }
-
-    @Override
-    public ResolvedLocation resolveFromCoordinates(double latitude, double longitude, String city) {
-        return toResolved(locationServiceClient.resolveFromCoordinates(latitude, longitude, city));
-    }
-
-    private ResolvedLocation toResolved(Location location) {
+    public ResolvedLocation resolve(Double latitude, Double longitude, String city) {
+        Location location = (latitude != null && longitude != null)
+                ? locationServiceClient.resolveFromCoordinates(latitude, longitude, city)
+                : locationServiceClient.resolve(city);
         if (location == null) {
             return null;
         }

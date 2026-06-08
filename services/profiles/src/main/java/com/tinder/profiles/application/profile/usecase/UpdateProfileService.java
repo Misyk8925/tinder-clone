@@ -6,7 +6,7 @@ import com.tinder.profiles.application.profile.port.out.DomainEventPublisherPort
 import com.tinder.profiles.application.profile.port.out.ProfileCachePort;
 import com.tinder.profiles.application.profile.port.out.ProfileRepositoryPort;
 import com.tinder.profiles.application.profile.port.out.ResolvedLocation;
-import com.tinder.profiles.application.profile.support.LocationResolutionService;
+import com.tinder.profiles.application.profile.port.out.LocationPort;
 import com.tinder.profiles.domain.profile.GeoPoint;
 import com.tinder.profiles.domain.profile.Profile;
 import com.tinder.profiles.domain.profile.ProfileChangeSet;
@@ -26,7 +26,7 @@ import java.util.UUID;
 public class UpdateProfileService {
 
     private final ProfileRepositoryPort profiles;
-    private final LocationResolutionService locations;
+    private final LocationPort location;
     private final DomainEventPublisherPort events;
     private final ProfileCachePort cache;
     private final ProfileDomainService domainService;
@@ -77,7 +77,7 @@ public class UpdateProfileService {
         }
         boolean moved = !hasCoords || existing.hasMovedBeyond(new GeoPoint(lat, lon), locationChangeThresholdKm);
         if (cityChanged || moved) {
-            ResolvedLocation resolved = locations.resolve(lat, lon, effectiveCity);
+            ResolvedLocation resolved = location.resolve(lat, lon, effectiveCity);
             existing.relocate(resolved.position(), resolved.city());
             changes.add("city");
         }

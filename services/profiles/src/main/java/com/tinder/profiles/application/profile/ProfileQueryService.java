@@ -44,28 +44,20 @@ public class ProfileQueryService {
     }
 
     public GetProfileDto getOne(UUID id) {
-        try {
-            Cache.ValueWrapper profileCache = resilientCacheManager.get(PROFILE_CACHE_NAME, id);
-            if (profileCache != null && profileCache.get() instanceof ProfileJpaEntity profile) {
-                return profile.isDeleted() ? null : getMapper.toGetProfileDto(profile);
-            }
-
-            ProfileJpaEntity profile = profileRepository.findById(id)
-                    .orElseThrow(() -> new ProfileNotFoundException(id.toString(), "id"));
-            if (profile.isDeleted()) {
-                return null;
-            }
-            resilientCacheManager.put(PROFILE_CACHE_NAME, id, profile);
-            return getMapper.toGetProfileDto(profile);
-
-        } catch (ProfileNotFoundException e) {
-            throw e;
-        } catch (Exception e) {
-            log.error("Error retrieving profile {}: {}. Loading from database.", id, e.getMessage());
-            ProfileJpaEntity profile = profileRepository.findById(id)
-                    .orElseThrow(() -> new ProfileNotFoundException(id.toString(), "id"));
-            return profile.isDeleted() ? null : getMapper.toGetProfileDto(profile);
+        // ResilientCacheManager fails open (returns null / no-ops on Redis errors),
+        // so no extra try/catch fallback is needed: cache-lookup → DB-load → cache.
+        Cache.ValueWrapper cached = resilientCacheManager.get(PROFILE_CACHE_NAME, id);
+        if (cached != null && cached.get() instanceof ProfileJpaEntity p) {
+            return p.isDeleted() ? null : getMapper.toGetProfileDto(p);
         }
+
+        ProfileJpaEntity profile = profileRepository.findById(id)
+                .orElseThrow(() -> new ProfileNotFoundException(id.toString(), "id"));
+        if (profile.isDeleted()) {
+            return null;
+        }
+        resilientCacheManager.put(PROFILE_CACHE_NAME, id, profile);
+        return getMapper.toGetProfileDto(profile);
     }
 
     public ProfileJpaEntity getByUsername(String username) {

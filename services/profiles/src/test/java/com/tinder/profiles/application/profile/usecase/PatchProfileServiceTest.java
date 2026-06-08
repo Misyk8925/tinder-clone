@@ -6,7 +6,7 @@ import com.tinder.profiles.application.profile.port.out.DomainEventPublisherPort
 import com.tinder.profiles.application.profile.port.out.ProfileCachePort;
 import com.tinder.profiles.application.profile.port.out.ProfileRepositoryPort;
 import com.tinder.profiles.application.profile.port.out.ResolvedLocation;
-import com.tinder.profiles.application.profile.support.LocationResolutionService;
+import com.tinder.profiles.application.profile.port.out.LocationPort;
 import com.tinder.profiles.domain.profile.GeoPoint;
 import com.tinder.profiles.domain.profile.MatchingPreferences;
 import com.tinder.profiles.domain.profile.Profile;
@@ -46,7 +46,7 @@ class PatchProfileServiceTest {
     private static final double BERLIN_LON = 13.4050;
 
     @Mock private ProfileRepositoryPort profiles;
-    @Mock private LocationResolutionService locations;
+    @Mock private LocationPort locations;
     @Mock private DomainEventPublisherPort events;
     @Mock private ProfileCachePort cache;
 
