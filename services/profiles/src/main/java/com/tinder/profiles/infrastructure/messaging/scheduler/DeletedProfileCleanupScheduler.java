@@ -2,7 +2,7 @@ package com.tinder.profiles.infrastructure.messaging.scheduler;
 import com.tinder.profiles.infrastructure.persistence.profile.ProfileJpaEntity;
 import com.tinder.profiles.infrastructure.persistence.profile.ProfileRepository;
 import com.tinder.profiles.application.profile.command.DeleteProfilesCommand;
-import com.tinder.profiles.application.profile.port.in.DeleteProfilesUseCase;
+import com.tinder.profiles.application.profile.usecase.DeleteProfilesService;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -22,7 +22,7 @@ public class DeletedProfileCleanupScheduler {
     private static final int SOFT_DELETE_RETENTION_DAYS = 30;
 
     private final ProfileRepository profileRepository;
-    private final DeleteProfilesUseCase deleteProfilesUseCase;
+    private final DeleteProfilesService deleteProfilesUseCase;
 
     /**
      * Runs once a day and permanently purges profiles that were soft-deleted

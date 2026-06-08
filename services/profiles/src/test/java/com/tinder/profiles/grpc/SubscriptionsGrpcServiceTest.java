@@ -1,6 +1,6 @@
 package com.tinder.profiles.grpc;
 
-import com.tinder.profiles.application.profile.port.in.UpdatePremiumStatusUseCase;
+import com.tinder.profiles.application.profile.usecase.UpdatePremiumStatusService;
 import com.tinder.profiles.application.profile.command.UpdatePremiumStatusCommand;
 import com.tinder.profiles.infrastructure.external.keycloak.KeycloakAdminClient;
 import io.grpc.StatusRuntimeException;
@@ -24,7 +24,7 @@ class SubscriptionsGrpcServiceTest {
     private static final String PREMIUM_ROLE = "USER_PREMIUM";
 
     @Mock
-    private UpdatePremiumStatusUseCase updatePremiumStatusUseCase;
+    private UpdatePremiumStatusService updatePremiumStatusUseCase;
 
     @Mock
     private KeycloakAdminClient keycloakAdminClient;

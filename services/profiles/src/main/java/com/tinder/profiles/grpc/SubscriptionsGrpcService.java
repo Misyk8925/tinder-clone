@@ -1,7 +1,7 @@
 package com.tinder.profiles.grpc;
 
 import com.tinder.profiles.application.profile.command.UpdatePremiumStatusCommand;
-import com.tinder.profiles.application.profile.port.in.UpdatePremiumStatusUseCase;
+import com.tinder.profiles.application.profile.usecase.UpdatePremiumStatusService;
 import com.tinder.profiles.infrastructure.external.keycloak.KeycloakAdminClient;
 import io.grpc.Status;
 import io.grpc.stub.StreamObserver;
@@ -19,7 +19,7 @@ public class SubscriptionsGrpcService extends SubscriptionsServiceGrpc.Subscript
     private static final String PREMIUM_ROLE = "USER_PREMIUM";
     private static final int PREMIUM_DURATION_DAYS = 30;
 
-    private final UpdatePremiumStatusUseCase updatePremiumStatusUseCase;
+    private final UpdatePremiumStatusService updatePremiumStatusUseCase;
     private final KeycloakAdminClient keycloakAdminClient;
 
     @Override

@@ -2,7 +2,6 @@ package com.tinder.profiles.application.profile.usecase;
 
 import com.tinder.profiles.application.profile.command.CreateProfileCommand;
 import com.tinder.profiles.application.profile.exception.ProfileAlreadyExistsException;
-import com.tinder.profiles.application.profile.port.in.CreateProfileUseCase;
 import com.tinder.profiles.application.profile.port.out.DomainEventPublisherPort;
 import com.tinder.profiles.application.profile.port.out.ProfileCachePort;
 import com.tinder.profiles.application.profile.port.out.ProfileRepositoryPort;
@@ -22,7 +21,7 @@ import java.util.UUID;
 @Service
 @RequiredArgsConstructor
 @Slf4j
-public class CreateProfileService implements CreateProfileUseCase {
+public class CreateProfileService {
 
     private final ProfileRepositoryPort profiles;
     private final LocationResolutionService locations;
@@ -30,7 +29,6 @@ public class CreateProfileService implements CreateProfileUseCase {
     private final ProfileCachePort cache;
     private final ProfileDomainService domainService;
 
-    @Override
     @Transactional
     public UUID handle(CreateProfileCommand cmd) {
         if (profiles.findByUserId(cmd.userId()).isPresent()) {

@@ -2,11 +2,11 @@ package com.tinder.profiles.api.profile;
 import com.tinder.profiles.application.profile.ProfileQueryService;
 import com.tinder.profiles.application.profile.command.DeleteProfileCommand;
 import com.tinder.profiles.application.profile.command.DeleteProfilesCommand;
-import com.tinder.profiles.application.profile.port.in.CreateProfileUseCase;
-import com.tinder.profiles.application.profile.port.in.DeleteProfileUseCase;
-import com.tinder.profiles.application.profile.port.in.DeleteProfilesUseCase;
-import com.tinder.profiles.application.profile.port.in.PatchProfileUseCase;
-import com.tinder.profiles.application.profile.port.in.UpdateProfileUseCase;
+import com.tinder.profiles.application.profile.usecase.CreateProfileService;
+import com.tinder.profiles.application.profile.usecase.DeleteProfileService;
+import com.tinder.profiles.application.profile.usecase.DeleteProfilesService;
+import com.tinder.profiles.application.profile.usecase.PatchProfileService;
+import com.tinder.profiles.application.profile.usecase.UpdateProfileService;
 import com.tinder.profiles.api.profile.mapper.ProfileApiMapper;
 
 import com.tinder.profiles.infrastructure.external.deck.DeckService;
@@ -40,11 +40,11 @@ import java.util.UUID;
 public class ProfileController {
 
     private final ProfileQueryService applicationService;
-    private final CreateProfileUseCase createProfileUseCase;
-    private final UpdateProfileUseCase updateProfileUseCase;
-    private final PatchProfileUseCase patchProfileUseCase;
-    private final DeleteProfileUseCase deleteProfileUseCase;
-    private final DeleteProfilesUseCase deleteProfilesUseCase;
+    private final CreateProfileService createProfileUseCase;
+    private final UpdateProfileService updateProfileUseCase;
+    private final PatchProfileService patchProfileUseCase;
+    private final DeleteProfileService deleteProfileUseCase;
+    private final DeleteProfilesService deleteProfilesUseCase;
     private final ProfileApiMapper apiMapper;
     private final DeckService deckService;
     private final InternalProfileService internalProfileService;

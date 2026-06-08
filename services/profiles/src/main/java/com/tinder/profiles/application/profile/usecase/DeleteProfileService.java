@@ -2,7 +2,6 @@ package com.tinder.profiles.application.profile.usecase;
 
 import com.tinder.profiles.application.profile.command.DeleteProfileCommand;
 import com.tinder.profiles.application.profile.exception.ProfileNotFoundException;
-import com.tinder.profiles.application.profile.port.in.DeleteProfileUseCase;
 import com.tinder.profiles.application.profile.port.out.DomainEventPublisherPort;
 import com.tinder.profiles.application.profile.port.out.ProfileCachePort;
 import com.tinder.profiles.application.profile.port.out.ProfileRepositoryPort;
@@ -17,13 +16,12 @@ import java.util.UUID;
 @Service
 @RequiredArgsConstructor
 @Slf4j
-public class DeleteProfileService implements DeleteProfileUseCase {
+public class DeleteProfileService {
 
     private final ProfileRepositoryPort profiles;
     private final ProfileCachePort cache;
     private final DomainEventPublisherPort events;
 
-    @Override
     @Transactional
     public void handle(DeleteProfileCommand cmd) {
         Profile existing = profiles.findByUserId(cmd.userId())

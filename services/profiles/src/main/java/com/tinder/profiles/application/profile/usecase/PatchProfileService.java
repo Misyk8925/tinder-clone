@@ -3,7 +3,6 @@ package com.tinder.profiles.application.profile.usecase;
 import com.tinder.profiles.application.profile.command.PatchProfileCommand;
 import com.tinder.profiles.application.profile.exception.PatchOperationException;
 import com.tinder.profiles.application.profile.exception.ProfileNotFoundException;
-import com.tinder.profiles.application.profile.port.in.PatchProfileUseCase;
 import com.tinder.profiles.application.profile.port.out.DomainEventPublisherPort;
 import com.tinder.profiles.application.profile.port.out.ProfileCachePort;
 import com.tinder.profiles.application.profile.port.out.ProfileRepositoryPort;
@@ -25,7 +24,7 @@ import java.util.UUID;
 @Service
 @RequiredArgsConstructor
 @Slf4j
-public class PatchProfileService implements PatchProfileUseCase {
+public class PatchProfileService {
 
     private final ProfileRepositoryPort profiles;
     private final LocationResolutionService locations;
@@ -36,7 +35,6 @@ public class PatchProfileService implements PatchProfileUseCase {
     @Value("${location.change.threshold-km:1.0}")
     double locationChangeThresholdKm;
 
-    @Override
     @Transactional
     public UUID handle(PatchProfileCommand cmd) {
         Profile existing = profiles.findByUserId(cmd.userId())

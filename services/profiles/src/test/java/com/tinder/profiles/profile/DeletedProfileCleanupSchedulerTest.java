@@ -1,5 +1,5 @@
 package com.tinder.profiles.profile;
-import com.tinder.profiles.application.profile.port.in.DeleteProfilesUseCase;
+import com.tinder.profiles.application.profile.usecase.DeleteProfilesService;
 import com.tinder.profiles.application.profile.command.DeleteProfilesCommand;
 import com.tinder.profiles.infrastructure.persistence.profile.ProfileRepository;
 import com.tinder.profiles.infrastructure.persistence.profile.ProfileJpaEntity;
@@ -26,7 +26,7 @@ class DeletedProfileCleanupSchedulerTest {
     private ProfileRepository profileRepository;
 
     @Mock
-    private DeleteProfilesUseCase deleteProfilesUseCase;
+    private DeleteProfilesService deleteProfilesUseCase;
 
     private DeletedProfileCleanupScheduler scheduler;
 

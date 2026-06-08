@@ -2,7 +2,7 @@ package com.tinder.profiles.grpc;
 import com.tinder.profiles.infrastructure.messaging.scheduler.PremiumExpirationScheduler;
 
 import com.tinder.profiles.infrastructure.persistence.profile.ProfileJpaEntity;
-import com.tinder.profiles.application.profile.port.in.UpdatePremiumStatusUseCase;
+import com.tinder.profiles.application.profile.usecase.UpdatePremiumStatusService;
 import com.tinder.profiles.application.profile.command.UpdatePremiumStatusCommand;
 import com.tinder.profiles.infrastructure.persistence.profile.ProfileRepository;
 import com.tinder.profiles.infrastructure.external.keycloak.KeycloakAdminClient;
@@ -33,7 +33,7 @@ class PremiumExpirationSchedulerTest {
     private ProfileRepository profileRepository;
 
     @Mock
-    private UpdatePremiumStatusUseCase updatePremiumStatusUseCase;
+    private UpdatePremiumStatusService updatePremiumStatusUseCase;
 
     @Mock
     private KeycloakAdminClient keycloakAdminClient;
