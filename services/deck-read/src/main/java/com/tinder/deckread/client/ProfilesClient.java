@@ -4,6 +4,7 @@ import com.tinder.contracts.dto.SharedProfileDto;
 import io.smallrye.mutiny.Uni;
 import jakarta.ws.rs.GET;
 import jakarta.ws.rs.Path;
+import jakarta.ws.rs.PathParam;
 import jakarta.ws.rs.Produces;
 import jakarta.ws.rs.QueryParam;
 import jakarta.ws.rs.core.MediaType;
@@ -13,6 +14,7 @@ import org.eclipse.microprofile.rest.client.inject.RegisterRestClient;
 
 import java.time.temporal.ChronoUnit;
 import java.util.List;
+import java.util.UUID;
 
 /**
  * Hydrates profile IDs into full profiles via the profiles service internal endpoint.
@@ -42,4 +44,15 @@ public interface ProfilesClient {
     @Timeout(value = 2000, unit = ChronoUnit.MILLIS)
     @CircuitBreaker(requestVolumeThreshold = 20, failureRatio = 0.5, delay = 5000, successThreshold = 3)
     Uni<List<SharedProfileDto>> getByIds(@QueryParam("ids") String commaSeparatedIds);
+
+    /**
+     * Resolves a Keycloak userId (JWT {@code sub}) to the active profileId. Decks are keyed
+     * by profileId, so every read resolves the caller's sub through this endpoint first
+     * (cached locally — see {@code ViewerIdentityCache}). 404 means "no profile yet".
+     */
+    @GET
+    @Path("/id-by-user/{userId}")
+    @Timeout(value = 2000, unit = ChronoUnit.MILLIS)
+    @CircuitBreaker(requestVolumeThreshold = 20, failureRatio = 0.5, delay = 5000, successThreshold = 3)
+    Uni<UUID> profileIdByUser(@PathParam("userId") String userId);
 }

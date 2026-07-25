@@ -2,6 +2,7 @@ package com.tinder.profiles.api.profile.exception;
 import com.tinder.profiles.application.profile.exception.ProfileException;
 
 import com.tinder.profiles.api.profile.dto.errors.ErrorSummary;
+import com.tinder.profiles.domain.profile.DomainValidationException;
 import lombok.extern.slf4j.Slf4j;
 import org.slf4j.MDC;
 import org.springframework.http.HttpStatus;
@@ -46,9 +47,9 @@ public class ProfileExceptionHandler {
      * {@code MatchingPreferences} value object) surface as 400 Bad Request,
      * preserving the behaviour of the former {@code ProfileValidationException} path.
      */
-    @ExceptionHandler(com.tinder.profiles.domain.profile.DomainValidationException.class)
+    @ExceptionHandler(DomainValidationException.class)
     public ResponseEntity<ErrorSummary> handleDomainValidation(
-            com.tinder.profiles.domain.profile.DomainValidationException ex) {
+            DomainValidationException ex) {
         log.warn("Domain validation failed: {}", ex.getMessage());
         return ResponseEntity.badRequest()
                 .body(ErrorSummary.builder().code("VALIDATION_ERROR").message(ex.getMessage()).build());

@@ -1,5 +1,6 @@
 package com.tinder.profiles.infrastructure.persistence.preferences;
 
+import com.tinder.profiles.domain.profile.MatchingPreferences;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -34,11 +35,11 @@ public class PreferencesService {
      * All threads then read back the single committed row.</p>
      */
     @Transactional
-    public Preferences findOrCreate(PreferencesDto preferences) {
-        Integer minAge  = preferences.getMinAge();
-        Integer maxAge  = preferences.getMaxAge();
-        String  gender  = preferences.getGender();
-        Integer maxRange = preferences.getMaxRange() != null ? preferences.getMaxRange() : 50;
+    public Preferences findOrCreate(MatchingPreferences preferences) {
+        Integer minAge  = preferences.minAge();
+        Integer maxAge  = preferences.maxAge();
+        String  gender  = preferences.gender();
+        Integer maxRange = preferences.maxRange() != null ? preferences.maxRange() : 50;
 
         String cacheKey = minAge + ":" + maxAge + ":" + gender + ":" + maxRange;
 

@@ -17,3 +17,5 @@
 /services/swipes-demo/benchmark-isolate-vps.sh
 /services/deck-read/target/
 /services/deck-read/target
+/docker/certs/
+/certs/

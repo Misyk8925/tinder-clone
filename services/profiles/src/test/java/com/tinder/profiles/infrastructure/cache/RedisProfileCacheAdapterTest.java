@@ -1,12 +1,9 @@
 package com.tinder.profiles.infrastructure.cache;
 
 import com.tinder.profiles.domain.profile.Profile;
-import com.tinder.profiles.infrastructure.cache.DeckPageCacheService;
-import com.tinder.profiles.infrastructure.cache.DeckProfileSnapshotCache;
 import com.tinder.profiles.infrastructure.cache.ProfileIdentityCacheService;
 import com.tinder.profiles.infrastructure.cache.SharedProfileSnapshotCache;
 import com.tinder.profiles.infrastructure.cache.ResilientCacheManager;
-import com.tinder.profiles.infrastructure.cache.DeckHotPathTokenCache;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -26,16 +23,13 @@ class RedisProfileCacheAdapterTest {
     @Mock private ResilientCacheManager resilientCacheManager;
     @Mock private ProfileIdentityCacheService profileIdentityCacheService;
     @Mock private SharedProfileSnapshotCache sharedProfileSnapshotCache;
-    @Mock private DeckProfileSnapshotCache deckProfileSnapshotCache;
-    @Mock private DeckPageCacheService deckPageCacheService;
-    @Mock private DeckHotPathTokenCache deckHotPathTokenCache;
 
     private RedisProfileCacheAdapter adapter;
 
     @BeforeEach
     void setUp() {
         adapter = new RedisProfileCacheAdapter(resilientCacheManager, profileIdentityCacheService,
-                sharedProfileSnapshotCache, deckProfileSnapshotCache, deckPageCacheService, deckHotPathTokenCache);
+                sharedProfileSnapshotCache);
     }
 
     private static Profile profile(UUID id) {
@@ -43,7 +37,7 @@ class RedisProfileCacheAdapterTest {
     }
 
     @Test
-    @DisplayName("refreshOnWrite evicts the stale entity entry, refreshes identity and evicts the read models")
+    @DisplayName("refreshOnWrite evicts the stale entity entry, refreshes identity and evicts the read model")
     void refreshOnWrite() {
         UUID id = UUID.randomUUID();
         Profile profile = profile(id);
@@ -53,13 +47,10 @@ class RedisProfileCacheAdapterTest {
         verify(resilientCacheManager).evict(RedisProfileCacheAdapter.PROFILE_CACHE_NAME, id);
         verify(profileIdentityCacheService).put("user-1", id);
         verify(sharedProfileSnapshotCache).evict(id);
-        verify(deckProfileSnapshotCache).evict(id);
-        verify(deckPageCacheService).evictViewer(id);
-        verify(deckHotPathTokenCache).evictProfile(id);
     }
 
     @Test
-    @DisplayName("evictReadModels clears the identity mapping and all read-model snapshots")
+    @DisplayName("evictReadModels clears the identity mapping and the shared read-model snapshot")
     void evictReadModels() {
         UUID id = UUID.randomUUID();
 
@@ -67,13 +58,10 @@ class RedisProfileCacheAdapterTest {
 
         verify(profileIdentityCacheService).evict("user-1");
         verify(sharedProfileSnapshotCache).evict(id);
-        verify(deckProfileSnapshotCache).evict(id);
-        verify(deckPageCacheService).evictViewer(id);
-        verify(deckHotPathTokenCache).evictProfile(id);
     }
 
     @Test
-    @DisplayName("evictBatch fans out across all caches for every id")
+    @DisplayName("evictBatch fans out across the entity and shared caches for every id")
     void evictBatch() {
         UUID a = UUID.randomUUID();
         UUID b = UUID.randomUUID();
@@ -85,11 +73,6 @@ class RedisProfileCacheAdapterTest {
         verify(resilientCacheManager).evict(RedisProfileCacheAdapter.PROFILE_CACHE_NAME, b);
         verify(sharedProfileSnapshotCache).evict(a);
         verify(sharedProfileSnapshotCache).evict(b);
-        verify(deckProfileSnapshotCache).evict(a);
-        verify(deckProfileSnapshotCache).evict(b);
-        verify(deckHotPathTokenCache).evictProfile(a);
-        verify(deckHotPathTokenCache).evictProfile(b);
-        verify(deckPageCacheService).evictViewers(ids);
         verify(profileIdentityCacheService).evict("user-1");
     }
 }

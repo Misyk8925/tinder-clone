@@ -28,6 +28,7 @@ import org.springframework.data.redis.core.StringRedisTemplate;
 import java.util.Objects;
 import java.util.UUID;
 
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultHandlers.print;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -120,6 +121,12 @@ class RedisTests {
 
         Assertions.assertNotNull(profileId);
         Assertions.assertTrue(repo.findById(profileId).isPresent());
+
+        // The write path evicts rather than populates (CQRS Stage 2); the entity
+        // cache fills on the first read, so perform a read before asserting.
+        mockMvc.perform(get("/api/v1/profiles/{id}", profileId)
+                        .header("Authorization", keycloakTestHelper.createAuthorizationHeader("kovalmisha2000@gmail.com", "koval")))
+                .andExpect(status().isOk());
 
         // check cache
         Assertions.assertTrue(cacheManager.getCacheNames().contains("PROFILE_ENTITY_CACHE"));

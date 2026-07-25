@@ -941,23 +941,6 @@ public class ComprehensiveIntegrationTest extends AbstractProfilesIntegrationTes
             log.error("9.1 FAILED — /internal/active: {}", e.getMessage(), e);
         }
 
-        // ── 9.2  GET /internal/page ───────────────────────────────────────────
-        log.info("9.2: GET /internal/page via mTLS");
-        try {
-            List<?> page = internalMtlsClient.get()
-                    .uri(u -> u.path("/page").queryParam("page", 0).queryParam("size", 20).build())
-                    .retrieve()
-                    .bodyToMono(List.class)
-                    .block(Duration.ofSeconds(15));
-
-            assertThat(page).isNotNull();
-            log.info("9.2 PASSED — /internal/page returned {} items", page.size());
-            stats.mtlsInternalEndpointsVerified++;
-        } catch (Exception e) {
-            stats.mtlsInternalEndpointsFailed++;
-            log.error("9.2 FAILED — /internal/page: {}", e.getMessage(), e);
-        }
-
         // ── 9.3  GET /internal/search ─────────────────────────────────────────
         log.info("9.3: GET /internal/search via mTLS (viewerId={})", viewerId.substring(0, 8));
         try {
@@ -1005,27 +988,6 @@ public class ComprehensiveIntegrationTest extends AbstractProfilesIntegrationTes
         } catch (Exception e) {
             stats.mtlsInternalEndpointsFailed++;
             log.error("9.4 FAILED — /internal/by-ids: {}", e.getMessage(), e);
-        }
-
-        // ── 9.5  GET /internal/deck ───────────────────────────────────────────
-        log.info("9.5: GET /internal/deck via mTLS (viewerId={})", viewerId.substring(0, 8));
-        try {
-            List<?> deck = internalMtlsClient.get()
-                    .uri(u -> u.path("/deck")
-                            .queryParam("viewerId", viewerId)
-                            .queryParam("offset", 0)
-                            .queryParam("limit", 20)
-                            .build())
-                    .retrieve()
-                    .bodyToMono(List.class)
-                    .block(Duration.ofSeconds(15));
-
-            assertThat(deck).isNotNull();
-            log.info("9.5 PASSED — /internal/deck returned {} entries", deck.size());
-            stats.mtlsInternalEndpointsVerified++;
-        } catch (Exception e) {
-            stats.mtlsInternalEndpointsFailed++;
-            log.error("9.5 FAILED — /internal/deck: {}", e.getMessage(), e);
         }
 
         // ── 9.6  Reject: wrong CN must be denied ─────────────────────────────
@@ -1184,7 +1146,7 @@ public class ComprehensiveIntegrationTest extends AbstractProfilesIntegrationTes
 
         String profileJson = buildProfileJsonWithIndex(user.firstName(), age, gender, preferredGender, index);
 
-        String response = mockMvc.perform(post("")
+        String response = mockMvc.perform(post("/api/v1/profiles")
                         .content(profileJson)
                         .header("Authorization", authHeader)
                         .contentType(MediaType.APPLICATION_JSON))
@@ -1401,7 +1363,7 @@ public class ComprehensiveIntegrationTest extends AbstractProfilesIntegrationTes
                             {"hobbies":["HIKING","PHOTOGRAPHY","GAMING","READING"]}""";
                     updateType = "HOBBIES"; hobbiesUpdates++;
                 }
-                mockMvc.perform(patch("")
+                mockMvc.perform(patch("/api/v1/profiles")
                                 .content(patchJson)
                                 .header("Authorization", "Bearer " + freshToken)
                                 .contentType(MediaType.APPLICATION_JSON))
@@ -1421,7 +1383,7 @@ public class ComprehensiveIntegrationTest extends AbstractProfilesIntegrationTes
                                 .findFirst().map(NewUserRecord::password)
                                 .orElse("Password" + (profilesToUpdate + i + 1) + "!"));
                 String newCity = (i % 2 == 0) ? "Munich" : "Hamburg";
-                mockMvc.perform(patch("")
+                mockMvc.perform(patch("/api/v1/profiles")
                                 .content(String.format("{\"city\":\"%s\"}", newCity))
                                 .header("Authorization", "Bearer " + freshToken)
                                 .contentType(MediaType.APPLICATION_JSON))
@@ -1515,7 +1477,7 @@ public class ComprehensiveIntegrationTest extends AbstractProfilesIntegrationTes
                 String freshToken = keycloakTestHelper.getAccessToken(profile.username(),
                         keycloakUsers.stream().filter(u -> u.username().equals(profile.username()))
                                 .findFirst().map(NewUserRecord::password).orElse("Password" + (i + 1) + "!"));
-                mockMvc.perform(MockMvcRequestBuilders.delete("")
+                mockMvc.perform(MockMvcRequestBuilders.delete("/api/v1/profiles")
                                 .header("Authorization", "Bearer " + freshToken))
                         .andExpect(status().isNoContent());
                 profilesDeleted++;

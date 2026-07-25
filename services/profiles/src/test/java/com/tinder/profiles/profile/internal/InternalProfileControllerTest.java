@@ -39,6 +39,14 @@ class InternalProfileControllerTest {
     private ProfileRepository profileRepository;
 
     @Autowired
+    private com.tinder.profiles.infrastructure.persistence.location.LocationRepository locationRepository;
+
+    @Autowired
+    private com.tinder.profiles.infrastructure.persistence.preferences.PreferencesRepository preferencesRepository;
+
+    private com.tinder.profiles.infrastructure.persistence.location.Location testLocation;
+
+    @Autowired
     private SharedProfileMapper sharedMapper;
 
     private final List<UUID> testProfileIds = new ArrayList<>();
@@ -49,6 +57,22 @@ class InternalProfileControllerTest {
         profileRepository.deleteAll();
         testProfileIds.clear();
 
+        // Profiles require a Location (location_id NOT NULL since the clean-domain refactor)
+        org.locationtech.jts.geom.GeometryFactory gf =
+                new org.locationtech.jts.geom.GeometryFactory(new org.locationtech.jts.geom.PrecisionModel(), 4326);
+        org.locationtech.jts.geom.Point pt = gf.createPoint(new org.locationtech.jts.geom.Coordinate(13.405, 52.52));
+        pt.setSRID(4326);
+        testLocation = locationRepository.findByCity("TestCity").orElseGet(() ->
+                locationRepository.save(com.tinder.profiles.infrastructure.persistence.location.Location.builder()
+                        .city("TestCity").geo(pt).build()));
+
+
+        // Unique combination per save: PreferencesService's in-process cache survives
+        // context reuse while create-drop wipes the rows, so cached ids would dangle.
+        com.tinder.profiles.infrastructure.persistence.preferences.Preferences prefs =
+                preferencesRepository.save(com.tinder.profiles.infrastructure.persistence.preferences.Preferences.builder()
+                        .minAge(18).maxAge(99).gender("all")
+                        .maxRange(1 + new java.util.Random().nextInt(500)).build());
         // Create test profiles
         for (int i = 0; i < 5; i++) {
             ProfileJpaEntity profile = new ProfileJpaEntity();
@@ -58,6 +82,8 @@ class InternalProfileControllerTest {
             profile.setBio("Test bio " + i);
             profile.setCity("TestCity");
             profile.setUserId("user-" + i);
+            profile.setLocation(testLocation);
+            profile.setPreferences(prefs);
 
             ProfileJpaEntity saved = profileRepository.save(profile);
             testProfileIds.add(saved.getProfileId());
@@ -75,7 +101,7 @@ class InternalProfileControllerTest {
         );
 
         // Act: Call endpoint
-        MvcResult result = mockMvc.perform(get("/internal/by-ids")
+        MvcResult result = mockMvc.perform(get("/api/v1/profiles/internal/by-ids").with(org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user("deck-service").roles("INTERNAL_CLIENT"))
                         .param("ids", idsParam)
                         .contentType(MediaType.APPLICATION_JSON))
                 .andExpect(status().isOk())
@@ -106,7 +132,7 @@ class InternalProfileControllerTest {
         );
 
         // Act & Assert: Should still return OK with partial results
-        MvcResult result = mockMvc.perform(get("/internal/by-ids")
+        MvcResult result = mockMvc.perform(get("/api/v1/profiles/internal/by-ids").with(org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user("deck-service").roles("INTERNAL_CLIENT"))
                         .param("ids", idsParam)
                         .contentType(MediaType.APPLICATION_JSON))
                 .andExpect(status().isOk())
@@ -122,7 +148,7 @@ class InternalProfileControllerTest {
     @Test
     @DisplayName("Should reject empty ids parameter")
     void testGetManyWithEmptyIds() throws Exception {
-        mockMvc.perform(get("/internal/by-ids")
+        mockMvc.perform(get("/api/v1/profiles/internal/by-ids").with(org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user("deck-service").roles("INTERNAL_CLIENT"))
                         .param("ids", "")
                         .contentType(MediaType.APPLICATION_JSON))
                 .andExpect(status().isBadRequest());
@@ -131,7 +157,7 @@ class InternalProfileControllerTest {
     @Test
     @DisplayName("Should reject invalid UUID format")
     void testGetManyWithInvalidUuidFormat() throws Exception {
-        mockMvc.perform(get("/internal/by-ids")
+        mockMvc.perform(get("/api/v1/profiles/internal/by-ids").with(org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user("deck-service").roles("INTERNAL_CLIENT"))
                         .param("ids", "not-a-uuid,another-invalid")
                         .contentType(MediaType.APPLICATION_JSON))
                 .andExpect(status().isBadRequest());
@@ -148,7 +174,7 @@ class InternalProfileControllerTest {
         );
 
         // Act & Assert: Should trim and parse correctly
-        MvcResult result = mockMvc.perform(get("/internal/by-ids")
+        MvcResult result = mockMvc.perform(get("/api/v1/profiles/internal/by-ids").with(org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user("deck-service").roles("INTERNAL_CLIENT"))
                         .param("ids", idsParam)
                         .contentType(MediaType.APPLICATION_JSON))
                 .andExpect(status().isOk())
@@ -171,7 +197,7 @@ class InternalProfileControllerTest {
         String idsParam = String.join(",", manyIds);
 
         // Act & Assert: Should reject
-        mockMvc.perform(get("/internal/by-ids")
+        mockMvc.perform(get("/api/v1/profiles/internal/by-ids").with(org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user("deck-service").roles("INTERNAL_CLIENT"))
                         .param("ids", idsParam)
                         .contentType(MediaType.APPLICATION_JSON))
                 .andExpect(status().isBadRequest());

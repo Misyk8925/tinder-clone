@@ -10,22 +10,11 @@ eureka:
 server:
   port: 8222 # port on which the API Gateway will work. Clients will send requests to this port.
 
-profiles:
-  internal-auth-secret: ${INTERNAL_PROFILES_AUTH_SECRET:}
-
 gateway:
   jwt-cache:
     ttl: ${GATEWAY_JWT_CACHE_TTL:5m}
     max-size: ${GATEWAY_JWT_CACHE_MAX_SIZE:10000}
     max-token-length: ${GATEWAY_JWT_CACHE_MAX_TOKEN_LENGTH:8192}
-  profile-deck-hot-cache:
-    enabled: ${GATEWAY_PROFILE_DECK_HOT_CACHE_ENABLED:true}
-    ttl: ${GATEWAY_PROFILE_DECK_HOT_CACHE_TTL:30m}
-    profile-id-max-size: ${GATEWAY_PROFILE_DECK_HOT_CACHE_PROFILE_ID_MAX_SIZE:10000}
-    page-max-size: ${GATEWAY_PROFILE_DECK_HOT_CACHE_PAGE_MAX_SIZE:10000}
-  profile-deck-jwt-subject-cache:
-    ttl: ${GATEWAY_PROFILE_DECK_JWT_SUBJECT_CACHE_TTL:5m}
-    max-size: ${GATEWAY_PROFILE_DECK_JWT_SUBJECT_CACHE_MAX_SIZE:10000}
 
 spring:
 
@@ -108,15 +97,16 @@ spring:
                 - Path=/api/v1/profiles/me
                 - Method=GET
 
+            # Client-facing deck reads are served by the deck-read service. The legacy
+            # /api/v1/profiles/deck path is preserved for clients and rewritten to
+            # deck-read's /api/v1/deck (viewer is taken from the JWT sub by deck-read).
             - id: profile-deck
-              uri: ${PROFILES_SERVICE_URL:http://localhost:8010}
+              uri: ${DECK_READ_SERVICE_URL:http://localhost:8040}
               predicates:
                 - Path=/api/v1/profiles/deck
                 - Method=GET
               filters:
-                - ProfileDeckJwtAuthFilter
-                - ProfileDeckHotCacheFilter
-                - ProfilesInternalAuthFilter
+                - RewritePath=/api/v1/profiles/deck,/api/v1/deck
 
             - id: profile-other
               uri: ${PROFILES_SERVICE_URL:http://localhost:8010}

@@ -54,7 +54,30 @@ public class DeckQueryService {
     ProfileCache profileCache;
 
     @Inject
+    com.tinder.deckread.cache.ViewerIdentityCache viewerIdentityCache;
+
+    @Inject
     MeterRegistry registry;
+
+    /**
+     * Deck read for an authenticated user: resolves the JWT {@code sub} (Keycloak userId)
+     * to the profileId that decks are keyed by (cached locally), then reads the deck.
+     * A user without an active profile gets an empty deck, not an error.
+     */
+    public Uni<List<DeckCardDto>> getDeckForUser(String userId, int offset, int limit) {
+        UUID cached = viewerIdentityCache.get(userId);
+        Uni<UUID> viewerId = cached != null
+                ? Uni.createFrom().item(cached)
+                : profilesClient.profileIdByUser(userId)
+                        .onItem().invoke(id -> viewerIdentityCache.put(userId, id))
+                        .onFailure().recoverWithItem(failure -> {
+                            registry.counter("deckread.viewer-id.resolve", "outcome", "failure").increment();
+                            return null;
+                        });
+        return viewerId.flatMap(id -> id == null
+                ? Uni.createFrom().item(List.of())
+                : getDeck(id, offset, limit));
+    }
 
     public Uni<List<DeckCardDto>> getDeck(UUID viewerId, int offset, int limit) {
         Timer.Sample readSample = Timer.start(registry);

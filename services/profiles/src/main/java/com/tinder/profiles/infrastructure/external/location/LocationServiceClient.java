@@ -65,7 +65,10 @@ public class LocationServiceClient {
             log.warn("Location service unavailable for city '{}', falling back to local: {}", city, e.getMessage());
         }
 
-        return locationService.create(city);
+        // Degraded city-only fallback: we hold no coordinates and must not geocode here
+        // (the location service owns geocoding). Serve a previously-resolved row if one
+        // exists locally; otherwise the city cannot be resolved while the service is down.
+        return locationRepository.findByCity(city).orElse(null);
     }
 
     public Location resolveFromCoordinates(double latitude, double longitude, String city) {

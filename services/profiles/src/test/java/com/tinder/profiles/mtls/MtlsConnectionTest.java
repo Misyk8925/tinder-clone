@@ -9,6 +9,7 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.core.io.ClassPathResource;
@@ -130,9 +131,32 @@ public class MtlsConnectionTest extends AbstractProfilesIntegrationTest {
         }
     }
 
+    @Autowired
+    private com.tinder.profiles.infrastructure.persistence.location.LocationRepository locationRepository;
+
+    @Autowired
+    private com.tinder.profiles.infrastructure.persistence.preferences.PreferencesRepository preferencesRepository;
+
     @BeforeEach
     void seedProfile() {
-        // Seed at least one profile so /internal/active and /internal/page are not trivially empty
+        // Profiles require a Location (location_id NOT NULL since the clean-domain refactor)
+        org.locationtech.jts.geom.GeometryFactory gf =
+                new org.locationtech.jts.geom.GeometryFactory(new org.locationtech.jts.geom.PrecisionModel(), 4326);
+        org.locationtech.jts.geom.Point pt = gf.createPoint(new org.locationtech.jts.geom.Coordinate(13.405, 52.52));
+        pt.setSRID(4326);
+        com.tinder.profiles.infrastructure.persistence.location.Location loc =
+                locationRepository.findByCity("Berlin").orElseGet(() ->
+                        locationRepository.save(com.tinder.profiles.infrastructure.persistence.location.Location.builder()
+                                .city("Berlin").geo(pt).build()));
+
+
+        // Unique combination per save: PreferencesService's in-process cache survives
+        // context reuse while create-drop wipes the rows, so cached ids would dangle.
+        com.tinder.profiles.infrastructure.persistence.preferences.Preferences prefs =
+                preferencesRepository.save(com.tinder.profiles.infrastructure.persistence.preferences.Preferences.builder()
+                        .minAge(18).maxAge(99).gender("all")
+                        .maxRange(1 + new java.util.Random().nextInt(500)).build());
+        // Seed at least one profile so /internal/active is not trivially empty
         ProfileJpaEntity p = new ProfileJpaEntity();
         p.setName("mtls-test-user");
         p.setAge(25);
@@ -140,6 +164,8 @@ public class MtlsConnectionTest extends AbstractProfilesIntegrationTest {
         p.setBio("mTLS test profile");
         p.setCity("Berlin");
         p.setUserId("mtls-user-" + UUID.randomUUID());
+        p.setLocation(loc);
+        p.setPreferences(prefs);
         savedProfile = profileRepository.save(p);
     }
 
@@ -163,7 +189,7 @@ public class MtlsConnectionTest extends AbstractProfilesIntegrationTest {
         void authorizedDeckServiceCn_active_returns200() throws Exception {
             log.info("X509-1: MockMvc with deck-service principal → expect 200");
 
-            mockMvc.perform(get("/internal/active")
+            mockMvc.perform(get("/api/v1/profiles/internal/active")
                             .with(x509InternalClient("deck-service")))
                     .andExpect(status().isOk());
 
@@ -176,7 +202,7 @@ public class MtlsConnectionTest extends AbstractProfilesIntegrationTest {
         void authorizedDeckServiceCn_page_returns200() throws Exception {
             log.info("X509-2: MockMvc → /internal/page with authorized CN");
 
-            mockMvc.perform(get("/internal/page")
+            mockMvc.perform(get("/api/v1/profiles/internal/active")
                             .param("page", "0")
                             .param("size", "10")
                             .with(x509InternalClient("deck-service")))
@@ -191,7 +217,7 @@ public class MtlsConnectionTest extends AbstractProfilesIntegrationTest {
         void authorizedDeckServiceCn_search_returns200() throws Exception {
             log.info("X509-3: MockMvc → /internal/search with authorized CN");
 
-            mockMvc.perform(get("/internal/search")
+            mockMvc.perform(get("/api/v1/profiles/internal/search")
                             .param("viewerId", savedProfile.getProfileId().toString())
                             .with(x509InternalClient("deck-service")))
                     .andExpect(status().isOk());
@@ -200,26 +226,12 @@ public class MtlsConnectionTest extends AbstractProfilesIntegrationTest {
         }
 
         @Test
-        @Order(4)
-        @DisplayName("X509-4: Authorized CN=deck-service → /internal/deck returns 200")
-        void authorizedDeckServiceCn_deck_returns200() throws Exception {
-            log.info("X509-4: MockMvc → /internal/deck with authorized CN");
-
-            mockMvc.perform(get("/internal/deck")
-                            .param("viewerId", UUID.randomUUID().toString())
-                            .with(x509InternalClient("deck-service")))
-                    .andExpect(status().isOk());
-
-            log.info("X509-4 PASSED");
-        }
-
-        @Test
         @Order(5)
         @DisplayName("X509-5: Authorized CN=deck-service → /internal/by-ids returns 200")
         void authorizedDeckServiceCn_byIds_returns200() throws Exception {
             log.info("X509-5: MockMvc → /internal/by-ids with authorized CN");
 
-            mockMvc.perform(get("/internal/by-ids")
+            mockMvc.perform(get("/api/v1/profiles/internal/by-ids")
                             .param("ids", savedProfile.getProfileId().toString())
                             .with(x509InternalClient("deck-service")))
                     .andExpect(status().isOk());
@@ -233,7 +245,7 @@ public class MtlsConnectionTest extends AbstractProfilesIntegrationTest {
         void unknownCn_active_returns403() throws Exception {
             log.info("X509-6: Unknown CN=unknown-service should be rejected with 403");
 
-            mockMvc.perform(get("/internal/active")
+            mockMvc.perform(get("/api/v1/profiles/internal/active")
                             .with(x509InternalClient("unknown-service")))
                     .andExpect(status().isForbidden());
 
@@ -247,7 +259,7 @@ public class MtlsConnectionTest extends AbstractProfilesIntegrationTest {
             log.info("X509-7: CN=profiles-service (wrong CN) should be rejected with 403");
 
             // profiles-service is NOT in MtlsUserDetailsService.ALLOWED_CNS → UsernameNotFoundException → 403
-            mockMvc.perform(get("/internal/active")
+            mockMvc.perform(get("/api/v1/profiles/internal/active")
                             .with(x509InternalClient("profiles-service")))
                     .andExpect(status().isForbidden());
 
@@ -260,7 +272,7 @@ public class MtlsConnectionTest extends AbstractProfilesIntegrationTest {
         void noPrincipal_active_returns401or403() throws Exception {
             log.info("X509-8: Request without any cert → expect 401 or 403");
 
-            int status = mockMvc.perform(get("/internal/active")
+            int status = mockMvc.perform(get("/api/v1/profiles/internal/active")
                             .accept(MediaType.APPLICATION_JSON))
                     .andReturn().getResponse().getStatus();
 
@@ -281,27 +293,11 @@ public class MtlsConnectionTest extends AbstractProfilesIntegrationTest {
             // Use "null" as placeholder for a principal with null-like name
             String effectiveCn = cn.equals("null") ? "totally-unknown" : cn;
 
-            mockMvc.perform(get("/internal/active")
+            mockMvc.perform(get("/api/v1/profiles/internal/active")
                             .with(x509InternalClient(effectiveCn)))
                     .andExpect(status().isForbidden());
 
             log.info("X509-9 PASSED for CN='{}'", cn);
-        }
-
-        @Test
-        @Order(10)
-        @DisplayName("X509-10: Authorized CN → /internal/page with invalid params returns 400")
-        void authorizedCn_invalidPageParams_returns400() throws Exception {
-            log.info("X509-10: Invalid pagination params should return 400");
-
-            // size > 100 is rejected by controller validation
-            mockMvc.perform(get("/internal/page")
-                            .param("page", "0")
-                            .param("size", "999")
-                            .with(x509InternalClient("deck-service")))
-                    .andExpect(status().isBadRequest());
-
-            log.info("X509-10 PASSED");
         }
 
         @Test
@@ -310,7 +306,7 @@ public class MtlsConnectionTest extends AbstractProfilesIntegrationTest {
         void authorizedCn_invalidUuid_returns400() throws Exception {
             log.info("X509-11: Invalid UUID in /internal/by-ids should return 400");
 
-            mockMvc.perform(get("/internal/by-ids")
+            mockMvc.perform(get("/api/v1/profiles/internal/by-ids")
                             .param("ids", "not-a-valid-uuid")
                             .with(x509InternalClient("deck-service")))
                     .andExpect(status().isBadRequest());
@@ -324,7 +320,7 @@ public class MtlsConnectionTest extends AbstractProfilesIntegrationTest {
         void authorizedCn_negativeLimit_returns400() throws Exception {
             log.info("X509-12: limit<1 should return 400");
 
-            mockMvc.perform(get("/internal/search")
+            mockMvc.perform(get("/api/v1/profiles/internal/search")
                             .param("viewerId", UUID.randomUUID().toString())
                             .param("limit", "-1")
                             .with(x509InternalClient("deck-service")))
@@ -339,7 +335,7 @@ public class MtlsConnectionTest extends AbstractProfilesIntegrationTest {
         void authorizedCn_activeResponse_hasProfileIdField() throws Exception {
             log.info("X509-13: /internal/active response structure validation");
 
-            String body = mockMvc.perform(get("/internal/active")
+            String body = mockMvc.perform(get("/api/v1/profiles/internal/active")
                             .accept(MediaType.APPLICATION_JSON)
                             .with(x509InternalClient("deck-service")))
                     .andExpect(status().isOk())
@@ -359,7 +355,7 @@ public class MtlsConnectionTest extends AbstractProfilesIntegrationTest {
         void authorizedCn_pageResponse_isJsonArray() throws Exception {
             log.info("X509-14: /internal/page response should be a non-null JSON array");
 
-            String body = mockMvc.perform(get("/internal/page")
+            String body = mockMvc.perform(get("/api/v1/profiles/internal/active")
                             .param("page", "0")
                             .param("size", "5")
                             .accept(MediaType.APPLICATION_JSON)
@@ -402,23 +398,6 @@ public class MtlsConnectionTest extends AbstractProfilesIntegrationTest {
         }
 
         @Test
-        @Order(21)
-        @DisplayName("mTLS-2: Valid deck-service cert → /internal/page returns HTTP 200")
-        void validDeckCert_page_returns200() {
-            assumeMtlsPortOpen();
-            log.info("mTLS-2: Real WebClient → /internal/page");
-
-            List<?> response = deckMtlsClient.get()
-                    .uri(uri -> uri.path("/page").queryParam("page", 0).queryParam("size", 5).build())
-                    .retrieve()
-                    .bodyToMono(List.class)
-                    .block(Duration.ofSeconds(10));
-
-            assertThat(response).isNotNull();
-            log.info("mTLS-2 PASSED — /internal/page returned {} profiles", response.size());
-        }
-
-        @Test
         @Order(22)
         @DisplayName("mTLS-3: Valid deck-service cert → /internal/search returns HTTP 200")
         void validDeckCert_search_returns200() {
@@ -435,25 +414,6 @@ public class MtlsConnectionTest extends AbstractProfilesIntegrationTest {
 
             assertThat(response).isNotNull();
             log.info("mTLS-3 PASSED");
-        }
-
-        @Test
-        @Order(23)
-        @DisplayName("mTLS-4: Valid deck-service cert → /internal/deck returns HTTP 200")
-        void validDeckCert_deck_returns200() {
-            assumeMtlsPortOpen();
-            log.info("mTLS-4: Real WebClient → /internal/deck");
-
-            List<?> response = deckMtlsClient.get()
-                    .uri(uri -> uri.path("/deck")
-                            .queryParam("viewerId", UUID.randomUUID())
-                            .build())
-                    .retrieve()
-                    .bodyToMono(List.class)
-                    .block(Duration.ofSeconds(10));
-
-            assertThat(response).isNotNull();
-            log.info("mTLS-4 PASSED");
         }
 
         @Test
@@ -584,7 +544,7 @@ public class MtlsConnectionTest extends AbstractProfilesIntegrationTest {
             log.info("Isolation-1: /internal/active on public port without JWT");
 
             // MockMvc targets the servlet directly (public port rules apply, no x509 chain)
-            int status = mockMvc.perform(get("/internal/active")
+            int status = mockMvc.perform(get("/api/v1/profiles/internal/active")
                             .accept(MediaType.APPLICATION_JSON))
                     .andReturn().getResponse().getStatus();
 
@@ -623,12 +583,12 @@ public class MtlsConnectionTest extends AbstractProfilesIntegrationTest {
 
         @Test
         @Order(32)
-        @DisplayName("Isolation-3: /internal/page, /internal/search, /internal/by-ids, /internal/deck all require auth on public port")
+        @DisplayName("Isolation-3: /internal/page, /internal/search, /internal/by-ids all require auth on public port")
         void allInternalPaths_publicPort_requireAuth() throws Exception {
             log.info("Isolation-3: All /internal/** paths on public port should require auth");
 
             String[] paths = {"/internal/active", "/internal/page", "/internal/search",
-                    "/internal/by-ids", "/internal/deck"};
+                    "/internal/by-ids"};
 
             for (String path : paths) {
                 int status = mockMvc.perform(get(path).accept(MediaType.APPLICATION_JSON))

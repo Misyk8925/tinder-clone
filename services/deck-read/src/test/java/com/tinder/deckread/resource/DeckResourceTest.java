@@ -55,6 +55,10 @@ class DeckResourceTest {
     @BeforeEach
     void flush() {
         redis.flushall();
+        // Decks are keyed by profileId; the resource resolves the JWT sub through
+        // the profiles client first. Identity-map the fixed viewer for tests.
+        when(profilesClient.profileIdByUser(VIEWER))
+                .thenReturn(Uni.createFrom().item(UUID.fromString(VIEWER)));
     }
 
     private String member(UUID profileId) {

@@ -98,6 +98,11 @@ generate_service_cert \
   "subscriptions-service" \
   "DNS:subscriptions-service,DNS:subscriptions,DNS:localhost,IP:127.0.0.1"
 
+generate_service_cert \
+  "deck-read-service" \
+  "deck-read-service" \
+  "DNS:deck-read-service,DNS:deck-read,DNS:localhost,IP:127.0.0.1"
+
 # ─── Build shared truststore ──────────────────────────────────────────────────
 
 echo ""
@@ -105,7 +110,7 @@ echo "▶ Building shared truststore.jks ..."
 
 rm -f "$OUT/truststore.jks"
 
-for alias in profiles-service consumer-service deck-service subscriptions-service; do
+for alias in profiles-service consumer-service deck-service subscriptions-service deck-read-service; do
   keytool -importcert \
     -alias     "$alias" \
     -file      "$OUT/$alias.cer" \
@@ -120,7 +125,7 @@ done
 
 echo ""
 echo "▶ Verifying SANs ..."
-for alias in profiles-service consumer-service deck-service subscriptions-service; do
+for alias in profiles-service consumer-service deck-service subscriptions-service deck-read-service; do
   echo ""
   echo "  ── $alias ──"
   keytool -list -v \

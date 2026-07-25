@@ -16,6 +16,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import static org.assertj.core.api.BDDAssertions.then;
+import static org.assertj.core.api.BDDAssertions.thenThrownBy;
 import static org.mockito.BDDMockito.given;
 
 @ExtendWith(MockitoExtension.class)
@@ -63,10 +64,12 @@ class LocationResolverAdapterTest {
     }
 
     @Test
-    @DisplayName("returns null when the client yields no location")
+    @DisplayName("throws a retryable LocationResolutionException when the client yields no location")
     void nullLocation() {
         given(locationServiceClient.resolve("Nowhere")).willReturn(null);
 
-        then(adapter.resolve(null, null, "Nowhere")).isNull();
+        thenThrownBy(() -> adapter.resolve(null, null, "Nowhere"))
+                .isInstanceOf(com.tinder.profiles.application.profile.exception.LocationResolutionException.class)
+                .hasMessageContaining("Nowhere");
     }
 }

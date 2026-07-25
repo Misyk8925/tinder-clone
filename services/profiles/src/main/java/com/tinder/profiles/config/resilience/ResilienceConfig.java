@@ -54,17 +54,6 @@ public class ResilienceConfig {
                     log.error("Kafka Producer Circuit Breaker error: {}", event.getThrowable().getMessage()))
                 .onSuccess(event ->
                     log.trace("Kafka Producer Circuit Breaker success"));
-
-        // Nominatim Circuit Breaker listeners
-        circuitBreakerRegistry.circuitBreaker("nominatimClient").getEventPublisher()
-                .onStateTransition(event ->
-                    log.warn("Nominatim Circuit Breaker state changed: from {} to {}",
-                        event.getStateTransition().getFromState(),
-                        event.getStateTransition().getToState()))
-                .onError(event ->
-                    log.error("Nominatim Circuit Breaker error: {}", event.getThrowable().getMessage()))
-                .onSuccess(event ->
-                    log.trace("Nominatim Circuit Breaker success"));
     }
 
     /**
@@ -80,11 +69,6 @@ public class ResilienceConfig {
         return circuitBreakerRegistry.circuitBreaker("kafkaProducer");
     }
 
-    @Bean
-    public CircuitBreaker nominatimCircuitBreaker() {
-        return circuitBreakerRegistry.circuitBreaker("nominatimClient");
-    }
-
     /**
      * Named bulkhead beans for dependency injection
      */
@@ -93,21 +77,11 @@ public class ResilienceConfig {
         return bulkheadRegistry.bulkhead("redisCache");
     }
 
-    @Bean
-    public Bulkhead nominatimBulkhead() {
-        return bulkheadRegistry.bulkhead("nominatimClient");
-    }
-
     /**
      * Named retry beans for dependency injection
      */
     @Bean
     public Retry redisRetry() {
         return retryRegistry.retry("redisCache");
-    }
-
-    @Bean
-    public Retry nominatimRetry() {
-        return retryRegistry.retry("nominatimClient");
     }
 }

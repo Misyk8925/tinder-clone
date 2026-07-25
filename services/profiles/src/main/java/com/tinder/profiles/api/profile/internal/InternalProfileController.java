@@ -1,8 +1,6 @@
 package com.tinder.profiles.api.profile.internal;
 import com.tinder.profiles.infrastructure.persistence.profile.internal.InternalProfileService;
 
-
-import com.tinder.profiles.infrastructure.external.deck.DeckService;
 import com.tinder.profiles.api.profile.IdsQueryParamParser;
 import com.tinder.profiles.infrastructure.persistence.preferences.PreferencesDto;
 import com.tinder.contracts.dto.SharedProfileDto;
@@ -11,7 +9,6 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -30,8 +27,22 @@ import java.util.UUID;
 public class InternalProfileController {
 
     private final InternalProfileService profileService;
-    private final DeckService deckService;
     private final IdsQueryParamParser idsQueryParamParser;
+    private final com.tinder.profiles.infrastructure.persistence.profile.ProfileQueryService profileQueryService;
+
+    /**
+     * Resolves a Keycloak userId (JWT {@code sub}) to the active profileId.
+     * Used by deck-read to key deck lookups by profileId. Backed by the
+     * identity cache, so repeated lookups are cheap.
+     */
+    @GetMapping("/id-by-user/{userId}")
+    public ResponseEntity<UUID> getProfileIdByUserId(@PathVariable String userId) {
+        UUID profileId = profileQueryService.getActiveProfileIdByUserId(userId);
+        if (profileId == null) {
+            return ResponseEntity.notFound().build();
+        }
+        return ResponseEntity.ok(profileId);
+    }
 
     @GetMapping("/search")
     public ResponseEntity<List<SharedProfileDto>> search(
@@ -54,21 +65,6 @@ public class InternalProfileController {
     }
 
 
-    @GetMapping("/page")
-    public ResponseEntity<List<SharedProfileDto>> page(
-            @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "20") int size) {
-
-        // Validate pagination parameters
-        if (page < 0 || size < 1 || size > 100) {
-            log.warn("Invalid pagination parameters: page={}, size={}. Size must be 1-100", page, size);
-            return ResponseEntity.badRequest().build();
-        }
-
-        List<SharedProfileDto> results = profileService.fetchPage(page, size);
-        return ResponseEntity.ok(results);
-    }
-
     @GetMapping("/by-ids")
     public ResponseEntity<List<SharedProfileDto>> getMany(@RequestParam String ids) {
         try {
@@ -90,37 +86,6 @@ public class InternalProfileController {
         return ResponseEntity.ok(results.get(0));
     }
 
-
-    @GetMapping("/deck")
-    public ResponseEntity<List<SharedProfileDto>> getDeck(
-            @RequestParam UUID viewerId,
-            @RequestParam(defaultValue = "0") int offset,
-            @RequestParam(defaultValue = "20") int limit) {
-
-        // Validate parameters
-        if (offset < 0 || limit < 1 || limit > 100) {
-            log.warn("Invalid deck parameters: offset={}, limit={}. Limit must be 1-100", offset, limit);
-            return ResponseEntity.badRequest().build();
-        }
-
-        List<SharedProfileDto> deck = deckService.listWithProfiles(viewerId, offset, limit);
-        return ResponseEntity.ok(deck);
-    }
-
-    @PostMapping("/deck-page/prebuild")
-    public ResponseEntity<Boolean> prebuildDeckPage(
-            @RequestParam UUID viewerId,
-            @RequestParam(defaultValue = "0") int offset,
-            @RequestParam(defaultValue = "20") int limit,
-            @RequestParam(defaultValue = "false") boolean force) {
-
-        if (offset < 0 || limit < 1 || limit > 100) {
-            log.warn("Invalid deck prebuild parameters: offset={}, limit={}. Limit must be 1-100", offset, limit);
-            return ResponseEntity.badRequest().body(false);
-        }
-
-        return ResponseEntity.ok(deckService.prebuildDeckPage(viewerId, offset, limit, force));
-    }
 
     @GetMapping("/active")
     public ResponseEntity<List<SharedProfileDto>> getActiveUsers() {

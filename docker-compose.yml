@@ -254,7 +254,8 @@ services:
 
   profiles:
     build:
-      context: ./services/profiles
+      context: ./services
+      dockerfile: profiles/Dockerfile
     container_name: profiles
     <<: *prod-mid-defaults
     ports: []
@@ -293,11 +294,9 @@ services:
       SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_JWK_SET_URI: ${KEYCLOAK_JWK_SET_URI:-http://keycloak:9080/realms/spring/protocol/openid-connect/certs}
       KEYCLOAK_URL: http://keycloak:9080
       MEDIA_SERVICE_BASE_URL: http://swipes:8040
-      DECK_SERVICE_URL: http://deck:8030
       LOGSTASH_HOST: localhost
       LOGSTASH_PORT: 5000
       MANAGEMENT_TRACING_ENABLED: "false"
-      INTERNAL_PROFILES_AUTH_SECRET: ${INTERNAL_PROFILES_AUTH_SECRET:-}
       LOCATION_SERVICE_URL: http://location:8065
 
       PROFILES_KEYSTORE_PATH: file:/certs/profiles-service.p12
@@ -319,7 +318,8 @@ services:
 
   deck:
     build:
-      context: ./services/deck
+      context: ./services
+      dockerfile: deck/Dockerfile
     container_name: deck
     <<: *prod-mid-defaults
     ports: []
@@ -354,6 +354,45 @@ services:
       interval: 15s
       timeout: 10s
       start_period: 300s
+      retries: 10
+
+  deck-read:
+    build:
+      context: ./services
+      dockerfile: deck-read/Dockerfile
+    container_name: deck-read
+    <<: *prod-mid-defaults
+    ports: []
+    depends_on:
+      redis:
+        condition: service_healthy
+      deck:
+        condition: service_started
+      profiles:
+        condition: service_started
+    environment:
+      KEYCLOAK_REALM_URL: ${KEYCLOAK_REALM_URL:-http://keycloak:9080/realms/spring}
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      DECK_BASE_URL: http://deck:8030
+      PROFILES_BASE_URL: https://profiles:8011/api/v1/profiles/internal
+      DECK_READ_KEYSTORE_PATH: /certs/deck-read-service.p12
+      DECK_READ_KEYSTORE_PASSWORD: ${MTLS_KEYSTORE_PASSWORD:?MTLS_KEYSTORE_PASSWORD is required}
+      DECK_READ_TRUSTSTORE_PATH: /certs/truststore.jks
+      DECK_READ_TRUSTSTORE_PASSWORD: ${MTLS_TRUSTSTORE_PASSWORD:?MTLS_TRUSTSTORE_PASSWORD is required}
+      JAVA_TOOL_OPTIONS: "-XX:+UseContainerSupport -XX:+UseG1GC -XX:InitialRAMPercentage=40.0 -XX:MaxRAMPercentage=75.0 -Dfile.encoding=UTF-8 -Dsun.net.inetaddr.ttl=60 -Djava.io.tmpdir=/tmp"
+    volumes:
+      - /etc/dokploy/certs/tinderclone/deck-read-service.p12:/certs/deck-read-service.p12:ro
+      - /etc/dokploy/certs/tinderclone/truststore.jks:/certs/truststore.jks:ro
+    networks:
+      - app
+    mem_limit: 512m
+    cpus: "2.00"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8040/q/health | grep -q UP || exit 1"]
+      interval: 15s
+      timeout: 10s
+      start_period: 120s
       retries: 10
 
   location:
@@ -398,8 +437,8 @@ services:
         condition: service_healthy
       profiles:
         condition: service_started
-
-
+      deck-read:
+        condition: service_started
     environment:
       SPRING_PROFILES_ACTIVE: prod
       SPRING_DATA_REDIS_HOST: redis
@@ -408,10 +447,11 @@ services:
       SPRING_CLOUD_DISCOVERY_ENABLED: "false"
       SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_JWK_SET_URI: ${KEYCLOAK_JWK_SET_URI:-http://keycloak:9080/realms/spring/protocol/openid-connect/certs}
       PROFILES_SERVICE_URL: http://profiles:8010
-      INTERNAL_PROFILES_AUTH_SECRET: ${INTERNAL_PROFILES_AUTH_SECRET:-}
       SWIPES_SERVICE_URL: http://swipes:8040
       CONSUMER_SERVICE_URL: http://consumer:8050
       DECK_SERVICE_URL: http://deck:8030
+      # Client-facing deck reads (GET /api/v1/profiles/deck) are routed to deck-read.
+      DECK_READ_SERVICE_URL: ${DECK_READ_SERVICE_URL:-http://deck-read:8040}
       MATCH_SERVICE_URL: http://match:8080
       MATCH_WS_URL: ws://match:8080
       SUBSCRIPTIONS_SERVICE_URL: http://subscriptions:8095

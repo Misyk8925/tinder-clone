@@ -6,7 +6,6 @@ import com.tinder.profiles.domain.profile.Profile;
 import com.tinder.profiles.infrastructure.persistence.location.Location;
 import com.tinder.profiles.infrastructure.persistence.location.LocationRepository;
 import com.tinder.profiles.infrastructure.persistence.preferences.Preferences;
-import com.tinder.profiles.infrastructure.persistence.preferences.PreferencesDto;
 import com.tinder.profiles.infrastructure.persistence.preferences.PreferencesService;
 import com.tinder.profiles.infrastructure.persistence.profile.ProfileRepository;
 import org.junit.jupiter.api.BeforeEach;
@@ -87,7 +86,7 @@ class JpaProfileRepositoryAdapterTest {
     void saveReconcilesFks() {
         // given a brand-new aggregate (no id → insert path)
         given(locationRepository.findByCity("Vienna")).willReturn(Optional.of(viennaLocation()));
-        given(preferencesService.findOrCreate(any(PreferencesDto.class))).willReturn(preferences());
+        given(preferencesService.findOrCreate(any(MatchingPreferences.class))).willReturn(preferences());
         given(profileRepository.save(any(com.tinder.profiles.infrastructure.persistence.profile.ProfileJpaEntity.class)))
                 .willAnswer(inv -> inv.getArgument(0));
 
@@ -109,10 +108,10 @@ class JpaProfileRepositoryAdapterTest {
         then(saved.getName()).isEqualTo("Alice");
         then(saved.getPosition()).isEqualTo(new GeoPoint(48.2, 16.37));
 
-        ArgumentCaptor<PreferencesDto> prefsCaptor = ArgumentCaptor.forClass(PreferencesDto.class);
+        ArgumentCaptor<MatchingPreferences> prefsCaptor = ArgumentCaptor.forClass(MatchingPreferences.class);
         verify(preferencesService).findOrCreate(prefsCaptor.capture());
-        then(prefsCaptor.getValue().getMinAge()).isEqualTo(18);
-        then(prefsCaptor.getValue().getMaxRange()).isEqualTo(50);
+        then(prefsCaptor.getValue().minAge()).isEqualTo(18);
+        then(prefsCaptor.getValue().maxRange()).isEqualTo(50);
     }
 
     @Test
@@ -133,7 +132,7 @@ class JpaProfileRepositoryAdapterTest {
                 .build();
         given(profileRepository.findById(id)).willReturn(Optional.of(existing));
         given(locationRepository.findByCity("Vienna")).willReturn(Optional.of(viennaLocation()));
-        given(preferencesService.findOrCreate(any(PreferencesDto.class))).willReturn(preferences());
+        given(preferencesService.findOrCreate(any(MatchingPreferences.class))).willReturn(preferences());
         given(profileRepository.save(any(com.tinder.profiles.infrastructure.persistence.profile.ProfileJpaEntity.class)))
                 .willAnswer(inv -> inv.getArgument(0));
 

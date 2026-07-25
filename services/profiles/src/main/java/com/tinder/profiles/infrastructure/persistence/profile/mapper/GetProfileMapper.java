@@ -8,7 +8,5 @@ import org.mapstruct.ReportingPolicy;
 
 @Mapper(unmappedTargetPolicy = ReportingPolicy.IGNORE, componentModel = MappingConstants.ComponentModel.SPRING)
 public interface GetProfileMapper {
-    ProfileJpaEntity toEntity(GetProfileDto getProfileDto);
-
     GetProfileDto toGetProfileDto(ProfileJpaEntity profile);
 }

@@ -29,15 +29,11 @@ class CircuitBreakerBehaviorTest {
     @Autowired
     private CircuitBreaker kafkaCircuitBreaker;
 
-    @Autowired
-    private CircuitBreaker nominatimCircuitBreaker;
-
     @BeforeEach
     void setUp() {
         // Reset all circuit breakers to CLOSED state before each test
         redisCircuitBreaker.reset();
         kafkaCircuitBreaker.reset();
-        nominatimCircuitBreaker.reset();
     }
 
     @Test
@@ -83,42 +79,42 @@ class CircuitBreakerBehaviorTest {
     @Test
     void testCircuitBreakerTransitionsToHalfOpen() throws InterruptedException {
         // Given: Circuit breaker is OPEN
-        var config = nominatimCircuitBreaker.getCircuitBreakerConfig();
+        var config = kafkaCircuitBreaker.getCircuitBreakerConfig();
         int minimumCalls = config.getMinimumNumberOfCalls();
 
         // Trigger failures to open circuit
         for (int i = 0; i < minimumCalls; i++) {
             try {
-                nominatimCircuitBreaker.executeSupplier(() -> {
-                    throw new RuntimeException("Simulated Nominatim failure");
+                kafkaCircuitBreaker.executeSupplier(() -> {
+                    throw new RuntimeException("Simulated Kafka failure");
                 });
             } catch (Exception e) {
                 // Expected
             }
         }
 
-        assertThat(nominatimCircuitBreaker.getState()).isEqualTo(CircuitBreaker.State.OPEN);
+        assertThat(kafkaCircuitBreaker.getState()).isEqualTo(CircuitBreaker.State.OPEN);
 
         // When: Wait for automatic transition to HALF_OPEN
         // Note: In test environment, waitDurationInOpenState might be long
         // We'll manually transition for testing purposes
-        nominatimCircuitBreaker.transitionToHalfOpenState();
+        kafkaCircuitBreaker.transitionToHalfOpenState();
 
         // Then: Circuit breaker should be HALF_OPEN
-        assertThat(nominatimCircuitBreaker.getState()).isEqualTo(CircuitBreaker.State.HALF_OPEN);
+        assertThat(kafkaCircuitBreaker.getState()).isEqualTo(CircuitBreaker.State.HALF_OPEN);
     }
 
     @Test
     void testCircuitBreakerRecoveryFromHalfOpen() {
         // Given: Circuit breaker in HALF_OPEN state
         // First, we need to open it by triggering failures
-        var config = nominatimCircuitBreaker.getCircuitBreakerConfig();
+        var config = kafkaCircuitBreaker.getCircuitBreakerConfig();
         int minimumCalls = config.getMinimumNumberOfCalls();
 
         // Trigger failures to open circuit
         for (int i = 0; i < minimumCalls; i++) {
             try {
-                nominatimCircuitBreaker.executeSupplier(() -> {
+                kafkaCircuitBreaker.executeSupplier(() -> {
                     throw new RuntimeException("Simulated failure");
                 });
             } catch (Exception e) {
@@ -127,18 +123,18 @@ class CircuitBreakerBehaviorTest {
         }
 
         // Now transition to HALF_OPEN
-        nominatimCircuitBreaker.transitionToHalfOpenState();
-        assertThat(nominatimCircuitBreaker.getState()).isEqualTo(CircuitBreaker.State.HALF_OPEN);
+        kafkaCircuitBreaker.transitionToHalfOpenState();
+        assertThat(kafkaCircuitBreaker.getState()).isEqualTo(CircuitBreaker.State.HALF_OPEN);
 
         int permittedCalls = config.getPermittedNumberOfCallsInHalfOpenState();
 
         // When: Execute successful calls in HALF_OPEN state
         for (int i = 0; i < permittedCalls; i++) {
-            nominatimCircuitBreaker.executeSupplier(() -> "success");
+            kafkaCircuitBreaker.executeSupplier(() -> "success");
         }
 
         // Then: Circuit breaker should transition back to CLOSED
-        assertThat(nominatimCircuitBreaker.getState()).isEqualTo(CircuitBreaker.State.CLOSED);
+        assertThat(kafkaCircuitBreaker.getState()).isEqualTo(CircuitBreaker.State.CLOSED);
     }
 
     @Test
@@ -165,16 +161,6 @@ class CircuitBreakerBehaviorTest {
     }
 
     @Test
-    void testNominatimCircuitBreakerConfiguration() {
-        // Verify Nominatim-specific configuration
-        var config = nominatimCircuitBreaker.getCircuitBreakerConfig();
-
-        assertThat(config.getFailureRateThreshold()).isEqualTo(60.0f);
-        assertThat(config.getSlowCallDurationThreshold().toMillis()).isEqualTo(500);
-        assertThat(config.getPermittedNumberOfCallsInHalfOpenState()).isEqualTo(3);
-    }
-
-    @Test
     void testCircuitBreakerEventPublisher() {
         // Test that event publisher is working
         final boolean[] eventReceived = {false};
@@ -194,6 +180,6 @@ class CircuitBreakerBehaviorTest {
         // Verify all circuit breakers are registered
         assertThat(circuitBreakerRegistry.getAllCircuitBreakers())
                 .extracting(CircuitBreaker::getName)
-                .contains("redisCache", "kafkaProducer", "nominatimClient");
+                .contains("redisCache", "kafkaProducer");
     }
 }

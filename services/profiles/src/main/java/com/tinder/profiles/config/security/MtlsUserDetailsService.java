@@ -18,7 +18,8 @@ public class MtlsUserDetailsService implements UserDetailsService {
 
     /** Known internal service CNs allowed to call /internal endpoints */
     private static final Set<String> ALLOWED_CNS = Set.of(
-            "deck-service"
+            "deck-service",
+            "deck-read-service"
     );
 
     @Override

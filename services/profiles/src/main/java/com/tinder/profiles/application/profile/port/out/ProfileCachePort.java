@@ -8,8 +8,7 @@ import java.util.UUID;
 /**
  * Outbound port for the profile caching concern, consolidated behind a single
  * interface so a use case sees one cache dependency instead of the cache services
- * it fans out to (entity cache, identity, shared-snapshot, deck-snapshot,
- * deck-page, hot-path token).
+ * it fans out to (entity cache, identity mapping, shared-profile snapshot).
  *
  * <p>The write path <em>evicts</em> rather than re-populates the entity cache:
  * the domain {@link Profile} aggregate excludes photos (which the read DTO
@@ -24,8 +23,8 @@ public interface ProfileCachePort {
 
     /**
      * Refresh after a write: evict the stale entity-cache entry, refresh the
-     * identity mapping, and evict the read-model snapshots (shared, deck,
-     * deck-page, hot token) so they rebuild from the new state.
+     * identity mapping, and evict the shared-profile snapshot so it rebuilds
+     * from the new state.
      */
     void refreshOnWrite(String userId, Profile profile);
 

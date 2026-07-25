@@ -25,9 +25,6 @@ class ResilienceConfigIntegrationTest {
     @Autowired
     private CircuitBreaker kafkaCircuitBreaker;
 
-    @Autowired
-    private CircuitBreaker nominatimCircuitBreaker;
-
     @Test
     void testCircuitBreakerRegistryIsConfigured() {
         assertThat(circuitBreakerRegistry).isNotNull();
@@ -48,13 +45,6 @@ class ResilienceConfigIntegrationTest {
     }
 
     @Test
-    void testNominatimCircuitBreakerIsConfigured() {
-        assertThat(nominatimCircuitBreaker).isNotNull();
-        assertThat(nominatimCircuitBreaker.getName()).isEqualTo("nominatimClient");
-        assertThat(nominatimCircuitBreaker.getState()).isEqualTo(CircuitBreaker.State.CLOSED);
-    }
-
-    @Test
     void testCircuitBreakerConfiguration() {
 
         var redisConfig = redisCircuitBreaker.getCircuitBreakerConfig();
@@ -64,9 +54,5 @@ class ResilienceConfigIntegrationTest {
         var kafkaConfig = kafkaCircuitBreaker.getCircuitBreakerConfig();
         assertThat(kafkaConfig.getSlidingWindowSize()).isGreaterThan(0);
         assertThat(kafkaConfig.getMinimumNumberOfCalls()).isGreaterThan(0);
-
-        var nominatimConfig = nominatimCircuitBreaker.getCircuitBreakerConfig();
-        assertThat(nominatimConfig.getSlidingWindowSize()).isGreaterThan(0);
-        assertThat(nominatimConfig.getMinimumNumberOfCalls()).isGreaterThan(0);
     }
 }

@@ -6,7 +6,6 @@ import com.tinder.profiles.domain.profile.Profile;
 import com.tinder.profiles.infrastructure.persistence.location.Location;
 import com.tinder.profiles.infrastructure.persistence.location.LocationRepository;
 import com.tinder.profiles.infrastructure.persistence.preferences.Preferences;
-import com.tinder.profiles.infrastructure.persistence.preferences.PreferencesDto;
 import com.tinder.profiles.infrastructure.persistence.preferences.PreferencesService;
 import com.tinder.profiles.infrastructure.persistence.profile.ProfileRepository;
 import lombok.RequiredArgsConstructor;
@@ -109,11 +108,6 @@ public class JpaProfileRepositoryAdapter implements ProfileRepositoryPort {
 
     private Preferences resolvePreferences(Profile profile, com.tinder.profiles.infrastructure.persistence.profile.ProfileJpaEntity entity) {
         MatchingPreferences prefs = profile.getPreferences();
-        if (prefs == null) {
-            return entity.getPreferences();
-        }
-        PreferencesDto dto = new PreferencesDto(
-                null, prefs.minAge(), prefs.maxAge(), prefs.gender(), prefs.maxRange());
-        return preferencesService.findOrCreate(dto);
+        return prefs == null ? entity.getPreferences() : preferencesService.findOrCreate(prefs);
     }
 }

@@ -1,5 +1,5 @@
 package com.tinder.profiles.api.profile;
-import com.tinder.profiles.application.profile.ProfileQueryService;
+import com.tinder.profiles.infrastructure.persistence.profile.ProfileQueryService;
 import com.tinder.profiles.application.profile.command.DeleteProfileCommand;
 import com.tinder.profiles.application.profile.command.DeleteProfilesCommand;
 import com.tinder.profiles.application.profile.usecase.CreateProfileService;
@@ -9,22 +9,16 @@ import com.tinder.profiles.application.profile.usecase.PatchProfileService;
 import com.tinder.profiles.application.profile.usecase.UpdateProfileService;
 import com.tinder.profiles.api.profile.mapper.ProfileApiMapper;
 
-import com.tinder.profiles.infrastructure.external.deck.DeckService;
 import com.tinder.profiles.api.profile.dto.profileData.GetProfileDto;
-import com.tinder.profiles.api.profile.dto.profileData.deck.DeckProfileDto;
 import com.tinder.profiles.api.profile.dto.success.ApiResponse;
 import com.tinder.profiles.api.profile.dto.profileData.CreateProfileDtoV1;
 import com.tinder.profiles.api.profile.dto.profileData.PatchProfileDto;
 import com.tinder.contracts.dto.SharedProfileDto;
-import com.tinder.profiles.infrastructure.cache.DeckPageCacheService;
 import com.tinder.profiles.infrastructure.persistence.profile.internal.InternalProfileService;
-import com.tinder.profiles.infrastructure.cache.DeckHotPathTokenCache;
-import com.tinder.profiles.config.security.InternalAuthVerifier;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
-import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
@@ -46,12 +40,8 @@ public class ProfileController {
     private final DeleteProfileService deleteProfileUseCase;
     private final DeleteProfilesService deleteProfilesUseCase;
     private final ProfileApiMapper apiMapper;
-    private final DeckService deckService;
     private final InternalProfileService internalProfileService;
     private final IdsQueryParamParser idsQueryParamParser;
-    private final DeckPageCacheService deckPageCacheService;
-    private final InternalAuthVerifier internalAuthVerifier;
-    private final DeckHotPathTokenCache deckHotPathTokenCache;
 
     @GetMapping("/by-ids")
     public ResponseEntity<List<SharedProfileDto>> getManyByIds(@RequestParam String ids) {
@@ -61,47 +51,6 @@ public class ProfileController {
         } catch (IllegalArgumentException e) {
             return ResponseEntity.badRequest().build();
         }
-    }
-
-    @GetMapping(value = "/deck", produces = MediaType.APPLICATION_JSON_VALUE)
-    public ResponseEntity<?> getDeck(
-            @AuthenticationPrincipal Jwt jwt,
-            @RequestHeader(name = InternalAuthVerifier.HEADER_NAME, required = false) String internalAuth,
-            @RequestHeader(name = InternalAuthVerifier.USER_SUBJECT_HEADER, required = false) String internalUserSubject,
-            @RequestParam(defaultValue = "0") int offset,
-            @RequestParam(defaultValue = "20") int limit) {
-
-        String userSubject = resolveUserSubject(jwt, internalAuth, internalUserSubject);
-        if (userSubject == null || userSubject.isBlank()) {
-            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
-        }
-
-        UUID viewerId = applicationService.getActiveProfileIdByUserId(userSubject);
-        if (viewerId == null) {
-            return ResponseEntity.notFound().build();
-        }
-        deckHotPathTokenCache.put(jwt, viewerId);
-
-        log.debug("GET /deck called for userId={}, profileId={}, offset={}, limit={}",
-                userSubject, viewerId, offset, limit);
-
-        String cachedJson = deckPageCacheService.get(viewerId, offset, limit);
-        if (cachedJson != null) {
-            return ResponseEntity.ok()
-                    .contentType(MediaType.APPLICATION_JSON)
-                    .body(cachedJson);
-        }
-
-        List<DeckProfileDto> deck = deckService.listDeckCards(viewerId, offset, limit);
-        deckPageCacheService.put(viewerId, offset, limit, deck);
-        return ResponseEntity.ok(deck);
-    }
-
-    private String resolveUserSubject(Jwt jwt, String internalAuth, String internalUserSubject) {
-        if (internalAuthVerifier.isValid(internalAuth)) {
-            return internalUserSubject;
-        }
-        return jwt == null ? null : jwt.getSubject();
     }
 
     @GetMapping("/{id}")

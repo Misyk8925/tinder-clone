@@ -37,7 +37,7 @@ mtls:
     key-store-type: PKCS12
     trust-store: ${DECK_TRUSTSTORE_PATH:classpath:truststore.jks}
     trust-store-password: ${DECK_TRUSTSTORE_PASSWORD:changeit}
-    trust-store-type: PKCS12
+    trust-store-type: JKS
 
 server:
   port: 8030
@@ -49,9 +49,6 @@ deck:
   ttl-minutes: 60
   per-user-limit: 500
   search-limit: 2000
-  page-prebuild:
-    enabled: ${DECK_PAGE_PREBUILD_ENABLED:true}
-    limit: ${DECK_PAGE_PREBUILD_LIMIT:20}
 
   # Per-client HTTP timeouts (can be overridden per environment)
   profiles-connect-timeout-ms: 2000

@@ -8,28 +8,19 @@ import com.tinder.profiles.infrastructure.persistence.location.Location;
 import com.tinder.profiles.infrastructure.persistence.photos.Photo;
 import com.tinder.profiles.infrastructure.persistence.preferences.Preferences;
 import com.tinder.profiles.infrastructure.persistence.profile.ProfileJpaEntity;
-import com.tinder.profiles.api.profile.dto.profileData.GetProfileDto;
 import lombok.RequiredArgsConstructor;
-import org.springframework.context.annotation.Primary;
 import org.springframework.stereotype.Component;
 
 import java.util.Collections;
 import java.util.List;
 
 /**
- * Custom mapper implementation for SharedProfile DTO.
- * This overrides MapStruct auto-generated mapper to handle complex mappings like Point to latitude/longitude.
+ * Hand-written mapper for the SharedProfile DTO: Point → latitude/longitude
+ * needs custom logic that MapStruct cannot generate.
  */
-@Primary
 @Component
 @RequiredArgsConstructor
 public class CustomSharedProfileMapper implements SharedProfileMapper {
-
-    @Override
-    public ProfileJpaEntity toEntity(GetProfileDto getProfileDto) {
-        // Not implemented - not needed for current use case
-        throw new UnsupportedOperationException("Conversion from GetProfileDto to ProfileJpaEntity is not supported");
-    }
 
     @Override
     public SharedProfileDto toSharedProfileDto(ProfileJpaEntity profile) {

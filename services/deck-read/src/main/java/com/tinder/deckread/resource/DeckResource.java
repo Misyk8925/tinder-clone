@@ -29,6 +29,12 @@ import java.util.UUID;
 @Authenticated
 public class DeckResource {
 
+    /**
+     * Hard cap per page: the profiles internal {@code /by-ids} hydration endpoint
+     * rejects requests with more than 100 ids, so larger pages could never hydrate.
+     */
+    static final int MAX_LIMIT = 100;
+
     @Inject
     JsonWebToken jwt;
 
@@ -39,7 +45,8 @@ public class DeckResource {
     public Uni<List<DeckCardDto>> getDeck(
             @QueryParam("offset") @DefaultValue("0") int offset,
             @QueryParam("limit") @DefaultValue("20") int limit) {
-        UUID viewerId = UUID.fromString(jwt.getSubject());
-        return deckQueryService.getDeck(viewerId, offset, limit);
+        // The sub is the Keycloak userId; decks are keyed by profileId, so the
+        // query service resolves it (cached) before reading Redis.
+        return deckQueryService.getDeckForUser(jwt.getSubject(), Math.max(offset, 0), Math.min(limit, MAX_LIMIT));
     }
 }

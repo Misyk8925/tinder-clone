@@ -26,9 +26,6 @@ public class RedisProfileCacheAdapter implements ProfileCachePort {
     private final ResilientCacheManager resilientCacheManager;
     private final ProfileIdentityCacheService profileIdentityCacheService;
     private final SharedProfileSnapshotCache sharedProfileSnapshotCache;
-    private final DeckProfileSnapshotCache deckProfileSnapshotCache;
-    private final DeckPageCacheService deckPageCacheService;
-    private final DeckHotPathTokenCache deckHotPathTokenCache;
 
     @Override
     public void evict(UUID profileId) {
@@ -53,16 +50,10 @@ public class RedisProfileCacheAdapter implements ProfileCachePort {
     public void evictBatch(Collection<UUID> profileIds, Collection<String> userIds) {
         profileIds.forEach(this::evict);
         profileIds.forEach(sharedProfileSnapshotCache::evict);
-        profileIds.forEach(deckProfileSnapshotCache::evict);
-        profileIds.forEach(deckHotPathTokenCache::evictProfile);
-        deckPageCacheService.evictViewers(profileIds);
         userIds.forEach(profileIdentityCacheService::evict);
     }
 
     private void evictReadModelSnapshots(UUID profileId) {
         sharedProfileSnapshotCache.evict(profileId);
-        deckProfileSnapshotCache.evict(profileId);
-        deckPageCacheService.evictViewer(profileId);
-        deckHotPathTokenCache.evictProfile(profileId);
     }
 }

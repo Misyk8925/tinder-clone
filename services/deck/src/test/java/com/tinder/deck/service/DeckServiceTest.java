@@ -89,10 +89,6 @@ class DeckServiceTest {
 
         deckService = new DeckService(profilesHttp, deckCache, pipeline);
         ReflectionTestUtils.setField(deckService, "ttlMinutes", 60L);
-        ReflectionTestUtils.setField(deckService, "pagePrebuildEnabled", true);
-        ReflectionTestUtils.setField(deckService, "pagePrebuildLimit", 20);
-        lenient().when(profilesHttp.prebuildDeckPage(any(UUID.class), anyInt(), anyInt()))
-                .thenReturn(Mono.just(true));
     }
 
     @Test

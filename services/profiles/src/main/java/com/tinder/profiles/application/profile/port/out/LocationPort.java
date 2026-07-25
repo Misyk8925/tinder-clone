@@ -2,10 +2,9 @@ package com.tinder.profiles.application.profile.port.out;
 
 /**
  * Outbound port for resolving a location to coordinates + canonical city. The
- * implementing adapter delegates to the standalone location service (with local
- * geocoding fallback) and returns domain-friendly values, so the application
- * layer never sees the persistence {@code Location} entity or the remote
- * transport.
+ * implementing adapter delegates to the standalone location service (which owns
+ * geocoding) and returns domain-friendly values, so the application layer never
+ * sees the persistence {@code Location} entity or the remote transport.
  */
 public interface LocationPort {
 

@@ -141,7 +141,7 @@ class ProfilesApplicationTests {
     public void createSameEntity() throws Exception {
         sendCorrectFirstPostRequestToMockMvc();
 
-        mockMvc.perform(post("")
+        mockMvc.perform(post("/api/v1/profiles")
                         .content(PROFILE_CORRECT)
                         .header("Authorization", createAuthHeader())
                         .contentType(MediaType.APPLICATION_JSON))
@@ -152,7 +152,7 @@ class ProfilesApplicationTests {
     @Test
     @DisplayName("Create invalid profile should return bad request")
     public void createInvalidProfile() throws Exception {
-        mockMvc.perform(post("")
+        mockMvc.perform(post("/api/v1/profiles")
                         .content(PROFILE_INVALID)
                         .header("Authorization", createAuthHeader())
                         .contentType(MediaType.APPLICATION_JSON))
@@ -166,12 +166,12 @@ class ProfilesApplicationTests {
         MvcResult result = sendCorrectFirstPostRequestToMockMvc();
         UUID profileId = extractProfileIdFromResponse(result);
 
-        mockMvc.perform(get("/{id}", profileId)
+        mockMvc.perform(get("/api/v1/profiles/{id}", profileId)
                         .header("Authorization", createAuthHeader()))
                 .andExpect(status().isOk())
                 .andDo(print());
 
-        mockMvc.perform(delete("/")
+        mockMvc.perform(delete("/api/v1/profiles/")
                         .header("Authorization", createAuthHeader()))
                 .andExpect(status().isNoContent())
                 .andDo(print());
@@ -183,7 +183,7 @@ class ProfilesApplicationTests {
         MvcResult result = sendCorrectFirstPostRequestToMockMvc();
         UUID profileId = extractProfileIdFromResponse(result);
 
-        MvcResult updated = mockMvc.perform(put("")
+        MvcResult updated = mockMvc.perform(put("/api/v1/profiles")
                         .content(PROFILE_UPDATED)
                         .header("Authorization", createAuthHeader())
                         .contentType(MediaType.APPLICATION_JSON))
@@ -199,7 +199,7 @@ class ProfilesApplicationTests {
     public void patchProfileCorrect() throws Exception {
         sendCorrectFirstPostRequestToMockMvc();
 
-        mockMvc.perform(patch("")
+        mockMvc.perform(patch("/api/v1/profiles")
                         .content(PROFILE_PATCHED_CORRECT)
                         .header("Authorization", createAuthHeader())
                         .contentType(MediaType.APPLICATION_JSON))
@@ -213,7 +213,7 @@ class ProfilesApplicationTests {
     public void patchProfileInvalid(String value) throws Exception {
         sendCorrectFirstPostRequestToMockMvc();
 
-        mockMvc.perform(patch("")
+        mockMvc.perform(patch("/api/v1/profiles")
                         .content(value)
                         .header("Authorization", createAuthHeader())
                         .contentType(MediaType.APPLICATION_JSON))
@@ -227,7 +227,7 @@ class ProfilesApplicationTests {
     @Test
     @DisplayName("Create profile without authorization should return 401")
     public void testCreateProfileUnauthorized() throws Exception {
-        mockMvc.perform(post("")
+        mockMvc.perform(post("/api/v1/profiles")
                         .content(PROFILE_CORRECT)
                         .contentType(MediaType.APPLICATION_JSON))
                 .andExpect(status().isUnauthorized());
@@ -238,7 +238,7 @@ class ProfilesApplicationTests {
     public void testCreateProfileNameTooShort() throws Exception {
         String profile = buildProfileJson("M", 25, "male", "This is my bio", "Vienna",
                                          20, 35, "female", 50);
-        mockMvc.perform(post("")
+        mockMvc.perform(post("/api/v1/profiles")
                         .content(profile)
                         .header("Authorization", createAuthHeader())
                         .contentType(MediaType.APPLICATION_JSON))
@@ -251,7 +251,7 @@ class ProfilesApplicationTests {
         String longName = "A".repeat(51);
         String profile = buildProfileJson(longName, 25, "male", "This is my bio", "Vienna",
                                          20, 35, "female", 50);
-        mockMvc.perform(post("")
+        mockMvc.perform(post("/api/v1/profiles")
                         .content(profile)
                         .header("Authorization", createAuthHeader())
                         .contentType(MediaType.APPLICATION_JSON))
@@ -263,7 +263,7 @@ class ProfilesApplicationTests {
     public void testCreateProfileAgeTooYoung() throws Exception {
         String profile = buildProfileJson("John", 17, "male", "This is my bio", "Vienna",
                                          20, 35, "female", 50);
-        mockMvc.perform(post("")
+        mockMvc.perform(post("/api/v1/profiles")
                         .content(profile)
                         .header("Authorization", createAuthHeader())
                         .contentType(MediaType.APPLICATION_JSON))
@@ -275,7 +275,7 @@ class ProfilesApplicationTests {
     public void testCreateProfileAgeTooOld() throws Exception {
         String profile = buildProfileJson("John", 131, "male", "This is my bio", "Vienna",
                                          20, 35, "female", 50);
-        mockMvc.perform(post("")
+        mockMvc.perform(post("/api/v1/profiles")
                         .content(profile)
                         .header("Authorization", createAuthHeader())
                         .contentType(MediaType.APPLICATION_JSON))
@@ -288,7 +288,7 @@ class ProfilesApplicationTests {
         String longBio = "A".repeat(1024);
         String profile = buildProfileJson("John", 25, "male", longBio, "Vienna",
                                          20, 35, "female", 50);
-        mockMvc.perform(post("")
+        mockMvc.perform(post("/api/v1/profiles")
                         .content(profile)
                         .header("Authorization", createAuthHeader())
                         .contentType(MediaType.APPLICATION_JSON))
@@ -300,7 +300,7 @@ class ProfilesApplicationTests {
     public void testCreateProfileInvalidGender() throws Exception {
         String profile = buildProfileJson("John", 25, "unknown", "This is my bio", "Vienna",
                                          20, 35, "female", 50);
-        mockMvc.perform(post("")
+        mockMvc.perform(post("/api/v1/profiles")
                         .content(profile)
                         .header("Authorization", createAuthHeader())
                         .contentType(MediaType.APPLICATION_JSON))
@@ -324,7 +324,7 @@ class ProfilesApplicationTests {
                         "maxRange": 50
                     }
                 }""";
-        mockMvc.perform(post("")
+        mockMvc.perform(post("/api/v1/profiles")
                         .content(profile)
                         .header("Authorization", createAuthHeader())
                         .contentType(MediaType.APPLICATION_JSON))
@@ -336,7 +336,7 @@ class ProfilesApplicationTests {
     public void testCreateProfileCityInvalidCharacters() throws Exception {
         String profile = buildProfileJson("John", 25, "male", "This is my bio", "город123",
                                          20, 35, "female", 50);
-        mockMvc.perform(post("")
+        mockMvc.perform(post("/api/v1/profiles")
                         .content(profile)
                         .header("Authorization", createAuthHeader())
                         .contentType(MediaType.APPLICATION_JSON))
@@ -348,7 +348,7 @@ class ProfilesApplicationTests {
     public void testCreateProfilePreferencesMinAgeTooLow() throws Exception {
         String profile = buildProfileJson("John", 25, "male", "This is my bio", "Vienna",
                                          17, 35, "female", 50);
-        mockMvc.perform(post("")
+        mockMvc.perform(post("/api/v1/profiles")
                         .content(profile)
                         .header("Authorization", createAuthHeader())
                         .contentType(MediaType.APPLICATION_JSON))
@@ -360,7 +360,7 @@ class ProfilesApplicationTests {
     public void testCreateProfilePreferencesMaxAgeTooHigh() throws Exception {
         String profile = buildProfileJson("John", 25, "male", "This is my bio", "Vienna",
                                          20, 131, "female", 50);
-        mockMvc.perform(post("")
+        mockMvc.perform(post("/api/v1/profiles")
                         .content(profile)
                         .header("Authorization", createAuthHeader())
                         .contentType(MediaType.APPLICATION_JSON))
@@ -372,7 +372,7 @@ class ProfilesApplicationTests {
     public void testCreateProfilePreferencesMaxRangeTooLow() throws Exception {
         String profile = buildProfileJson("John", 25, "male", "This is my bio", "Vienna",
                                          20, 35, "female", 0);
-        mockMvc.perform(post("")
+        mockMvc.perform(post("/api/v1/profiles")
                         .content(profile)
                         .header("Authorization", createAuthHeader())
                         .contentType(MediaType.APPLICATION_JSON))
@@ -384,7 +384,7 @@ class ProfilesApplicationTests {
     public void testCreateProfilePreferencesMaxRangeTooHigh() throws Exception {
         String profile = buildProfileJson("John", 25, "male", "This is my bio", "Vienna",
                                          20, 35, "female", 501);
-        mockMvc.perform(post("")
+        mockMvc.perform(post("/api/v1/profiles")
                         .content(profile)
                         .header("Authorization", createAuthHeader())
                         .contentType(MediaType.APPLICATION_JSON))
@@ -399,7 +399,7 @@ class ProfilesApplicationTests {
                     "name": "John",
                     "age": 25
                 }""";
-        mockMvc.perform(post("")
+        mockMvc.perform(post("/api/v1/profiles")
                         .content(profile)
                         .header("Authorization", createAuthHeader())
                         .contentType(MediaType.APPLICATION_JSON))
@@ -411,7 +411,7 @@ class ProfilesApplicationTests {
     public void testCreateProfileAge18() throws Exception {
         String profile = buildProfileJson("John", 18, "male", "This is my bio", "Vienna",
                                          18, 35, "female", 50);
-        mockMvc.perform(post("")
+        mockMvc.perform(post("/api/v1/profiles")
                         .content(profile)
                         .header("Authorization", createAuthHeader())
                         .contentType(MediaType.APPLICATION_JSON))
@@ -423,7 +423,7 @@ class ProfilesApplicationTests {
     public void testCreateProfileAge130() throws Exception {
         String profile = buildProfileJson("John", 130, "male", "This is my bio", "Vienna",
                                          18, 130, "female", 50);
-        mockMvc.perform(post("")
+        mockMvc.perform(post("/api/v1/profiles")
                         .content(profile)
                         .header("Authorization", createAuthHeader())
                         .contentType(MediaType.APPLICATION_JSON))
@@ -435,7 +435,7 @@ class ProfilesApplicationTests {
     public void testCreateProfileNameExactly2Chars() throws Exception {
         String profile = buildProfileJson("Jo", 25, "male", "This is my bio", "Vienna",
                                          20, 35, "female", 50);
-        mockMvc.perform(post("")
+        mockMvc.perform(post("/api/v1/profiles")
                         .content(profile)
                         .header("Authorization", createAuthHeader())
                         .contentType(MediaType.APPLICATION_JSON))
@@ -448,7 +448,7 @@ class ProfilesApplicationTests {
         String name = "A".repeat(50);
         String profile = buildProfileJson(name, 25, "male", "This is my bio", "Vienna",
                                          20, 35, "female", 50);
-        mockMvc.perform(post("")
+        mockMvc.perform(post("/api/v1/profiles")
                         .content(profile)
                         .header("Authorization", createAuthHeader())
                         .contentType(MediaType.APPLICATION_JSON))
@@ -461,7 +461,7 @@ class ProfilesApplicationTests {
         String bio = "A".repeat(1023);
         String profile = buildProfileJson("John", 25, "male", bio, "Vienna",
                                          20, 35, "female", 50);
-        mockMvc.perform(post("")
+        mockMvc.perform(post("/api/v1/profiles")
                         .content(profile)
                         .header("Authorization", createAuthHeader())
                         .contentType(MediaType.APPLICATION_JSON))
@@ -473,7 +473,7 @@ class ProfilesApplicationTests {
     public void testCreateProfilePreferencesMinRange1() throws Exception {
         String profile = buildProfileJson("John", 25, "male", "This is my bio", "Vienna",
                                          20, 35, "female", 1);
-        mockMvc.perform(post("")
+        mockMvc.perform(post("/api/v1/profiles")
                         .content(profile)
                         .header("Authorization", createAuthHeader())
                         .contentType(MediaType.APPLICATION_JSON))
@@ -485,7 +485,7 @@ class ProfilesApplicationTests {
     public void testCreateProfilePreferencesMaxRange500() throws Exception {
         String profile = buildProfileJson("John", 25, "male", "This is my bio", "Vienna",
                                          20, 35, "female", 500);
-        mockMvc.perform(post("")
+        mockMvc.perform(post("/api/v1/profiles")
                         .content(profile)
                         .header("Authorization", createAuthHeader())
                         .contentType(MediaType.APPLICATION_JSON))
@@ -497,7 +497,7 @@ class ProfilesApplicationTests {
     public void testCreateProfileWithNullBio() throws Exception {
         sendCorrectFirstPostRequestToMockMvc();
 
-        mockMvc.perform(put("")
+        mockMvc.perform(put("/api/v1/profiles")
                         .content(PROFILE_CORRECT)
                         .header("Authorization", createAuthHeader())
                         .contentType(MediaType.APPLICATION_JSON))
@@ -508,7 +508,7 @@ class ProfilesApplicationTests {
     @DisplayName("Get non-existent profile should return 404")
     public void testGetNonExistentProfile() throws Exception {
         UUID randomId = UUID.randomUUID();
-        mockMvc.perform(get("/{id}", randomId)
+        mockMvc.perform(get("/api/v1/profiles/{id}", randomId)
                         .header("Authorization", createAuthHeader()))
                 .andExpect(status().isNotFound());
     }
@@ -520,12 +520,12 @@ class ProfilesApplicationTests {
         UUID profileId = extractProfileIdFromResponse(result);
 
         // First delete
-        mockMvc.perform(delete("/")
+        mockMvc.perform(delete("/api/v1/profiles/")
                         .header("Authorization", createAuthHeader()))
                 .andExpect(status().isNoContent());
 
         // Second delete - should fail with 404
-        mockMvc.perform(delete("/")
+        mockMvc.perform(delete("/api/v1/profiles/")
                         .header("Authorization", createAuthHeader()))
                 .andExpect(status().isNotFound());
     }
@@ -536,7 +536,7 @@ class ProfilesApplicationTests {
         // Test "other" gender
         String profile = buildProfileJson("Alex", 25, "other", "This is my bio", "Vienna",
                                          20, 35, "all", 50);
-        mockMvc.perform(post("")
+        mockMvc.perform(post("/api/v1/profiles")
                         .content(profile)
                         .header("Authorization", createAuthHeader())
                         .contentType(MediaType.APPLICATION_JSON))
@@ -548,7 +548,7 @@ class ProfilesApplicationTests {
     public void testCreateProfileWithSpecialCharactersInName() throws Exception {
         String profile = buildProfileJson("Jean-Pierre O'Connor", 25, "male", "This is my bio", "Vienna",
                                          20, 35, "female", 50);
-        mockMvc.perform(post("")
+        mockMvc.perform(post("/api/v1/profiles")
                         .content(profile)
                         .header("Authorization", createAuthHeader())
                         .contentType(MediaType.APPLICATION_JSON))
@@ -560,7 +560,7 @@ class ProfilesApplicationTests {
     public void testCreateProfileWithCityContainingHyphens() throws Exception {
         String profile = buildProfileJson("John", 25, "male", "This is my bio", "Vienna",
                                          20, 35, "female", 50);
-        mockMvc.perform(post("")
+        mockMvc.perform(post("/api/v1/profiles")
                         .content(profile)
                         .header("Authorization", createAuthHeader())
                         .contentType(MediaType.APPLICATION_JSON))
@@ -572,7 +572,7 @@ class ProfilesApplicationTests {
     public void testCreateProfileWithAccentedCharacters() throws Exception {
         String profile = buildProfileJson("José", 25, "male", "This is my bio", "Linz",
                                          20, 35, "female", 50);
-        mockMvc.perform(post("")
+        mockMvc.perform(post("/api/v1/profiles")
                         .content(profile)
                         .header("Authorization", createAuthHeader())
                         .contentType(MediaType.APPLICATION_JSON))
@@ -580,7 +580,7 @@ class ProfilesApplicationTests {
     }
 
     private MvcResult sendCorrectFirstPostRequestToMockMvc() throws Exception {
-        return mockMvc.perform(post("")
+        return mockMvc.perform(post("/api/v1/profiles")
                         .content(PROFILE_CORRECT)
                         .header("Authorization", createAuthHeader())
                         .contentType(MediaType.APPLICATION_JSON))
