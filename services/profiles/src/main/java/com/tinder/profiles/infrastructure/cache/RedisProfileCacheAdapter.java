@@ -11,7 +11,7 @@ import java.util.UUID;
 /**
  * Cache adapter implementing {@link ProfileCachePort} by fanning out to the
  * existing cache services. Consolidates the cache-name constant and the eviction
- * fan-out that used to live as private helpers in {@code ProfileQueryService}.
+ * fan-out that used to live as private helpers in {@code JpaProfileQueryAdapter}.
  *
  * <p>The write path evicts the entity cache rather than storing the domain
  * aggregate (which lacks photos and is not a serializable cache shape); the read

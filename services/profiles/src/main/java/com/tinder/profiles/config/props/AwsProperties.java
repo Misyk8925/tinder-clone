@@ -1,34 +1,30 @@
 package com.tinder.profiles.config.props;
 
-import lombok.Data;
 import org.springframework.boot.context.properties.ConfigurationProperties;
+import org.springframework.boot.context.properties.bind.DefaultValue;
 
-/**
- * AWS cloud configuration properties
- */
-@Data
+/** AWS account and S3 endpoint settings ({@code cloud.aws.*}). */
 @ConfigurationProperties(prefix = "cloud.aws")
-public class AwsProperties {
+public record AwsProperties(
 
-    private String region;
+        @DefaultValue("eu-north-1") String region,
 
-    private Credentials credentials = new Credentials();
+        @DefaultValue Credentials credentials,
 
-    private S3 s3 = new S3();
+        @DefaultValue S3 s3
+) {
 
-    @Data
-    public static class Credentials {
-
-        private String accessKey;
-
-        private String secretKey;
+    public record Credentials(
+            @DefaultValue("placeholder-access-key") String accessKey,
+            @DefaultValue("placeholder-secret-key") String secretKey
+    ) {
     }
 
-    @Data
-    public static class S3 {
+    /** {@code endpoint} is empty against real AWS and set only for LocalStack. */
+    public record S3(@DefaultValue("") String endpoint) {
 
-        private String endpoint;
+        public boolean hasCustomEndpoint() {
+            return endpoint != null && !endpoint.isBlank();
+        }
     }
 }
-
-

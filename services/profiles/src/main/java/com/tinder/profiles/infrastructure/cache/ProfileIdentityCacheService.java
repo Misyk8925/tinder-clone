@@ -5,13 +5,13 @@ import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.redis.core.StringRedisTemplate;
-import org.springframework.stereotype.Service;
+import org.springframework.stereotype.Component;
 
 import java.util.UUID;
 import java.util.function.Function;
 
 @Slf4j
-@Service
+@Component
 public class ProfileIdentityCacheService {
 
     private static final String KEY_PREFIX = "profiles:jwt-sub:";
@@ -24,8 +24,8 @@ public class ProfileIdentityCacheService {
         this.redis = redis;
         this.properties = properties;
         this.localProfileIds = Caffeine.newBuilder()
-                .maximumSize(properties.getJwtProfileId().getMaxSize())
-                .expireAfterWrite(properties.getJwtProfileId().getTtl())
+                .maximumSize(properties.jwtProfileId().maxSize())
+                .expireAfterWrite(properties.jwtProfileId().ttl())
                 .build();
     }
 
@@ -76,7 +76,7 @@ public class ProfileIdentityCacheService {
 
         localProfileIds.put(userId, profileId);
         try {
-            redis.opsForValue().set(redisKey(userId), profileId.toString(), properties.getJwtProfileId().getTtl());
+            redis.opsForValue().set(redisKey(userId), profileId.toString(), properties.jwtProfileId().ttl());
         } catch (Exception e) {
             log.debug("Failed to cache profile id for user {}", userId, e);
         }

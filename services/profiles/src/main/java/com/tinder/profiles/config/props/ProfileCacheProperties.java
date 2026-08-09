@@ -1,41 +1,27 @@
 package com.tinder.profiles.config.props;
 
-import lombok.Getter;
-import lombok.Setter;
 import org.springframework.boot.context.properties.ConfigurationProperties;
-import org.springframework.stereotype.Component;
+import org.springframework.boot.context.properties.bind.DefaultValue;
 
 import java.time.Duration;
 
-@Getter
-@Setter
-@Component
+/**
+ * Sizes and TTLs of the in-process caches ({@code profiles.cache.*}). Every
+ * entry is a {@link CacheSpec}; per-cache values come from configuration.
+ */
 @ConfigurationProperties(prefix = "profiles.cache")
-public class ProfileCacheProperties {
+public record ProfileCacheProperties(
 
-    private JwtProfileId jwtProfileId = new JwtProfileId();
-    private JwtToken jwtToken = new JwtToken();
-    private SharedProfile sharedProfile = new SharedProfile();
+        @DefaultValue CacheSpec jwtProfileId,
 
-    @Getter
-    @Setter
-    public static class JwtProfileId {
-        private Duration ttl = Duration.ofMinutes(30);
-        private long maxSize = 250_000;
+        @DefaultValue CacheSpec jwtToken,
+
+        @DefaultValue CacheSpec sharedProfile
+) {
+
+    public record CacheSpec(
+            @DefaultValue("30m") Duration ttl,
+            @DefaultValue("250000") long maxSize
+    ) {
     }
-
-    @Getter
-    @Setter
-    public static class JwtToken {
-        private Duration ttl = Duration.ofMinutes(5);
-        private long maxSize = 250_000;
-    }
-
-    @Getter
-    @Setter
-    public static class SharedProfile {
-        private Duration ttl = Duration.ofMinutes(30);
-        private long maxSize = 250_000;
-    }
-
 }

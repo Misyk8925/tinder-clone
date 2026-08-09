@@ -1,19 +1,16 @@
 package com.tinder.profiles.domain.profile;
 
-import com.tinder.contracts.event.v1.ChangeType;
-
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.Set;
 
 /**
  * Accumulates which profile fields changed during an update/patch and derives
- * the resulting {@link ChangeType}. A domain value object: pure logic, no
+ * the resulting {@link ProfileChangeType}. A domain value object: pure logic, no
  * framework or persistence dependencies.
  *
  * <p>Replaces the {@code detectChangedFields} + {@code determineChangeType}
- * helpers that used to live in the application service. ({@code ChangeType}
- * comes from {@code tinder-contracts}, a pure shared library.)
+ * helpers that used to live in the application service.
  */
 public final class ProfileChangeSet {
 
@@ -67,22 +64,22 @@ public final class ProfileChangeSet {
     }
 
     /**
-     * Classifies the change by priority: city → {@link ChangeType#LOCATION_CHANGE};
-     * else preferences → {@link ChangeType#PREFERENCES}; else age/gender →
-     * {@link ChangeType#CRITICAL_FIELDS}; otherwise {@link ChangeType#NON_CRITICAL}.
+     * Classifies the change by priority: city → {@link ProfileChangeType#LOCATION_CHANGE};
+     * else preferences → {@link ProfileChangeType#PREFERENCES}; else age/gender →
+     * {@link ProfileChangeType#CRITICAL_FIELDS}; otherwise {@link ProfileChangeType#NON_CRITICAL}.
      */
-    public ChangeType classify() {
+    public ProfileChangeType classify() {
         if (changedFields.contains(FIELD_CITY)) {
-            return ChangeType.LOCATION_CHANGE;
+            return ProfileChangeType.LOCATION_CHANGE;
         }
         if (preferencesChanged) {
-            return ChangeType.PREFERENCES;
+            return ProfileChangeType.PREFERENCES;
         }
         for (String field : changedFields) {
             if (CRITICAL_FIELDS.contains(field)) {
-                return ChangeType.CRITICAL_FIELDS;
+                return ProfileChangeType.CRITICAL_FIELDS;
             }
         }
-        return ChangeType.NON_CRITICAL;
+        return ProfileChangeType.NON_CRITICAL;
     }
 }

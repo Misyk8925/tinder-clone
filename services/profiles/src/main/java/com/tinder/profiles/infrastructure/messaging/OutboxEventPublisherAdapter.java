@@ -5,6 +5,7 @@ import com.tinder.contracts.event.v1.ProfileCreatedEvent;
 import com.tinder.contracts.event.v1.ProfileDeletedEvent;
 import com.tinder.contracts.event.v1.ProfileUpdatedEvent;
 import com.tinder.profiles.application.profile.port.out.DomainEventPublisherPort;
+import com.tinder.profiles.domain.profile.ProfileChangeType;
 import com.tinder.profiles.infrastructure.messaging.outbox.ProfileOutboxService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
@@ -32,11 +33,12 @@ public class OutboxEventPublisherAdapter implements DomainEventPublisherPort {
     }
 
     @Override
-    public void publishUpdated(UUID profileId, ChangeType changeType, Set<String> changedFields) {
+    public void publishUpdated(UUID profileId, ProfileChangeType changeType, Set<String> changedFields) {
+        ChangeType contractType = toContractChangeType(changeType);
         outboxService.enqueueProfileUpdated(new ProfileUpdatedEvent(
                 UUID.randomUUID(),
                 profileId,
-                changeType,
+                contractType,
                 changedFields,
                 Instant.now(),
                 String.format("Profile updated: %s", changeType)));
@@ -46,5 +48,22 @@ public class OutboxEventPublisherAdapter implements DomainEventPublisherPort {
     public void publishDeleted(UUID profileId) {
         outboxService.enqueueProfileDeleted(new ProfileDeletedEvent(
                 UUID.randomUUID(), profileId, Instant.now()));
+    }
+
+    /**
+     * Bridges the domain's change vocabulary to the published contract. Both enums
+     * are declared separately — the domain depends on nothing — so this is a
+     * name-based lookup; a gap means the two have drifted in the build, which must
+     * surface as a clear failure rather than an opaque {@code IllegalArgumentException}
+     * from deep inside the publish path.
+     */
+    private ChangeType toContractChangeType(ProfileChangeType changeType) {
+        try {
+            return ChangeType.valueOf(changeType.name());
+        } catch (IllegalArgumentException e) {
+            throw new IllegalStateException(
+                    "Domain change type '" + changeType + "' has no counterpart in the shared contract enum; "
+                            + "the two vocabularies have drifted", e);
+        }
     }
 }

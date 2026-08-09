@@ -7,7 +7,7 @@ import com.github.benmanes.caffeine.cache.Caffeine;
 import com.tinder.contracts.dto.SharedProfileDto;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.redis.core.StringRedisTemplate;
-import org.springframework.stereotype.Service;
+import org.springframework.stereotype.Component;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -19,7 +19,7 @@ import java.util.UUID;
 import java.util.function.Function;
 
 @Slf4j
-@Service
+@Component
 public class SharedProfileSnapshotCache {
 
     private static final String KEY_PREFIX = "profiles:shared:";
@@ -38,8 +38,8 @@ public class SharedProfileSnapshotCache {
         this.objectMapper = objectMapper;
         this.properties = properties;
         this.localProfiles = Caffeine.newBuilder()
-                .maximumSize(properties.getSharedProfile().getMaxSize())
-                .expireAfterWrite(properties.getSharedProfile().getTtl())
+                .maximumSize(properties.sharedProfile().maxSize())
+                .expireAfterWrite(properties.sharedProfile().ttl())
                 .build();
     }
 
@@ -100,7 +100,7 @@ public class SharedProfileSnapshotCache {
 
         try {
             redisValues.forEach((key, value) ->
-                    redis.opsForValue().set(key, value, properties.getSharedProfile().getTtl()));
+                    redis.opsForValue().set(key, value, properties.sharedProfile().ttl()));
         } catch (Exception e) {
             log.debug("Failed to write shared profile snapshots to Redis", e);
         }

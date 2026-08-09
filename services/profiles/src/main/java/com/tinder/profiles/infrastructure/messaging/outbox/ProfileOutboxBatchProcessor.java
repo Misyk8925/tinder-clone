@@ -6,13 +6,13 @@ import com.tinder.profiles.infrastructure.messaging.outbox.model.OutboxRetryBack
 import com.tinder.profiles.infrastructure.messaging.outbox.model.ProfileEventOutbox;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.stereotype.Service;
+import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
 import java.util.List;
 
-@Service
+@Component
 @RequiredArgsConstructor
 @Slf4j
 public class ProfileOutboxBatchProcessor {
@@ -24,8 +24,8 @@ public class ProfileOutboxBatchProcessor {
 
     @Transactional
     public OutboxPublishResult publishNextBatch() {
-        int batchSize = Math.max(1, properties.getBatchSize());
-        int maxRetries = Math.max(1, properties.getMaxRetries());
+        int batchSize = Math.max(1, properties.batchSize());
+        int maxRetries = Math.max(1, properties.maxRetries());
         Instant now = Instant.now();
         List<ProfileEventOutbox> batch = outboxRepository.lockNextBatchForPublish(now, batchSize);
 
@@ -86,7 +86,7 @@ public class ProfileOutboxBatchProcessor {
         if (message == null) {
             return "Unknown error";
         }
-        int maxLength = Math.max(64, properties.getMaxErrorLength());
+        int maxLength = Math.max(64, properties.maxErrorLength());
         return message.length() > maxLength ? message.substring(0, maxLength) : message;
     }
 }

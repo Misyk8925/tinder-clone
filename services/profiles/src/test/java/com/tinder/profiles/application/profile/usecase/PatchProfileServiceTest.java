@@ -1,7 +1,8 @@
 package com.tinder.profiles.application.profile.usecase;
 
-import com.tinder.contracts.event.v1.ChangeType;
 import com.tinder.profiles.application.profile.command.PatchProfileCommand;
+import com.tinder.profiles.application.profile.support.LocationChangePolicy;
+import com.tinder.profiles.application.profile.support.ProfileEditService;
 import com.tinder.profiles.application.profile.port.out.DomainEventPublisherPort;
 import com.tinder.profiles.application.profile.port.out.ProfileCachePort;
 import com.tinder.profiles.application.profile.port.out.ProfileRepositoryPort;
@@ -10,7 +11,7 @@ import com.tinder.profiles.application.profile.port.out.LocationPort;
 import com.tinder.profiles.domain.profile.GeoPoint;
 import com.tinder.profiles.domain.profile.MatchingPreferences;
 import com.tinder.profiles.domain.profile.Profile;
-import com.tinder.profiles.domain.profile.ProfileDomainService;
+import com.tinder.profiles.domain.profile.ProfileChangeType;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -54,8 +55,8 @@ class PatchProfileServiceTest {
 
     @BeforeEach
     void setUp() {
-        service = new PatchProfileService(profiles, locations, events, cache, new ProfileDomainService());
-        service.locationChangeThresholdKm = 1.0;
+        service = new PatchProfileService(profiles, locations, events, cache,
+                new ProfileEditService(input -> input), new LocationChangePolicy(1.0));
     }
 
     private Profile viennaProfile(String userId) {
@@ -83,9 +84,9 @@ class PatchProfileServiceTest {
 
         service.handle(coordsPatch("user-1", BERLIN_LAT, BERLIN_LON));
 
-        ArgumentCaptor<ChangeType> type = ArgumentCaptor.forClass(ChangeType.class);
+        ArgumentCaptor<ProfileChangeType> type = ArgumentCaptor.forClass(ProfileChangeType.class);
         verify(events).publishUpdated(any(UUID.class), type.capture(), any());
-        assertThat(type.getValue()).isEqualTo(ChangeType.LOCATION_CHANGE);
+        assertThat(type.getValue()).isEqualTo(ProfileChangeType.LOCATION_CHANGE);
     }
 
     @Test
@@ -115,9 +116,9 @@ class PatchProfileServiceTest {
                 "user-4", null, null, null, null, "Berlin", null, null, null, null);
         service.handle(cmd);
 
-        ArgumentCaptor<ChangeType> type = ArgumentCaptor.forClass(ChangeType.class);
+        ArgumentCaptor<ProfileChangeType> type = ArgumentCaptor.forClass(ProfileChangeType.class);
         verify(events).publishUpdated(any(UUID.class), type.capture(), any());
-        assertThat(type.getValue()).isEqualTo(ChangeType.LOCATION_CHANGE);
+        assertThat(type.getValue()).isEqualTo(ProfileChangeType.LOCATION_CHANGE);
     }
 
     @Test
@@ -137,8 +138,8 @@ class PatchProfileServiceTest {
                 "user-5", null, null, null, null, "Vienna", null, null, VIENNA_LAT, VIENNA_LON);
         service.handle(cmd);
 
-        ArgumentCaptor<ChangeType> type = ArgumentCaptor.forClass(ChangeType.class);
+        ArgumentCaptor<ProfileChangeType> type = ArgumentCaptor.forClass(ProfileChangeType.class);
         verify(events).publishUpdated(any(UUID.class), type.capture(), any());
-        assertThat(type.getValue()).isEqualTo(ChangeType.LOCATION_CHANGE);
+        assertThat(type.getValue()).isEqualTo(ProfileChangeType.LOCATION_CHANGE);
     }
 }

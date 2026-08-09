@@ -127,39 +127,4 @@ public class ProfileJpaEntity {
     @LastModifiedDate
     @Column(name = "updated_at")
     private LocalDateTime updatedAt;
-
-
-    // Domain logic methods
-
-    public void updateBasicInfo(String name, Integer age, String gender, String bio, String city) {
-        this.name = name;
-        this.age = age;
-        this.gender = gender;
-        this.bio = bio;
-        this.city = city;
-        this.updatedAt = LocalDateTime.now();
-    }
-
-    public void markAsDeleted() {
-        this.isDeleted = true;
-        this.isActive = false;
-        this.deletedAt = LocalDateTime.now();
-        this.updatedAt = LocalDateTime.now();
-    }
-
-    public void activate() {
-        if (!this.isDeleted) {
-            this.isActive = true;
-            this.updatedAt = LocalDateTime.now();
-        }
-    }
-
-
-    public void deactivate() {
-        this.isActive = false;
-        this.updatedAt = LocalDateTime.now();
-    }
-
-
-
 }

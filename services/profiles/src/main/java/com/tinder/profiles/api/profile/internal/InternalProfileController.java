@@ -1,8 +1,8 @@
 package com.tinder.profiles.api.profile.internal;
-import com.tinder.profiles.infrastructure.persistence.profile.internal.InternalProfileService;
-
+import com.tinder.profiles.application.profile.port.in.InternalProfileQuery;
+import com.tinder.profiles.application.profile.port.in.ProfileQuery;
 import com.tinder.profiles.api.profile.IdsQueryParamParser;
-import com.tinder.profiles.infrastructure.persistence.preferences.PreferencesDto;
+import com.tinder.profiles.api.profile.mapper.ProfileApiMapper;
 import com.tinder.contracts.dto.SharedProfileDto;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -26,9 +26,10 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class InternalProfileController {
 
-    private final InternalProfileService profileService;
+    private final InternalProfileQuery profileQuery;
     private final IdsQueryParamParser idsQueryParamParser;
-    private final com.tinder.profiles.infrastructure.persistence.profile.ProfileQueryService profileQueryService;
+    private final ProfileQuery identityQuery;
+    private final ProfileApiMapper apiMapper;
 
     /**
      * Resolves a Keycloak userId (JWT {@code sub}) to the active profileId.
@@ -37,7 +38,7 @@ public class InternalProfileController {
      */
     @GetMapping("/id-by-user/{userId}")
     public ResponseEntity<UUID> getProfileIdByUserId(@PathVariable String userId) {
-        UUID profileId = profileQueryService.getActiveProfileIdByUserId(userId);
+        UUID profileId = identityQuery.getActiveProfileIdByUserId(userId);
         if (profileId == null) {
             return ResponseEntity.notFound().build();
         }
@@ -59,8 +60,11 @@ public class InternalProfileController {
             return ResponseEntity.badRequest().build();
         }
 
-        PreferencesDto prefs = new PreferencesDto(null, minAge, maxAge, gender, maxRange);
-        List<SharedProfileDto> results = profileService.searchByViewerPrefs(viewerId, prefs, limit);
+        InternalProfileQuery.SearchCriteria criteria =
+                new InternalProfileQuery.SearchCriteria(minAge, maxAge, gender, maxRange);
+        List<SharedProfileDto> results = profileQuery.search(viewerId, criteria, limit).stream()
+                .map(apiMapper::toSharedProfileDto)
+                .toList();
         return ResponseEntity.ok(results);
     }
 
@@ -69,7 +73,9 @@ public class InternalProfileController {
     public ResponseEntity<List<SharedProfileDto>> getMany(@RequestParam String ids) {
         try {
             List<UUID> uuidList = idsQueryParamParser.parse(ids);
-            List<SharedProfileDto> results = profileService.getMany(uuidList);
+            List<SharedProfileDto> results = profileQuery.getMany(uuidList).stream()
+                    .map(apiMapper::toSharedProfileDto)
+                    .toList();
             return ResponseEntity.ok(results);
         } catch (IllegalArgumentException e) {
             log.warn("Invalid ids parameter for /internal/by-ids: {}", e.getMessage());
@@ -79,7 +85,9 @@ public class InternalProfileController {
 
     @GetMapping("/{id}")
     public ResponseEntity<SharedProfileDto> getOne(@PathVariable UUID id) {
-        List<SharedProfileDto> results = profileService.getMany(List.of(id));
+        List<SharedProfileDto> results = profileQuery.getMany(List.of(id)).stream()
+                .map(apiMapper::toSharedProfileDto)
+                .toList();
         if (results.isEmpty()) {
             return ResponseEntity.notFound().build();
         }
@@ -89,7 +97,9 @@ public class InternalProfileController {
 
     @GetMapping("/active")
     public ResponseEntity<List<SharedProfileDto>> getActiveUsers() {
-        List<SharedProfileDto> activeUsers = profileService.getActiveUsers();
+        List<SharedProfileDto> activeUsers = profileQuery.getActiveUsers().stream()
+                .map(apiMapper::toSharedProfileDto)
+                .toList();
         log.debug("Fetched {} active users", activeUsers.size());
         return ResponseEntity.ok(activeUsers);
     }

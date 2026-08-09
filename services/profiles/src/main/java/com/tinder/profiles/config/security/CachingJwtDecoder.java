@@ -27,8 +27,8 @@ public class CachingJwtDecoder implements JwtDecoder {
         this.delegate = delegate;
         this.clock = clock;
         this.jwtCache = Caffeine.newBuilder()
-                .maximumSize(properties.getJwtToken().getMaxSize())
-                .expireAfterWrite(properties.getJwtToken().getTtl())
+                .maximumSize(properties.jwtToken().maxSize())
+                .expireAfterWrite(properties.jwtToken().ttl())
                 .build();
     }
 

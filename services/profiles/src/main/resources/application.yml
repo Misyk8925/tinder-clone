@@ -7,6 +7,9 @@ logging:
 location:
   service:
     url: ${LOCATION_SERVICE_URL:http://localhost:8065}
+  change:
+    # How far a profile must move before coordinates are re-resolved (GPS jitter guard)
+    threshold-km: ${LOCATION_CHANGE_THRESHOLD_KM:1.0}
 
 server:
   port: 8010
@@ -129,6 +132,23 @@ app:
   cloudfront:
     domain: ${CLOUDFRONT_DOMAIN:d123example.cloudfront.net}
     enabled: ${CDN_ENABLED:false}
+  # Upload rules enforced by application.photos
+  photos:
+    max-per-profile: 5
+    max-size: 5MB
+    allowed-content-types: image/jpeg,image/png,image/webp
+    min-dimension-px: 300
+    max-dimension-px: 4096
+
+# Soft-deleted profiles are purged after the retention window
+profile:
+  cleanup:
+    retention-days: 30
+    check-interval-ms: 86400000
+
+premium:
+  expiration:
+    check-interval-ms: 3600000
 
 cloud:
   aws:
@@ -140,7 +160,7 @@ cloud:
       endpoint: ${AWS_S3_ENDPOINT:}
 
 keycloak:
-  # Direct Keycloak URL — used by KeycloakAdminClient and UserService for Admin REST API calls
+  # Direct Keycloak URL — used by KeycloakPremiumRoleAdapter and UserService for Admin REST API calls
   keycloakUrl: ${KEYCLOAK_URL:http://localhost:9080}
   realm: spring
   client-id: spring-app

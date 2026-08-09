@@ -1,6 +1,5 @@
 package com.tinder.profiles.domain.profile;
 
-import com.tinder.contracts.event.v1.ChangeType;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -23,7 +22,7 @@ class ProfileChangeSetTest {
 
             // when / then
             then(changes.isEmpty()).isTrue();
-            then(changes.classify()).isEqualTo(ChangeType.NON_CRITICAL);
+            then(changes.classify()).isEqualTo(ProfileChangeType.NON_CRITICAL);
         }
     }
 
@@ -41,7 +40,7 @@ class ProfileChangeSetTest {
                     .add("city");            // LOCATION_CHANGE tier — highest
 
             // when / then — the highest tier wins
-            then(changes.classify()).isEqualTo(ChangeType.LOCATION_CHANGE);
+            then(changes.classify()).isEqualTo(ProfileChangeType.LOCATION_CHANGE);
         }
 
         @Test
@@ -53,21 +52,21 @@ class ProfileChangeSetTest {
                     .markPreferencesChanged();
 
             // when / then
-            then(changes.classify()).isEqualTo(ChangeType.PREFERENCES);
+            then(changes.classify()).isEqualTo(ProfileChangeType.PREFERENCES);
         }
 
         @Test
         @DisplayName("age or gender alone is CRITICAL_FIELDS")
         void ageOrGenderIsCritical() {
-            then(ProfileChangeSet.empty().add("age").classify()).isEqualTo(ChangeType.CRITICAL_FIELDS);
-            then(ProfileChangeSet.empty().add("gender").classify()).isEqualTo(ChangeType.CRITICAL_FIELDS);
+            then(ProfileChangeSet.empty().add("age").classify()).isEqualTo(ProfileChangeType.CRITICAL_FIELDS);
+            then(ProfileChangeSet.empty().add("gender").classify()).isEqualTo(ProfileChangeType.CRITICAL_FIELDS);
         }
 
         @Test
         @DisplayName("name or bio alone is NON_CRITICAL")
         void nameOrBioIsNonCritical() {
-            then(ProfileChangeSet.empty().add("name").classify()).isEqualTo(ChangeType.NON_CRITICAL);
-            then(ProfileChangeSet.empty().add("bio").classify()).isEqualTo(ChangeType.NON_CRITICAL);
+            then(ProfileChangeSet.empty().add("name").classify()).isEqualTo(ProfileChangeType.NON_CRITICAL);
+            then(ProfileChangeSet.empty().add("bio").classify()).isEqualTo(ProfileChangeType.NON_CRITICAL);
         }
     }
 

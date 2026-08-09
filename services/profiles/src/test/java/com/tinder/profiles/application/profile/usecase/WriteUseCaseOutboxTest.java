@@ -1,17 +1,16 @@
 package com.tinder.profiles.application.profile.usecase;
 
-import com.tinder.contracts.dto.Hobby;
 import com.tinder.profiles.application.profile.command.CreateProfileCommand;
 import com.tinder.profiles.application.profile.command.DeleteProfileCommand;
+import com.tinder.profiles.application.profile.support.ProfileEditService;
 import com.tinder.profiles.application.profile.port.out.DomainEventPublisherPort;
 import com.tinder.profiles.application.profile.port.out.ProfileCachePort;
 import com.tinder.profiles.application.profile.port.out.ProfileRepositoryPort;
 import com.tinder.profiles.application.profile.port.out.ResolvedLocation;
 import com.tinder.profiles.application.profile.port.out.LocationPort;
 import com.tinder.profiles.domain.profile.GeoPoint;
-import com.tinder.profiles.domain.profile.MatchingPreferences;
+import com.tinder.profiles.application.profile.model.PreferencesData;
 import com.tinder.profiles.domain.profile.Profile;
-import com.tinder.profiles.domain.profile.ProfileDomainService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -45,14 +44,14 @@ class WriteUseCaseOutboxTest {
 
     @BeforeEach
     void setUp() {
-        createService = new CreateProfileService(profiles, locations, events, cache, new ProfileDomainService());
+        createService = new CreateProfileService(profiles, locations, events, cache, new ProfileEditService(input -> input));
         deleteService = new DeleteProfileService(profiles, cache, events);
     }
 
     private CreateProfileCommand createCommand() {
         return new CreateProfileCommand("user-1", "Alice", 29, "female", "bio", "Berlin",
-                new MatchingPreferences(24, 40, "male", 30),
-                List.of(Hobby.HIKING, Hobby.PHOTOGRAPHY, Hobby.GAMING), null, null);
+                new PreferencesData(24, 40, "male", 30),
+                List.of("HIKING", "PHOTOGRAPHY", "GAMING"), null, null);
     }
 
     @Test
@@ -84,7 +83,7 @@ class WriteUseCaseOutboxTest {
                 .when(events).publishCreated(any(), any());
 
         CreateProfileCommand cmd = new CreateProfileCommand("user-2", "Alice", 29, "female", "bio", "Berlin",
-                new MatchingPreferences(24, 40, "male", 30), List.of(Hobby.HIKING), null, null);
+                new PreferencesData(24, 40, "male", 30), List.of("HIKING"), null, null);
 
         assertThatThrownBy(() -> createService.handle(cmd))
                 .isInstanceOf(IllegalStateException.class)

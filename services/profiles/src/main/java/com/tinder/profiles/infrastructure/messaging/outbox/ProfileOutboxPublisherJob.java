@@ -5,9 +5,9 @@ import com.tinder.profiles.infrastructure.messaging.outbox.model.OutboxPublishRe
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Scheduled;
-import org.springframework.stereotype.Service;
+import org.springframework.stereotype.Component;
 
-@Service
+@Component
 @RequiredArgsConstructor
 @Slf4j
 public class ProfileOutboxPublisherJob {
@@ -17,12 +17,12 @@ public class ProfileOutboxPublisherJob {
 
     @Scheduled(fixedDelayString = "${outbox.publisher.poll-interval-ms:1000}")
     public void publishPendingOutboxEvents() {
-        if (!properties.isEnabled()) {
+        if (!properties.enabled()) {
             return;
         }
 
-        int maxBatches = Math.max(1, properties.getMaxBatchesPerRun());
-        int batchSize = Math.max(1, properties.getBatchSize());
+        int maxBatches = Math.max(1, properties.maxBatchesPerRun());
+        int batchSize = Math.max(1, properties.batchSize());
 
         int totalClaimed = 0;
         int totalPublished = 0;

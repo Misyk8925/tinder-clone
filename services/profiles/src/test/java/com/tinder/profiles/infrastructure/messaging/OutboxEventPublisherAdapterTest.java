@@ -5,6 +5,7 @@ import com.tinder.contracts.event.v1.ProfileCreatedEvent;
 import com.tinder.contracts.event.v1.ProfileDeletedEvent;
 import com.tinder.contracts.event.v1.ProfileUpdatedEvent;
 import com.tinder.profiles.infrastructure.messaging.outbox.ProfileOutboxService;
+import com.tinder.profiles.domain.profile.ProfileChangeType;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -55,7 +56,7 @@ class OutboxEventPublisherAdapterTest {
         UUID profileId = UUID.randomUUID();
         Set<String> changed = Set.of("age", "gender");
 
-        adapter.publishUpdated(profileId, ChangeType.CRITICAL_FIELDS, changed);
+        adapter.publishUpdated(profileId, ProfileChangeType.CRITICAL_FIELDS, changed);
 
         ArgumentCaptor<ProfileUpdatedEvent> captor = ArgumentCaptor.forClass(ProfileUpdatedEvent.class);
         verify(outboxService).enqueueProfileUpdated(captor.capture());

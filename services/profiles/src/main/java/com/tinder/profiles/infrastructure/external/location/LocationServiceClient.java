@@ -10,7 +10,7 @@ import org.locationtech.jts.geom.GeometryFactory;
 import org.locationtech.jts.geom.Point;
 import org.locationtech.jts.geom.PrecisionModel;
 import org.springframework.beans.factory.annotation.Qualifier;
-import org.springframework.stereotype.Service;
+import org.springframework.stereotype.Component;
 import org.springframework.web.reactive.function.client.WebClient;
 
 import java.time.Duration;
@@ -22,7 +22,7 @@ import java.util.Map;
  * Falls back to the local {@link LocationService} when the remote service is
  * unavailable (timeout, 5xx, circuit open).
  */
-@Service
+@Component
 @Slf4j
 public class LocationServiceClient {
 

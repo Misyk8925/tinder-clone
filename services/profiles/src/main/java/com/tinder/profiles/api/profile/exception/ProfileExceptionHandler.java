@@ -1,8 +1,13 @@
 package com.tinder.profiles.api.profile.exception;
 import com.tinder.profiles.application.profile.exception.ProfileException;
+import com.tinder.profiles.application.profile.exception.LocationResolutionException;
+import com.tinder.profiles.application.profile.exception.PatchOperationException;
+import com.tinder.profiles.application.profile.exception.ProfileAlreadyExistsException;
+import com.tinder.profiles.application.profile.exception.ProfileNotFoundException;
+import com.tinder.profiles.application.profile.exception.ProfileOperationException;
+import com.tinder.profiles.application.profile.exception.ProfileValidationException;
 
 import com.tinder.profiles.api.profile.dto.errors.ErrorSummary;
-import com.tinder.profiles.domain.profile.DomainValidationException;
 import lombok.extern.slf4j.Slf4j;
 import org.slf4j.MDC;
 import org.springframework.http.HttpStatus;
@@ -38,21 +43,24 @@ public class ProfileExceptionHandler {
                 .build();
 
         return ResponseEntity
-                .status(ex.getStatus())
+                .status(statusFor(ex))
                 .body(errorSummary);
     }
 
-    /**
-     * Domain invariant violations (e.g. minAge &gt; maxAge from the
-     * {@code MatchingPreferences} value object) surface as 400 Bad Request,
-     * preserving the behaviour of the former {@code ProfileValidationException} path.
-     */
-    @ExceptionHandler(DomainValidationException.class)
-    public ResponseEntity<ErrorSummary> handleDomainValidation(
-            DomainValidationException ex) {
-        log.warn("Domain validation failed: {}", ex.getMessage());
-        return ResponseEntity.badRequest()
-                .body(ErrorSummary.builder().code("VALIDATION_ERROR").message(ex.getMessage()).build());
+    private HttpStatus statusFor(ProfileException ex) {
+        if (ex instanceof ProfileNotFoundException) {
+            return HttpStatus.NOT_FOUND;
+        }
+        if (ex instanceof ProfileAlreadyExistsException || ex instanceof ProfileOperationException) {
+            return HttpStatus.CONFLICT;
+        }
+        if (ex instanceof LocationResolutionException) {
+            return HttpStatus.SERVICE_UNAVAILABLE;
+        }
+        if (ex instanceof PatchOperationException || ex instanceof ProfileValidationException) {
+            return HttpStatus.BAD_REQUEST;
+        }
+        return HttpStatus.INTERNAL_SERVER_ERROR;
     }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)

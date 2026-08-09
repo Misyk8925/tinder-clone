@@ -1,13 +1,14 @@
 package com.tinder.profiles.application.profile.command;
 
-import com.tinder.contracts.dto.Hobby;
-import com.tinder.profiles.domain.profile.MatchingPreferences;
+import com.tinder.profiles.application.profile.model.PreferencesData;
 
 import java.util.List;
 
 /**
  * Application-layer intent to create a profile. Built by the API mapper from the
- * inbound DTO after sanitization; carries domain value objects, not transport types.
+ * inbound DTO; carries application types, not transport or domain ones. The text
+ * it carries is still raw — sanitizing happens in
+ * {@code ProfileEditService#toEdit}, downstream of every write command.
  */
 public record CreateProfileCommand(
         String userId,
@@ -16,9 +17,9 @@ public record CreateProfileCommand(
         String gender,
         String bio,
         String city,
-        MatchingPreferences preferences,
-        List<Hobby> hobbies,
+        PreferencesData preferences,
+        List<String> hobbies,
         Double latitude,
         Double longitude
-) {
+) implements ProfileEditCommand {
 }

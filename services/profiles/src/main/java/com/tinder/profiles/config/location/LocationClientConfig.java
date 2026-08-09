@@ -1,6 +1,6 @@
 package com.tinder.profiles.config.location;
 
-import org.springframework.beans.factory.annotation.Value;
+import com.tinder.profiles.config.props.LocationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.web.reactive.function.client.WebClient;
@@ -9,9 +9,9 @@ import org.springframework.web.reactive.function.client.WebClient;
 public class LocationClientConfig {
 
     @Bean("locationWebClient")
-    WebClient locationWebClient(@Value("${location.service.url:http://localhost:8065}") String baseUrl) {
+    WebClient locationWebClient(LocationProperties properties) {
         return WebClient.builder()
-                .baseUrl(baseUrl)
+                .baseUrl(properties.service().url())
                 .build();
     }
 }

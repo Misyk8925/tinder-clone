@@ -20,16 +20,16 @@ public class S3BucketConfiguration {
     @Bean
     public S3Client s3Client() {
         AwsBasicCredentials awsCredentials = AwsBasicCredentials.create(
-                awsProperties.getCredentials().getAccessKey(),
-                awsProperties.getCredentials().getSecretKey()
+                awsProperties.credentials().accessKey(),
+                awsProperties.credentials().secretKey()
         );
 
         var builder = S3Client.builder()
-                .region(Region.of(awsProperties.getRegion()))
+                .region(Region.of(awsProperties.region()))
                 .credentialsProvider(StaticCredentialsProvider.create(awsCredentials));
 
         // For LocalStack testing
-        String s3Endpoint = awsProperties.getS3().getEndpoint();
+        String s3Endpoint = awsProperties.s3().endpoint();
         if (s3Endpoint != null && !s3Endpoint.isEmpty()) {
             builder.endpointOverride(java.net.URI.create(s3Endpoint))
                    .forcePathStyle(true);
@@ -41,16 +41,16 @@ public class S3BucketConfiguration {
     @Bean
     public S3Presigner s3Presigner() {
         AwsBasicCredentials awsCredentials = AwsBasicCredentials.create(
-                awsProperties.getCredentials().getAccessKey(),
-                awsProperties.getCredentials().getSecretKey()
+                awsProperties.credentials().accessKey(),
+                awsProperties.credentials().secretKey()
         );
 
         var builder = S3Presigner.builder()
-                .region(Region.of(awsProperties.getRegion()))
+                .region(Region.of(awsProperties.region()))
                 .credentialsProvider(StaticCredentialsProvider.create(awsCredentials));
 
         // For LocalStack testing
-        String s3Endpoint = awsProperties.getS3().getEndpoint();
+        String s3Endpoint = awsProperties.s3().endpoint();
         if (s3Endpoint != null && !s3Endpoint.isEmpty()) {
             builder.endpointOverride(java.net.URI.create(s3Endpoint));
         }

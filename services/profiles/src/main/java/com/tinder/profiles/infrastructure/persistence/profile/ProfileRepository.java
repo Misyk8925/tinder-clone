@@ -123,4 +123,19 @@ public interface ProfileRepository extends JpaRepository<ProfileJpaEntity, UUID>
         @Param("gender") String gender,
         @Param("limit") int limit
     );
+
+    /**
+     * Batch-loads hobbies for several profiles as {@code (profile_id, hobby)} rows.
+     * The two projections above are flat, so they cannot carry the
+     * {@code profile_hobbies} element collection; callers stitch it back in via
+     * {@code SharedProfileRowMapper.hobbiesByProfileId}.
+     */
+    @Query(value = """
+        SELECT
+            ph.profile_id,
+            ph.hobby
+        FROM profile_hobbies ph
+        WHERE ph.profile_id IN (:ids)
+        """, nativeQuery = true)
+    List<Object[]> findHobbyRowsByProfileIds(@Param("ids") Collection<UUID> ids);
 }

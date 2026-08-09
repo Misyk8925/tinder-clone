@@ -8,7 +8,7 @@ import io.github.resilience4j.circuitbreaker.CircuitBreaker;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.kafka.core.KafkaTemplate;
-import org.springframework.stereotype.Service;
+import org.springframework.stereotype.Component;
 
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.ExecutionException;
@@ -21,7 +21,7 @@ import java.util.function.Supplier;
  * Uses circuit breaker for resource protection and throws on failure so outbox can retry.
  */
 @Slf4j
-@Service
+@Component
 public class ResilientProfileEventProducer {
 
     private final KafkaTemplate<String, ProfileUpdatedEvent> profileUpdatedEventKafkaTemplate;
@@ -41,7 +41,7 @@ public class ResilientProfileEventProducer {
         this.profileDeleteEventKafkaTemplate = profileDeleteEventKafkaTemplate;
         this.profileCreateEventKafkaTemplate = profileCreateEventKafkaTemplate;
         this.circuitBreaker = circuitBreaker;
-        this.sendTimeoutMs = outboxPublisherProperties.getSendTimeoutMs();
+        this.sendTimeoutMs = outboxPublisherProperties.sendTimeoutMs();
     }
 
     public void sendProfileUpdateEvent(ProfileUpdatedEvent event, String key, String topic) {

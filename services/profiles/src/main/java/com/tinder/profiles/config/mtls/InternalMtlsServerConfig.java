@@ -1,10 +1,11 @@
 package com.tinder.profiles.config.mtls;
 
+import com.tinder.profiles.config.props.InternalServerProperties;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.catalina.connector.Connector;
 import org.apache.tomcat.util.net.SSLHostConfig;
 import org.apache.tomcat.util.net.SSLHostConfigCertificate;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.web.embedded.tomcat.TomcatServletWebServerFactory;
 import org.springframework.boot.web.server.WebServerFactoryCustomizer;
 import org.springframework.context.annotation.Bean;
@@ -25,46 +26,21 @@ import java.nio.file.StandardCopyOption;
  */
 @Slf4j
 @Configuration
+@RequiredArgsConstructor
 public class InternalMtlsServerConfig {
 
-    @Value("${internal.server.port:8011}")
-    private int internalPort;
-
-    @Value("${internal.server.ssl.enabled:true}")
-    private boolean sslEnabled;
-
-    @Value("${internal.server.ssl.key-store:classpath:profiles-service.p12}")
-    private String keyStore;
-
-    @Value("${internal.server.ssl.key-store-password:changeit}")
-    private String keyStorePassword;
-
-    @Value("${internal.server.ssl.key-store-type:PKCS12}")
-    private String keyStoreType;
-
-    @Value("${internal.server.ssl.trust-store:classpath:truststore.jks}")
-    private String trustStore;
-
-    @Value("${internal.server.ssl.trust-store-password:changeit}")
-    private String trustStorePassword;
-
-    @Value("${internal.server.ssl.trust-store-type:JKS}")
-    private String trustStoreType;
-
-    // "need" = require client cert; "want" = optional; "none" = disabled
-    @Value("${internal.server.ssl.client-auth:need}")
-    private String clientAuth;
+    private final InternalServerProperties properties;
 
     @Bean
     public WebServerFactoryCustomizer<TomcatServletWebServerFactory> internalMtlsConnector() {
         return factory -> {
-            if (!sslEnabled) {
+            if (!properties.ssl().enabled()) {
                 log.warn("Internal mTLS connector is DISABLED — /internal endpoints are unprotected");
                 return;
             }
             try {
                 factory.addAdditionalTomcatConnectors(buildMtlsConnector());
-                log.info("Internal mTLS connector started on port {}", internalPort);
+                log.info("Internal mTLS connector started on port {}", properties.port());
             } catch (Exception e) {
                 throw new IllegalStateException("Failed to configure internal mTLS connector", e);
             }
@@ -72,28 +48,30 @@ public class InternalMtlsServerConfig {
     }
 
     private Connector buildMtlsConnector() throws Exception {
+        InternalServerProperties.Ssl ssl = properties.ssl();
+
         Connector connector = new Connector("org.apache.coyote.http11.Http11NioProtocol");
         connector.setScheme("https");
         connector.setSecure(true);
-        connector.setPort(internalPort);
+        connector.setPort(properties.port());
 
         // Build SSLHostConfig (Spring Boot 3 / Tomcat 10+ API)
         SSLHostConfig sslHostConfig = new SSLHostConfig();
 
         // Client auth: "required" maps to clientAuth=need
-        sslHostConfig.setCertificateVerification(mapClientAuth(clientAuth));
+        sslHostConfig.setCertificateVerification(mapClientAuth(ssl.clientAuth()));
 
         // Truststore — used to validate client certificate
-        sslHostConfig.setTruststoreFile(resolveToFilePath(trustStore, "ts"));
-        sslHostConfig.setTruststorePassword(trustStorePassword);
-        sslHostConfig.setTruststoreType(trustStoreType);
+        sslHostConfig.setTruststoreFile(resolveToFilePath(ssl.trustStore(), "ts"));
+        sslHostConfig.setTruststorePassword(ssl.trustStorePassword());
+        sslHostConfig.setTruststoreType(ssl.trustStoreType());
 
         // Certificate (server identity)
         SSLHostConfigCertificate cert = new SSLHostConfigCertificate(
                 sslHostConfig, SSLHostConfigCertificate.Type.RSA);
-        cert.setCertificateKeystoreFile(resolveToFilePath(keyStore, "ks"));
-        cert.setCertificateKeystorePassword(keyStorePassword);
-        cert.setCertificateKeystoreType(keyStoreType);
+        cert.setCertificateKeystoreFile(resolveToFilePath(ssl.keyStore(), "ks"));
+        cert.setCertificateKeystorePassword(ssl.keyStorePassword());
+        cert.setCertificateKeystoreType(ssl.keyStoreType());
 
         sslHostConfig.addCertificate(cert);
         connector.addSslHostConfig(sslHostConfig);

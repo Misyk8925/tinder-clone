@@ -9,10 +9,9 @@ import com.tinder.profiles.infrastructure.persistence.preferences.Preferences;
 import com.tinder.profiles.infrastructure.persistence.preferences.PreferencesService;
 import com.tinder.profiles.infrastructure.persistence.profile.ProfileRepository;
 import lombok.RequiredArgsConstructor;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Component;
 
+import java.time.LocalDateTime;
 import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
@@ -39,33 +38,27 @@ public class JpaProfileRepositoryAdapter implements ProfileRepositoryPort {
     private final PreferencesService preferencesService;
 
     @Override
-    public Optional<Profile> findById(UUID id) {
-        return profileRepository.findById(id).map(mapper::toDomain);
-    }
-
-    @Override
     public Optional<Profile> findByUserId(String userId) {
         return Optional.ofNullable(profileRepository.findByUserId(userId)).map(mapper::toDomain);
     }
 
     @Override
-    public Optional<Profile> findByName(String name) {
-        return Optional.ofNullable(profileRepository.findByName(name)).map(mapper::toDomain);
-    }
-
-    @Override
-    public Optional<UUID> findActiveProfileIdByUserId(String userId) {
-        return Optional.ofNullable(profileRepository.findActiveProfileIdByUserId(userId));
-    }
-
-    @Override
-    public Page<Profile> findAll(Pageable pageable) {
-        return profileRepository.findAll(pageable).map(mapper::toDomain);
-    }
-
-    @Override
     public List<Profile> findAllById(Collection<UUID> ids) {
         return profileRepository.findAllById(ids).stream().map(mapper::toDomain).toList();
+    }
+
+    @Override
+    public List<Profile> findExpiredPremium(LocalDateTime asOf) {
+        return profileRepository.findAllByIsPremiumTrueAndPremiumExpiresAtBefore(asOf).stream()
+                .map(mapper::toDomain)
+                .toList();
+    }
+
+    @Override
+    public List<UUID> findSoftDeletedBefore(LocalDateTime cutoff) {
+        return profileRepository.findAllByIsDeletedTrueAndDeletedAtBefore(cutoff).stream()
+                .map(ProfileJpaEntity::getProfileId)
+                .toList();
     }
 
     @Override

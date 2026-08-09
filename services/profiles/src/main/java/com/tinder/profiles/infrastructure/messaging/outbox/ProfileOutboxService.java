@@ -8,13 +8,13 @@ import com.tinder.contracts.event.v1.ProfileUpdatedEvent;
 import com.tinder.profiles.infrastructure.messaging.outbox.model.ProfileEventOutbox;
 import com.tinder.profiles.infrastructure.messaging.outbox.model.ProfileOutboxEventType;
 import lombok.RequiredArgsConstructor;
-import org.springframework.stereotype.Service;
+import org.springframework.stereotype.Component;
 
 import java.time.Instant;
 import java.util.Objects;
 import java.util.UUID;
 
-@Service
+@Component
 @RequiredArgsConstructor
 public class ProfileOutboxService {
 

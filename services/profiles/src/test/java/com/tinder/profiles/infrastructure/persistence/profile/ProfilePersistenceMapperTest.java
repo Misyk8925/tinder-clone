@@ -1,7 +1,7 @@
 package com.tinder.profiles.infrastructure.persistence.profile;
 
-import com.tinder.contracts.dto.Hobby;
 import com.tinder.profiles.domain.profile.GeoPoint;
+import com.tinder.profiles.domain.profile.Hobby;
 import com.tinder.profiles.domain.profile.MatchingPreferences;
 import com.tinder.profiles.domain.profile.Profile;
 import com.tinder.profiles.infrastructure.persistence.location.Location;
@@ -62,7 +62,7 @@ class ProfilePersistenceMapperTest {
                     .premiumExpiresAt(created.plusMonths(1))
                     .isDeleted(false)
                     .preferences(preferences())
-                    .hobbies(List.of(Hobby.HIKING))
+                    .hobbies(List.of(com.tinder.contracts.dto.Hobby.HIKING))
                     .createdAt(created)
                     .build();
 
@@ -150,7 +150,7 @@ class ProfilePersistenceMapperTest {
             then(entity.getPreferences()).isSameAs(prefs);
             then(entity.isActive()).isTrue();
             then(entity.isPremium()).isFalse();
-            then(entity.getHobbies()).containsExactly(Hobby.COOKING);
+            then(entity.getHobbies()).containsExactly(com.tinder.contracts.dto.Hobby.COOKING);
         }
     }
 }

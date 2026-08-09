@@ -46,8 +46,6 @@ public class UserContextMdcFilter extends OncePerRequestFilter {
     private static final String MDC_HTTP_URL       = "httpUrl";
     private static final String MDC_HTTP_QUERY     = "httpQuery";
     private static final String MDC_HTTP_STATUS    = "httpStatus";
-    private static final String DECK_PATH = "/api/v1/profiles/deck";
-    private static final long HOT_PATH_SLOW_LOG_THRESHOLD_MS = 1_000;
 
     @Override
     protected void doFilterInternal(HttpServletRequest request,
@@ -91,27 +89,15 @@ public class UserContextMdcFilter extends OncePerRequestFilter {
             }
 
             // Single structured access-log line — easy to filter in Kibana.
-            // Keep the high-volume deck endpoint off INFO unless it is slow or failed.
             long durationMs = (System.nanoTime() - startNanos) / 1_000_000;
-            if (shouldLogAtInfo(uri, status, durationMs)) {
-                log.info("{} {} {} {} {}ms traceId={} correlationId={}",
-                        method,
-                        uri,
-                        query.isEmpty() ? "" : "?" + query,
-                        status,
-                        durationMs,
-                        traceId,
-                        MDC.get(MDC_CORRELATION_ID));
-            } else {
-                log.debug("{} {} {} {} {}ms traceId={} correlationId={}",
-                        method,
-                        uri,
-                        query.isEmpty() ? "" : "?" + query,
-                        status,
-                        durationMs,
-                        traceId,
-                        MDC.get(MDC_CORRELATION_ID));
-            }
+            log.info("{} {} {} {} {}ms traceId={} correlationId={}",
+                    method,
+                    uri,
+                    query.isEmpty() ? "" : "?" + query,
+                    status,
+                    durationMs,
+                    traceId,
+                    MDC.get(MDC_CORRELATION_ID));
 
         } finally {
             // Always clean up to prevent MDC leaking into thread-pool neighbours
@@ -139,12 +125,5 @@ public class UserContextMdcFilter extends OncePerRequestFilter {
             // Never fail the request just because we couldn't read the userId
         }
         return null;
-    }
-
-    private boolean shouldLogAtInfo(String uri, int status, long durationMs) {
-        if (status >= 400) {
-            return true;
-        }
-        return !DECK_PATH.equals(uri) || durationMs >= HOT_PATH_SLOW_LOG_THRESHOLD_MS;
     }
 }

@@ -1,8 +1,6 @@
 package com.tinder.profiles.api.profile.dto.profileData;
 
 import com.tinder.contracts.dto.Hobby;
-import com.tinder.contracts.dto.SharedPreferencesDto;
-import com.tinder.profiles.infrastructure.persistence.photos.Photo;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -21,7 +19,7 @@ public record GetProfileDto(
         String city,
         boolean isActive,
         LocalDateTime createdAt,
-        SharedPreferencesDto preferences,
-        List<Photo> photos,
+        PreferencesDto preferences,
+        List<PhotoDto> photos,
         List<Hobby> hobbies) {
 }

@@ -57,7 +57,7 @@ end
 for page = 0, deck_pages - 1 do
   local offset = page * deck_limit
   table.insert(requests, {
-    path = "/api/v1/profiles/deck?offset=" .. offset .. "&limit=" .. deck_limit,
+    path = "/api/v1/deck?offset=" .. offset .. "&limit=" .. deck_limit,
     kind = "deck"
   })
 end

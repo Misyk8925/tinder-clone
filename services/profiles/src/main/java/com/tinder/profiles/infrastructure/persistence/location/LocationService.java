@@ -7,7 +7,7 @@ import org.locationtech.jts.geom.Point;
 import org.locationtech.jts.geom.Coordinate;
 import org.locationtech.jts.geom.PrecisionModel;
 import org.springframework.dao.DataIntegrityViolationException;
-import org.springframework.stereotype.Service;
+import org.springframework.stereotype.Component;
 
 /**
  * Local persistence helper for the profiles-owned {@code location} table.
@@ -21,7 +21,7 @@ import org.springframework.stereotype.Service;
  * invented.
  */
 @Slf4j
-@Service
+@Component
 @RequiredArgsConstructor
 public class LocationService {
 

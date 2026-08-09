@@ -2,7 +2,6 @@ package com.tinder.profiles.api.profile.dto.profileData;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.tinder.contracts.dto.Hobby;
-import com.tinder.profiles.infrastructure.persistence.preferences.PreferencesDto;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.*;
 
@@ -55,4 +54,3 @@ public record CreateProfileDtoV1(
         @DecimalMax(value = "180.0", message = "longitude must be between -180 and 180")
         Double longitude) {
 }
-

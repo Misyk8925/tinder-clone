@@ -187,14 +187,4 @@ class JpaProfileRepositoryAdapterTest {
         then(result.get().getPosition()).isEqualTo(new GeoPoint(48.2, 16.37));
     }
 
-    @Test
-    @DisplayName("findActiveProfileIdByUserId wraps the nullable repository result")
-    void findActiveProfileId() {
-        UUID id = UUID.randomUUID();
-        given(profileRepository.findActiveProfileIdByUserId("user-1")).willReturn(id);
-        then(adapter.findActiveProfileIdByUserId("user-1")).contains(id);
-
-        given(profileRepository.findActiveProfileIdByUserId("none")).willReturn(null);
-        then(adapter.findActiveProfileIdByUserId("none")).isEmpty();
-    }
 }

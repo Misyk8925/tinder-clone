@@ -2,15 +2,14 @@ package com.tinder.profiles.application.profile.usecase;
 
 import com.tinder.profiles.application.profile.command.CreateProfileCommand;
 import com.tinder.profiles.application.profile.exception.ProfileAlreadyExistsException;
+import com.tinder.profiles.application.profile.model.ProfileEdit;
 import com.tinder.profiles.application.profile.port.out.DomainEventPublisherPort;
+import com.tinder.profiles.application.profile.port.out.LocationPort;
 import com.tinder.profiles.application.profile.port.out.ProfileCachePort;
 import com.tinder.profiles.application.profile.port.out.ProfileRepositoryPort;
 import com.tinder.profiles.application.profile.port.out.ResolvedLocation;
-import com.tinder.profiles.application.profile.port.out.LocationPort;
-import com.tinder.profiles.domain.profile.GeoPoint;
+import com.tinder.profiles.application.profile.support.ProfileEditService;
 import com.tinder.profiles.domain.profile.Profile;
-import com.tinder.profiles.domain.profile.ProfileDomainService;
-import com.tinder.profiles.domain.profile.ProfileEdit;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -27,7 +26,7 @@ public class CreateProfileService {
     private final LocationPort location;
     private final DomainEventPublisherPort events;
     private final ProfileCachePort cache;
-    private final ProfileDomainService domainService;
+    private final ProfileEditService editService;
 
     @Transactional
     public UUID handle(CreateProfileCommand cmd) {
@@ -37,27 +36,25 @@ public class CreateProfileService {
 
         // Business rule: a profile must be locatable (city or coordinates), checked
         // against the originally-provided city before we default it.
-        GeoPoint requested = GeoPoint.of(cmd.latitude(), cmd.longitude()).orElse(null);
-        domainService.requireLocationProvided(new ProfileEdit(
-                cmd.name(), cmd.age(), cmd.gender(), cmd.bio(), cmd.city(),
-                requested, cmd.preferences(), cmd.hobbies()));
+        ProfileEdit edit = editService.toEdit(cmd);
+        editService.requireLocationProvided(edit);
 
-        String city = (cmd.city() != null && !cmd.city().isBlank()) ? cmd.city() : "Unknown";
+        String city = edit.hasCity() ? edit.city() : "Unknown";
         ResolvedLocation resolved = location.resolve(cmd.latitude(), cmd.longitude(), city);
 
         Profile profile = Profile.builder()
                 .userId(cmd.userId())
-                .name(cmd.name())
-                .age(cmd.age())
-                .gender(cmd.gender())
-                .bio(cmd.bio())
+                .name(edit.name())
+                .age(edit.age())
+                .gender(edit.gender())
+                .bio(edit.bio())
                 .city(resolved.city())
                 .position(resolved.position())
                 .active(true)
                 .premium(false)
                 .deleted(false)
-                .preferences(cmd.preferences())
-                .hobbies(cmd.hobbies())
+                .preferences(edit.preferences())
+                .hobbies(edit.hobbies())
                 .build();
 
         Profile saved = profiles.save(profile);

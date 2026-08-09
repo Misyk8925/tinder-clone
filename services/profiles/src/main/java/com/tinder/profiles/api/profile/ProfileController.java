@@ -1,5 +1,6 @@
 package com.tinder.profiles.api.profile;
-import com.tinder.profiles.infrastructure.persistence.profile.ProfileQueryService;
+import com.tinder.profiles.application.profile.port.in.ProfileQuery;
+import com.tinder.profiles.application.profile.port.in.InternalProfileQuery;
 import com.tinder.profiles.application.profile.command.DeleteProfileCommand;
 import com.tinder.profiles.application.profile.command.DeleteProfilesCommand;
 import com.tinder.profiles.application.profile.usecase.CreateProfileService;
@@ -14,7 +15,6 @@ import com.tinder.profiles.api.profile.dto.success.ApiResponse;
 import com.tinder.profiles.api.profile.dto.profileData.CreateProfileDtoV1;
 import com.tinder.profiles.api.profile.dto.profileData.PatchProfileDto;
 import com.tinder.contracts.dto.SharedProfileDto;
-import com.tinder.profiles.infrastructure.persistence.profile.internal.InternalProfileService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -33,21 +33,23 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class ProfileController {
 
-    private final ProfileQueryService applicationService;
+    private final ProfileQuery profileQuery;
     private final CreateProfileService createProfileUseCase;
     private final UpdateProfileService updateProfileUseCase;
     private final PatchProfileService patchProfileUseCase;
     private final DeleteProfileService deleteProfileUseCase;
     private final DeleteProfilesService deleteProfilesUseCase;
     private final ProfileApiMapper apiMapper;
-    private final InternalProfileService internalProfileService;
+    private final InternalProfileQuery internalProfileQuery;
     private final IdsQueryParamParser idsQueryParamParser;
 
     @GetMapping("/by-ids")
     public ResponseEntity<List<SharedProfileDto>> getManyByIds(@RequestParam String ids) {
         try {
             List<UUID> uuidList = idsQueryParamParser.parse(ids);
-            return ResponseEntity.ok(internalProfileService.getMany(uuidList));
+            return ResponseEntity.ok(internalProfileQuery.getMany(uuidList).stream()
+                    .map(apiMapper::toSharedProfileDto)
+                    .toList());
         } catch (IllegalArgumentException e) {
             return ResponseEntity.badRequest().build();
         }
@@ -56,13 +58,13 @@ public class ProfileController {
     @GetMapping("/{id}")
     public ResponseEntity<GetProfileDto> getOne(@PathVariable UUID id) {
         log.info("getOne called with id: {}", id);
-        return ResponseEntity.ok(applicationService.getOne(id));
+        return ResponseEntity.ok(apiMapper.toGetProfileDto(profileQuery.getOne(id)));
     }
 
     @GetMapping("/me")
     public ResponseEntity<GetProfileDto> getMe(@AuthenticationPrincipal Jwt jwt) {
         log.debug("getMe called for userId: {}", jwt.getSubject());
-        GetProfileDto profileDto = applicationService.getMyProfile(jwt.getSubject());
+        GetProfileDto profileDto = apiMapper.toGetProfileDto(profileQuery.getMyProfile(jwt.getSubject()));
         if (profileDto == null) {
             return ResponseEntity.notFound().build();
         }
@@ -91,7 +93,7 @@ public class ProfileController {
     public ResponseEntity<GetProfileDto> patch(@AuthenticationPrincipal Jwt jwt,
                                                @RequestBody @Valid PatchProfileDto patchDto) {
         UUID profileId = patchProfileUseCase.handle(apiMapper.toPatchCommand(patchDto, jwt.getSubject()));
-        return ResponseEntity.ok(applicationService.getOne(profileId));
+        return ResponseEntity.ok(apiMapper.toGetProfileDto(profileQuery.getOne(profileId)));
     }
 
 

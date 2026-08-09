@@ -1,11 +1,11 @@
 package com.tinder.profiles.infrastructure.external.keycloak;
 
+import com.tinder.profiles.config.props.KeycloakProperties;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Qualifier;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.MediaType;
-import org.springframework.stereotype.Service;
+import org.springframework.stereotype.Component;
 import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.util.MultiValueMap;
 import org.springframework.web.reactive.function.BodyInserters;
@@ -19,7 +19,7 @@ import java.util.List;
 import java.util.Map;
 
 @Slf4j
-@Service
+@Component
 public class UserService {
 
     @Getter
@@ -32,14 +32,12 @@ public class UserService {
 
     public UserService(
             @Qualifier("selfHostedKeycloakWebClient") WebClient keycloakWebClient,
-            @Value("${keycloak.realm}") String realm,
-            @Value("${keycloak.admin-username}") String adminUsername,
-            @Value("${keycloak.admin-password}") String adminPassword
+            KeycloakProperties properties
     ) {
         this.keycloakWebClient = keycloakWebClient;
-        this.realm = realm;
-        this.adminUsername = adminUsername;
-        this.adminPassword = adminPassword;
+        this.realm = properties.realm();
+        this.adminUsername = properties.adminUsername();
+        this.adminPassword = properties.adminPassword();
     }
 
     private static final String[] FIRST_NAME_POOL = {

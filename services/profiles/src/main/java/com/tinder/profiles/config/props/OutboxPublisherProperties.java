@@ -1,32 +1,30 @@
 package com.tinder.profiles.config.props;
 
-import lombok.Data;
 import org.springframework.boot.context.properties.ConfigurationProperties;
+import org.springframework.boot.context.properties.bind.DefaultValue;
 
-/**
- * Configuration for outbox background publisher.
- */
-@Data
+/** Settings for the background outbox publisher ({@code outbox.publisher.*}). */
 @ConfigurationProperties(prefix = "outbox.publisher")
-public class OutboxPublisherProperties {
+public record OutboxPublisherProperties(
 
-    private boolean enabled = true;
+        @DefaultValue("true") boolean enabled,
 
-    private int batchSize = 50;
+        @DefaultValue("50") int batchSize,
 
-    private int maxBatchesPerRun = 5;
+        @DefaultValue("5") int maxBatchesPerRun,
 
-    private long pollIntervalMs = 1000;
+        @DefaultValue("1000") long pollIntervalMs,
 
-    private long initialBackoffMs = 1000;
+        @DefaultValue("1000") long initialBackoffMs,
 
-    private long maxBackoffMs = 60000;
+        @DefaultValue("60000") long maxBackoffMs,
 
-    private double backoffMultiplier = 2.0;
+        @DefaultValue("2.0") double backoffMultiplier,
 
-    private long sendTimeoutMs = 5000;
+        @DefaultValue("5000") long sendTimeoutMs,
 
-    private int maxErrorLength = 1000;
+        @DefaultValue("1000") int maxErrorLength,
 
-    private int maxRetries = 10;
+        @DefaultValue("10") int maxRetries
+) {
 }

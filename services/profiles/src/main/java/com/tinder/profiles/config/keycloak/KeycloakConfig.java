@@ -1,6 +1,6 @@
 package com.tinder.profiles.config.keycloak;
 
-import org.springframework.beans.factory.annotation.Value;
+import com.tinder.profiles.config.props.KeycloakProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.web.reactive.function.client.WebClient;
@@ -10,15 +10,12 @@ public class KeycloakConfig {
 
     /**
      * WebClient pointing directly at the self-hosted Keycloak instance.
-     * Used by both {@link KeycloakAdminClient} and {@link UserService}
-     * for all Admin REST API calls.
+     * Used by every Keycloak Admin REST API caller in the service.
      */
     @Bean("selfHostedKeycloakWebClient")
-    public WebClient selfHostedKeycloakWebClient(
-            @Value("${keycloak.keycloakUrl}") String keycloakUrl
-    ) {
+    public WebClient selfHostedKeycloakWebClient(KeycloakProperties properties) {
         return WebClient.builder()
-                .baseUrl(keycloakUrl)
+                .baseUrl(properties.keycloakUrl())
                 .build();
     }
 }

@@ -3,13 +3,13 @@ package com.tinder.profiles.infrastructure.persistence.preferences;
 import com.tinder.profiles.domain.profile.MatchingPreferences;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.stereotype.Service;
+import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.concurrent.ConcurrentHashMap;
 
 @RequiredArgsConstructor
-@Service
+@Component
 @Slf4j
 public class PreferencesService {
 
