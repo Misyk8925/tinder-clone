@@ -1,0 +1,26 @@
+asyncapi: 2.6.0
+info:
+  title: <feature-slug> events
+  version: 0.1.0
+  description: Canonical spec. Mirror lives in asyncapi.md — keep both in sync.
+channels:
+  <domain>.<entity>.<verb>.v1:
+    publish:
+      summary: <when this is emitted>
+      message:
+        name: <EventName>
+        payload:
+          type: object
+          required: [eventId, occurredAt, tenantId, data]
+          properties:
+            eventId:
+              type: string
+              format: uuid
+            occurredAt:
+              type: string
+              format: date-time
+            tenantId:
+              type: string
+              format: uuid
+            data:
+              type: object

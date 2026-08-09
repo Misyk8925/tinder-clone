@@ -3,6 +3,10 @@
 .idea
 /rlScript.sh
 .env
+.DS_Store
+target/
+/clients/tinder-client/design-qa-*.png
+/clients/tinder-client/design-qa-*.jpg
 # Allow docker/certs to be committed (self-signed mTLS certs)
 *.p12
 *.jks

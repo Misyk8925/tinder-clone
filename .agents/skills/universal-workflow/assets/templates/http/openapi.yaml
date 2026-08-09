@@ -1,0 +1,65 @@
+openapi: 3.1.0
+info:
+  title: <feature-slug> API
+  version: 0.1.0
+  description: Canonical spec. Serves FR-1, FR-2 (see the feature's Linear project for the concept doc). Mirror lives in openapi.md — keep both in sync.
+servers:
+  - url: https://api.example.com/v1
+paths:
+  /resource:
+    post:
+      summary: <what it does>
+      operationId: createResource
+      security:
+        - bearerAuth: [<scope>]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateResourceRequest'
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Resource'
+        '400':
+          $ref: '#/components/responses/InvalidPayload'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '409':
+          description: CONFLICT
+        '429':
+          $ref: '#/components/responses/RateLimited'
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  schemas:
+    CreateResourceRequest:
+      type: object
+      required: [field]
+      properties:
+        field:
+          type: string
+    Resource:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+  responses:
+    InvalidPayload:
+      description: INVALID_PAYLOAD — schema validation failed
+    Unauthenticated:
+      description: UNAUTHENTICATED — missing/expired token
+    RateLimited:
+      description: RATE_LIMITED — retry after the Retry-After header
+      headers:
+        Retry-After:
+          schema:
+            type: integer
