@@ -35,14 +35,14 @@ import { Photo, Profile } from '../../core/models/profile.model';
 
           <!-- Photo Hero + Manager -->
           <div class="photo-hero">
-            @if (profile()!.photos?.length) {
+            @if (profile()!.photos.length) {
               <img [src]="profile()!.photos[0].url" alt="Profile photo" />
             } @else {
               <div class="photo-placeholder">
-                <span>{{ profile()!.name?.[0] ?? '?' }}</span>
+                <span>{{ profile()!.name.charAt(0) || '?' }}</span>
               </div>
             }
-            <div class="photo-count">{{ profile()!.photos?.length ?? 0 }}/5</div>
+            <div class="photo-count">{{ profile()!.photos.length }}/5</div>
             <div class="photo-hero-actions">
               <button
                 type="button"
@@ -92,7 +92,7 @@ import { Photo, Profile } from '../../core/models/profile.model';
                           <lucide-icon name="trash-2" [size]="14" strokeWidth="2.2" />
                           Remove
                         </button>
-                      } @else if ($index === (profile()!.photos?.length ?? 0)) {
+                      } @else if ($index === profile()!.photos.length) {
                         <button type="button" class="btn-add" [attr.aria-label]="'Add photo ' + ($index + 1)" (click)="triggerUploadAt($index)">
                           <lucide-icon name="plus" [size]="15" strokeWidth="2.4" />
                           Add
@@ -144,20 +144,20 @@ import { Photo, Profile } from '../../core/models/profile.model';
               <div class="pref-grid">
                 <div class="pref-item">
                   <span class="pref-label">Looking for</span>
-                  <span class="pref-value">{{ capitalize(profile()!.preferences?.gender) }}</span>
+                  <span class="pref-value">{{ capitalize(profile()!.preferences.gender) }}</span>
                 </div>
                 <div class="pref-item">
                   <span class="pref-label">Age range</span>
-                  <span class="pref-value">{{ profile()!.preferences?.minAge }}–{{ profile()!.preferences?.maxAge }}</span>
+                  <span class="pref-value">{{ profile()!.preferences.minAge }}–{{ profile()!.preferences.maxAge }}</span>
                 </div>
                 <div class="pref-item">
                   <span class="pref-label">Distance</span>
-                  <span class="pref-value">{{ profile()!.preferences?.maxRange }} km</span>
+                  <span class="pref-value">{{ profile()!.preferences.maxRange }} km</span>
                 </div>
               </div>
             </div>
 
-            @if (profile()!.hobbies?.length) {
+            @if (profile()!.hobbies.length) {
               <div class="section no-margin">
                 <h4>Interests</h4>
                 <div class="hobbies">
