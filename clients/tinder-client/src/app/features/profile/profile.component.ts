@@ -1,6 +1,7 @@
 import { Component, ElementRef, inject, OnInit, signal, ViewChild } from '@angular/core';
 import { Router } from '@angular/router';
 import { HttpErrorResponse } from '@angular/common/http';
+import { LucideAngularModule } from 'lucide-angular';
 import { ProfileService } from '../../core/services/profile.service';
 import { KeycloakService } from '../../core/services/keycloak.service';
 import { SubscriptionService } from '../../core/services/subscription.service';
@@ -9,15 +10,21 @@ import { Photo, Profile } from '../../core/models/profile.model';
 
 @Component({
   selector: 'app-profile',
+  imports: [LucideAngularModule],
   template: `
     <div class="profile-page">
       <header class="header">
-        <h1>My Profile</h1>
+        <h1>Profile</h1>
         <div class="header-actions">
-          <button class="theme-toggle" (click)="theme.toggle()" [title]="theme.isDark() ? 'Switch to light mode' : 'Switch to dark mode'">
-            {{ theme.isDark() ? '☀️' : '🌙' }}
+          <button type="button" class="theme-toggle" (click)="theme.toggle()"
+            [title]="theme.isDark() ? 'Switch to light mode' : 'Switch to dark mode'"
+            [attr.aria-label]="theme.isDark() ? 'Switch to light mode' : 'Switch to dark mode'">
+            <lucide-icon [name]="theme.isDark() ? 'sun' : 'moon'" [size]="18" strokeWidth="2.2" />
           </button>
-          <button class="edit-btn" (click)="goEdit()">Edit</button>
+          <button type="button" class="edit-btn" (click)="goEdit()">
+            <lucide-icon name="pencil" [size]="16" strokeWidth="2.1" />
+            Edit
+          </button>
         </div>
       </header>
 
@@ -36,18 +43,28 @@ import { Photo, Profile } from '../../core/models/profile.model';
               </div>
             }
             <div class="photo-count">{{ profile()!.photos?.length ?? 0 }}/5</div>
-          </div>
-          <div class="photo-hero-actions">
-            <button class="btn-manage" [class.active]="managePhotos()" (click)="toggleManagePhotos()">
-              {{ managePhotos() ? 'Done' : 'Manage Photos' }}
-            </button>
+            <div class="photo-hero-actions">
+              <button
+                type="button"
+                class="btn-manage"
+                [class.active]="managePhotos()"
+                [attr.aria-pressed]="managePhotos()"
+                [attr.aria-label]="managePhotos() ? 'Finish managing photos' : 'Manage photos'"
+                (click)="toggleManagePhotos()">
+                <lucide-icon [name]="managePhotos() ? 'check' : 'images'" [size]="16" strokeWidth="2.2" />
+                {{ managePhotos() ? 'Done' : 'Manage photos' }}
+              </button>
+            </div>
           </div>
 
           @if (managePhotos()) {
             <div class="photo-manager">
               <div class="manager-header">
-                <h3>Manage Photos</h3>
-                <p>Only your first photo is shown on your profile.</p>
+                <div>
+                  <h3>Manage photos</h3>
+                  <p>Your first photo is shown on your profile.</p>
+                </div>
+                <span class="manager-count">{{ profile()!.photos.length }}/5 added</span>
               </div>
               <div class="manager-list">
                 @for (slot of photoSlots(); track $index) {
@@ -67,12 +84,24 @@ import { Photo, Profile } from '../../core/models/profile.model';
                     </div>
                     <div class="manager-actions">
                       @if (slot) {
-                        <button class="btn-ghost" (click)="triggerUploadAt($index)">Replace</button>
-                        <button class="btn-danger" (click)="deletePhoto(slot.photoID)">Remove</button>
+                        <button type="button" class="btn-ghost" [attr.aria-label]="'Replace photo ' + ($index + 1)" (click)="triggerUploadAt($index)">
+                          <lucide-icon name="refresh-cw" [size]="14" strokeWidth="2.2" />
+                          Replace
+                        </button>
+                        <button type="button" class="btn-danger" [attr.aria-label]="'Remove photo ' + ($index + 1)" (click)="deletePhoto(slot.photoID)">
+                          <lucide-icon name="trash-2" [size]="14" strokeWidth="2.2" />
+                          Remove
+                        </button>
                       } @else if ($index === (profile()!.photos?.length ?? 0)) {
-                        <button class="btn-add" (click)="triggerUploadAt($index)">Add</button>
+                        <button type="button" class="btn-add" [attr.aria-label]="'Add photo ' + ($index + 1)" (click)="triggerUploadAt($index)">
+                          <lucide-icon name="plus" [size]="15" strokeWidth="2.4" />
+                          Add
+                        </button>
                       } @else {
-                        <button class="btn-locked" disabled>Locked</button>
+                        <span class="locked-state" [attr.aria-label]="'Photo ' + ($index + 1) + ' is locked'">
+                          <lucide-icon name="lock-keyhole" [size]="13" strokeWidth="2.2" />
+                          Locked
+                        </span>
                       }
                     </div>
 
@@ -93,19 +122,19 @@ import { Photo, Profile } from '../../core/models/profile.model';
             <div class="name-row">
               <h2>{{ profile()!.name }}, {{ profile()!.age }}</h2>
               @if (profile()!.isActive) {
-                <span class="badge active">● Active</span>
+                <span class="badge active"><lucide-icon name="activity" [size]="12" strokeWidth="2" /> Active now</span>
               }
             </div>
             @if (profile()!.city && profile()!.city !== 'Unknown') {
               <p class="city">
-                <svg viewBox="0 0 24 24" fill="currentColor" width="13" height="13"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/></svg>
+                <lucide-icon name="map-pin" [size]="14" strokeWidth="1.8" />
                 {{ profile()!.city }}
               </p>
             }
 
             @if (profile()!.bio) {
               <div class="section">
-                <h4>About me</h4>
+                <h4>About</h4>
                 <p>{{ profile()!.bio }}</p>
               </div>
             }
@@ -130,7 +159,7 @@ import { Photo, Profile } from '../../core/models/profile.model';
 
             @if (profile()!.hobbies?.length) {
               <div class="section no-margin">
-                <h4>Hobbies</h4>
+                <h4>Interests</h4>
                 <div class="hobbies">
                   @for (hobby of profile()!.hobbies; track hobby) {
                     <span class="hobby-tag">{{ formatHobby(hobby) }}</span>
@@ -145,7 +174,7 @@ import { Photo, Profile } from '../../core/models/profile.model';
             <div class="premium-banner">
               <div class="premium-banner-left">
                 <div class="premium-crown-wrap">
-                  <svg viewBox="0 0 24 24" fill="currentColor" width="20" height="20"><path d="M5 16L3 5l5.5 5L12 4l3.5 6L21 5l-2 11H5zm2 2h10v2H7v-2z"/></svg>
+                  <lucide-icon name="crown" [size]="20" strokeWidth="1.8" />
                 </div>
                 <div>
                   <span class="premium-banner-title">Premium Active</span>
@@ -162,41 +191,41 @@ import { Photo, Profile } from '../../core/models/profile.model';
           <div class="account-section">
             <p class="account-section-label">Account</p>
             <div class="account-list">
-              <button class="account-row" (click)="goEdit()">
+              <button type="button" class="account-row" (click)="goEdit()">
                 <span class="account-row-icon">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                  <lucide-icon name="pencil" [size]="16" strokeWidth="2.2" />
                 </span>
-                <span class="account-row-label">Edit Profile</span>
-                <span class="account-row-chevron">›</span>
+                <span class="account-row-label">Edit profile</span>
+                <span class="account-row-chevron"><lucide-icon name="chevron-right" [size]="18" strokeWidth="1.8" /></span>
               </button>
               <div class="account-divider"></div>
               @if (!isPremium()) {
-                <button class="account-row" (click)="subscribe()" [disabled]="subLoading()">
+                <button type="button" class="account-row" (click)="subscribe()" [disabled]="subLoading()">
                   <span class="account-row-icon premium-icon">
-                    <svg viewBox="0 0 24 24" fill="currentColor" width="16" height="16"><path d="M5 16L3 5l5.5 5L12 4l3.5 6L21 5l-2 11H5zm2 2h10v2H7v-2z"/></svg>
+                    <lucide-icon name="crown" [size]="16" strokeWidth="2.2" />
                   </span>
-                  <span class="account-row-label">{{ subLoading() ? 'Loading...' : 'Upgrade to Premium' }}</span>
-                  <span class="account-row-badge">€10/mo</span>
+                  <span class="account-row-label">{{ subLoading() ? 'Loading…' : 'Upgrade to premium' }}</span>
+                  <span class="account-row-badge">€10/month</span>
                 </button>
                 <div class="account-divider"></div>
               }
-              <button class="account-row" (click)="logout()">
+              <button type="button" class="account-row" (click)="logout()">
                 <span class="account-row-icon logout">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+                  <lucide-icon name="log-out" [size]="16" strokeWidth="2.2" />
                 </span>
-                <span class="account-row-label">Log Out</span>
-                <span class="account-row-chevron">›</span>
+                <span class="account-row-label">Log out</span>
+                <span class="account-row-chevron"><lucide-icon name="chevron-right" [size]="18" strokeWidth="1.8" /></span>
               </button>
             </div>
 
             <p class="account-section-label danger-label">Danger Zone</p>
             <div class="account-list">
-              <button class="account-row danger" (click)="deleteProfile()">
+              <button type="button" class="account-row danger" (click)="deleteProfile()">
                 <span class="account-row-icon danger">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>
+                  <lucide-icon name="trash-2" [size]="16" strokeWidth="2.2" />
                 </span>
-                <span class="account-row-label">Delete Account</span>
-                <span class="account-row-chevron">›</span>
+                <span class="account-row-label">Delete account</span>
+                <span class="account-row-chevron"><lucide-icon name="chevron-right" [size]="18" strokeWidth="1.8" /></span>
               </button>
             </div>
           </div>
@@ -205,7 +234,7 @@ import { Photo, Profile } from '../../core/models/profile.model';
       } @else {
         <div class="no-profile">
           <div class="empty-icon">
-            <svg viewBox="0 0 24 24" fill="currentColor" width="64" height="64" style="color: var(--text-muted)"><path d="M12 12c2.7 0 4.8-2.1 4.8-4.8S14.7 2.4 12 2.4 7.2 4.5 7.2 7.2 9.3 12 12 12zm0 2.4c-3.2 0-9.6 1.6-9.6 4.8v2.4h19.2v-2.4c0-3.2-6.4-4.8-9.6-4.8z"/></svg>
+            <lucide-icon name="user-round-plus" [size]="64" strokeWidth="1.5" />
           </div>
           <h3>No profile yet</h3>
           <p>Create your profile to start swiping!</p>
@@ -225,7 +254,7 @@ import { Photo, Profile } from '../../core/models/profile.model';
       flex-direction: column;
       height: 100dvh;
       background: transparent;
-      padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 88px);
+      padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 64px);
       overflow-y: auto;
     }
 
@@ -250,19 +279,18 @@ import { Photo, Profile } from '../../core/models/profile.model';
       display: flex;
       align-items: center;
       justify-content: space-between;
-      padding: 10px;
-      background: var(--surface-glass);
-      border-bottom: 1px solid var(--border);
+      min-height: var(--mobile-topbar-height);
+      padding: 0 12px;
+      background: var(--header-surface);
       position: sticky;
       top: 0;
       z-index: 10;
       backdrop-filter: blur(16px);
       -webkit-backdrop-filter: blur(16px);
-      box-shadow: 0 8px 20px var(--shadow-sm);
 
       h1 {
         margin: 0;
-        font-size: 22px;
+        font-size: 20px;
         font-weight: 700;
         color: var(--text-primary);
         letter-spacing: -0.3px;
@@ -276,38 +304,59 @@ import { Photo, Profile } from '../../core/models/profile.model';
     }
 
     .theme-toggle {
-      background: rgba(255,255,255,0.75);
-      border: 1px solid var(--border);
+      appearance: none;
+      padding: 0;
+      background: transparent;
+      border: 0;
       border-radius: 50%;
-      width: 36px;
-      height: 36px;
-      font-size: 16px;
+      width: 40px;
+      height: 40px;
       cursor: pointer;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      transition: background 0.2s;
+      display: grid;
+      place-items: center;
+      color: var(--text-primary);
+      box-shadow: none;
+      transition: color 160ms ease, background 160ms ease;
+
+      lucide-icon {
+        width: 18px;
+        height: 18px;
+        display: grid;
+        place-items: center;
+        line-height: 0;
+      }
+
+      &:hover { background: var(--surface-2); }
+      &:active { background: var(--border-light); }
+      &:focus-visible { outline: 2px solid var(--brand); outline-offset: 1px; }
+    }
+
+    [data-theme="dark"] .theme-toggle {
+      background: transparent;
+      color: var(--text-primary);
 
       &:hover { background: var(--surface-2); }
     }
 
-    [data-theme="dark"] .theme-toggle {
-      background: rgba(36, 33, 45, 0.9);
-      border-color: rgba(255,255,255,0.08);
-      color: #fff;
-    }
-
     .edit-btn {
-      background: var(--brand-gradient);
-      color: #fff;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 7px;
+      background: var(--brand);
+      color: var(--text-primary);
       border: none;
       border-radius: 20px;
-      padding: 8px 20px;
+      min-height: 40px;
+      padding: 6px 16px;
       font-size: 14px;
       font-weight: 600;
       cursor: pointer;
 
-      &:active { opacity: 0.85; }
+      box-shadow: 0 8px 18px rgba(109, 144, 55, 0.18);
+
+      &:hover { background: var(--brand-2); }
+      &:active { transform: scale(0.97); }
     }
 
     /* ── Loading ── */
@@ -330,30 +379,30 @@ import { Photo, Profile } from '../../core/models/profile.model';
 
     /* ── Profile Content ── */
     .profile-content {
-      padding: 16px;
+      padding: 16px 16px 28px;
       display: flex;
       flex-direction: column;
-      gap: 12px;
+      gap: 20px;
     }
 
     /* ── Info Section ── */
     .info-section {
-      background: var(--surface);
+      background: var(--card-surface);
       border-radius: 20px;
-      padding: 20px;
-      box-shadow: 0 12px 30px var(--shadow-sm);
-      border: 1px solid var(--border-light);
+      padding: 20px 18px 18px;
+      box-shadow: 0 10px 32px var(--shadow-sm);
+      border: 1px solid var(--card-border);
     }
 
     .name-row {
       display: flex;
       align-items: center;
       gap: 10px;
-      margin-bottom: 6px;
+      margin-bottom: 5px;
 
       h2 {
         margin: 0;
-        font-size: 24px;
+        font-size: 23px;
         font-weight: 700;
         color: var(--text-primary);
         letter-spacing: -0.3px;
@@ -361,6 +410,9 @@ import { Photo, Profile } from '../../core/models/profile.model';
     }
 
     .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
       padding: 3px 10px;
       border-radius: 12px;
       font-size: 12px;
@@ -375,24 +427,29 @@ import { Photo, Profile } from '../../core/models/profile.model';
     }
 
     .city {
-      margin: 0 0 18px;
+      margin: 0 0 16px;
       color: var(--text-secondary);
       font-size: 14px;
+      font-weight: 500;
       display: flex;
       align-items: center;
-      gap: 4px;
+      gap: 6px;
+
+      lucide-icon { color: var(--text-muted); }
     }
 
     .section {
-      margin-bottom: 18px;
+      margin: 0;
+      padding: 16px 0;
+      border-top: 1px solid var(--border-light);
 
-      &.no-margin { margin-bottom: 0; }
+      &.no-margin { padding-bottom: 0; }
 
       h4 {
-        margin: 0 0 10px;
+        margin: 0 0 12px;
         font-size: 11px;
+        letter-spacing: 0.06em;
         text-transform: uppercase;
-        letter-spacing: 0.8px;
         font-weight: 600;
         color: var(--text-muted);
       }
@@ -401,53 +458,63 @@ import { Photo, Profile } from '../../core/models/profile.model';
         margin: 0;
         color: var(--text-secondary);
         font-size: 15px;
-        line-height: 1.6;
+        line-height: 1.55;
       }
     }
 
     .pref-grid {
       display: grid;
       grid-template-columns: repeat(3, 1fr);
-      gap: 8px;
+      gap: 0;
+      padding: 2px 0;
     }
 
     .pref-item {
-      background: var(--surface-2);
-      border-radius: 14px;
-      padding: 12px 10px;
-      text-align: center;
+      min-width: 0;
+      padding: 2px 12px;
+      border-left: 1px solid var(--border-light);
+
+      &:first-child {
+        padding-left: 0;
+        border-left: 0;
+      }
+
+      &:last-child { padding-right: 0; }
 
       .pref-label {
         display: block;
-        font-size: 10px;
+        font-size: 9px;
         color: var(--text-muted);
-        margin-bottom: 5px;
+        margin-bottom: 4px;
         text-transform: uppercase;
-        font-weight: 500;
+        font-weight: 600;
+        letter-spacing: 0.05em;
+        white-space: nowrap;
       }
 
       .pref-value {
         display: block;
-        font-size: 14px;
+        font-size: 15px;
         font-weight: 600;
         color: var(--text-primary);
+        white-space: nowrap;
       }
     }
 
     .hobbies {
       display: flex;
       flex-wrap: wrap;
-      gap: 7px;
+      gap: 8px;
     }
 
     .hobby-tag {
-      background: rgba(255, 68, 88, 0.12);
-      color: var(--brand);
-      border: 1px solid rgba(255, 68, 88, 0.22);
-      padding: 5px 14px;
+      background: transparent;
+      color: var(--text-secondary);
+      border: 1px solid var(--border);
+      padding: 5px 12px;
       border-radius: 20px;
-      font-size: 13px;
-      font-weight: 500;
+      font-size: 12px;
+      font-weight: 600;
     }
 
     /* ── Premium Banner (active subscriber) ── */
@@ -455,10 +522,11 @@ import { Photo, Profile } from '../../core/models/profile.model';
       display: flex;
       align-items: center;
       justify-content: space-between;
-      background: linear-gradient(135deg, var(--gold), var(--gold-2));
-      border-radius: 18px;
+      background: #2f3031;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 20px;
       padding: 14px 18px;
-      box-shadow: 0 10px 24px rgba(246, 181, 63, 0.35);
+      box-shadow: var(--shadow-float);
     }
 
     .premium-banner-left {
@@ -471,11 +539,11 @@ import { Photo, Profile } from '../../core/models/profile.model';
       width: 36px;
       height: 36px;
       border-radius: 10px;
-      background: rgba(255,255,255,0.18);
+      background: var(--brand);
       display: flex;
       align-items: center;
       justify-content: center;
-      color: #fff;
+      color: #2f3031;
       flex-shrink: 0;
     }
 
@@ -485,6 +553,13 @@ import { Photo, Profile } from '../../core/models/profile.model';
       font-size: 15px;
       font-weight: 700;
       line-height: 1.2;
+    }
+
+    .premium-banner-sub {
+      display: block;
+      margin-top: 2px;
+      color: rgba(255, 255, 255, 0.68);
+      font-size: 12px;
     }
 
 
@@ -504,33 +579,35 @@ import { Photo, Profile } from '../../core/models/profile.model';
 
     /* ── Account Section ── */
     .account-section {
-      padding-bottom: 4px;
+      padding-bottom: 8px;
     }
 
     .account-section-label {
-      margin: 0 0 6px 4px;
-      font-size: 11px;
+      margin: 0 0 8px 2px;
+      font-size: 10px;
       font-weight: 600;
       text-transform: uppercase;
-      letter-spacing: 0.7px;
+      letter-spacing: 0.09em;
       color: var(--text-muted);
 
-      &.danger-label { margin-top: 20px; color: var(--brand); }
+      &.danger-label { margin-top: 22px; color: var(--text-muted); }
     }
 
     .account-list {
-      background: var(--surface);
+      background: var(--card-surface);
+      border: 1px solid var(--card-border);
       border-radius: 18px;
       overflow: hidden;
-      box-shadow: 0 1px 4px var(--shadow-sm);
+      box-shadow: 0 8px 28px var(--shadow-sm);
     }
 
     .account-row {
       width: 100%;
       display: flex;
       align-items: center;
-      gap: 12px;
-      padding: 14px 16px;
+      gap: 13px;
+      min-height: 54px;
+      padding: 10px 14px;
       background: none;
       border: none;
       cursor: pointer;
@@ -541,49 +618,64 @@ import { Photo, Profile } from '../../core/models/profile.model';
       &:active { background: var(--border-light); }
       &:disabled { opacity: 0.6; cursor: default; }
 
-      &.danger .account-row-label { color: var(--brand); }
+      &.danger .account-row-label { color: #d34b4b; }
     }
 
     .account-row-icon {
-      width: 32px;
-      height: 32px;
-      border-radius: 9px;
-      background: var(--surface-2);
+      width: 20px;
+      height: 20px;
+      border-radius: 0;
+      background: transparent;
       display: flex;
       align-items: center;
       justify-content: center;
       flex-shrink: 0;
       color: var(--text-secondary);
 
-      svg { width: 16px; height: 16px; }
+      lucide-icon { display: flex; }
 
-      &.logout { background: rgba(245, 158, 11, 0.12); color: #f59e0b; }
-      &.danger { background: rgba(255, 68, 88, 0.12); color: var(--brand); }
-      &.premium-icon { background: rgba(246, 181, 63, 0.16); color: var(--gold-2); }
+      &.logout { background: transparent; color: var(--text-secondary); }
+      &.danger { background: transparent; color: #d34b4b; }
+      &.premium-icon { background: transparent; color: var(--gold-2); }
     }
 
     .account-row-label {
       flex: 1;
-      font-size: 15px;
-      font-weight: 500;
+      font-size: 14px;
+      font-weight: var(--ui-label-weight);
       color: var(--text-primary);
+    }
+
+    .account-row-chevron {
+      display: flex;
+      color: var(--text-muted);
+      opacity: 0.72;
     }
 
 
     .account-row-badge {
-      font-size: 12px;
+      font-size: 11px;
       font-weight: 600;
       color: var(--gold-2);
-      background: rgba(246, 181, 63, 0.14);
-      border: 1px solid rgba(246, 181, 63, 0.25);
-      padding: 3px 9px;
-      border-radius: 10px;
+      background: transparent;
+      border: 0;
+      padding: 0;
+      border-radius: 0;
     }
 
     .account-divider {
       height: 1px;
       background: var(--border-light);
-      margin-left: 60px;
+      margin-left: 47px;
+    }
+
+    @media (max-width: 360px) {
+      .pref-item {
+        padding-inline: 8px;
+
+        .pref-label { font-size: 8px; }
+        .pref-value { font-size: 14px; }
+      }
     }
 
     /* ── No Profile Empty State ── */
@@ -611,6 +703,8 @@ import { Photo, Profile } from '../../core/models/profile.model';
         text-decoration: underline;
       }
     }
+
+    .empty-icon { color: var(--text-muted); }
 
     .btn-primary {
       background: var(--brand-gradient);

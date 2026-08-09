@@ -66,6 +66,17 @@
               "optimization": false,
               "extractLicenses": false,
               "sourceMap": true
+            },
+            "preview": {
+              "fileReplacements": [
+                {
+                  "replace": "src/environments/environment.ts",
+                  "with": "src/environments/environment.preview.ts"
+                }
+              ],
+              "optimization": false,
+              "extractLicenses": false,
+              "sourceMap": true
             }
           },
           "defaultConfiguration": "production"
@@ -81,6 +92,9 @@
             },
             "local": {
               "buildTarget": "tinder-client:build:local"
+            },
+            "preview": {
+              "buildTarget": "tinder-client:build:preview"
             }
           },
           "defaultConfiguration": "development"

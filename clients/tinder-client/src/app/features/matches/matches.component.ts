@@ -38,13 +38,13 @@ export function markConversationRead(conversationId: string): void {
       <header class="header">
         <div class="header-left"></div>
         <div class="logo">
-          <svg viewBox="0 0 24 24" width="22" height="22" fill="#ff4458">
+          <svg viewBox="0 0 24 24" width="22" height="22" fill="#9cce2b">
             <path d="M17.66 11.2c-.23-.3-.51-.56-.77-.82-.67-.6-1.43-1.03-2.07-1.66C13.33 7.26 13 4.85 13.95 3c-.95.23-1.78.75-2.49 1.32-2.59 2.11-3.66 5.65-2.67 8.9.04.14.08.28.08.43 0 .28-.19.52-.45.57-.28.07-.53-.09-.63-.37-.04-.1-.06-.21-.09-.32C7.15 13 7 12.5 7 11.85c0-.58.16-1.2.44-1.7-1.16 1.27-1.86 2.97-1.86 4.77 0 3.31 2.69 6 6 6s6-2.69 6-6c0-1.88-.82-3.63-2.09-4.82z"/>
           </svg>
-          <span class="logo-text">tinder</span>
+          <span class="logo-text">connect</span>
         </div>
-        <button class="header-icon-btn">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" width="24" height="24">
+        <button type="button" class="header-icon-btn" aria-label="Safety center">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" width="24" height="24">
             <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
           </svg>
         </button>
@@ -152,7 +152,7 @@ export function markConversationRead(conversationId: string): void {
       flex-direction: column;
       height: 100dvh;
       background: transparent;
-      padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 88px);
+      padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 64px);
       overflow: hidden;
     }
 
@@ -161,16 +161,15 @@ export function markConversationRead(conversationId: string): void {
       display: flex;
       align-items: center;
       justify-content: space-between;
-      padding: 10px;
-      background: var(--surface-glass);
-      border-bottom: 1px solid var(--border);
+      min-height: var(--mobile-topbar-height);
+      padding: 0 10px;
+      background: var(--header-surface);
       flex-shrink: 0;
       position: sticky;
       top: 0;
       z-index: 10;
       backdrop-filter: blur(16px);
       -webkit-backdrop-filter: blur(16px);
-      box-shadow: 0 8px 20px var(--shadow-sm);
     }
 
     @media (min-width: 768px) {
@@ -214,7 +213,7 @@ export function markConversationRead(conversationId: string): void {
       gap: 5px;
 
       .logo-text {
-        font-size: 22px;
+        font-size: 20px;
         font-weight: 800;
         color: var(--brand);
         letter-spacing: -0.5px;
@@ -419,7 +418,7 @@ export function markConversationRead(conversationId: string): void {
       padding: 2.5px;
       border-radius: 50%;
       background: var(--brand-gradient);
-      box-shadow: 0 6px 16px rgba(255, 68, 88, 0.28);
+      box-shadow: 0 6px 16px rgba(109, 144, 55, 0.24);
     }
 
     .bubble-avatar {

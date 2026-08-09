@@ -1,149 +1,89 @@
 import { Component, inject, OnInit } from '@angular/core';
 import { Router } from '@angular/router';
+import { LucideAngularModule } from 'lucide-angular';
 import { KeycloakService } from '../../core/services/keycloak.service';
 
 @Component({
   selector: 'app-login',
+  imports: [LucideAngularModule],
   template: `
-    <div class="login-page">
-      <div class="content">
-        <div class="logo">
-          <svg viewBox="0 0 24 24" fill="#ff4458" class="heart-icon">
-            <path d="M12 21.593c-5.63-5.539-11-10.297-11-14.402 0-3.791 3.068-5.191 5.281-5.191 1.312 0 4.151.501 5.719 4.457 1.59-3.968 4.464-4.447 5.726-4.447 2.54 0 5.274 1.621 5.274 5.181 0 4.069-5.136 8.625-11 14.402z"/>
-          </svg>
-          <h1>Tinder</h1>
+    <main class="login-page">
+      <div class="portrait" role="img" aria-label="Two people meeting outdoors"></div>
+      <section class="login-content">
+        <div class="brand-mark"><lucide-icon name="heart-handshake" [size]="26" strokeWidth="1.8" /></div>
+        <p class="eyebrow">Meet with intention</p>
+        <h1>People worth getting to know.</h1>
+        <p class="intro">Thoughtful profiles, people nearby, and conversations that start with something real.</p>
+
+        <div class="trust-points">
+          <div><lucide-icon name="map-pin" [size]="20" strokeWidth="1.8" /><span>Relevant people near you</span></div>
+          <div><lucide-icon name="message-circle" [size]="20" strokeWidth="1.8" /><span>Personality before small talk</span></div>
+          <div><lucide-icon name="shield-check" [size]="20" strokeWidth="1.8" /><span>Clear, respectful controls</span></div>
         </div>
-        <p class="tagline">Swipe Right™</p>
-        <div class="features">
-          <div class="feature">💘 Match with people near you</div>
-          <div class="feature">💬 Chat with your matches</div>
-          <div class="feature">⭐ Go premium for more swipes</div>
-        </div>
-        <button class="btn-login" (click)="login()">
-          Sign in with Keycloak
-        </button>
-        <p class="terms">By clicking Sign in, you agree to our Terms.</p>
-      </div>
-    </div>
+
+        <button type="button" class="login-button" (click)="login()">Continue securely</button>
+        <p class="terms">By continuing, you agree to the Terms and Privacy Policy.</p>
+      </section>
+    </main>
   `,
   styles: [`
-    .login-page {
-      min-height: 100dvh;
-      background: linear-gradient(140deg, #ff4458 0%, #ff7a3d 55%, #ffb07b 100%);
+    .login-page { min-height: 100dvh; display: grid; background: var(--surface); }
+
+    .portrait {
+      min-height: 42dvh;
+      background: url('/assets/profiles/mila-discover.png') center 36% / cover no-repeat;
+    }
+
+    .login-content {
       display: flex;
-      align-items: center;
+      flex-direction: column;
       justify-content: center;
-      padding: 24px;
-      position: relative;
-      overflow: hidden;
+      padding: 30px 24px 36px;
+      color: var(--text-primary);
+      background: var(--surface);
     }
 
-    .login-page::before {
-      content: '';
-      position: absolute;
-      width: 360px;
-      height: 360px;
-      background: radial-gradient(circle, rgba(255,255,255,0.45), transparent 70%);
-      top: -120px;
-      right: -140px;
-      opacity: 0.6;
+    .brand-mark {
+      width: 50px;
+      height: 50px;
+      display: grid;
+      place-items: center;
+      margin-bottom: 24px;
+      border-radius: 16px;
+      color: var(--text-primary);
+      background: var(--brand);
     }
 
-    .login-page::after {
-      content: '';
-      position: absolute;
-      width: 320px;
-      height: 320px;
-      background: radial-gradient(circle, rgba(255,255,255,0.35), transparent 70%);
-      bottom: -140px;
-      left: -120px;
-      opacity: 0.45;
-    }
+    .eyebrow { margin: 0 0 8px; color: var(--brand-strong); font-size: 12px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; }
+    h1 { margin: 0; max-width: 520px; font-size: clamp(38px, 10vw, 64px); line-height: 0.98; letter-spacing: -0.055em; }
+    .intro { margin: 18px 0 0; max-width: 480px; color: var(--text-secondary); font-size: 16px; line-height: 1.55; }
 
-    .content {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      gap: 24px;
-      max-width: 360px;
+    .trust-points { display: grid; gap: 11px; margin: 26px 0; }
+    .trust-points div { display: flex; align-items: center; gap: 11px; color: var(--text-secondary); font-size: 14px; font-weight: 600; }
+    .trust-points lucide-icon { color: var(--brand-strong); }
+
+    .login-button {
       width: 100%;
-      background: rgba(255,255,255,0.16);
-      border: 1px solid rgba(255,255,255,0.28);
-      padding: 32px 28px;
-      border-radius: 28px;
-      backdrop-filter: blur(16px);
-      box-shadow: 0 24px 60px rgba(0,0,0,0.25);
-      position: relative;
-      z-index: 1;
-    }
-
-    .logo {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-
-      .heart-icon {
-        width: 52px;
-        height: 52px;
-        filter: drop-shadow(0 6px 16px rgba(0,0,0,0.25));
-      }
-
-      h1 {
-        margin: 0;
-        font-size: 48px;
-        font-weight: 800;
-        color: #fff;
-        letter-spacing: -1px;
-        text-shadow: 0 4px 18px rgba(0,0,0,0.2);
-      }
-    }
-
-    .tagline {
-      color: rgba(255,255,255,0.9);
-      font-size: 18px;
-      font-weight: 500;
-      margin: -8px 0 0;
-    }
-
-    .features {
-      display: flex;
-      flex-direction: column;
-      gap: 12px;
-      width: 100%;
-      background: rgba(255,255,255,0.18);
-      backdrop-filter: blur(10px);
-      border-radius: 20px;
-      padding: 24px;
-      border: 1px solid rgba(255,255,255,0.25);
-    }
-
-    .feature {
-      color: #fff;
-      font-size: 16px;
-      font-weight: 500;
-    }
-
-    .btn-login {
-      width: 100%;
-      padding: 16px;
-      border-radius: 18px;
-      border: none;
-      background: linear-gradient(135deg, #ffffff, #ffe9de);
-      color: #ff4458;
-      font-size: 16px;
+      min-height: 54px;
+      border: 0;
+      border-radius: 16px;
+      color: var(--text-primary);
+      background: var(--brand);
+      font: inherit;
+      font-size: 15px;
       font-weight: 700;
       cursor: pointer;
-      box-shadow: 0 12px 28px rgba(0,0,0,0.18);
-      transition: transform 0.15s;
-
-      &:active { transform: scale(0.97); }
+      box-shadow: 0 12px 28px rgba(109, 144, 55, 0.22);
     }
 
-    .terms {
-      color: rgba(255,255,255,0.7);
-      font-size: 12px;
-      text-align: center;
-      margin: 0;
+    .terms { margin: 13px 0 0; color: var(--text-muted); font-size: 11px; line-height: 1.4; text-align: center; }
+
+    @media (min-width: 760px) {
+      .login-page { grid-template-columns: minmax(320px, 0.9fr) minmax(460px, 1.1fr); }
+      .portrait { min-height: 100dvh; }
+      .login-content { padding: clamp(48px, 8vw, 110px); }
+      .login-button { max-width: 420px; }
+      .terms { max-width: 420px; }
     }
   `]
 })
@@ -152,12 +92,8 @@ export class LoginComponent implements OnInit {
   private router = inject(Router);
 
   ngOnInit(): void {
-    if (this.keycloak.isAuthenticated()) {
-      this.router.navigate(['/discover']);
-    }
+    if (this.keycloak.isAuthenticated()) this.router.navigate(['/discover']);
   }
 
-  login(): void {
-    this.keycloak.login();
-  }
+  login(): void { this.keycloak.login(); }
 }

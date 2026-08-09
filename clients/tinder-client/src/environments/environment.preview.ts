@@ -1,11 +1,11 @@
 export const environment = {
   production: false,
-  designPreview: false,
-  apiGatewayUrl: 'https://api.mykh.studio',
-  wsUrl: 'wss://api.mykh.studio/ws',
+  designPreview: true,
+  apiGatewayUrl: '/design-api',
+  wsUrl: 'ws://localhost/design-ws',
   keycloak: {
     url: 'http://localhost:9080',
-    realm: 'spring',
+    realm: 'design-preview',
     clientId: 'tinder-client'
   }
 };

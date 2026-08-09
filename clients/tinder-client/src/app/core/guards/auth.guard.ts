@@ -2,8 +2,10 @@ import { inject } from '@angular/core';
 import { CanActivateFn, Router } from '@angular/router';
 import { KeycloakService } from '../services/keycloak.service';
 import { GeoLocationService } from '../services/geo-location.service';
+import { environment } from '../../../environments/environment';
 
 export const authGuard: CanActivateFn = (route) => {
+  if (environment.designPreview) return true;
   const keycloak = inject(KeycloakService);
   const router = inject(Router);
   const geo = inject(GeoLocationService);

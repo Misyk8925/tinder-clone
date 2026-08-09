@@ -1,49 +1,64 @@
-@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Lora:wght@500;600&display=swap');
 
 /* ─── CSS Custom Properties ─── */
 :root {
-  --bg:             #f7f4f2;
-  --bg-2:           #fff1e9;
+  --bg:             #fffffe;
+  --bg-2:           #fbfcf8;
   --surface:        #ffffff;
-  --surface-2:      #fff6f1;
-  --surface-3:      #f3eee9;
-  --surface-glass:  rgba(255, 255, 255, 0.72);
-  --border:         rgba(16, 18, 24, 0.08);
-  --border-light:   rgba(16, 18, 24, 0.05);
-  --text-primary:   #16131f;
-  --text-secondary: #4b4657;
-  --text-muted:     #8a8394;
-  --shadow-sm:      rgba(15, 23, 42, 0.08);
-  --shadow-md:      rgba(15, 23, 42, 0.16);
-  --shadow-lg:      rgba(15, 23, 42, 0.24);
-  --brand:          #ff4458;
-  --brand-2:        #ff8a3d;
-  --brand-gradient: linear-gradient(135deg, #ff4458 0%, #ff8a3d 100%);
-  --brand-soft:     rgba(255, 68, 88, 0.16);
+  --surface-2:      #fafbf8;
+  --surface-3:      #f3f5f0;
+  --surface-glass:  rgba(255, 255, 255, 0.93);
+  --header-surface: rgba(255, 255, 254, 0.82);
+  --border:         rgba(47, 48, 49, 0.09);
+  --border-light:   rgba(47, 48, 49, 0.05);
+  --text-primary:   #2f3031;
+  --text-secondary: #595b60;
+  --text-muted:     #8a8d8f;
+  --shadow-sm:      rgba(47, 48, 49, 0.045);
+  --shadow-md:      rgba(47, 48, 49, 0.08);
+  --shadow-lg:      rgba(47, 48, 49, 0.13);
+  --brand:          #9cce2b;
+  --brand-strong:   #6d9037;
+  --brand-2:        #b7dd61;
+  --brand-gradient: linear-gradient(135deg, #a8d936 0%, #89bd16 100%);
+  --brand-soft:     rgba(156, 206, 43, 0.16);
   --gold:           #f6b53f;
   --gold-2:         #f28c26;
-  --super:          #2f8cff;
-  --like:           #27d1a2;
-  --nope:           #ff4d5a;
-  --radius-lg:      22px;
-  --radius-xl:      30px;
+  --super:          #9cce2b;
+  --like:           #9cce2b;
+  --nope:           #595b60;
+  --radius-lg:      20px;
+  --radius-xl:      28px;
+  --mobile-topbar-height: 56px;
+  --icon-stroke-width: 2.2;
+  --ui-label-weight: 600;
+  --card-surface:   rgba(255, 255, 255, 0.96);
+  --card-border:    rgba(47, 48, 49, 0.07);
+  --shadow-card:    0 22px 54px rgba(47, 48, 49, 0.07), 0 3px 12px rgba(47, 48, 49, 0.035);
+  --shadow-float:   0 8px 24px rgba(47, 48, 49, 0.065), 0 2px 7px rgba(47, 48, 49, 0.035);
+  --font-editorial: 'Lora', Georgia, serif;
 }
 
 [data-theme="dark"] {
-  --bg:             #0e0c11;
-  --bg-2:           #14121a;
-  --surface:        #1b1922;
-  --surface-2:      #24212c;
-  --surface-3:      #2a2633;
-  --surface-glass:  rgba(26, 24, 34, 0.72);
-  --border:         rgba(255, 255, 255, 0.08);
-  --border-light:   rgba(255, 255, 255, 0.05);
-  --text-primary:   #f5f2fb;
-  --text-secondary: #c9c4d6;
-  --text-muted:     #8d879c;
-  --shadow-sm:      rgba(0, 0, 0, 0.35);
-  --shadow-md:      rgba(0, 0, 0, 0.55);
-  --shadow-lg:      rgba(0, 0, 0, 0.7);
+  --bg:             #171717;
+  --bg-2:           #181818;
+  --surface:        #1a1a1a;
+  --surface-2:      #1d1d1d;
+  --surface-3:      #232323;
+  --surface-glass:  rgba(26, 26, 26, 0.90);
+  --header-surface: rgba(23, 23, 23, 0.78);
+  --border:         rgba(255, 255, 255, 0.075);
+  --border-light:   rgba(255, 255, 255, 0.045);
+  --text-primary:   #f5f6ef;
+  --text-secondary: #c8cbc3;
+  --text-muted:     #92968c;
+  --shadow-sm:      rgba(0, 0, 0, 0.18);
+  --shadow-md:      rgba(0, 0, 0, 0.28);
+  --shadow-lg:      rgba(0, 0, 0, 0.42);
+  --card-surface:   rgba(26, 26, 26, 0.96);
+  --card-border:    rgba(255, 255, 255, 0.075);
+  --shadow-card:    0 22px 52px rgba(0, 0, 0, 0.24), 0 3px 10px rgba(0, 0, 0, 0.14);
+  --shadow-float:   0 8px 22px rgba(0, 0, 0, 0.20), 0 2px 6px rgba(0, 0, 0, 0.12);
 }
 
 /* ─── Global Reset ─── */
@@ -55,7 +70,7 @@ html, body {
   margin: 0;
   padding: 0;
   height: 100%;
-  font-family: 'Plus Jakarta Sans', 'SF Pro Display', 'SF Pro Text', sans-serif;
+  font-family: 'DM Sans', 'SF Pro Display', 'SF Pro Text', sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   color: var(--text-primary);
@@ -64,32 +79,16 @@ html, body {
 
 body {
   background: var(--bg);
-  background-image:
-    radial-gradient(circle at 8% -10%, rgba(255, 68, 88, 0.18), transparent 55%),
-    radial-gradient(circle at 96% 8%, rgba(255, 172, 120, 0.18), transparent 55%),
-    radial-gradient(circle at 10% 90%, rgba(255, 215, 196, 0.16), transparent 60%);
   position: relative;
   overflow-x: hidden;
 }
 
 [data-theme="dark"] body {
-  background-image:
-    radial-gradient(circle at 8% -10%, rgba(255, 68, 88, 0.12), transparent 55%),
-    radial-gradient(circle at 96% 8%, rgba(255, 172, 120, 0.12), transparent 55%),
-    radial-gradient(circle at 10% 90%, rgba(124, 84, 120, 0.1), transparent 60%);
+  background: var(--bg);
 }
 
 body::before {
-  content: '';
-  position: fixed;
-  inset: -10% -10% auto -10%;
-  height: 70%;
-  background:
-    radial-gradient(circle at 20% 40%, rgba(255, 255, 255, 0.65), transparent 55%),
-    radial-gradient(circle at 80% 20%, rgba(255, 255, 255, 0.45), transparent 50%);
-  opacity: 0.45;
-  pointer-events: none;
-  z-index: 0;
+  display: none;
 }
 
 [data-theme="dark"] body::before {
@@ -100,14 +99,7 @@ body::before {
 }
 
 body::after {
-  content: '';
-  position: fixed;
-  inset: 0;
-  background-image: radial-gradient(rgba(0, 0, 0, 0.12) 1px, transparent 1px);
-  background-size: 3px 3px;
-  opacity: 0.04;
-  pointer-events: none;
-  z-index: 0;
+  display: none;
 }
 
 [data-theme="dark"] body::after {
@@ -125,8 +117,12 @@ input, textarea, select, button {
   font-family: inherit;
 }
 
+lucide-icon svg {
+  stroke-width: var(--icon-stroke-width);
+}
+
 ::selection {
-  background: rgba(255, 68, 88, 0.2);
+  background: rgba(156, 206, 43, 0.25);
   color: var(--text-primary);
 }
 
@@ -164,14 +160,14 @@ input, textarea, select, button {
 /* ─── Profile Photo Manager ─── */
 app-profile .photo-hero {
   position: relative;
-  border-radius: 22px;
+  border-radius: 18px;
   overflow: hidden;
   background: var(--surface-2);
   border: 1px solid var(--border);
-  box-shadow: 0 18px 36px var(--shadow-sm);
+  box-shadow: 0 10px 28px var(--shadow-sm);
   aspect-ratio: 3 / 4;
-  width: min(84vw, 280px);
-  max-width: 280px;
+  width: min(86vw, 300px);
+  max-width: 300px;
   margin: 0 auto;
 }
 
@@ -198,93 +194,126 @@ app-profile .photo-count {
   position: absolute;
   left: 12px;
   bottom: 12px;
-  background: rgba(0,0,0,0.55);
+  z-index: 2;
+  background: rgba(18, 18, 18, 0.58);
   color: #fff;
-  font-size: 12px;
-  font-weight: 600;
-  padding: 6px 10px;
-  border-radius: 16px;
-  backdrop-filter: blur(6px);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1;
+  padding: 7px 9px;
+  border-radius: 999px;
+  backdrop-filter: blur(12px);
 }
 
 app-profile .photo-hero-actions {
-  display: flex;
-  justify-content: center;
-  margin: 12px 0 6px;
+  position: absolute;
+  right: 12px;
+  bottom: 12px;
+  z-index: 2;
 }
 
 app-profile .btn-manage {
-  border: 1px solid var(--border);
-  background: var(--surface);
-  color: var(--text-primary);
-  border-radius: 14px;
-  padding: 8px 18px;
-  font-size: 13px;
-  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  min-height: 36px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  background: rgba(18, 18, 18, 0.58);
+  color: #fff;
+  border-radius: 999px;
+  padding: 7px 12px;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1;
+  backdrop-filter: blur(12px);
   cursor: pointer;
-  transition: transform 0.15s, box-shadow 0.15s;
+  transition: background-color 0.15s, border-color 0.15s;
 }
 
 app-profile .btn-manage:hover {
-  box-shadow: 0 8px 16px var(--shadow-sm);
-  transform: translateY(-1px);
+  background: rgba(18, 18, 18, 0.76);
+  border-color: rgba(255, 255, 255, 0.28);
 }
 
 app-profile .btn-manage.active {
-  background: var(--brand-gradient);
+  background: rgba(18, 18, 18, 0.82);
   color: #fff;
-  border-color: transparent;
-  box-shadow: 0 10px 20px rgba(255, 68, 88, 0.25);
+  border-color: rgba(153, 211, 21, 0.72);
+  box-shadow: none;
+
+  lucide-icon { color: var(--brand); }
 }
 
 app-profile .photo-manager {
-  background: var(--surface);
+  background: var(--card-surface);
   border: 1px solid var(--border-light);
   border-radius: 18px;
-  padding: 16px;
-  box-shadow: 0 12px 28px var(--shadow-sm);
+  padding: 14px 16px 4px;
+  box-shadow: none;
   margin-top: 10px;
 }
 
+app-profile .manager-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+  padding-bottom: 12px;
+}
+
 app-profile .manager-header h3 {
-  margin: 0 0 6px;
-  font-size: 16px;
+  margin: 0 0 3px;
+  font-size: 15px;
   font-weight: 700;
+  letter-spacing: -0.15px;
 }
 
 app-profile .manager-header p {
-  margin: 0 0 14px;
+  margin: 0;
   color: var(--text-muted);
-  font-size: 13px;
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+app-profile .manager-count {
+  flex-shrink: 0;
+  color: var(--text-muted);
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1.4;
+  padding-top: 2px;
 }
 
 app-profile .manager-list {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  border-top: 1px solid var(--border-light);
 }
 
 app-profile .manager-row {
   position: relative;
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 10px 12px;
-  border-radius: 14px;
-  border: 1px solid var(--border-light);
-  background: var(--surface-2);
+  gap: 11px;
+  min-height: 68px;
+  padding: 9px 0;
+  border-bottom: 1px solid var(--border-light);
+  background: transparent;
 }
 
-app-profile .manager-row.disabled {
-  opacity: 0.55;
+app-profile .manager-row:last-child {
+  border-bottom: 0;
 }
 
 app-profile .manager-thumb {
-  width: 54px;
-  height: 54px;
-  border-radius: 12px;
+  width: 48px;
+  height: 48px;
+  border-radius: 10px;
   overflow: hidden;
-  background: rgba(0,0,0,0.08);
+  background: var(--surface-2);
+  border: 1px solid var(--border-light);
   flex-shrink: 0;
   display: flex;
   align-items: center;
@@ -300,7 +329,7 @@ app-profile .manager-thumb img {
 }
 
 app-profile .thumb-empty {
-  font-size: 14px;
+  font-size: 12px;
 }
 
 app-profile .manager-meta {
@@ -309,64 +338,81 @@ app-profile .manager-meta {
 }
 
 app-profile .manager-title {
-  font-size: 14px;
-  font-weight: 600;
+  font-size: 13px;
+  font-weight: 700;
   color: var(--text-primary);
 }
 
 app-profile .manager-sub {
-  font-size: 12px;
+  margin-top: 1px;
+  font-size: 11px;
   color: var(--text-muted);
 }
 
 app-profile .manager-actions {
   display: flex;
   align-items: center;
-  gap: 8px;
-  flex-wrap: wrap;
+  gap: 3px;
+  flex-shrink: 0;
   justify-content: flex-end;
 }
 
 app-profile .manager-actions button {
-  border: none;
-  border-radius: 12px;
-  padding: 6px 10px;
-  font-size: 12px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  min-height: 34px;
+  border: 0;
+  border-radius: 10px;
+  padding: 6px 8px;
+  font-size: 11px;
   font-weight: 600;
   cursor: pointer;
+  white-space: nowrap;
 }
 
-app-profile .locked-pill {
-  font-size: 12px;
-  font-weight: 600;
-  color: var(--text-muted);
-  padding: 4px 10px;
-  border-radius: 12px;
-  background: var(--surface-3);
-  border: 1px solid var(--border-light);
+app-profile .manager-actions button:focus-visible {
+  outline: 2px solid var(--brand);
+  outline-offset: 1px;
 }
 
 app-profile .btn-ghost {
-  background: rgba(255,255,255,0.7);
+  background: transparent;
   color: var(--text-primary);
-  border: 1px solid var(--border);
 }
 
 app-profile .btn-danger {
-  background: rgba(255, 68, 88, 0.12);
-  color: var(--brand);
-  border: 1px solid rgba(255, 68, 88, 0.25);
+  background: transparent;
+  color: #d34b4b;
 }
 
 app-profile .btn-add {
-  background: var(--brand-gradient);
-  color: #fff;
+  background: var(--brand);
+  color: #182000;
+  padding-inline: 10px;
 }
 
-app-profile .btn-locked {
-  background: var(--surface-3);
+app-profile .locked-state {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
   color: var(--text-muted);
-  cursor: not-allowed;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 6px 7px;
+}
+
+@media (max-width: 360px) {
+  app-profile .manager-actions button {
+    width: 34px;
+    padding-inline: 0;
+    font-size: 0;
+  }
+
+  app-profile .locked-state {
+    font-size: 0;
+  }
 }
 
 app-profile .upload-overlay {

@@ -9,7 +9,7 @@ import { GeoLocationService } from '../../core/services/geo-location.service';
     <div class="page">
       <div class="card">
         <div class="icon-wrap">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
             <circle cx="12" cy="12" r="3"/>
             <path d="M12 1v4M12 19v4M1 12h4M19 12h4"/>
             <path d="M4.22 4.22l2.83 2.83M16.95 16.95l2.83 2.83M4.22 19.78l2.83-2.83M16.95 7.05l2.83-2.83"/>
@@ -68,7 +68,7 @@ import { GeoLocationService } from '../../core/services/geo-location.service';
       width: 80px;
       height: 80px;
       border-radius: 50%;
-      background: linear-gradient(135deg, rgba(255, 68, 88, 0.18), rgba(255, 138, 61, 0.18));
+      background: var(--brand-soft);
       display: flex;
       align-items: center;
       justify-content: center;
@@ -131,7 +131,7 @@ import { GeoLocationService } from '../../core/services/geo-location.service';
       font-size: 16px;
       font-weight: 700;
       cursor: pointer;
-      box-shadow: 0 10px 24px rgba(255, 68, 88, 0.3);
+      box-shadow: 0 10px 24px rgba(109, 144, 55, 0.24);
       transition: opacity 0.2s;
 
       &:disabled { opacity: 0.6; cursor: not-allowed; }

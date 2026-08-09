@@ -56,7 +56,7 @@ interface LikerCard {
                 </svg>
               </div>
               <h2>See Who Likes You</h2>
-              <p>Upgrade to Tinder Gold to see everyone who already liked you.</p>
+              <p>Upgrade to Premium to see everyone who already liked you.</p>
               <button class="btn-upgrade" (click)="goUpgrade()">
                 Upgrade to Gold
               </button>
@@ -127,7 +127,7 @@ interface LikerCard {
       flex-direction: column;
       height: 100dvh;
       background: transparent;
-      padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 88px);
+      padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 64px);
       overflow-y: auto;
     }
 
@@ -170,20 +170,19 @@ interface LikerCard {
       display: flex;
       align-items: center;
       gap: 10px;
-      padding: 10px;
-      background: var(--surface-glass);
-      border-bottom: 1px solid var(--border);
+      min-height: var(--mobile-topbar-height);
+      padding: 0 16px;
+      background: var(--header-surface);
       position: sticky;
       top: 0;
       z-index: 10;
       width: 100%;
       backdrop-filter: blur(16px);
       -webkit-backdrop-filter: blur(16px);
-      box-shadow: 0 8px 20px var(--shadow-sm);
 
       h1 {
         margin: 0;
-        font-size: 22px;
+        font-size: 20px;
         font-weight: 700;
         color: var(--text-primary);
         letter-spacing: -0.3px;
@@ -249,12 +248,12 @@ interface LikerCard {
     .blur-photo {
       aspect-ratio: 3/4;
 
-      &.gradient-0 { background: linear-gradient(160deg, #ff8a3d, #ff4458); }
+      &.gradient-0 { background: linear-gradient(160deg, #b7dd61, #6d9037); }
       &.gradient-1 { background: linear-gradient(160deg, #4fc3ff, #2f8cff); }
       &.gradient-2 { background: linear-gradient(160deg, #27d1a2, #39e2b7); }
-      &.gradient-3 { background: linear-gradient(160deg, #f6b53f, #ff8a3d); }
+      &.gradient-3 { background: linear-gradient(160deg, #f6b53f, #9cce2b); }
       &.gradient-4 { background: linear-gradient(160deg, #ffb084, #ffd3a5); }
-      &.gradient-5 { background: linear-gradient(160deg, #ff4458, #ff8a3d); }
+      &.gradient-5 { background: linear-gradient(160deg, #6d9037, #b7dd61); }
     }
 
     .blur-info {
