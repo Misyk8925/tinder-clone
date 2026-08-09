@@ -21,8 +21,7 @@ import java.util.UUID;
  *
  * <p>{@code GET /api/v1/deck?offset&limit} — the viewer is taken from the validated JWT
  * {@code sub} claim, never a query param, so a caller cannot request another user's deck.
- * Returns hydrated profiles in deck order, matching the legacy
- * {@code GET /api/v1/profiles/deck} response shape.
+ * Returns hydrated profiles in deck order using the client-facing deck-card shape.
  */
 @Path("/api/v1/deck")
 @Produces(MediaType.APPLICATION_JSON)

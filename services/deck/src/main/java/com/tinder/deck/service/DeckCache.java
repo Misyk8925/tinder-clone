@@ -2,6 +2,7 @@ package com.tinder.deck.service;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.tinder.contracts.deck.DeckRedisKeys;
 import com.tinder.contracts.dto.DeckEntry;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -19,7 +20,6 @@ import java.time.Instant;
 import java.util.*;
 import java.util.Map.Entry;
 import java.util.stream.Collectors;
-import java.util.regex.Pattern;
 
 @Service
 @RequiredArgsConstructor
@@ -29,28 +29,11 @@ public class DeckCache {
     private final ReactiveStringRedisTemplate redis;
     private final ObjectMapper objectMapper;
 
-    // Redis key patterns
-    private static String deckKey(UUID id)        { return "deck:" + id; }
-    private static String deckTsKey(UUID id)      { return "deck:build:ts:" + id; }
-    private static String staleKey(UUID viewerId) { return "deck:stale:" + viewerId; }
-    private static String lockKey(UUID viewerId)  { return "deck:lock:" + viewerId; }
-    private static String invalidatedProfileKey(UUID profileId) { return "deck:profile:invalidated-at:" + profileId; }
     // Reverse index: profileId -> set of viewerIds whose deck currently contains the profile.
     // Maintained by writeDeck() and consumed by removeFromAllDecks() so fan-out on profile
     // delete/critical-change scales with the number of AFFECTED decks, not the total user count
     // (i.e. avoids a full "KEYS deck:*" keyspace scan). Over-inclusion is tolerated (a stale
     // viewer entry just makes the corresponding ZREM a no-op); TTL bounds growth.
-    private static String deckContainsKey(UUID profileId) { return "deck:contains:" + profileId; }
-    private static final String deletedProfilesKey = "deck:profile:deleted";
-    private static final String recentViewersKey = "deck:recent:viewers";
-    // Matches only primary deck data keys of the form "deck:{uuid}" and intentionally
-    // excludes other "deck:"-prefixed keys such as "deck:build:ts:*", "deck:stale:*",
-    // and "deck:lock:*".
-    private static final Pattern DECK_KEY_PATTERN = Pattern.compile("^deck:([0-9a-fA-F-]{36})$");
-    private static String preferencesKey(int minAge, int maxAge, String gender) {
-        return String.format("prefs:%d:%d:%s", minAge, maxAge, gender.toUpperCase());
-    }
-
     // Lock configuration
     private static final Duration DEFAULT_LOCK_TTL = Duration.ofSeconds(30);
     private static final String LOCK_VALUE = "locked";
@@ -67,8 +50,8 @@ public class DeckCache {
 
 
     public Mono<Void> writeDeck(UUID viewerId, List<Entry<UUID, Double>> deck, Duration ttl) {
-        String key   = deckKey(viewerId);
-        String tsKey = deckTsKey(viewerId);
+        String key   = DeckRedisKeys.deck(viewerId);
+        String tsKey = DeckRedisKeys.buildTimestamp(viewerId);
 
         ReactiveZSetOperations<String, String> z = redis.opsForZSet();
 
@@ -81,7 +64,7 @@ public class DeckCache {
         // For each profile in this deck, record that viewerId's deck contains it.
         Mono<Void> indexAll = Flux.fromIterable(deck)
                 .flatMap(e -> {
-                    String containsKey = deckContainsKey(e.getKey());
+                    String containsKey = DeckRedisKeys.contains(e.getKey());
                     return redis.opsForSet().add(containsKey, viewerId.toString())
                             .then(redis.expire(containsKey, ttl));
                 })
@@ -96,7 +79,7 @@ public class DeckCache {
     }
 
     public Flux<UUID> readDeck(UUID viewerId, int offset, int limit) {
-        String key = deckKey(viewerId);
+        String key = DeckRedisKeys.deck(viewerId);
         long end = offset + Math.max(limit, 1) - 1;
         return redis.opsForZSet()
                 .reverseRange(key, org.springframework.data.domain.Range.closed((long)offset, end))
@@ -104,43 +87,43 @@ public class DeckCache {
     }
 
     public Mono<Long> size(UUID viewerId) {
-        return redis.opsForZSet().size(deckKey(viewerId));
+        return redis.opsForZSet().size(DeckRedisKeys.deck(viewerId));
     }
 
     public Mono<Optional<Instant>> getBuildInstant(UUID viewerId) {
-        return redis.opsForValue().get(deckTsKey(viewerId))
+        return redis.opsForValue().get(DeckRedisKeys.buildTimestamp(viewerId))
                 .map(v -> Optional.of(Instant.ofEpochMilli(Long.parseLong(v))))
                 .defaultIfEmpty(Optional.empty());
     }
 
     public Mono<Long> invalidate(UUID viewerId) {
-        return redis.delete(deckKey(viewerId), deckTsKey(viewerId));
+        return redis.delete(DeckRedisKeys.deck(viewerId), DeckRedisKeys.buildTimestamp(viewerId));
     }
 
     public Mono<Boolean> markProfileInvalidated(UUID profileId) {
         Duration ttl = Duration.ofHours(invalidationTtlHours);
         return redis.opsForValue()
-                .set(invalidatedProfileKey(profileId), String.valueOf(System.currentTimeMillis()), ttl);
+                .set(DeckRedisKeys.invalidatedAt(profileId), String.valueOf(System.currentTimeMillis()), ttl);
     }
 
     public Mono<Boolean> markProfileDeleted(UUID profileId) {
         Duration ttl = Duration.ofHours(invalidationTtlHours);
         return redis.opsForSet()
-                .add(deletedProfilesKey, profileId.toString())
-                .flatMap(count -> redis.expire(deletedProfilesKey, ttl).thenReturn(count > 0));
+                .add(DeckRedisKeys.DELETED_PROFILES, profileId.toString())
+                .flatMap(count -> redis.expire(DeckRedisKeys.DELETED_PROFILES, ttl).thenReturn(count > 0));
     }
 
     public Mono<Void> touchRecentViewer(UUID viewerId) {
         double now = System.currentTimeMillis();
         return redis.opsForZSet()
-                .add(recentViewersKey, viewerId.toString(), now)
+                .add(DeckRedisKeys.RECENT_VIEWERS, viewerId.toString(), now)
                 .then();
     }
 
     public Flux<UUID> getRecentViewerIds(Duration window, int limit) {
         double cutoff = System.currentTimeMillis() - window.toMillis();
         return redis.opsForZSet()
-                .reverseRangeByScore(recentViewersKey,
+                .reverseRangeByScore(DeckRedisKeys.RECENT_VIEWERS,
                         org.springframework.data.domain.Range.closed(cutoff, Double.MAX_VALUE))
                 .take(limit)
                 .map(UUID::fromString);
@@ -152,7 +135,7 @@ public class DeckCache {
 
     public Flux<Entry<UUID, Double>> readRangeWithScores(UUID viewerId, long start, long end) {
         return redis.opsForZSet()
-                .reverseRangeWithScores(deckKey(viewerId), org.springframework.data.domain.Range.closed(start, end))
+                .reverseRangeWithScores(DeckRedisKeys.deck(viewerId), org.springframework.data.domain.Range.closed(start, end))
                 .map(t -> Map.entry(deserializeEntry(Objects.requireNonNull(t.getValue())).profileId(),
                         Objects.requireNonNull(t.getScore())));
     }
@@ -168,7 +151,7 @@ public class DeckCache {
      * @return Mono that completes when profile is marked as stale
      */
     public Mono<Long> markAsStale(UUID viewerId, UUID profileId) {
-        String key = staleKey(viewerId);
+        String key = DeckRedisKeys.stale(viewerId);
         log.debug("Marking profile {} as stale for viewer {}", profileId, viewerId);
 
         return redis.opsForSet()
@@ -183,10 +166,10 @@ public class DeckCache {
      * @return Mono<Long> number of decks marked as stale
      */
     public Mono<Long> markAsStaleForAllDecks(UUID profileId) {
-        return redis.keys("deck:*")
-                .filter(key -> DECK_KEY_PATTERN.matcher(key).matches())
+        return redis.keys(DeckRedisKeys.PRIMARY_DECK_SCAN_PATTERN)
+                .filter(key -> DeckRedisKeys.PRIMARY_DECK_KEY.matcher(key).matches())
                 .flatMap(key -> {
-                    String idPart = key.substring("deck:".length());
+                    String idPart = key.substring(DeckRedisKeys.PRIMARY_DECK_PREFIX.length());
                     try {
                         return Mono.just(UUID.fromString(idPart));
                     } catch (IllegalArgumentException e) {
@@ -209,7 +192,7 @@ public class DeckCache {
      */
     public Mono<Boolean> isStale(UUID viewerId, UUID profileId) {
         return redis.opsForSet()
-                .isMember(staleKey(viewerId), profileId.toString());
+                .isMember(DeckRedisKeys.stale(viewerId), profileId.toString());
     }
 
     /**
@@ -220,7 +203,7 @@ public class DeckCache {
      */
     public Flux<UUID> getStaleProfiles(UUID viewerId) {
         return redis.opsForSet()
-                .members(staleKey(viewerId))
+                .members(DeckRedisKeys.stale(viewerId))
                 .map(UUID::fromString);
     }
 
@@ -233,7 +216,7 @@ public class DeckCache {
      */
     public Mono<Long> removeStale(UUID viewerId, UUID profileId) {
         return redis.opsForSet()
-                .remove(staleKey(viewerId), profileId.toString());
+                .remove(DeckRedisKeys.stale(viewerId), profileId.toString());
     }
 
     /**
@@ -243,7 +226,7 @@ public class DeckCache {
      * @return Mono<Boolean> true if stale set was deleted
      */
     public Mono<Boolean> clearStale(UUID viewerId) {
-        return redis.delete(staleKey(viewerId))
+        return redis.delete(DeckRedisKeys.stale(viewerId))
                 .map(count -> count > 0);
     }
 
@@ -268,7 +251,7 @@ public class DeckCache {
      * @return Mono<Boolean> true if lock acquired
      */
     public Mono<Boolean> acquireLock(UUID viewerId, Duration ttl) {
-        String key = lockKey(viewerId);
+        String key = DeckRedisKeys.lock(viewerId);
         log.debug("Attempting to acquire lock for viewer {}", viewerId);
 
         return redis.opsForValue()
@@ -289,7 +272,7 @@ public class DeckCache {
      * @return Mono<Boolean> true if lock was released
      */
     public Mono<Boolean> releaseLock(UUID viewerId) {
-        String key = lockKey(viewerId);
+        String key = DeckRedisKeys.lock(viewerId);
         log.debug("Releasing lock for viewer {}", viewerId);
 
         return redis.delete(key)
@@ -310,7 +293,7 @@ public class DeckCache {
      * @return Mono<Boolean> true if lock exists
      */
     public Mono<Boolean> isLocked(UUID viewerId) {
-        return redis.hasKey(lockKey(viewerId));
+        return redis.hasKey(DeckRedisKeys.lock(viewerId));
     }
 
     /**
@@ -387,7 +370,7 @@ public class DeckCache {
      * @return Mono<Long> number of removed items (0 or 1)
      */
     public Mono<Long> removeFromDeck(UUID viewerId, UUID profileId) {
-        String key = deckKey(viewerId);
+        String key = DeckRedisKeys.deck(viewerId);
         log.debug("Removing profile {} from deck of viewer {}", profileId, viewerId);
 
         return findMemberByProfileId(key, profileId)
@@ -401,7 +384,7 @@ public class DeckCache {
      * The profiles service reads isSwiped=true and excludes this profile from results.
      */
     public Mono<Void> markAsSwiped(UUID swiperId, UUID swipedId) {
-        String key = deckKey(swiperId);
+        String key = DeckRedisKeys.deck(swiperId);
         log.debug("Marking profile {} as swiped in deck of viewer {}", swipedId, swiperId);
 
         return redis.opsForZSet()
@@ -434,7 +417,7 @@ public class DeckCache {
      * @return Mono<Long> number of decks actually affected
      */
     public Mono<Long> removeFromAllDecks(UUID profileId) {
-        String containsKey = deckContainsKey(profileId);
+        String containsKey = DeckRedisKeys.contains(profileId);
         return redis.opsForSet().members(containsKey)
                 .flatMap(viewerIdStr -> {
                     UUID viewerId;
@@ -444,7 +427,7 @@ public class DeckCache {
                         log.warn("Skipping malformed viewerId {} in reverse index for profile {}", viewerIdStr, profileId);
                         return Mono.just(0L);
                     }
-                    String dKey = deckKey(viewerId);
+                    String dKey = DeckRedisKeys.deck(viewerId);
                     return findMemberByProfileId(dKey, profileId)
                             .flatMap(member -> redis.opsForZSet().remove(dKey, member))
                             .defaultIfEmpty(0L)
@@ -467,7 +450,7 @@ public class DeckCache {
             return Mono.just(0L);
         }
 
-        String key = deckKey(viewerId);
+        String key = DeckRedisKeys.deck(viewerId);
         log.debug("Removing {} profiles from deck of viewer {}", profileIds.size(), viewerId);
 
         return Flux.fromIterable(profileIds)
@@ -502,7 +485,7 @@ public class DeckCache {
      * @return Mono<Boolean> true if cached
      */
     public Mono<Boolean> hasPreferencesCache(int minAge, int maxAge, String gender) {
-        return redis.hasKey(preferencesKey(minAge, maxAge, gender));
+        return redis.hasKey(DeckRedisKeys.preferences(minAge, maxAge, gender));
     }
 
     /**
@@ -514,7 +497,7 @@ public class DeckCache {
      * @return Flux of candidate profile IDs
      */
     public Flux<UUID> getCandidatesByPreferences(int minAge, int maxAge, String gender) {
-        String key = preferencesKey(minAge, maxAge, gender);
+        String key = DeckRedisKeys.preferences(minAge, maxAge, gender);
         log.debug("Fetching preferences cache: {}", key);
 
         return redis.opsForSet()
@@ -538,7 +521,7 @@ public class DeckCache {
             return Mono.just(0L);
         }
 
-        String key = preferencesKey(minAge, maxAge, gender);
+        String key = DeckRedisKeys.preferences(minAge, maxAge, gender);
         log.debug("Caching {} candidates for preferences: {}", candidateIds.size(), key);
 
         String[] candidateStrings = candidateIds.stream()
@@ -564,7 +547,7 @@ public class DeckCache {
      * @return Mono<Boolean> true if cache was deleted
      */
     public Mono<Boolean> invalidatePreferencesCache(int minAge, int maxAge, String gender) {
-        String key = preferencesKey(minAge, maxAge, gender);
+        String key = DeckRedisKeys.preferences(minAge, maxAge, gender);
         log.info("Invalidating preferences cache: {}", key);
 
         return redis.delete(key)
@@ -588,7 +571,7 @@ public class DeckCache {
      */
     public Mono<Long> getPreferencesCacheSize(int minAge, int maxAge, String gender) {
         return redis.opsForSet()
-                .size(preferencesKey(minAge, maxAge, gender));
+                .size(DeckRedisKeys.preferences(minAge, maxAge, gender));
     }
 
     // ==================== Serialization Helpers ====================

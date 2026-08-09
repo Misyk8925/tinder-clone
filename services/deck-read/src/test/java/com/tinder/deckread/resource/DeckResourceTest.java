@@ -1,12 +1,12 @@
 package com.tinder.deckread.resource;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.tinder.contracts.deck.DeckRedisKeys;
 import com.tinder.contracts.dto.DeckEntry;
 import com.tinder.contracts.dto.SharedPreferencesDto;
 import com.tinder.contracts.dto.SharedProfileDto;
 import com.tinder.deckread.client.DeckEnsureClient;
 import com.tinder.deckread.client.ProfilesClient;
-import com.tinder.deckread.redis.DeckKeySchema;
 import io.quarkus.redis.datasource.RedisDataSource;
 import io.quarkus.test.InjectMock;
 import io.quarkus.test.junit.QuarkusTest;
@@ -88,8 +88,8 @@ class DeckResourceTest {
         UUID viewer = UUID.fromString(VIEWER);
         UUID p1 = UUID.randomUUID();
         UUID p2 = UUID.randomUUID();
-        redis.sortedSet(String.class, String.class).zadd(DeckKeySchema.deck(viewer), 10.0, member(p1)); // rank 1
-        redis.sortedSet(String.class, String.class).zadd(DeckKeySchema.deck(viewer), 30.0, member(p2)); // rank 0
+        redis.sortedSet(String.class, String.class).zadd(DeckRedisKeys.deck(viewer), 10.0, member(p1)); // rank 1
+        redis.sortedSet(String.class, String.class).zadd(DeckRedisKeys.deck(viewer), 30.0, member(p2)); // rank 0
 
         when(profilesClient.getByIds(anyString()))
                 .thenReturn(Uni.createFrom().item(List.of(profile(p1), profile(p2))));

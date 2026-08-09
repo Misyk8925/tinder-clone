@@ -1,6 +1,7 @@
 package com.tinder.deckread.redis;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.tinder.contracts.deck.DeckRedisKeys;
 import com.tinder.contracts.dto.DeckEntry;
 import io.quarkus.redis.datasource.RedisDataSource;
 import io.quarkus.redis.datasource.sortedset.SortedSetCommands;
@@ -54,7 +55,7 @@ class DeckRedisReaderTest {
         UUID low = UUID.randomUUID();
         UUID high = UUID.randomUUID();
         UUID mid = UUID.randomUUID();
-        String key = DeckKeySchema.deck(viewer);
+        String key = DeckRedisKeys.deck(viewer);
 
         zset().zadd(key, 10.0, member(low, false));
         zset().zadd(key, 30.0, member(high, false));
@@ -69,7 +70,7 @@ class DeckRedisReaderTest {
         UUID a = UUID.randomUUID();
         UUID b = UUID.randomUUID();
         UUID c = UUID.randomUUID();
-        String key = DeckKeySchema.deck(viewer);
+        String key = DeckRedisKeys.deck(viewer);
 
         zset().zadd(key, 30.0, member(a, false)); // rank 0
         zset().zadd(key, 20.0, member(b, false)); // rank 1
@@ -83,7 +84,7 @@ class DeckRedisReaderTest {
     void parsesJacksonMember() {
         UUID viewer = UUID.randomUUID();
         UUID profile = UUID.randomUUID();
-        zset().zadd(DeckKeySchema.deck(viewer), 5.0, member(profile, false));
+        zset().zadd(DeckRedisKeys.deck(viewer), 5.0, member(profile, false));
 
         assertThat(read(viewer, 0, 10)).containsExactly(profile);
     }
@@ -93,7 +94,7 @@ class DeckRedisReaderTest {
         UUID viewer = UUID.randomUUID();
         UUID profile = UUID.randomUUID();
         // Legacy member: the raw UUID string, not JSON.
-        zset().zadd(DeckKeySchema.deck(viewer), 5.0, profile.toString());
+        zset().zadd(DeckRedisKeys.deck(viewer), 5.0, profile.toString());
 
         assertThat(read(viewer, 0, 10)).containsExactly(profile);
     }
@@ -106,7 +107,7 @@ class DeckRedisReaderTest {
     @Test
     void nonPositiveLimitReturnsEmpty() {
         UUID viewer = UUID.randomUUID();
-        zset().zadd(DeckKeySchema.deck(viewer), 5.0, member(UUID.randomUUID(), false));
+        zset().zadd(DeckRedisKeys.deck(viewer), 5.0, member(UUID.randomUUID(), false));
 
         assertThat(read(viewer, 0, 0)).isEmpty();
         assertThat(read(viewer, 0, -3)).isEmpty();

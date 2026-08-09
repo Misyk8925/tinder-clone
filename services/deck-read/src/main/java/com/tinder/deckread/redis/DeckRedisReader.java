@@ -1,6 +1,7 @@
 package com.tinder.deckread.redis;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.tinder.contracts.deck.DeckRedisKeys;
 import com.tinder.contracts.dto.DeckEntry;
 import io.quarkus.redis.datasource.ReactiveRedisDataSource;
 import io.quarkus.redis.datasource.sortedset.ReactiveSortedSetCommands;
@@ -54,7 +55,7 @@ public class DeckRedisReader {
         }
         int off = Math.max(offset, 0);
         long end = (long) off + limit - 1;
-        String key = DeckKeySchema.deck(viewerId);
+        String key = DeckRedisKeys.deck(viewerId);
 
         return sortedSet.zrange(key, off, end, new ZRangeArgs().rev())
                 .map(members -> members.stream()

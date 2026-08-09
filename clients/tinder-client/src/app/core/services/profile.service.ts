@@ -8,9 +8,10 @@ import { CreateProfileRequest, Profile } from '../models/profile.model';
 export class ProfileService {
   private http = inject(HttpClient);
   private base = `${environment.apiGatewayUrl}/api/v1/profiles`;
+  private deckUrl = `${environment.apiGatewayUrl}/api/v1/deck`;
 
   getMyDeck(offset = 0, limit = 20): Observable<Profile[]> {
-    return this.http.get<Profile[]>(`${this.base}/deck`, {
+    return this.http.get<Profile[]>(this.deckUrl, {
       params: { offset, limit }
     });
   }

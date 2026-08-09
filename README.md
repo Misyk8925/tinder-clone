@@ -168,7 +168,7 @@ GET  /health                            - Health check
 ```
 GET  /api/v1/deck                       - Get viewer's deck (viewer id from JWT sub)
 ```
-The Gateway rewrites the legacy client path `GET /api/v1/profiles/deck` to `GET /api/v1/deck` on this service.
+The Gateway routes `GET /api/v1/deck` directly to this service.
 
 ### Deck Service `:8030` (write side / admin)
 ```

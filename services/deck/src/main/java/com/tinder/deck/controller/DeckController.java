@@ -14,7 +14,7 @@ import java.util.UUID;
 /**
  * Admin/monitoring endpoints for Deck Service
  * This service primarily runs as a background worker
- * Client applications should use Profiles Service /api/v1/profiles/deck endpoint
+ * Client applications should use the Deck-Read Service {@code /api/v1/deck} endpoint.
  */
 @RestController
 @RequestMapping("/api/v1/admin/deck")

@@ -201,40 +201,42 @@ shrinks `profiles` toward pure CRUD.
 - the `GET /api/v1/profiles/deck` handler (becomes `GET /api/v1/deck` in the new service)
 - the `DeckEntryDto` record + Redis key constants (`deck:*`)
 
-### 4.2 New service shape (`services/deck-read`, reactive WebFlux to match the builder)
+### 4.2 Service shape (`services/deck-read`, Quarkus reactive)
 
 ```
 deck-read/
-├── api/            DeckController         GET /api/v1/deck?offset&limit  (JWT → viewerId)
-├── application/    ReadDeckUseCase        (cache → ensure → fallback orchestration)
-│   └── port/out/   DeckCachePort, DeckBuilderPort, ProfileHydrationPort
-├── domain/         DeckPage, DeckEntry, validity rules (swiped/deleted/invalidated-at)
-└── infrastructure/
-    ├── cache/      RedisDeckCacheAdapter      (the ZSET read logic from DeckCacheReader)
-    ├── builder/    DeckBuilderHttpAdapter     (→ deck builder /internal/deck/ensure)
-    └── profiles/   ProfileHydrationAdapter    (→ profiles /by-ids or gRPC, batch hydrate)
+├── resource/       DeckResource           GET /api/v1/deck?offset&limit (JWT → viewerId)
+├── service/        DeckQueryService       Redis → ensure-on-miss → hydrate → reorder
+├── redis/          DeckRedisReader        Reactive Redis ZSET page read
+├── client/         DeckEnsureClient, ProfilesClient
+├── cache/          ProfileCache, ViewerIdentityCache
+└── dto/            DeckCardDto
 ```
 
 ### 4.3 Data ownership & contracts
 
 - **Redis is shared by contract**: `deck` (builder) writes the ZSETs; `deck-read` only
   reads them. Freeze the complete key schema (`deck:{id}`, `deck:build:ts:{id}`,
-  `deck:stale:{viewerId}`, `deck:lock:{viewerId}`, `deck:recent:viewers`,
+  `deck:stale:{viewerId}`, `deck:lock:{viewerId}`, `deck:contains:{profileId}`,
+  `deck:recent:viewers`,
   `deck:profile:deleted`, `deck:profile:invalidated-at:{id}`, and
   `prefs:{minAge}:{maxAge}:{gender}`) in `tinder-contracts` so the two services
   can't drift. This is the one place we intentionally share a datastore — it is
   the read-model handoff, and both sides are owned by the deck domain.
-- **Profile hydration**: `deck-read` calls `profiles` `/by-ids` (already exists) or gRPC.
-  Prefer **gRPC** for this hot batch lookup; add a small local cache + Resilience4j.
+- **Profile hydration**: `deck-read` calls the existing Profiles REST batch endpoints over
+  mTLS. A bounded Caffeine cache plus SmallRye timeout/circuit-breaker support protects the
+  hot path.
 - The on-the-fly emergency fallback (`buildDeckOnTheFly` → `internalProfileService.searchByViewerPrefs`)
   should call the **deck builder** synchronously rather than reaching into profiles' internals.
 
 ### 4.4 Routing / migration
 
-1. Stand up `deck-read`, route `GET /api/v1/deck` to it at the gateway.
-2. Keep the old `/api/v1/profiles/deck` as a thin proxy/redirect for one release (strangler).
-3. Update the Angular client to the new path; then delete the old handler + the `deck`
-   package from `profiles`.
+Completed:
+
+1. `deck-read` serves `GET /api/v1/deck`, routed directly by the gateway.
+2. The old `/api/v1/profiles/deck` path was kept during the strangler period.
+3. Angular now uses the new path; the old gateway route, profiles handler, and profiles
+   deck package are removed.
 
 ---
 

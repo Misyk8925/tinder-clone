@@ -450,7 +450,7 @@ services:
       SWIPES_SERVICE_URL: http://swipes:8040
       CONSUMER_SERVICE_URL: http://consumer:8050
       DECK_SERVICE_URL: http://deck:8030
-      # Client-facing deck reads (GET /api/v1/profiles/deck) are routed to deck-read.
+      # Client-facing deck reads (GET /api/v1/deck) are routed to deck-read.
       DECK_READ_SERVICE_URL: ${DECK_READ_SERVICE_URL:-http://deck-read:8040}
       MATCH_SERVICE_URL: http://match:8080
       MATCH_WS_URL: ws://match:8080

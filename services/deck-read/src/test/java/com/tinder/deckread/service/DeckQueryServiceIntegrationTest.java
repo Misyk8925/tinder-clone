@@ -1,13 +1,13 @@
 package com.tinder.deckread.service;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.tinder.contracts.deck.DeckRedisKeys;
 import com.tinder.contracts.dto.DeckEntry;
 import com.tinder.contracts.dto.SharedPreferencesDto;
 import com.tinder.contracts.dto.SharedProfileDto;
 import com.tinder.deckread.dto.DeckCardDto;
 import com.tinder.deckread.client.DeckEnsureClient;
 import com.tinder.deckread.client.ProfilesClient;
-import com.tinder.deckread.redis.DeckKeySchema;
 import io.quarkus.redis.datasource.ReactiveRedisDataSource;
 import io.quarkus.redis.datasource.RedisDataSource;
 import io.quarkus.test.InjectMock;
@@ -65,13 +65,13 @@ class DeckQueryServiceIntegrationTest {
     }
 
     private void seed(UUID viewer, double score, UUID profileId) {
-        redis.sortedSet(String.class, String.class).zadd(DeckKeySchema.deck(viewer), score, member(profileId));
+        redis.sortedSet(String.class, String.class).zadd(DeckRedisKeys.deck(viewer), score, member(profileId));
     }
 
     /** Reactive seed (safe to run on the event loop) used inside the ensure() mock answer. */
     private Uni<Boolean> seedReactivelyThenTrue(UUID viewer, double score, UUID profileId) {
         return reactiveRedis.sortedSet(String.class)
-                .zadd(DeckKeySchema.deck(viewer), score, member(profileId))
+                .zadd(DeckRedisKeys.deck(viewer), score, member(profileId))
                 .replaceWith(true);
     }
 

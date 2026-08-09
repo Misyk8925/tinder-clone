@@ -97,16 +97,13 @@ spring:
                 - Path=/api/v1/profiles/me
                 - Method=GET
 
-            # Client-facing deck reads are served by the deck-read service. The legacy
-            # /api/v1/profiles/deck path is preserved for clients and rewritten to
-            # deck-read's /api/v1/deck (viewer is taken from the JWT sub by deck-read).
-            - id: profile-deck
+            # Client-facing deck reads are served directly by the CQRS read side.
+            # deck-read validates the JWT and resolves the viewer from its subject.
+            - id: deck-read
               uri: ${DECK_READ_SERVICE_URL:http://localhost:8040}
               predicates:
-                - Path=/api/v1/profiles/deck
+                - Path=/api/v1/deck
                 - Method=GET
-              filters:
-                - RewritePath=/api/v1/profiles/deck,/api/v1/deck
 
             - id: profile-other
               uri: ${PROFILES_SERVICE_URL:http://localhost:8010}
