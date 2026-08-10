@@ -15,19 +15,12 @@ Project-wide. Written once, referenced by every feature — do not re-decide thi
 
 - Tool used to turn spec → markdown mirror: <widdershins / redoc-cli / hand-written / ...>
 - Command: `<...>`
-- If hand-written: mirror is checked against the spec as part of the phase-2 gate checklist, every time.
+- If hand-written: the readable view is checked against the canonical spec during the combined phase-2/3 check.
 
 ## Naming
 
 - Error code style: `SCREAMING_SNAKE_CASE`
 - Event name style: `<domain>.<entity>.<verb-past-tense>.v<n>` e.g. `quote.draft.created.v1`
-
-## Bug-hunt audit cadence
-
-Full-codebase audits (`references/bug-hunt.md`) are never automatic — decide once when to run them:
-
-- Cadence: <e.g. "before every production release" | "every 10 completed features">
-- Standing tracker: Linear "Bug Audits" project (`<link>`), or `docs/bug-audits/` if no Linear.
 
 ## History
 

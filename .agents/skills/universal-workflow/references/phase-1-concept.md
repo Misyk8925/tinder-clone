@@ -4,9 +4,10 @@ Goal: agree on *what problem we solve and roughly how*, before anyone argues abo
 
 ## Steps
 
-1. **Set up the Linear Project.** Name it after the feature; pick a matching kebab-case slug for the repo folder and git branch (Linear auto-generates a `branchName` on the Project's issues — Claude Code and Cursor already read it to check out the right branch, so keep the two aligned rather than inventing a second name). Create 5 milestones (Phase 1 … Phase 5) — bug hunt (phase 4.5) isn't a 6th one; its targeted-review issues attach to the Phase 4 milestone, since that's where they happen (see `references/bug-hunt.md`). For small work, skip the Project and use a single Issue with sub-issues instead — see `references/linear-integration.md`. If Linear isn't available, use the fallback there instead of skipping tracking.
-2. **Create `docs/features/<slug>/README.md`** from `assets/templates/feature-readme.md`, linking the Linear Project. This is the only narrative markdown that lands in the repo — everything else there is contracts, scenarios, and code.
-3. **Interview.** Ask only what you cannot infer, and ask it in one batch — do not interrogate over five turns. The categories below are what to *consider*, not a script to recite verbatim: skip anything already answered or obvious from context, but if you skip one because you inferred the answer, say what you assumed in the concept rather than deciding it silently.
+1. **Set up the selected tracker.** Resolve `references/project-profile.md`. For full feature delivery, create its feature/project container and phase milestones; shorter modes do not enter phase 1. Use `references/linear-integration.md` only when Linear is the selected adapter.
+2. **Create or update the feature index** in the project's established location. If none exists, use `docs/features/<slug>/README.md` from `assets/templates/feature-readme.md`. Link the tracker and canonical contracts/tests; do not copy them.
+3. **Build the decision tree from facts.** Read the codebase, existing contracts, feature history, tracker, and relevant external evidence first. Separate facts the agent can establish from consequential choices only the owner can make. Represent the unresolved choices as a small dependency tree: a decision becomes ready only when its prerequisites are known.
+4. **Interview the frontier.** Ask only the ready product, scope, architecture, UX, cost, or risk choices that cannot be inferred. Give the evidence, a recommended answer, and the meaningful tradeoff for each. For a small feature, ask them in one batch. For a large uncertain feature, use a few bounded rounds: after each answer, update the decision tree and ask only the newly ready questions. Do not turn the category checklist into a script or ask the user for facts the project can answer.
    - **User & alternative** — who has this, what do they do today instead.
    - **Trigger & success** — what starts this, what tells you it worked — both in a test and after it ships to production.
    - **Boundaries** — what it must not do, what's explicitly out of scope for v1.
@@ -15,10 +16,12 @@ Goal: agree on *what problem we solve and roughly how*, before anyone argues abo
    - **Failure** — what happens when it partially fails, not just when someone misuses it.
    - **Stakeholders** — who besides the user is affected and needs to know when this ships (support, ops, another team's service).
    For a small, obvious feature most of these should already be inferable — the checklist is there so nothing gets silently skipped on a bigger one, not to turn every feature into an interrogation.
-4. **Draft the concept** as two Linear Project Documents (EN B1, RU) — see `assets/templates/concept.en.md` / `concept.ru.md` for the section structure. Same structure, same numbering in both — a reader must be able to compare them section by section. (No Linear: write `01-concept.en.md` / `.ru.md` in the repo instead.)
-5. **Self-check loop.** Before this draft goes anywhere near the user, verify it against reality — see below. This is not a second gate; it is quality control on the one gate that exists.
-6. **Create the phase-1 Gate issue** ("Gate: approve concept"), assigned to the approver, status Todo.
-7. **Stop.** Ask for approval.
+5. **Split discovery only when needed.** If several independent unknown branches cannot be resolved coherently in the current decision context, create Wayfinder-style research, prototype, or decision issues. Each issue answers one named question, records dependencies, produces one reviewable artifact, and stops without implementing production code. A prototype is disposable evidence for a decision, not an early implementation. Merge the resulting facts and owner decisions back into one concept; the split never bypasses the phase-1 approval gate.
+6. **Confirm shared understanding.** Summarize the problem, observable behaviour, boundaries, accepted choices, rejected alternatives, and unresolved questions. Ask the owner to correct this summary before turning it into the concept draft. This confirmation is not the approval gate.
+7. **Draft the concept** in the language(s) selected by the project profile. Use the concept templates for section structure when useful. If several language versions are requested, keep their structure and requirement numbering aligned.
+8. **Self-check loop.** Before this draft goes anywhere near the user, verify it against reality — see below. This is not a second gate; it is quality control on the one gate that exists.
+9. **Create the phase-1 gate item** ("Gate: approve concept") in the selected tracker and assign the approver when supported.
+10. **Stop.** Ask for approval.
 
 ## Self-check loop
 
@@ -32,7 +35,7 @@ The gate has one shot per round-trip with the user — a draft that contradicts 
 
 **Check against the project.** Read what already exists before asking the user to approve something that quietly conflicts with it:
 
-- Other Linear projects for this codebase — does this FR, NFR, or architecture choice contradict a decision already made there? (No Linear: other `docs/features/*/01-concept.en.md` files.)
+- Other tracker items and feature indexes for this codebase — does this FR, NFR, or architecture choice contradict a decision already made there?
 - The actual stack — package manifests, `docker-compose`, existing services — does "suggested solution" fit it, or does it quietly introduce a new database, framework, or messaging system? Introducing something new is fine; introducing it *silently* is not — call it out as a decision, not an assumption.
 - `docs/contracts/conventions.md`, if the project has reached phase 2 before on another feature — align terminology and format expectations now rather than discovering the mismatch in phase 2.
 
@@ -40,9 +43,9 @@ The gate has one shot per round-trip with the user — a draft that contradicts 
 
 **Cap it at two passes.** Unlike phase 4, there is no test suite that turns green — "is this concept good enough" doesn't have an objective stop signal, so an uncapped loop just turns into stalling. After two passes, whatever is still unresolved needs a home — see below.
 
-**Not everything the loop turns up is a question for the user.** If it's a gap in the spec — "should retention be 12 or 24 months?" — that's an open question: a Linear issue labeled `question`, assigned to whoever can answer. If it's a known uncertainty with no single right answer to ask for — "the geocoding API's rate limit isn't documented, could throttle under peak load" — that's a risk: a Linear issue labeled `risk`/`risk-open`, with a likelihood, impact, and either a mitigation plan or an explicit accept-with-owner. It doesn't block the gate; it travels with the feature until someone closes it.
+**Not everything the loop turns up is a question for the user.** A missing owner decision becomes an open question in the selected tracker. A known uncertainty with no immediate answer becomes an owned risk with likelihood, impact, and mitigation or explicit acceptance. It travels with the feature until resolved.
 
-**Log it briefly** — a comment on the phase-1 Gate issue (or on the concept Documents), one or two lines, not a full audit trail:
+**Log it briefly** — a comment on the phase-1 gate item or concept document, one or two lines, not a full audit trail:
 
 ```
 Pre-gate checks: suggested solution cross-checked against the `tenant-billing`
@@ -51,9 +54,9 @@ no new dependency). NFR-2's 99.5% target checked against the current uptime of
 the service it depends on — revised from 99.9% after that check.
 ```
 
-## English at B1 level
+## Language and readability
 
-The English version is written to be read fast, not to sound impressive.
+Write every requested language version to be read fast, not to sound impressive.
 
 - Short sentences. One idea each.
 - Common words: "use" not "utilise", "start" not "commence", "about" not "approximately".
@@ -103,11 +106,14 @@ Rejected: serverless functions — cold starts break NFR-1.
 
 ## Exit criteria
 
-- Both language versions exist and match.
+- Every language version required by the project profile exists and matches the others structurally.
 - Every FR is testable; every NFR has a number.
 - The suggested solution is the cheapest one that satisfies every FR/NFR — anything pricier than the obvious baseline traces to a specific FR/NFR number, not to "best practice."
 - At least one rejected alternative is documented, with the number that made it too expensive or the number it failed to meet.
-- The suggested solution has been checked against the existing project (stack, conventions, other Linear projects) — no silent conflicts.
+- The suggested solution has been checked against the existing project (stack, conventions, prior tracker decisions) — no silent conflicts.
 - Checkable claims (feasibility, numbers, external limits) were checked, or explicitly raised as risks.
-- Open questions are raised as Linear `question` issues, not silently answered.
-- The user has written an explicit approval; the phase-1 Gate issue is closed with a comment recording it.
+- Open questions are recorded in the selected tracker, not silently answered.
+- Consequential choices came from the owner; agent-established facts carry evidence, and no implementation agent is left to guess an unresolved decision.
+- Any split research or prototype issue answers one named question and has been folded back into the single concept.
+- The owner confirmed the shared-understanding summary before the approval request.
+- The user has written an explicit approval; the selected phase-1 gate item records it.

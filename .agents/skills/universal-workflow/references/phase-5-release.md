@@ -4,6 +4,14 @@ Goal: get it into production, know within minutes whether it works, and be able 
 
 Each step gates the next. A failing scan does not "get fixed after deploy".
 
+Scale this phase by router mode:
+
+- `full-feature-delivery` uses the complete release path below.
+- `bug-fix` runs the build, security, migration, smoke, rollback, and monitoring checks affected by the defect and fix. A hotfix does not waive a relevant check.
+- `compressed-small-change` runs the affected build/validation checks and records a rollback note when runtime behaviour changes. Do not manufacture deployment, monitoring, milestone, or documentation work for an unreleased local change.
+
+Deploy only when the user's request and project process authorize deployment. Otherwise hand off verified release evidence and state what remains unexecuted.
+
 ## 1. Build
 
 - Reproducible, versioned artifact (image tag = git sha, not `latest`).
@@ -21,7 +29,7 @@ Run before deploy, fail the pipeline on high/critical:
 - Secrets: gitleaks / trufflehog on the repo and the image.
 - Config: no debug mode, no default credentials, TLS enforced, CORS not `*`.
 
-Anything you accept instead of fixing becomes a Linear issue labeled `risk`/`risk-accepted`, with a reason and an owner — not just noted in the checklist and forgotten once the release ships.
+Anything accepted instead of fixed becomes an owned risk in the selected tracker, not a checklist footnote.
 
 ## 3. Deploy
 
@@ -35,7 +43,7 @@ Anything you accept instead of fixing becomes a Linear issue labeled `risk`/`ris
 Run against production (or the freshly deployed environment) immediately:
 
 - Health/readiness endpoints.
-- The `@smoke`-tagged scenarios from phase 3 — you already wrote them.
+- The smoke-tagged or smoke-grouped executable acceptance checks from phase 3 — you already wrote them.
 - One real end-to-end path with a test tenant.
 
 Failing smoke tests trigger the rollback you planned in step 3. Automatically, if the pipeline can.
@@ -60,7 +68,7 @@ Before you call it done, make sure you would *find out* if it broke:
 - README / API docs updated (Swagger, OpenAPI published).
 - CHANGELOG entry.
 - Runbook: what this thing does, its dependencies, the top three failure modes and what to do about each.
-- All 5 Linear milestones complete; concept Documents amended if reality diverged from them — a concept doc that lies is worse than none. (No Linear: `00-state.md` closed out, `01-concept.*.md` updated.)
+- For `full-feature-delivery`, all phase milestones are complete and the concept is amended if reality diverged. For shorter modes, close the compact tracker item with scoped evidence.
 
 ## Definition of done
 
@@ -68,9 +76,9 @@ Deployed, smoke-tested, observable, documented, rollback rehearsed, and the user
 
 The QA metrics snapshot is complete for the release: pre-release evidence is linked, NFR measurements name their environment and window, and post-release outcomes are either observed or explicitly still pending. See `references/qa-metrics.md`.
 
-**The Linear project's `risk-open` view is empty.** Not zero risk — that's not achievable and claiming it is worse than not claiming it. Every risk raised across all four earlier phases is, by now, Mitigated, Accepted with an owner, or Closed. Shipping with one `risk-open` issue left isn't a smaller version of done; it's a risk nobody actually decided about, which is exactly the outcome the register exists to prevent.
+**The selected tracker's Open-risk view is empty.** This does not mean zero risk. Every risk is Mitigated, Accepted with an owner, or Closed; an undecided risk does not ship.
 
-**No open `bug` issue with severity `blocker` in this feature's affected scope.** Bugs found via targeted review during phase 4, or via a full audit that touched this feature's scope, gate the same way risks do — see `references/bug-hunt.md`. A blocker-severity bug found elsewhere in the codebase (a full audit finding outside this feature's scope) doesn't automatically block this release, but flag it to the user if the scopes overlap.
+**No open blocker-severity bug in this delivery scope.** Bugs found through targeted review gate the release like risks do — see `references/targeted-defect-review.md`.
 
 ---
 
@@ -114,7 +122,7 @@ When users are already affected:
 stabilise → communicate → diagnose → fix → verify → post-mortem
 ```
 
-- **Stabilise** — restore service (rollback, flag, scale, rate-limit, degrade gracefully). Do not hunt the root cause while it is bleeding. In parallel, open a Linear issue labeled `incident` — it's what people watch and get notified on while it's live; the repo file comes after. (No Linear: whatever the team already uses for live incident comms — Slack thread, PagerDuty, an issue in the fallback tracker — the point is a place people are already watching, not a new one; skip straight to the repo file if there's genuinely nothing.)
+- **Stabilise** — restore service (rollback, flag, scale, rate-limit, degrade gracefully). Use the project's live incident channel or selected tracker; the durable repo record comes after stability.
 - **Communicate** — one person keeps affected users and the team updated at a fixed interval, even when the update is "still working on it". Comments on the `incident` issue are the natural place for this.
 - **Diagnose** — logs, traces, metrics, the diff that shipped. The release version tag on your error tracker is what makes this a five-minute job instead of a two-hour one.
 - **Fix** — through the normal phase-4 loop. An incident does not license skipping tests.
@@ -127,10 +135,10 @@ Once stable, write the durable technical record to `05-release/incidents/<date>-
 
 Blameless — you are looking for the missing guardrail, not the guilty commit. The output is not a document, it is **changes to the earlier phases**:
 
-- **A regression scenario in phase 3.** Every production failure becomes a Gherkin scenario, tagged `@regression`, that fails against the broken version and passes against the fix. This is the single most valuable thing you take out of an incident: the bug can now only happen once.
+- **An executable regression check.** Follow the project convention; when none exists, use a clearly named Gherkin-like Given/When/Then test in the native framework. It fails against the broken version and passes against the fix.
 - **A new or corrected NFR in phase 1**, if the failure was a limit nobody had written down (a queue depth, a timeout, a payload size).
 - **A contract change in phase 2**, if a client's assumption was wrong or an error case was missing from the table.
 - **A new alert**, if you found out from a user instead of from monitoring. That is a monitoring bug, and it is more urgent than the original bug.
 - **A checklist line in phase 5**, if a step would have caught it and was not there.
 
-Then post a Linear Project Update on the feature: what failed, what changed, and which phase the work went back to. Any action from the table above that can't be merged right now — not "eventually", a real gap in when it'll happen — becomes a Linear issue labeled `risk`/`risk-accepted` (with an owner and a review-by date) instead of living only in the incident file where it's easy to forget. A feature that survived an incident and came back with tests around the wound is in better shape than one that never broke.
+Then update the selected tracker: what failed, what changed, and which phase the work returned to. Any action that cannot be completed now becomes an owned risk with a review date instead of living only in the incident file.

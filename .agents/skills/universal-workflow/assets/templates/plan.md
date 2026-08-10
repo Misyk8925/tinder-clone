@@ -2,12 +2,21 @@
 
 ## Slices
 
-| # | Slice | Turns green | Status |
-|---|-------|-------------|--------|
-| 1 |       | scenario "..." | todo |
-| 2 |       |                | todo |
+| # | Slice / observable result | Turns green | Depends on | Mode | Status |
+|---|---------------------------|-------------|------------|------|--------|
+| 1 |                           | acceptance check / observable evidence | — | HITL | todo |
+| 2 |                           |                | 1      | AFK  | todo |
 
 ## Current slice: <n>
+
+**Observable result**
+-
+
+**Mode**
+- HITL / AFK
+
+**Blocking dependencies**
+-
 
 **Files to touch**
 -
@@ -21,5 +30,34 @@
 **Config / secrets**
 -
 
+**Primary acceptance check / observable evidence**
+-
+
+**Changed risks and applicable test levels**
+- Risk → unit / component / integration / contract / system-e2e / specialist check
+
+**Other evidence**
+-
+
+**Manual decision / check**
+- N/A for AFK, with reason
+
 **Biggest risk**
+-
+
+## Handoff (only when the session or agent changes)
+
+**Approved inputs / decisions**
+-
+
+**Current code / diff**
+-
+
+**Commands and observed results**
+-
+
+**Remaining work / known failures**
+-
+
+**Unresolved questions**
 -

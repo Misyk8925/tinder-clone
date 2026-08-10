@@ -1,6 +1,6 @@
 # Workflow state: <feature-slug>
 
-**Fallback only.** Use this file when this project has no Linear available — see `references/linear-integration.md`. When Linear is connected, this content lives there instead (milestones, Gate issues, `risk`/`question`/`bug` labeled issues, Project Updates) — don't maintain both.
+**Fallback only.** Use this file when the project has no established tracker suitable for workflow state — see `references/project-profile.md`. Do not maintain it beside an authoritative tracker.
 
 Current phase: **1 — Concept**
 Last updated: <date>
@@ -9,10 +9,10 @@ Last updated: <date>
 
 | Phase | Artifact | Approved by | Date |
 |-------|----------|-------------|------|
-| 1 — Concept | `01-concept.en.md`, `01-concept.ru.md` | — | — |
-| 2 — Contracts | `02-contracts/` | — | — |
-| 3 — Behaviour | `03-behaviour/` (soft) | — | — |
-| 4 — Implementation | all scenarios green | — | — |
+| 1 — Concept | concept document(s) required by the project profile | — | — |
+| 2 — Contracts | `02-contracts/` (draft; no separate gate) | — | — |
+| 3 — Contracts + behaviour | `02-contracts/` + `03-behaviour/` | pending | — |
+| 4 — Implementation | all applicable acceptance and risk-selected checks green | — | — |
 | 5 — Release | `05-release/checklist.md` | — | — |
 
 ## Pre-gate checks (phase 1 self-check loop)
@@ -32,12 +32,10 @@ Any phase can add a row when it finds something. Status is one of:
 
 ## Bugs (targeted review — this feature's diff only)
 
-One row per confirmed bug — see `references/bug-hunt.md` for the full shape; the four required fields (repro steps, root cause, severity, affected scope) go in `assets/templates/bug-issue.md`, saved as `docs/features/<slug>/bugs/<bug-slug>.md`, and linked from here. Not closed until the regression-test checklist in that file is fully checked.
+One row per confirmed bug — see `references/targeted-defect-review.md`; save the repo fallback from `assets/templates/bug-issue.md` under `docs/features/<slug>/bugs/` and link it here. Do not close it without regression evidence or explicit risk acceptance.
 
 | ID | Severity | Title | Detail file | Status | Regression test |
 |----|----------|-------|--------------|--------|-------------------|
-
-A full-codebase audit isn't feature-scoped, so it doesn't live in this file at all — see the "No Linear" note in `references/bug-hunt.md`.
 
 ## Open questions
 

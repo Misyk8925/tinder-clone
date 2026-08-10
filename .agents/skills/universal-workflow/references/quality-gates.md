@@ -25,7 +25,7 @@ An exception is a visible engineering decision, not an annotation that disables 
 - Limit it to a named file/module and changed code.
 - State why the change cannot meet the threshold now, what risk it creates, and the smallest remediation plan.
 - Assign an owner and review-by/expiry date.
-- Link a Linear `risk` issue (or the fallback risk register) and record the user's explicit approval when the exception changes the release risk.
+- Link an owned risk in the selected tracker and record explicit approval when the exception changes release risk.
 - Re-run the gate at the review date. Expired exceptions are failures until renewed deliberately.
 
 Do not use exceptions for contract compatibility, migration safety, secret scanning, Config/IaC policy, or prohibited licences. Those need a contract migration, expand/contract plan, remediation, or an explicit release decision outside the gate — not a hidden suppression. A performance failure means the NFR, scope, or implementation needs a decision; do not alter the baseline or workload merely to make a comparison pass.

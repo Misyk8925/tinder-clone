@@ -1,7 +1,7 @@
 # Incident: <short title>
 
 Feature: `<feature-slug>` · Release: `<version / git sha>`
-Linear incident issue: `<link>` (real-time tracking lived there; this file is the durable technical record)
+Live incident tracker/channel: `<link>` (real-time coordination lived there; this file is the durable technical record)
 Detected: <date, time, how — alert? user report?>
 Resolved: <date, time>
 User impact: <who, how many, for how long, what could they not do>
@@ -44,10 +44,10 @@ Rolled back | Fixed forward — and why that was the right call.
 
 | # | Action | Phase it lands in | Owner | Done |
 |---|--------|-------------------|-------|------|
-| 1 | Regression scenario `@regression` reproducing the failure | 3 | | |
+| 1 | Executable regression test following project grouping, or Gherkin-like native default | 3/4 | | |
 | 2 | New/corrected NFR: ... | 1 | | |
 | 3 | Contract fix: ... | 2 | | |
 | 4 | New alert: ... | 5 | | |
 | 5 | Checklist line: ... | 5 | | |
 
-The incident is not closed when the service is back. It is closed when these are merged. Any row still not done gets raised as a Linear issue labeled `risk`/`risk-accepted` (with an owner and a review-by date) — an unmerged action sitting only in this file is exactly the kind of thing that gets forgotten by the next incident.
+The incident is not closed when service returns; it closes when actions are merged or recorded as owned risks with review dates in the selected tracker.

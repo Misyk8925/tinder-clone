@@ -1,26 +1,25 @@
 # Linear integration
 
-This is the schema for how the workflow's tracking maps onto Linear — read it once before phase 1 on a new feature, and whenever the mapping is unclear mid-feature. It exists so every feature uses Linear the same way, the same reason `docs/contracts/conventions.md` exists for spec formats.
+This optional adapter maps the workflow onto Linear. Read it only when `references/project-profile.md` selects Linear because the project already uses it.
 
 ## Setup
 
-The workflow needs the Linear MCP server (or an equivalent Linear integration) available as a tool. It doesn't need to be reachable in *this* session to plan the work — but a phase can't actually be gated in Linear without it.
+A Linear-backed gate needs an available Linear integration.
 
 - Check the tool list for Linear tools first. If present, use them.
-- If not present but the environment supports adding one, the official server is a remote MCP endpoint: `claude mcp add --transport http linear-server https://mcp.linear.app/mcp`, then `/mcp` in a Claude Code session to complete OAuth. In this chat interface, that's a connector — search for it and let the user pick it rather than assuming.
-- If Linear genuinely isn't available for this project (no workspace, user doesn't want it), use the fallback below and say so once, rather than silently defaulting to it.
+- Do not install or configure an integration unless the user asks.
+- If the project does not use Linear or it is unavailable, return to `references/project-profile.md`; do not force this adapter.
 
 ## Object mapping
 
-One **Linear Project** per feature is the default — Linear's own guidance is that a project earns its keep once work is "more than a handful of tickets," which is true of almost anything that reaches phase 2. For small work (the compressed process — see SKILL.md "Working with the user"), use a single **Issue** with sub-issues instead; skip milestones and Gate issues, just track risks/questions as sub-issues if any come up.
+One **Linear Project** per full feature is the default. For `bug-fix` and `compressed-small-change`, use one Issue (and sub-issues only when genuinely useful); skip milestones and feature Gate issues. See `references/mode-router.md` before creating tracking.
 
 | Workflow concept | Linear object | Notes |
 |---|---|---|
 | Feature | Project | Name = feature name. Description = one-line pointer to `docs/features/<slug>/README.md`. |
-| The five gated phases | 5 Project Milestones | "Phase 1 — Concept" … "Phase 5 — Release". Current phase = earliest milestone not yet complete. Bug hunt (phase 4.5) isn't a 6th milestone — its issues attach to the Phase 4 milestone, since that's when they happen; see `references/bug-hunt.md`. |
-| Concept brief (EN + RU) | 2 Project Documents | Attached to the Project. Titles: "Concept — EN (B1)", "Concept — RU". Content follows `assets/templates/concept.en.md` / `concept.ru.md` section-for-section. |
-| Hard gate (phase 1, phase 2) | 1 Gate issue per gate | e.g. "Gate: approve concept". Assigned to the approver. In milestone 1 (or 2). Status Todo until the user's explicit approval arrives in chat — then Done, with a comment recording who and when. Phase-2+ work issues are linked "blocked by" the relevant Gate issue where the tool supports it, so the dependency is visible in Linear itself, not just in this document. |
-| Soft gate (phase 3) | 1 confirmation issue, or just a comment | Lighter — no blocking relation needed. |
+| The five delivery phases | 5 Project Milestones | "Phase 1 — Concept" … "Phase 5 — Release". Targeted defect findings attach to Phase 4. |
+| Concept brief | Project Document(s) | Use the language(s) selected by the project profile. |
+| Hard gate (phase 1; combined phases 2+3) | 1 Gate issue per gate | Use "Gate: approve concept" and "Gate: approve contracts and executable behaviour". Keep the second gate open until the phase-3 combined verification passes and the user explicitly approves both artifacts. Implementation issues are blocked by that combined Gate where supported. |
 | Risk | Issue, label `risk` + one of `risk-open` `risk-mitigated` `risk-accepted` `risk-closed` | Likelihood/impact go in the description (or map to Linear's Priority field if a rough single severity is enough). Assignee = owner. Due date = review-by date, for Accepted risks. See "Risk register" below. |
 | Open question | Issue, label `question` — or an unresolved comment for something lighter | Assignee = who should answer. Done / resolved once answered, with the answer recorded in a comment. |
 | Decision | Project Update | Linear's own chronological status-update feed on the Project. Post one at the end of each phase, and whenever a decision is made that isn't already obvious from a Gate issue closing. |
@@ -48,15 +47,15 @@ Post a Linear Project Update, not a markdown table row, whenever:
 
 Use the update's health field honestly — "At risk" if there's an unresolved `risk-open` item close to a deadline, not just "On track" by default.
 
-## No Linear available (fallback)
+## Leaving this adapter
 
-If this project doesn't use Linear, don't drop tracking — recreate the pre-Linear model on disk instead:
+If Linear ceases to be the selected tracker, do not maintain duplicate state. Use the replacement tracker, or the repo fallback when none exists:
 
 - `docs/features/<slug>/00-state.md` from `assets/templates/state.fallback.md` — phase, approvals, risk register, open questions, decisions log, all in one file, same semantics as the Linear mapping above (Open/Mitigated/Accepted/Closed still applies).
-- `docs/features/<slug>/01-concept.en.md` and `01-concept.ru.md` from `assets/templates/concept.en.md` / `concept.ru.md`, in the repo instead of as Project Documents.
+- concept document(s) in the language(s) selected by the project profile.
 
 Say once, plainly, that this feature is running without Linear and why (not connected / project doesn't use it) — don't switch modes silently partway through a feature.
 
 ## What doesn't move to Linear
 
-Contracts, Gherkin, the data catalog, the implementation plan and log, and the release checklist stay in the repo regardless of whether Linear is connected — they're read by CI and by agents doing the actual coding, versioned in the same commits as the code they describe, and diffed in the same PR. Linear is for the humans deciding and tracking; the repo is for the artifacts that get executed or compiled.
+Canonical contracts, migrations, executable tests, implementation evidence, and release artifacts stay in their project repo locations. Linear links them; it never becomes their source of truth.

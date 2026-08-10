@@ -1,14 +1,20 @@
-# Phase 3 — Behavioural contracts (Gherkin / Cucumber)
+# Phase 3 — Executable behavioural contracts
 
 Goal: make the acceptance criteria executable. After this phase, "is the feature done?" is answered by a test run, not by an opinion.
 
-## What to produce
+## Choose the project's acceptance format
 
-`03-behaviour/<area>.feature` files. One feature file per bounded area, not one giant file.
+BDD means specifying observable behaviour before implementation; it does not require Gherkin syntax.
 
-Coverage rule: **every FR gets at least one scenario, and every error row from the phase-2 contract table gets one too.** A feature file with only happy paths is a demo script.
+- Follow an established project convention, whether it uses `.feature` files, native BDD tests, or another executable acceptance style.
+- If no convention exists, default to the native test framework with Gherkin-like Given/When/Then structure, domain-language names, and arrange/act/assert implementation. Do not add Cucumber solely to satisfy this workflow.
+- Keep tests in the project's normal test tree and link their exact file and test names from `03-behaviour/README.md`; never duplicate test code under `docs/`.
 
-## Writing scenarios
+`03-behaviour/README.md` is always produced for full feature delivery. It records the selected format, commands, traceability, and validation result.
+
+Coverage rule: **every FR gets at least one executable acceptance check, and every error row from the phase-2 contract table gets one too.** Happy paths alone are a demo, not acceptance coverage.
+
+## Gherkin syntax when the project uses it
 
 Write from the point of view of the actor, in domain language. No selectors, no HTTP verbs, no SQL — those belong in the step definitions.
 
@@ -48,37 +54,46 @@ Guidelines that keep these useful:
 - One behaviour per scenario. If a scenario has two `When`s, it is two scenarios.
 - Deterministic. No "eventually", no reliance on wall-clock time — inject the clock.
 - `Background` only for setup shared by *every* scenario in the file.
-- Tag them: `@fr-3 @smoke @e2e` — phase 5 reuses the `@smoke` set.
+- Tag them by purpose, for example `@fr-3`, `@smoke`, or `@e2e`. Do not label every acceptance check as E2E; phase 5 reuses only the risk-selected smoke set.
+
+## Native-framework convention
+
+Write tests at the closest boundary where a stakeholder-observable outcome can be checked without coupling to implementation details. Name them in domain language and structure them as arrange/act/assert or given/when/then according to the project's style. Tag or group them as acceptance/smoke when the framework supports it.
+
+Native acceptance tests follow the same rules as Gherkin scenarios: one behaviour per test, deterministic setup, observable outcomes, explicit error paths, and traceability to an FR or contract error. They are not required to be browser-level or full-system tests; the meaningful acceptance boundary may be an API, service component, message consumer, CLI, or UI.
 
 ## Traceability
 
 Keep a small table at the top of `03-behaviour/README.md`, from `assets/templates/behaviour-readme.md`:
 
 ```
-| FR   | Scenarios                                   |
+| FR   | Executable acceptance checks                |
 |------|---------------------------------------------|
 | FR-1 | quote.feature: "Draft quote is created..."   |
 | FR-2 | extraction.feature: 3 scenarios             |
 ```
 
-A missing row means either a forgotten scenario or a requirement nobody needs.
+A missing row means either a forgotten acceptance check or a requirement nobody needs.
 
-## Agentic check, before the list goes to the user
+## Combined phase-2 + phase-3 check
 
-Not a second gate — the same idea as phase 1's self-check loop, but mechanical instead of exploratory. Phase 3 has nothing to research: everything these scenarios need to be consistent with — FRs, NFRs, the contract's error tables — is already fixed and approved. So this is verification, not investigation, and it doesn't need a pass cap the way phase 1's does.
+Run one verification pass after phase 3, before asking for approval. This is the only approval check for phases 2 and 3; phase 2 is still a draft until its behaviour can be reviewed beside it.
 
-**Traceability, actually checked, not just asserted.** Walk the FR list and every error row from `02-contracts/*/openapi.md` / `asyncapi.md` against the scenarios just written — a literal pass down both lists, not "I covered the important ones." Fill in `03-behaviour/README.md` from this pass. A blank cell is either a missed scenario or a requirement that turned out not to need one — decide which; don't leave it ambiguous.
+**Validate the technical contracts.** Parse/lint canonical specs, verify any separately maintained readable view matches the changed surface, and check that auth, errors, edge cases, compatibility, and contract-relevant NFRs are explicit.
 
-**Dry-run the suite, don't just read it.** Wire up (or reuse) whatever Gherkin runner the project already has — Cucumber, Behave, SpecFlow — and run its dry-run/parse mode before anything else touches these files: `cucumber --dry-run`, `behave --dry-run`, or equivalent. This catches what a read-through misses because it's mechanical: undefined steps, a step definition ambiguously matching two patterns, a malformed `Scenario Outline` `Examples` table, duplicate scenario names silently shadowing each other. A `.feature` file that reads fine but doesn't parse isn't a spec — it's prose with `Given`/`When`/`Then` in front of it. If the project has no runner wired up yet, this is where the minimum scaffolding gets built — step definitions that raise "pending," not implemented ones; phase 4 needs that scaffolding anyway, this just confirms it's wired correctly before building on top of it.
+**Check traceability in both directions.** Walk every FR and every contract error row against the executable acceptance checks, then walk each endpoint/event/schema change and acceptance check back to an FR. Fill in `03-behaviour/README.md` from this literal pass, not from an assertion that the important cases are covered.
 
-**What a finding becomes.** A mechanical failure (undefined step, bad table) gets fixed in this pass — it's fast and has one right answer. Something that reveals a genuine gap upstream (an FR with no sensible scenario, a contract error nothing here checks) is a phase-3 finding like any other: fixed now, or a `risk`/`risk-open` issue if it truly can't be — see Exit criteria.
+**Validate executability in the selected format.** For Gherkin, use the project's dry-run/parse mode to catch undefined or ambiguous steps, malformed tables, and duplicate scenarios. For native tests, run test discovery/compilation and the selected acceptance tests. Confirm that at least the first implementation slice's check is red for the expected missing behaviour, not because the harness, fixture, or environment is broken.
 
-Then show the scenario list to the user and confirm, per the soft gate.
+**Resolve findings at their source.** Fix malformed tests and contract/readable-view drift directly. Return to phase 1 for a requirement/design gap. Revise phase 2 for a contract gap. Record unresolved external or operational uncertainty in the selected tracker.
+
+Then show the user one compact package: material contract decisions and compatibility impact, the FR/error-to-acceptance traceability list, validation commands/results, and open risks. Ask for one explicit approval covering phases 2 and 3. Do not begin phase 4 before approval.
 
 ## Exit criteria
 
-- All FRs and contract errors covered — cross-checked against the traceability table, not assumed.
-- The suite dry-runs clean: no undefined steps, no ambiguous matches, no malformed tables.
-- Scenarios are readable by the user — show them the list and confirm before writing step definitions.
-- Step definitions may be stubbed (failing) at this point. That is correct: they are the red half of red-green-refactor.
-- If writing scenarios exposes something that can't be verified automatically (a behaviour that depends on a manual process, a third-party UI, timing that can't be made deterministic), that's a risk, not a scenario to fake — raise a Linear issue labeled `risk`/`risk-open` instead of writing a test that doesn't actually test anything.
+- Canonical contracts parse/lint, any separate readable views match, and compatibility impact is explicit.
+- All FRs and contract errors map to executable acceptance checks, and every contract/test maps back to an FR.
+- Gherkin dry-runs clean when it is the convention; otherwise native acceptance tests are discovered/compiled and runnable.
+- At least the next slice's acceptance check fails for the expected missing behaviour. Pending Gherkin steps are acceptable only when the project uses that convention.
+- Behaviour that cannot be verified automatically is recorded as manual evidence or an owned risk, never represented by a fake automated test.
+- The user explicitly approved the combined phase-2 and phase-3 package; the shared gate item records the approval.

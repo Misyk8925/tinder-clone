@@ -4,40 +4,40 @@ Goal: turn the prose from phase 1 into something a machine can validate against 
 
 Only start this after phase 1 is approved.
 
-## The rule: always two files, never one
+## The rule: one canonical contract, one readable view
 
-For every connection type the feature actually uses, produce a pair:
+First locate the project's canonical spec, migration, and schema-documentation locations. Update them in place and link them from the feature index; never copy them into a workflow folder. For every connection type the feature actually uses, make both machine validation and human review possible:
 
 | Connection type | Canonical (machine) | Mirror (human/agent) |
 |---|---|---|
-| HTTP API | `02-contracts/http/openapi.yaml` | `02-contracts/http/openapi.md` |
-| Events (queue/broker) | `02-contracts/events/asyncapi.yaml` | `02-contracts/events/asyncapi.md` |
-| Websockets | `02-contracts/websockets/asyncapi.yaml` | `02-contracts/websockets/asyncapi.md` |
-| Database schema change | real migration file(s) | `02-contracts/data/data-catalog.md` |
+| HTTP API | project's canonical HTTP spec | generated docs or maintained readable view |
+| Events (queue/broker) | project's canonical event schema/spec | generated docs or maintained readable view |
+| Websockets | project's canonical channel/message spec | generated docs or maintained readable view |
+| Database schema change | real migration file(s) | project data catalog or schema documentation |
 
-Neither file is optional and neither is a substitute for the other:
+Neither capability is optional, but they need not be two copied files:
 
-- The **spec** is what CI validates requests against, what generates client/server stubs, what a contract-testing tool (Pact, Spring Cloud Contract) checks. It is the source of truth when the two disagree.
-- The **mirror** is what gets read during the approval gate, during phase-4 code review, and by an agent picking up the feature later without wanting to parse a 400-line YAML file. It must be a **full** mirror — every endpoint, every error, every event, not a summary that leaves things out. If the mirror is missing something the spec has, the mirror is wrong; fix it before asking for approval.
+- The **canonical spec or migration** is what tooling validates or executes. It remains the source of truth.
+- The **readable view** may be generated documentation, an existing portal, or a maintained mirror. If maintained separately, it must cover the full changed surface and be checked for drift.
 
-Only skip a pair if the feature genuinely has no connections of that type — a feature with no websocket channel gets no `websockets/` folder at all, not an empty one.
+Do not create empty contract folders for unaffected connection types.
 
 ## One spec format per connection type, for the whole project
 
 The choice of spec format is **not a per-feature decision** — it is a project-wide convention, made once, so that every HTTP endpoint in the codebase is described the same way and tooling (linting, mock servers, client generation) only has to support one format per type.
 
-- HTTP → OpenAPI 3.1
-- Events, websockets → AsyncAPI (it covers both; use the right `channels` binding for each)
+- If the project already has a format, use it.
+- With no established format, default HTTP to OpenAPI 3.1 and events/websockets to AsyncAPI.
 
-Before writing a new spec, check whether the project already has a convention — a `docs/contracts/conventions.md`, an existing `openapi.yaml` elsewhere in the repo, a linter config (Spectral, etc.). If one exists, follow it. If this is the first feature in the project to need a given connection type, write the convention down (`docs/contracts/conventions.md` — project-level, not per-feature) so the next feature doesn't have to decide again.
+Before writing a new spec, check repository instructions, existing specs, generated docs, and linter configuration. If this is the first contract of its type, record the selected canonical location, format, and validation command in the project profile or contract conventions.
 
 ## Keeping the pair in sync
 
-Write the spec first — it is more constrained, so it forces you to actually decide the ambiguous bits (is this field nullable? what's the exact enum?). Then write the mirror from it, not the other way around. If the project has a spec-to-markdown generator (`widdershins`, `redoc-cli`, a custom AsyncAPI template), use it as a starting point and hand-edit for readability rather than writing the mirror from scratch. If no such tool is available, write it by hand but treat "does the mirror match the spec" as a checklist item before every approval request — drift between the two is worse than only having one file, because now there's a wrong answer as well as a right one.
+Write the canonical spec first. Generate the readable view when tooling exists. If it is maintained by hand, check it against the changed canonical surface before approval; drift is worse than having only the source of truth.
 
 ## What goes in the HTTP pair
 
-For every endpoint, both files need:
+For every endpoint, the canonical spec and readable view together cover:
 
 - Method, path, and which FR it serves.
 - Auth: who may call it, which scope/role.
@@ -80,21 +80,23 @@ The **migration** is the canonical schema change — real SQL (or the project's 
 
 If the feature adds no new tables or columns, this pair doesn't exist — but check: adding a column to an existing table still needs a catalog update for that column.
 
-## Cross-cutting (once, at the top of `02-contracts/`, not duplicated per connection type)
+## Cross-cutting (once in the canonical contract documentation or feature contract index)
 
 - Auth/authz model and where it is enforced.
 - Versioning strategy for the API.
 - Rate limits and quotas.
 - What is logged, what is traced, what must never be logged.
 
-## Checks before the gate
+## Inputs to the combined check after phase 3
+
+Do not run or present these as a separate phase-2 review or gate. Carry them into the combined phase-2/3 verification after executable behaviour exists:
 
 - Every FR maps to at least one endpoint, event, or schema change. Everything in the contracts maps back to an FR — if it doesn't, either the FR list or the contract is wrong.
-- Every pair that should exist, exists — both files, not one.
-- The mirror actually matches the spec (spot-check a few endpoints/events after writing both).
+- Every affected boundary has a canonical artifact and a readable review path.
+- Any separately maintained readable view matches the changed canonical surface.
 - Every NFR that the contract can violate is addressed (page sizes, timeouts, limits).
 - Examples are realistic, not `"foo": "bar"`.
 - Breaking-change policy is stated.
-- Anything found while writing the contracts that isn't fixable here and now — an external system's undocumented rate limit, an unclear ownership boundary, a dependency whose SLA is unknown — becomes a Linear issue labeled `risk`/`risk-open`, not silently absorbed into the spec as if it were settled.
+- Anything found while writing the contracts that is not resolved becomes an owned risk in the selected tracker, not an invented contract promise.
 
-Then stop and ask for approval. Once given, close the phase-2 Gate issue in Linear with a comment recording it, and post a Project Update summarizing what was approved.
+Continue to phase 3 without requesting approval. Validate the requirements, technical contracts, and executable behavioural contracts as one package there. The single design approval happens after that combined check, because a contract is easier to judge when the user can see the behaviour that will verify it.

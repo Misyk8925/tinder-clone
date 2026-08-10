@@ -1,6 +1,6 @@
 # Concept: <Feature name>
 
-**Destination:** a Linear Project Document titled "Concept — EN (B1)", attached to the feature's Project. (No Linear: save as `01-concept.en.md` in the repo instead — see `references/linear-integration.md`.)
+**Optional English concept template. Destination:** the concept location selected by `references/project-profile.md`; when Linear is selected, use a Project Document.
 
 Status: DRAFT | APPROVED <date>
 Author: <name> · Slug: `<feature-slug>`
@@ -78,7 +78,7 @@ Chosen baseline — the cheapest option that satisfies every FR/NFR: <one line>
 
 ## 7. Open questions
 
-Tracked as Linear issues labeled `question` in this Project, not duplicated here — link the view: <link>. (No Linear: table below.)
+Track questions in the selected tracker and link its view here. With repo fallback, use the table below.
 
 | # | Question | Owner |
 |---|----------|-------|

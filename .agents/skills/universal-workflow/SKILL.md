@@ -1,81 +1,78 @@
 ---
 name: universal-workflow
-description: Spec-driven, gated workflow for shipping a feature end-to-end, tracked in Linear — concept (bilingual EN/RU, approval), API/event contracts (approval), Gherkin behavioural contracts, implementation loop (plan/code/test/review/refactor/e2e), bug hunt (targeted diff review every slice; full-codebase audit on request/cadence, never automatic; needs repro steps, root cause, severity, regression test to close), release (build/scan/deploy/smoke/monitoring/docs). Approvals, risks, questions, decisions and bugs live in Linear via its MCP server; contracts, Gherkin, data catalog and plan stay in the repo. Triggers — new feature/service/microservice/endpoint/API/integration/project; build X, add feature Y, design and implement Z, ship/deploy this, go live, production release; spec, requirements, PRD, design doc, RFC, ТЗ, техническое задание, техзадание; OpenAPI, AsyncAPI, webhook, event schema, FR/NFR, acceptance criteria, Cucumber, BDD, TDD, user stories, architecture design, regression tests, release checklist, rollback plan; code review, review my PR/diff; find bugs, bug hunt, bug audit, race condition, concurrency bug, flaky test, root cause analysis, postmortem, incident review, RCA; risk assessment, project risks, open questions, decisions log, sprint, epic, backlog, Linear; давай сделаем фичу, новый проект, новая фича, напиши спеку, ревью кода, найди баги, гонка потоков, план релиза, риски проекта, workflow, по нашему процессу. Prefer over ad-hoc coding for anything bigger than trivial.
+description: "Use this delivery workflow only when implementing one of three scopes: a full feature, a bug fix, or a small non-trivial change that still needs acceptance and verification. Route first to full-feature-delivery, bug-fix, or compressed-small-change. It provides gated design for full features, confirmation/diagnosis/regression proof for bugs, and a one-slice path for small changes, followed by risk-based tests at applicable levels, targeted review, and scoped release evidence. Follow the project's acceptance-test convention; when none exists, default to Gherkin-like Given/When/Then tests in the native test framework. Do not use for read-only review/audit, standalone RCA without a fix, explanation, research, pure planning/specification, trivial edits, or release-only operations unless explicitly requested."
 ---
 
 # Universal Workflow
 
-A gate-driven workflow for taking a feature from idea to production: five phases plus a bug-hunt gate. The point of the gates is simple: **code is the most expensive place to discover a misunderstanding**. Every phase produces an artifact the user reads and approves before the next phase starts.
+A delivery workflow with three sizes: full feature delivery, bug fix, and compressed small change. The point of its gates and evidence is simple: **code is the most expensive place to discover a misunderstanding**, while small and corrective work should not inherit feature-sized ceremony.
 
-Tracking lives in **Linear** — issues, projects, comments and documents already do what a hand-rolled state file was reimplementing badly: assignment, notification, search, history. The repo keeps only what's genuinely code-adjacent: contracts, Gherkin, the data catalog, the implementation plan. See `references/linear-integration.md` for the full mapping before touching either.
+## Route first
+
+Before creating artifacts, read `references/mode-router.md` and choose exactly one mode:
+
+- `full-feature-delivery` — run the complete phased workflow;
+- `bug-fix` — reproduce, establish root cause and regression evidence, fix, review, and validate the affected release path;
+- `compressed-small-change` — one compact scope record, one observable slice, applicable checks, and targeted review.
+
+If the task is outside these three delivery modes, do not use this skill. A mode may be promoted when discovery reveals more risk or scope; never keep the compressed mode by silently dropping required decisions or evidence.
+
+The five-phase sequence below is the `full-feature-delivery` path. `bug-fix` and `compressed-small-change` follow their shorter routes in `references/mode-router.md` and reuse only the phase rules that apply to their risk.
+
+Resolve the project profile from repository instructions and established conventions. Read `references/project-profile.md`, then use `references/efficient-project-search.md` before material discovery, diagnosis, or planning. Use Augment Context Engine and Serena when they are already available and fit the search question; neither is a prerequisite. Use `references/linear-integration.md` only when Linear is the selected tracker.
 
 ## Core rules
 
-1. **Never skip ahead.** No API contracts before the concept is approved. No code before contracts and scenarios exist.
-2. **Two hard gates** (phase 1 and phase 2) require an explicit "approved" from the user. Stop the turn and wait. Do not self-approve, do not assume silence means yes.
-3. **Tracking lives in Linear, code-adjacent artifacts live in the repo.** The concept brief, approvals, risk register, open questions and decisions are Linear objects — reviewable, assignable, searchable, and visible to people who don't read git diffs. Contracts, Gherkin, the data catalog and the implementation plan are files, because they're read by tooling and CI, versioned alongside the code they describe, and diffed in the same PR. Neither substitutes for the other.
-4. **Check for Linear before assuming it.** Not every project has it connected. If it isn't available, fall back to the pre-Linear, all-in-repo model — see "No Linear available" in `references/linear-integration.md`. Don't silently drop tracking either way.
-5. **Failure moves backwards through the phases, never sideways.** A red test, a failed deploy or a production incident sends the work back to the phase that could have prevented it — and the fix includes a new test or scenario at that phase, so the same failure cannot recur.
-6. **Risks are logged where they're found, not carried in your head.** Any phase can raise or close one — in Linear, a `risk` issue in the project; see `references/linear-integration.md` for the exact labels. Before phase 5 ships, every risk is Mitigated, Accepted (with an owner), or Closed — "Open" is not a state a release ships in. The goal isn't zero risk; it's that whatever remains is visible, deliberate, and owned by someone.
-7. **The concept brief is bilingual** — English (simple, B1-level vocabulary, short sentences) and Russian, kept side by side. Later artifacts (contracts, code, scenarios) are English-only, since they are technical.
-8. **A bug isn't real until it has repro steps and a root cause, and isn't fixed until a test fails on the old code and passes on the new one.** "Sometimes happens" is a lead, not a bug report — see `references/bug-hunt.md`. A full-codebase audit is never claimed as complete; report what this pass found, not what's true of the whole codebase.
+1. **Never skip required decisions.** In full feature delivery, no technical contracts before concept approval and no implementation before the combined phase-2/3 approval. Shorter modes use their own evidence and approval rules.
+2. **Full feature delivery has two hard gates:** phase 1 approves the concept; the gate after phase 3 approves the combined technical contracts and executable behavioural contracts. Phase 2 has no separate approval. Stop at each gate and wait for explicit user approval.
+3. **Use the project's tracker; keep executable artifacts in canonical repo locations.** Tracker state records approvals, risks, questions, and decisions. Specs, migrations, tests, and plans stay with the code that executes or validates them. Link between the two; do not duplicate canonical artifacts merely to fit this workflow.
+4. **Treat Linear as an adapter, not a prerequisite.** Use it only when the project already uses it and the integration is available. Otherwise use the existing tracker or the repo fallback from `references/project-profile.md`.
+5. **Failure moves backwards through the phases, never sideways.** A red test, failed deploy, or incident returns to the phase that could have prevented it, and the fix adds executable regression evidence at the closest applicable level.
+6. **Risks are logged where they're found, not carried in your head.** Any phase can raise or close one in the selected tracker. Before phase 5 ships, every risk is Mitigated, Accepted with an owner, or Closed; Open risk does not ship.
+7. **Use the project's documentation language.** If none is established, use concise English. Add translations only when the project profile or user requests them; language is an adapter, not a universal gate.
+8. **Use one bug lifecycle:** a lead becomes `confirmed` when reproducible evidence shows actual behaviour violating established expected behaviour, `diagnosed` when the root-cause mechanism is understood, and `fixed` only when a faithful regression test fails on the broken code and passes on the fix. "Sometimes happens" remains a lead — see `references/targeted-defect-review.md`.
 9. **Once requirements are validated, design starts from the cheapest thing that still satisfies every FR and NFR — not the most impressive, scalable, or familiar one.** Cheapest in engineering time and operating cost both, never cheapest by quietly dropping a requirement. Every increment of cost or complexity past that baseline has to trace to a specific FR/NFR number; "best practice" and "we might need it later" don't count. This is what rejected alternatives are for.
+10. **Agents establish facts efficiently; people own consequential choices.** Follow `references/efficient-project-search.md` to inspect the code, contracts, consumers, tracker, and external evidence before asking. Ask the user only about real product, scope, architecture, UX, cost, or risk choices, and record the decision instead of letting an implementation agent guess it later.
+11. **Keep agent work bounded by observable slices and durable artifacts.** A slice should normally fit in one fresh implementation context for code, tests, and its evidence report, followed by a separate fresh-context review. When a session or agent changes, hand off the ticket, approved artifacts, code, test evidence, and unresolved questions — not a transcript or an unverified summary. Re-slice work that cannot be reviewed as one coherent result.
 
 ## Where things live
 
-**In Linear** (one Project per feature — or, for small features, one Issue with sub-issues; see `references/linear-integration.md`):
+**In the selected tracker** (use `references/linear-integration.md` only for projects that use Linear):
 
-| Old file-based artifact | Linear object |
+| Workflow state | Tracker representation |
 |---|---|
-| `00-state.md` (phase, approvals) | Project milestones (one per phase) + a "Gate" issue per hard gate |
-| `01-concept.en.md` / `.ru.md` | Two Project Documents attached to the Project |
+| Phase and approvals | Phase milestones/status plus one gate item per hard gate |
+| Concept brief | Project document(s) in the language(s) selected by the project profile |
 | Risk register | Issues labeled `risk`, filtered in a saved Project view |
 | Open questions | Issues labeled `question`, or unresolved comments |
-| Decisions log | Project Updates (Linear's chronological status-update feed) |
+| Decisions log | Tracker updates or decision records |
 | Incident tracking (live) | An issue labeled `incident`, linked to the postmortem file |
-| Bug found (targeted review) | Issue, label `bug` + severity — fixed 4-field format, needs a regression test to reach Done (`references/bug-hunt.md`) |
-| Full bug-audit run | Milestone in a standing "Bug Audits" Project, issues labeled `bug` + `bug-audit`, diffed against the previous run |
+| Bug found (targeted review) | Bug item with severity and the fixed evidence shape from `references/targeted-defect-review.md` |
 
 **In the repo.** Two different scopes — don't nest one inside the other:
 
 ```
 docs/
 ├── contracts/
-│   └── conventions.md          # PROJECT-ROOT, one per codebase — spec formats, naming, audit
-│                                # cadence. Written once by whichever feature needs it first;
+│   └── conventions.md          # PROJECT-ROOT, one per codebase — spec formats and naming.
+│                                # Written once by whichever feature needs it first;
 │                                # every later feature reads it, never re-decides or copies it.
 ├── quality/
 │   └── metrics.md              # PROJECT-ROOT, per service/product stream — rolling SLO, delivery,
 │                                # test, security, data, alert, and accessibility evidence
 │   └── gates.md                # PROJECT-ROOT — deterministic CI quality gates and approved exceptions
-├── bug-audits/                  # PROJECT-ROOT, fallback only (no Linear) — see references/bug-hunt.md
-│   └── <date>-pass-<n>/
-│       ├── report.md
-│       └── <bug-slug>.md
 └── features/
     └── <feature-slug>/          # everything below is per-feature, never shared
-        ├── README.md            # entry point for agents: links the Linear project, indexes this folder
+        ├── README.md            # links the selected tracker and canonical artifacts
         ├── 02-contracts/
-        │   ├── http/            # only if the feature has an HTTP API
-        │   │   ├── openapi.yaml # canonical, machine-readable
-        │   │   └── openapi.md   # full human/agent-readable mirror
-        │   ├── events/           # only if the feature publishes/consumes events
-        │   │   ├── asyncapi.yaml
-        │   │   └── asyncapi.md
-        │   ├── websockets/       # only if the feature has a ws channel
-        │   │   ├── asyncapi.yaml
-        │   │   └── asyncapi.md
-        │   └── data/             # only if the feature changes the schema
-        │       ├── migrations/   # pointer to, or copy of, the real migration files
-        │       └── data-catalog.md
+        │   └── README.md         # links canonical specs/migrations/docs + compatibility impact
         ├── 03-behaviour/
-        │   ├── README.md         # traceability table + dry-run notes
-        │   └── *.feature         # Gherkin
+        │   └── README.md         # traceability + links to executable acceptance tests
         ├── 04-implementation/
         │   ├── plan.md           # task breakdown
         │   └── log.md            # iteration log: what failed, what changed
         │   └── qa-metrics.md     # evidence-backed quality snapshot, from phase 4 through release
-        ├── bugs/                  # No Linear only — targeted-review bugs, see references/bug-hunt.md
+        ├── bugs/                  # repo fallback only — see targeted-defect-review.md
         │   └── <bug-slug>.md
         └── 05-release/
             ├── checklist.md
@@ -83,26 +80,27 @@ docs/
                 └── <date>-<slug>.md
 ```
 
-Only create the `02-contracts/` subfolders a feature actually needs. Within a subfolder that does exist, **both files are mandatory, never just one** — the spec is what tooling validates against, the mirror is what a human or an agent reads without parsing YAML.
+Use the project's canonical contract locations. The feature folder indexes or links them; it never copies an OpenAPI document, event schema, or migration. If no contract convention exists, phase 2 supplies a portable spec-plus-readable-view default.
 
 ## The phases
 
-Read the matching reference file when you enter a phase — it contains the Linear objects to create, the templates, the questions to ask, and the exit criteria.
+Read the matching reference file when entering a phase; it contains artifacts, questions, checks, and exit criteria.
+
+This table applies to `full-feature-delivery`:
 
 | # | Phase | Reference | Gate |
 |---|-------|-----------|------|
 | 1 | Concept | `references/phase-1-concept.md` | **Manual approve** |
-| 2 | API & event contracts | `references/phase-2-contracts.md` | **Manual approve** |
-| 3 | Behavioural contracts | `references/phase-3-behaviour.md` | Soft (confirm scenarios) |
+| 2 | API & event contracts | `references/phase-2-contracts.md` | Continue to phase 3 |
+| 3 | Executable behavioural contracts | `references/phase-3-behaviour.md` | **Manual approve phases 2 + 3** |
 | 4 | Implementation loop | `references/phase-4-implementation.md` | Loop until green |
-| 4.5 | Bug hunt | `references/bug-hunt.md` | Targeted: every slice, part of Review. Full audit: on request / periodic — never automatic every session. |
 | 5 | Release | `references/phase-5-release.md` | Ship |
 
-Templates for repo artifacts are in `assets/templates/`; the Linear object mapping is in `references/linear-integration.md`.
+Templates are in `assets/templates/`; tracker and project conventions come from `references/project-profile.md` and its selected adapter.
 
 ### Phase 1 — Concept (gate)
 
-Create a Linear Project for the feature (or an Issue with sub-issues, for small work) with a milestone per phase. Write the concept brief as two Project Documents (EN B1, RU), covering:
+Create the full-feature tracking container selected by the project profile. Write the concept brief in the selected project language(s), covering:
 
 - **Problem** — who has it, when, what it costs them today. Concrete, not "users want a better experience".
 - **Contracts and behaviour in plain text** — what goes in, what comes out, what the system promises, what it refuses to do. No JSON yet — prose that a non-engineer could check.
@@ -111,44 +109,41 @@ Create a Linear Project for the feature (or an Issue with sub-issues, for small 
 - **Out of scope** — the cheapest section to write and the most expensive to omit.
 - **Suggested solution** — the cheapest design that satisfies every FR/NFR exactly as validated, not the most impressive one: components, data flow, storage, external systems. Anything pricier than the obvious baseline needs to trace to a specific FR/NFR number, not "best practice" — and *at least one rejected alternative with the number it failed to meet*. A design with no rejected alternative was not a decision. Draw a diagram alongside the prose only once there's enough to draw — a single-service, single-flow design doesn't need one.
 
-Interview against a category checklist (user, trigger/success, boundaries, numbers, integration, failure, stakeholders) rather than a fixed script — skip what's inferable, but say what you assumed instead of deciding it silently. Before showing the draft to the user, run it through a short self-check loop: check it against the existing project (stack, conventions, other Linear projects) and verify the specific claims worth verifying (feasibility, numbers, external limits) with a few targeted searches — capped at two passes, not an open-ended investigation. Findings become either an open question (issue labeled `question`) or a risk (issue labeled `risk`) — not silently folded into the draft as if settled. See `references/phase-1-concept.md`.
+Start discovery from project facts, then expose the remaining uncertainty as a small tree of dependent decisions. Ask only the frontier questions that have enough evidence to answer now; after each bounded round, update the tree and confirm the shared understanding. For a large idea with several independent unknown branches, use a Wayfinder-style split: create focused research, prototype, or decision issues that each answer one named question, then merge their evidence back into one concept. These issues do not bypass the phase-1 gate. Interview against the category checklist (user, trigger/success, boundaries, numbers, integration, failure, stakeholders), say what was inferred, and run the short self-check loop in `references/phase-1-concept.md` before asking for approval.
 
-Then stop and ask for approval. Once given, close the phase-1 Gate issue and post a Project Update. Do not start phase 2 in the same turn.
+Then stop and ask for approval. Once given, record the approval in the selected gate item and tracker update. Do not start phase 2 in the same turn.
 
-### Phase 2 — API & event contracts (gate)
+### Phase 2 — API & event contracts
 
-Turn the prose into contracts, and for every connection type the feature uses, produce **two files, not one**: a canonical machine-readable spec (OpenAPI for HTTP, AsyncAPI for events and for websockets) and a full markdown mirror. Same rule for the database: a real migration is the canonical schema change, `data-catalog.md` is its readable twin. The spec format per connection type is a project-wide convention decided once — check `docs/contracts/conventions.md` before picking one yourself. Include error and edge cases in both files — a contract that only describes the happy path is a wish, not a contract. Anything found that isn't fixable here and now becomes a `risk` issue in Linear. Stop and ask for approval; close the phase-2 Gate issue once given.
+Update contracts in their canonical project locations and link them from the feature index. Follow the project's spec and readable-documentation convention. If none exists, default to a machine-readable spec plus a generated or maintained readable view. A real migration remains canonical for schema changes; never copy it into the feature folder. Include error and edge cases, and record unresolved uncertainty in the selected tracker. Do not request approval yet; continue to phase 3.
 
 ### Phase 3 — Behavioural contracts
 
-Write Gherkin `.feature` files, one scenario per FR plus scenarios for the error paths from phase 2. These become the executable acceptance criteria; phase 4 is not done until they pass. Before showing the list to the user, run a mechanical check, not a second gate: cross-check traceability against the FR list and contract errors (don't just assert coverage), and dry-run the suite to catch undefined steps, ambiguous matches, or malformed tables. Confirm the scenario list with the user, then continue — this gate is soft.
+Create executable acceptance criteria for every FR and phase-2 error path. Follow an established project convention. When none exists, write Gherkin-like Given/When/Then tests in the native test framework; do not introduce Cucumber solely for this workflow. After phase 3, run one combined check across requirements, contracts, errors, and acceptance tests. Then show phases 2 and 3 as one package and request one explicit approval before implementation.
 
 ### Phase 4 — Implementation loop
 
+For full features, Phase 3 supplies the outside-in acceptance check for each slice. Bug fixes use regression evidence; compressed mechanical changes may use other deterministic evidence. Choose additional test levels from changed risks; no fixed pyramid applies.
+
 ```
-plan → code → unit/integration test → review → refactor → e2e
-   ↑                                                       │
-   └──────────── if anything fails, back to plan ──────────┘
+plan → primary evidence/red where applicable → code + applicable tests → green/proven → review → refactor
+   ↑                                                                                                  │
+   └──────────────────────────── if anything fails, back to plan ──────────────────────────────────────┘
 ```
 
-Run this per slice, not per feature — a slice is the smallest thing that makes at least one scenario pass end-to-end. Log every failed iteration in `04-implementation/log.md`. Start `04-implementation/qa-metrics.md` from `assets/templates/qa-metrics.md` and update it with the actual test, traceability, defect, and NFR evidence as slices finish; see `references/qa-metrics.md`. A review finding that's a genuine defect is a bug (phase 4.5); a review finding that's a deliberate tradeoff is a `risk` issue in Linear directly — either way it's tracked, never a comment that disappears into chat history. Exit the loop only when every scenario from phase 3 passes and review found nothing blocking.
+Run this per slice, not per feature — a slice is the smallest observable behaviour that makes at least one acceptance check pass and can normally be implemented, tested, and reported from one fresh implementation context. Record its dependencies and classify it `HITL` when a human choice or manual product check remains; use `AFK` only for low-risk, fully specified, deterministically verified work, never as permission to auto-merge. Select unit, component, integration, contract, system/e2e, and non-functional checks only where the changed risks need them. Review each slice from a separate fresh context against both the approved specification and the project's engineering standards. Hand off between sessions through the ticket, repo artifacts, code, test evidence, and unresolved questions. Full rules are in `references/phase-4-implementation.md`.
 
-### Phase 4.5 — Bug hunt
-
-Two modes, don't conflate them. **Targeted review** is scoped to a diff and runs twice — every slice as part of phase 4's Review step, and once more across the whole feature's diff when all slices are done (catches what two individually-fine slices break together, which no single slice's review can see). **Full audit** scans the whole codebase and runs only on explicit request or at a cadence decided once in `docs/contracts/conventions.md` — never automatically every session.
-
-Every confirmed bug is a Linear issue in one fixed shape: repro steps (exact, not "sometimes happens"), root cause (mechanism, not symptom), severity (blocker/major/minor/cosmetic), affected scope. It can't reach Done without a regression test that fails on the pre-fix code and passes on the fix — and for race conditions, a test that actually forces the concurrent interleaving, not a serial happy-path test. A full audit additionally diffs against the previous run: new / closed / recurring, where recurring means either the earlier fix was wrong or this is a false positive — flagged for manual review either way, never auto-resolved. Never claim a full audit found "all" the bugs; report what this pass found. Full details in `references/bug-hunt.md`.
+Log failed iterations in `04-implementation/log.md` for full features, or in the compact issue/plan for shorter modes. Record risk-selected test evidence as it appears. Review each slice for specification and engineering fit; that review includes targeted defect discovery using `references/targeted-defect-review.md`. Full feature delivery also gets one final review across the combined diff. Exit according to the mode-specific criteria in `references/phase-4-implementation.md`.
 
 ### Phase 5 — Release
 
-Build → security scan → deploy → smoke tests → monitoring → docs. Each step gates the next: a failing scan stops the deploy. **Before shipping: the Linear project's `risk-open` view is empty, and there's no open `blocker`-severity bug in this feature's scope** — every risk is Mitigated, Accepted with an owner, or Closed, and every blocker is fixed or explicitly downgraded. Complete the release portion of `04-implementation/qa-metrics.md` only after its stated observation window; until then, distinguish “not yet observed” from “passed.”
+Build → security scan → deploy → smoke tests → monitoring → docs. Each applicable step gates the next. **Before shipping: the selected tracker's Open-risk view is empty and no blocker-severity bug remains in scope.** Complete release metrics only after their observation window; until then use “not yet observed,” not “passed.”
 
-**If a step fails, the loop goes backwards, and where to depends on what failed** — a build failure returns to phase 4, a violated NFR returns to phase 1 (the design was wrong, not the code). Roll back first, diagnose second; rollback costs a deploy, debugging in production costs users. Every production failure ends as a `@regression` scenario in phase 3, so it can only happen once. Failure paths, the rollback rules, the incident loop and the post-mortem are in `references/phase-5-release.md` under "When the release fails".
+**If a step fails, the loop goes backwards, and where to depends on what failed** — a build failure returns to phase 4, a violated NFR returns to phase 1. Roll back first, diagnose second. Every production failure adds an executable regression test using the project's grouping convention; without one, use a clearly named Gherkin-like native test linked to the incident. Failure paths are in `references/phase-5-release.md`.
 
 ## Working with the user
 
-- Ask before assuming. If a requirement is ambiguous, raise it as a Linear `question` issue and ask — one round of questions is cheaper than one round of rework.
+- Inspect before asking. Raise only consequential unresolved product, scope, architecture, UX, cost, or risk choices in the selected tracker.
 - Keep gate requests short: what was decided, what you need approved, what happens next.
-- If the user says "just write the code", say what you'd be skipping and offer a compressed version (a short concept + contracts in one pass, a single Linear Issue instead of a full Project) rather than dropping the process entirely. Small tasks deserve a small process, not no process.
-- If work resumes in a new session, open the feature's Linear project (or `docs/features/<slug>/README.md`, which links it) before touching anything.
-- A full bug-audit can be asked for at any time, independent of which feature is in flight — it's codebase-wide, not feature-scoped. Don't run one unprompted just because a session started; targeted review already covers the current diff.
+- If the user says "just write the code" for a bounded non-trivial change, route to `compressed-small-change`; do not disguise a full feature or contract decision as compressed work.
+- If work resumes in a new session, open the selected tracker item and feature index before touching anything.

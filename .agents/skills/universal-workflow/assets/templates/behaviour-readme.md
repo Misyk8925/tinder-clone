@@ -1,18 +1,20 @@
 # Behaviour traceability — <feature-slug>
 
-Dry-run status: <pass | fail — see note> · last checked <date>
+Acceptance format: <project convention | Gherkin-like native default and runner>
 
-## FR / contract-error → scenario
+Validation command: `<command>` · status: <red for expected missing behaviour | pass | blocked> · last checked <date>
 
-| FR or error | Scenario(s) | File |
+## FR / contract-error → executable acceptance check
+
+| FR or error | Test/scenario ID | File |
 |---|---|---|
 | FR-1 | | |
 | FR-2 | | |
 | 400 INVALID_PAYLOAD | | |
 | 409 ... | | |
 
-A blank row is either a missed scenario or a requirement that turned out not to need one — resolve which before showing this list to the user, don't leave it blank by accident.
+A blank row is either a missed acceptance check or a requirement that turned out not to need one — resolve which before asking for the combined phase-2/3 approval.
 
-## Dry-run notes
+## Contract and acceptance validation notes
 
-<any undefined steps, ambiguous matches, or malformed tables found and fixed during the check — one line each, not a full log>
+<spec/mirror drift, lint/parse failures, undefined Gherkin steps, native test discovery failures, or blocked environments — one line each>

@@ -1,14 +1,14 @@
 # Release checklist: <feature-slug> — <version>
 
-## Risk register (Linear)
-- [ ] Project's `risk-open` view is empty — every risk is `risk-mitigated`, `risk-accepted` (with an owner and, ideally, a review-by date), or `risk-closed`
+## Risk register (selected tracker)
+- [ ] Selected tracker's Open-risk view is empty — every risk is Mitigated, Accepted with an owner/review date, or Closed
 - [ ] If one is still Open, this release isn't ready — not even with a note promising to fix it later
-- [ ] (No Linear: same check against `00-state.md`'s risk register)
+- [ ] Repo fallback: same check against `00-state.md`
 
 ## Build
 - [ ] Artifact tagged with git sha
 - [ ] Base image pinned by digest, non-root user
-- [ ] Lint + all test suites green in CI
+- [ ] Lint + all risk-selected applicable suites green in CI; unavailable required checks are Blocked
 - [ ] Migrations packaged and runnable separately
 
 ## Security scan
@@ -17,7 +17,7 @@
 - [ ] SAST — no high/critical
 - [ ] Secret scan clean
 - [ ] Config hardened (no debug, TLS, CORS not `*`)
-- [ ] Any accepted finding is raised as a Linear `risk`/`risk-accepted` issue, not only noted here
+- [ ] Any accepted finding is an owned risk in the selected tracker, not only noted here
 
 ## Deploy
 - [ ] Migrations backward-compatible with running version
@@ -30,7 +30,7 @@
 
 ## Smoke tests
 - [ ] Health / readiness OK
-- [ ] `@smoke` scenarios pass against the deployed environment
+- [ ] Smoke-tagged/grouped acceptance checks pass against the deployed environment
 - [ ] One real end-to-end path with a test tenant
 
 ## QA metrics
@@ -60,11 +60,11 @@
 - [ ] CHANGELOG entry
 - [ ] Runbook: purpose, dependencies, top-3 failure modes
 - [ ] Concept doc reconciled with what was actually built
-- [ ] All 5 Linear milestones complete (No Linear: `00-state.md` closed out)
+- [ ] Full feature: all phase milestones complete in the selected tracker; shorter mode: compact item closed with evidence
 
 ## If it fails
 - [ ] Rollback verified with the same smoke tests
 - [ ] Affected users informed
 - [ ] Incident written to `05-release/incidents/<date>-<slug>.md`
-- [ ] Regression scenario added to phase 3 and failing on the broken version
+- [ ] Executable regression acceptance check added and shown failing on the broken version
 - [ ] Post-mortem actions merged (an incident is closed when they are, not when the service is back)
