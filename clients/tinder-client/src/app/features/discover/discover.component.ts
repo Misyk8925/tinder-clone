@@ -1,9 +1,9 @@
-import { Component, inject, OnInit, QueryList, signal, ViewChildren } from '@angular/core';
+import { Component, inject, OnDestroy, OnInit, QueryList, signal, ViewChildren } from '@angular/core';
 import { HttpErrorResponse } from '@angular/common/http';
 import { NgClass } from '@angular/common';
 import { LucideAngularModule } from 'lucide-angular';
 import { Router } from '@angular/router';
-import { Profile } from '../../core/models/profile.model';
+import { DeckCard, DeckPage, isBuildingDeck } from '../../core/models/deck.model';
 import { ProfileService } from '../../core/services/profile.service';
 import { SwipeService } from '../../core/services/swipe.service';
 import { SwipeCardComponent } from '../../shared/components/swipe-card/swipe-card.component';
@@ -28,6 +28,15 @@ import { SwipeCardComponent } from '../../shared/components/swipe-card/swipe-car
           <div class="state-panel" aria-live="polite">
             <div class="spinner"></div>
             <p>Finding thoughtful matches nearby…</p>
+          </div>
+        } @else if (retrying() && currentIndex() >= profiles().length) {
+          <div class="state-panel" aria-live="polite">
+            <span class="state-icon"><lucide-icon name="refresh-cw" [size]="36" strokeWidth="1.6" /></span>
+            <h2>Still preparing your deck</h2>
+            <p>It is taking longer than usual. We will keep trying in the background.</p>
+            <button type="button" class="primary-button" (click)="retryNow()">
+              <lucide-icon name="refresh-cw" [size]="18" strokeWidth="2" /> Try again
+            </button>
           </div>
         } @else if (currentIndex() >= profiles().length) {
           <div class="state-panel">
@@ -354,22 +363,28 @@ import { SwipeCardComponent } from '../../shared/components/swipe-card/swipe-car
     }
   `]
 })
-export class DiscoverComponent implements OnInit {
+export class DiscoverComponent implements OnInit, OnDestroy {
   @ViewChildren(SwipeCardComponent) swipeCards!: QueryList<SwipeCardComponent>;
 
   private profileService = inject(ProfileService);
   private swipeService = inject(SwipeService);
   private router = inject(Router);
 
-  profiles = signal<Profile[]>([]);
+  profiles = signal<DeckCard[]>([]);
   currentIndex = signal(0);
   loading = signal(true);
-  matchedProfile = signal<Profile | null>(null);
+  matchedProfile = signal<DeckCard | null>(null);
+  retrying = signal(false);
   showPremiumModal = signal(false);
   toast = signal<string | null>(null);
   private toastTimer: ReturnType<typeof setTimeout> | null = null;
   private nextSuperLike = false;
   private myProfileId: string | null = null;
+  private generation: number | null = null;
+  private nextCursor: string | null = null;
+  private pollStartedAt = 0;
+  private pollTimer: ReturnType<typeof setTimeout> | null = null;
+  private requestInFlight = false;
 
   visibleProfiles = () => this.profiles().slice(this.currentIndex(), this.currentIndex() + 3);
 
@@ -384,23 +399,19 @@ export class DiscoverComponent implements OnInit {
     this.loadDeck();
   }
 
-  loadDeck(): void {
-    this.loading.set(true);
-    this.profileService.getMyDeck().subscribe({
-      next: profiles => {
-        this.profiles.set(profiles);
-        this.currentIndex.set(0);
-        this.loading.set(false);
-      },
-      error: (error: HttpErrorResponse) => {
-        this.loading.set(false);
-        if (error.status === 429) this.showToast('Too many requests. Please wait before refreshing.');
-        else if (error.status === 404) this.router.navigate(['/profile/edit']);
-      }
-    });
+  ngOnDestroy(): void {
+    if (this.pollTimer) clearTimeout(this.pollTimer);
+    if (this.toastTimer) clearTimeout(this.toastTimer);
   }
 
-  onSwipe(direction: 'left' | 'right', profile: Profile): void {
+  loadDeck(): void {
+    this.pollStartedAt = Date.now();
+    this.retrying.set(false);
+    this.loading.set(this.profiles().length === 0);
+    this.requestPage(undefined, true);
+  }
+
+  onSwipe(direction: 'left' | 'right', profile: DeckCard): void {
     const isSuper = this.nextSuperLike;
     this.nextSuperLike = false;
     if (!this.myProfileId) return;
@@ -411,11 +422,11 @@ export class DiscoverComponent implements OnInit {
       decision: direction === 'right',
       isSuper
     }).subscribe({
-      next: () => this.currentIndex.update(value => value + 1),
+      next: () => this.advanceCard(),
       error: (error: HttpErrorResponse) => {
         if (isSuper && error.status === 403) this.showPremiumModal.set(true);
         else if (error.status === 429) this.showToast('You’re moving fast. Take a moment before the next profile.');
-        else this.currentIndex.update(value => value + 1);
+        else this.advanceCard();
       }
     });
   }
@@ -432,6 +443,11 @@ export class DiscoverComponent implements OnInit {
   }
 
   refresh(): void { this.loadDeck(); }
+  retryNow(): void {
+    this.pollStartedAt = Date.now();
+    this.retrying.set(false);
+    this.requestPage(undefined, true);
+  }
   dismissPremiumModal(): void { this.showPremiumModal.set(false); }
   dismissMatch(): void { this.matchedProfile.set(null); }
   goToFilters(): void { this.router.navigate(['/profile/edit']); }
@@ -442,5 +458,88 @@ export class DiscoverComponent implements OnInit {
     if (this.toastTimer) clearTimeout(this.toastTimer);
     this.toast.set(message);
     this.toastTimer = setTimeout(() => this.toast.set(null), 4000);
+  }
+
+  private requestPage(cursor?: string, reset = false): void {
+    if (this.requestInFlight) return;
+    this.requestInFlight = true;
+    this.profileService.getMyDeck(cursor).subscribe({
+      next: response => {
+        this.requestInFlight = false;
+        if (isBuildingDeck(response)) {
+          this.schedulePoll();
+          return;
+        }
+        this.applyPage(response, reset);
+      },
+      error: (error: HttpErrorResponse) => {
+        this.requestInFlight = false;
+        this.loading.set(false);
+        if (error.status === 429) {
+          this.showToast('Too many requests. Please wait before refreshing.');
+          return;
+        }
+        if (error.status === 404) {
+          this.router.navigate(['/profile/edit']);
+          return;
+        }
+        this.retrying.set(true);
+        this.schedulePoll();
+      }
+    });
+  }
+
+  private applyPage(page: DeckPage, reset: boolean): void {
+    const existing = this.profiles();
+    const current = existing[this.currentIndex()] ?? null;
+    const generationChanged = this.generation !== null && this.generation !== page.generation;
+    const shouldReset = reset || generationChanged || page.cursorReset;
+
+    if (shouldReset) {
+      const head = current ? [current] : [];
+      this.profiles.set(this.uniqueByProfileId([...head, ...page.items]));
+      this.currentIndex.set(0);
+    } else {
+      this.profiles.set(this.uniqueByProfileId([...existing, ...page.items]));
+    }
+
+    this.generation = page.generation;
+    this.nextCursor = page.nextCursor;
+    this.loading.set(false);
+    this.retrying.set(false);
+
+    // REFRESHING is intentionally not rendered as degraded; the current card
+    // stays in place while a newer generation is polled in the background.
+    if (page.state === 'REFRESHING') this.schedulePoll();
+  }
+
+  private schedulePoll(): void {
+    if (this.pollTimer) clearTimeout(this.pollTimer);
+    const elapsed = Date.now() - this.pollStartedAt;
+    const initialWindow = elapsed < 30_000;
+    this.retrying.set(!initialWindow);
+    this.loading.set(initialWindow && this.profiles().length === 0);
+    this.pollTimer = setTimeout(
+      () => this.requestPage(undefined, true),
+      initialWindow ? 2_000 : 10_000
+    );
+  }
+
+  private advanceCard(): void {
+    this.currentIndex.update(value => value + 1);
+    const remaining = this.profiles().length - this.currentIndex();
+    if (remaining <= 3 && this.nextCursor) {
+      const cursor = this.nextCursor;
+      this.nextCursor = null;
+      this.requestPage(cursor, false);
+    }
+  }
+
+  private uniqueByProfileId(cards: DeckCard[]): DeckCard[] {
+    const unique = new Map<string, DeckCard>();
+    cards.forEach(card => {
+      if (!unique.has(card.profileId)) unique.set(card.profileId, card);
+    });
+    return [...unique.values()];
   }
 }

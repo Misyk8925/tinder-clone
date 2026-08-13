@@ -102,7 +102,7 @@ spring:
             - id: deck-read
               uri: ${DECK_READ_SERVICE_URL:http://localhost:8040}
               predicates:
-                - Path=/api/v1/deck
+                - Path=/api/v1/deck,/api/v2/deck
                 - Method=GET
 
             - id: profile-other
