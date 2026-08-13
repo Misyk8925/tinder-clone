@@ -45,6 +45,7 @@ class ConfigurationPropertiesBindingTest {
             then(topics.created()).isEqualTo("profile.created");
             then(topics.updated()).isEqualTo("profile.updated");
             then(topics.deleted()).isEqualTo("profile.deleted");
+            then(topics.deckCardProjection()).isEqualTo("profile.deck-card-projection.v1");
 
             LocationProperties location = context.getBean(LocationProperties.class);
             then(location.service().url()).startsWith("http");

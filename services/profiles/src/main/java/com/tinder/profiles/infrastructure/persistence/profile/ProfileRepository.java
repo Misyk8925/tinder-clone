@@ -3,6 +3,7 @@ import com.tinder.profiles.infrastructure.persistence.profile.ProfileJpaEntity;
 
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
@@ -14,6 +15,25 @@ import java.util.UUID;
 public interface ProfileRepository extends JpaRepository<ProfileJpaEntity, UUID> {
     ProfileJpaEntity findByName(String username);
     ProfileJpaEntity findByUserId(String userId);
+
+    @Modifying(flushAutomatically = true, clearAutomatically = true)
+    @Query("""
+        UPDATE Profile p
+        SET p.version = p.version + 1,
+            p.updatedAt = CURRENT_TIMESTAMP
+        WHERE p.profileId = :profileId
+        """)
+    int incrementAggregateVersion(@Param("profileId") UUID profileId);
+
+    @Query(value = """
+        SELECT p.id FROM profiles p
+        WHERE (:afterProfileId IS NULL OR p.id > :afterProfileId)
+        ORDER BY p.id
+        """, nativeQuery = true)
+    List<UUID> findNextProjectionBackfillIds(
+            @Param("afterProfileId") UUID afterProfileId,
+            Pageable pageable
+    );
 
     @Query("""
         SELECT p.profileId FROM Profile p

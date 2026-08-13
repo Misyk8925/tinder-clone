@@ -8,6 +8,7 @@ import com.tinder.profiles.application.photos.port.out.PhotoCatalogPort;
 import com.tinder.profiles.application.photos.port.out.PhotoStoragePort;
 import com.tinder.profiles.application.photos.support.PhotoKeys;
 import com.tinder.profiles.application.photos.support.ProfilePhotoOwner;
+import com.tinder.profiles.application.profile.port.out.DomainEventPublisherPort;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -24,6 +25,7 @@ public class DeletePhotoService {
     private final ProfilePhotoOwner owner;
     private final PhotoCatalogPort catalog;
     private final PhotoStoragePort storage;
+    private final DomainEventPublisherPort events;
 
     @Transactional
     public void handle(DeletePhotoCommand cmd) {
@@ -38,6 +40,7 @@ public class DeletePhotoService {
         String storageId = PhotoKeys.storageIdOf(photo.s3Key());
         PhotoKeys.allVariantKeys(profileId, storageId).forEach(storage::delete);
         catalog.deleteById(photo.photoId());
+        events.publishCardChanged(profileId);
 
         log.info("Deleted photo {} (storage id {}) of profile {}", photo.photoId(), storageId, profileId);
     }

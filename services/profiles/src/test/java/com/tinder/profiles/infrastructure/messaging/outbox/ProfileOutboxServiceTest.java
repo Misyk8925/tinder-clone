@@ -5,6 +5,11 @@ import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import com.tinder.contracts.event.v1.ChangeType;
 import com.tinder.contracts.event.v1.ProfileCreatedEvent;
 import com.tinder.contracts.event.v1.ProfileUpdatedEvent;
+import com.tinder.contracts.event.v1.DeckCardPreferences;
+import com.tinder.contracts.event.v1.DeckCardProjection;
+import com.tinder.contracts.event.v1.ProfileDeckCardProjectionEvent;
+import com.tinder.contracts.event.v1.ProfileProjectionOperation;
+import com.tinder.contracts.event.v1.ProjectionSource;
 import com.tinder.profiles.infrastructure.messaging.outbox.model.ProfileEventOutbox;
 import com.tinder.profiles.infrastructure.messaging.outbox.model.ProfileOutboxEventType;
 import org.junit.jupiter.api.BeforeEach;
@@ -16,6 +21,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.time.Instant;
 import java.util.Set;
+import java.util.List;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -89,5 +95,25 @@ class ProfileOutboxServiceTest {
         assertThat(row.getEventType()).isEqualTo(ProfileOutboxEventType.PROFILE_UPDATED);
         assertThat(row.getPayload()).contains("CRITICAL_FIELDS");
         assertThat(row.getPayload()).contains("\"changedFields\"");
+    }
+
+    @Test
+    void backfillProjectionPersistsAndValidatesDurableRunLinkage() {
+        UUID runId = UUID.randomUUID();
+        UUID profileId = UUID.randomUUID();
+        ProfileDeckCardProjectionEvent event = new ProfileDeckCardProjectionEvent(
+                UUID.randomUUID(), profileId, UUID.randomUUID().toString(), 3,
+                Instant.parse("2026-08-11T12:00:00Z"),
+                ProfileProjectionOperation.UPSERT, ProjectionSource.BACKFILL, runId,
+                new DeckCardProjection(
+                        profileId, "Anna", 29, "Vienna", "bio", true,
+                        new DeckCardPreferences(18, 99, "ALL", 50), List.of(), List.of()));
+
+        outboxService.enqueueDeckCardProjection(event, runId);
+
+        ArgumentCaptor<ProfileEventOutbox> captor = ArgumentCaptor.forClass(ProfileEventOutbox.class);
+        verify(outboxRepository).save(captor.capture());
+        assertThat(captor.getValue().getBackfillRunId()).isEqualTo(runId);
+        assertThat(captor.getValue().getEventType()).isEqualTo(ProfileOutboxEventType.DECK_CARD_PROJECTION);
     }
 }

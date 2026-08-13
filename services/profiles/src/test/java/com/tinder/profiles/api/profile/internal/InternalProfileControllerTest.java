@@ -1,6 +1,7 @@
 package com.tinder.profiles.api.profile.internal;
 
 import com.tinder.profiles.infrastructure.persistence.profile.ProfileJpaEntity;
+import com.tinder.profiles.AbstractPostgresIntegrationTest;
 import com.tinder.profiles.infrastructure.persistence.profile.ProfileRepository;
 import com.tinder.contracts.dto.SharedProfileDto;
 import com.tinder.profiles.infrastructure.persistence.profile.mapper.SharedProfileMapper;
@@ -30,7 +31,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @SpringBootTest
 @AutoConfigureMockMvc
 @ActiveProfiles("test")
-class InternalProfileControllerTest {
+class InternalProfileControllerTest extends AbstractPostgresIntegrationTest {
 
     @Autowired
     private MockMvc mockMvc;

@@ -4,6 +4,7 @@ import com.tinder.profiles.config.props.OutboxPublisherProperties;
 import com.tinder.contracts.event.v1.ProfileCreatedEvent;
 import com.tinder.contracts.event.v1.ProfileDeletedEvent;
 import com.tinder.contracts.event.v1.ProfileUpdatedEvent;
+import com.tinder.contracts.event.v1.ProfileDeckCardProjectionEvent;
 import io.github.resilience4j.circuitbreaker.CircuitBreaker;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -27,6 +28,7 @@ public class ResilientProfileEventProducer {
     private final KafkaTemplate<String, ProfileUpdatedEvent> profileUpdatedEventKafkaTemplate;
     private final KafkaTemplate<String, ProfileDeletedEvent> profileDeleteEventKafkaTemplate;
     private final KafkaTemplate<String, ProfileCreatedEvent> profileCreateEventKafkaTemplate;
+    private final KafkaTemplate<String, ProfileDeckCardProjectionEvent> deckCardProjectionKafkaTemplate;
     private final CircuitBreaker circuitBreaker;
     private final long sendTimeoutMs;
 
@@ -34,12 +36,14 @@ public class ResilientProfileEventProducer {
             KafkaTemplate<String, ProfileUpdatedEvent> profileUpdatedEventKafkaTemplate,
             KafkaTemplate<String, ProfileDeletedEvent> profileDeleteEventKafkaTemplate,
             KafkaTemplate<String, ProfileCreatedEvent> profileCreateEventKafkaTemplate,
+            KafkaTemplate<String, ProfileDeckCardProjectionEvent> deckCardProjectionKafkaTemplate,
             @Qualifier("kafkaCircuitBreaker") CircuitBreaker circuitBreaker,
             OutboxPublisherProperties outboxPublisherProperties
     ) {
         this.profileUpdatedEventKafkaTemplate = profileUpdatedEventKafkaTemplate;
         this.profileDeleteEventKafkaTemplate = profileDeleteEventKafkaTemplate;
         this.profileCreateEventKafkaTemplate = profileCreateEventKafkaTemplate;
+        this.deckCardProjectionKafkaTemplate = deckCardProjectionKafkaTemplate;
         this.circuitBreaker = circuitBreaker;
         this.sendTimeoutMs = outboxPublisherProperties.sendTimeoutMs();
     }
@@ -72,6 +76,18 @@ public class ResilientProfileEventProducer {
         executeWithCircuitBreaker(
                 () -> profileCreateEventKafkaTemplate.send(topic, key, event),
                 "ProfileCreateEvent",
+                topic,
+                key
+        );
+    }
+
+    public void sendDeckCardProjection(ProfileDeckCardProjectionEvent event, String key, String topic) {
+        log.debug("Sending Deck Card projection to topic: {} with key: {} version: {}",
+                topic, key, event.version());
+
+        executeWithCircuitBreaker(
+                () -> deckCardProjectionKafkaTemplate.send(topic, key, event),
+                "ProfileDeckCardProjectionEvent",
                 topic,
                 key
         );

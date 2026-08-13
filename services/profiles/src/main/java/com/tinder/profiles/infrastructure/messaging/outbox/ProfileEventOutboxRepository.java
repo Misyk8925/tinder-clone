@@ -30,4 +30,8 @@ public interface ProfileEventOutboxRepository extends JpaRepository<ProfileEvent
             @Param("now") Instant now,
             @Param("batchSize") int batchSize
     );
+
+    long countByBackfillRunIdAndPublishedAtIsNullAndDeadLetteredAtIsNull(UUID backfillRunId);
+
+    long countByBackfillRunIdAndDeadLetteredAtIsNotNull(UUID backfillRunId);
 }

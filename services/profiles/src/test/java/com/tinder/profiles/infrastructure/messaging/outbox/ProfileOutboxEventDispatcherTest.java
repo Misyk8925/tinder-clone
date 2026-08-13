@@ -37,7 +37,9 @@ class ProfileOutboxEventDispatcherTest {
         dispatcher = new ProfileOutboxEventDispatcher(
                 objectMapper,
                 resilientProfileEventProducer,
-                new KafkaTopicProperties("profile.created", "profile.updated", "profile.deleted"));
+                new KafkaTopicProperties(
+                        "profile.created", "profile.updated", "profile.deleted",
+                        "profile.deck-card-projection.v1"));
     }
 
     @Test

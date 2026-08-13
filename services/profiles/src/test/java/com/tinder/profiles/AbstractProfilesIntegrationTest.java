@@ -12,10 +12,6 @@ import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
-import org.testcontainers.containers.PostgreSQLContainer;
-import org.testcontainers.junit.jupiter.Container;
-import org.testcontainers.junit.jupiter.Testcontainers;
-import org.testcontainers.utility.DockerImageName;
 
 import java.util.Set;
 
@@ -29,36 +25,13 @@ import java.util.Set;
  * - Common @Autowired fields
  * - @BeforeEach cleanup (Redis deck/jwt keys + DB rows)
  */
-@Testcontainers
 @Import(TestKafkaConsumerConfig.class)
-public abstract class AbstractProfilesIntegrationTest {
+public abstract class AbstractProfilesIntegrationTest extends AbstractPostgresIntegrationTest {
 
     private static final Logger log = LoggerFactory.getLogger(AbstractProfilesIntegrationTest.class);
 
-    static final String KAFKA_BOOTSTRAP_SERVERS = "localhost:9092";
-
-    @Container
-    static PostgreSQLContainer<?> postgresContainer;
-
-    static {
-        log.info("Using docker-compose Kafka: {}", KAFKA_BOOTSTRAP_SERVERS);
-        postgresContainer = new PostgreSQLContainer<>(
-                DockerImageName.parse("postgis/postgis:16-3.4-alpine")
-                        .asCompatibleSubstituteFor("postgres"))
-                .withDatabaseName("profiles_test")
-                .withUsername("test")
-                .withPassword("test")
-                .withCommand("postgres", "-c", "max_connections=200");
-        postgresContainer.start();
-    }
-
     @DynamicPropertySource
     static void configureProperties(DynamicPropertyRegistry registry) {
-        registry.add("spring.datasource.url", postgresContainer::getJdbcUrl);
-        registry.add("spring.datasource.username", postgresContainer::getUsername);
-        registry.add("spring.datasource.password", postgresContainer::getPassword);
-        registry.add("spring.jpa.hibernate.ddl-auto", () -> "create-drop");
-
         registry.add("spring.kafka.bootstrap-servers", () -> KAFKA_BOOTSTRAP_SERVERS);
         registry.add("spring.kafka.producer.bootstrap-servers", () -> KAFKA_BOOTSTRAP_SERVERS);
         registry.add("spring.kafka.consumer.bootstrap-servers", () -> KAFKA_BOOTSTRAP_SERVERS);

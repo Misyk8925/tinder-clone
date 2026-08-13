@@ -5,7 +5,6 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.tinder.profiles.infrastructure.persistence.profile.ProfileJpaEntity;
 import com.tinder.profiles.infrastructure.persistence.profile.ProfileRepository;
 
-import com.tinder.profiles.util.KeycloakTestHelper;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -14,13 +13,10 @@ import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMock
 import org.springframework.cache.CacheManager;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.ActiveProfiles;
+import org.springframework.context.annotation.Import;
 import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
-import org.testcontainers.containers.GenericContainer;
-import org.testcontainers.junit.jupiter.Container;
-import org.testcontainers.junit.jupiter.Testcontainers;
-import org.testcontainers.utility.DockerImageName;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.redis.core.StringRedisTemplate;
@@ -34,14 +30,10 @@ import static org.springframework.test.web.servlet.result.MockMvcResultHandlers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
-@Testcontainers
 @AutoConfigureMockMvc
 @ActiveProfiles("test")
-class RedisTests {
-
-    @Container
-    static GenericContainer<?> redis = new GenericContainer<>(DockerImageName.parse("redis:8.2.1-alpine"))
-            .withExposedPorts(6379);
+@Import(TestJwtSecurityConfig.class)
+class RedisTests extends AbstractPostgresIntegrationTest {
 
 
     private final String createProfileBody = """
@@ -72,8 +64,6 @@ class RedisTests {
                         "maxRange": 4
                     }
                 }""";
-
-    KeycloakTestHelper keycloakTestHelper = new KeycloakTestHelper();
 
 
 
@@ -106,7 +96,7 @@ class RedisTests {
 
         MvcResult result = mockMvc.perform(post("/api/v1/profiles")
                         .content(createProfileBody)
-                        .header("Authorization", keycloakTestHelper.createAuthorizationHeader("kovalmisha2000@gmail.com", "koval"))
+                        .header("Authorization", TestJwtSecurityConfig.bearer("kovalmisha2000@gmail.com"))
 
                         .contentType(MediaType.APPLICATION_JSON))
 
@@ -125,7 +115,7 @@ class RedisTests {
         // The write path evicts rather than populates (CQRS Stage 2); the entity
         // cache fills on the first read, so perform a read before asserting.
         mockMvc.perform(get("/api/v1/profiles/{id}", profileId)
-                        .header("Authorization", keycloakTestHelper.createAuthorizationHeader("kovalmisha2000@gmail.com", "koval")))
+                        .header("Authorization", TestJwtSecurityConfig.bearer("kovalmisha2000@gmail.com")))
                 .andExpect(status().isOk());
 
         // check cache

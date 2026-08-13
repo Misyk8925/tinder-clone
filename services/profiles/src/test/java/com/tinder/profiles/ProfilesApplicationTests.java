@@ -3,7 +3,6 @@ package com.tinder.profiles;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.tinder.profiles.infrastructure.persistence.profile.ProfileRepository;
-import com.tinder.profiles.util.KeycloakTestHelper;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -16,6 +15,8 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
+import org.springframework.test.context.ActiveProfiles;
+import org.springframework.context.annotation.Import;
 
 import java.util.UUID;
 
@@ -25,7 +26,9 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 @SpringBootTest
 @AutoConfigureMockMvc
-class ProfilesApplicationTests {
+@ActiveProfiles("test")
+@Import(TestJwtSecurityConfig.class)
+class ProfilesApplicationTests extends AbstractPostgresIntegrationTest {
 
     @Autowired
     private MockMvc mockMvc;
@@ -34,8 +37,6 @@ class ProfilesApplicationTests {
     private ProfileRepository repo;
     @Autowired
     private ObjectMapper objectMapper;
-
-    private final KeycloakTestHelper keycloakTestHelper = new KeycloakTestHelper();
 
     private static final String TEST_EMAIL = "kovalmisha2000@gmail.com";
     private static final String TEST_PASSWORD = "koval";
@@ -590,11 +591,11 @@ class ProfilesApplicationTests {
 
     // Helper methods to reduce code duplication
     private String createAuthHeader() {
-        return keycloakTestHelper.createAuthorizationHeader(TEST_EMAIL, TEST_PASSWORD);
+        return TestJwtSecurityConfig.bearer(TEST_EMAIL);
     }
 
     private String createSecondUserAuthHeader() {
-        return keycloakTestHelper.createAuthorizationHeader(SECOND_TEST_EMAIL, SECOND_TEST_PASSWORD);
+        return TestJwtSecurityConfig.bearer(SECOND_TEST_EMAIL);
     }
 
     private UUID extractProfileIdFromResponse(MvcResult result) throws Exception {

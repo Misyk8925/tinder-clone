@@ -6,6 +6,7 @@ import com.tinder.profiles.infrastructure.messaging.kafka.ResilientProfileEventP
 import com.tinder.contracts.event.v1.ProfileCreatedEvent;
 import com.tinder.contracts.event.v1.ProfileDeletedEvent;
 import com.tinder.contracts.event.v1.ProfileUpdatedEvent;
+import com.tinder.contracts.event.v1.ProfileDeckCardProjectionEvent;
 import com.tinder.profiles.config.props.KafkaTopicProperties;
 import com.tinder.profiles.infrastructure.messaging.outbox.model.ProfileEventOutbox;
 import lombok.RequiredArgsConstructor;
@@ -37,6 +38,11 @@ public class ProfileOutboxEventDispatcher {
                     deserialize(outboxRow, ProfileDeletedEvent.class),
                     key,
                     topics.deleted()
+            );
+            case DECK_CARD_PROJECTION -> resilientProfileEventProducer.sendDeckCardProjection(
+                    deserialize(outboxRow, ProfileDeckCardProjectionEvent.class),
+                    key,
+                    topics.deckCardProjection()
             );
         }
     }

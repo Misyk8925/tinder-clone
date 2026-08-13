@@ -12,6 +12,7 @@ import com.tinder.profiles.application.photos.port.out.PhotoStoragePort;
 import com.tinder.profiles.application.photos.support.PhotoKeys;
 import com.tinder.profiles.application.photos.support.PhotoPolicy;
 import com.tinder.profiles.application.photos.support.ProfilePhotoOwner;
+import com.tinder.profiles.application.profile.port.out.DomainEventPublisherPort;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -53,6 +54,7 @@ class UploadPhotoServiceTest {
     @Mock private PhotoStoragePort storage;
     @Mock private ImageVariantsPort images;
     @Mock private CleanupOrphanedPhotosService cleanupOrphaned;
+    @Mock private DomainEventPublisherPort events;
 
     private UploadPhotoService service;
 
@@ -60,7 +62,7 @@ class UploadPhotoServiceTest {
     void setUp() {
         PhotoPolicy policy = new PhotoPolicy(
                 5, 5L * 1024 * 1024, List.of("image/jpeg", "image/png"), 300, 4096);
-        service = new UploadPhotoService(owner, catalog, storage, images, cleanupOrphaned, policy);
+        service = new UploadPhotoService(owner, catalog, storage, images, cleanupOrphaned, policy, events);
     }
 
     @Test
@@ -81,6 +83,7 @@ class UploadPhotoServiceTest {
         then(draft.getValue().s3Key())
                 .isEqualTo(PhotoKeys.variantKey(PROFILE_ID, uploaded.photoId(), "original"));
         then(uploaded.smallUrl()).contains("/small.jpg");
+        verify(events).publishCardChanged(PROFILE_ID);
     }
 
     @Test

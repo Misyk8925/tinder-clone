@@ -52,7 +52,8 @@ public class ProfileJpaEntity {
 
     @Version
     @Column(name = "version", nullable = false)
-    private Long version;
+    @Builder.Default
+    private Long version = 1L;
 
     @Column(name = "name", nullable = false)
     private String name;

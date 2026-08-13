@@ -19,6 +19,7 @@ import java.util.UUID;
 
 import static org.assertj.core.api.BDDAssertions.then;
 import static org.mockito.Mockito.verify;
+import com.tinder.contracts.event.v1.ProfileProjectionOperation;
 
 @ExtendWith(MockitoExtension.class)
 @DisplayName("OutboxEventPublisherAdapter")
@@ -27,11 +28,14 @@ class OutboxEventPublisherAdapterTest {
     @Mock
     private ProfileOutboxService outboxService;
 
+    @Mock
+    private DeckCardProjectionOutboxService deckCardProjectionOutboxService;
+
     private OutboxEventPublisherAdapter adapter;
 
     @BeforeEach
     void setUp() {
-        adapter = new OutboxEventPublisherAdapter(outboxService);
+        adapter = new OutboxEventPublisherAdapter(outboxService, deckCardProjectionOutboxService);
     }
 
     @Test
@@ -48,6 +52,7 @@ class OutboxEventPublisherAdapterTest {
         then(event.profileId()).isEqualTo(profileId);
         then(event.userId()).isEqualTo("user-1");
         then(event.occurredAt()).isNotNull();
+        verify(deckCardProjectionOutboxService).enqueueLive(profileId, ProfileProjectionOperation.UPSERT);
     }
 
     @Test
@@ -65,6 +70,7 @@ class OutboxEventPublisherAdapterTest {
         then(event.changeType()).isEqualTo(ChangeType.CRITICAL_FIELDS);
         then(event.changedFields()).containsExactlyInAnyOrder("age", "gender");
         then(event.metadata()).contains("CRITICAL_FIELDS");
+        verify(deckCardProjectionOutboxService).enqueueLive(profileId, ProfileProjectionOperation.UPSERT);
     }
 
     @Test
@@ -78,5 +84,6 @@ class OutboxEventPublisherAdapterTest {
         verify(outboxService).enqueueProfileDeleted(captor.capture());
         then(captor.getValue().profileId()).isEqualTo(profileId);
         then(captor.getValue().eventId()).isNotNull();
+        verify(deckCardProjectionOutboxService).enqueueLive(profileId, ProfileProjectionOperation.DELETE);
     }
 }
