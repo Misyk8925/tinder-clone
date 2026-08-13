@@ -1,0 +1,400 @@
+openapi: 3.1.0
+info:
+  title: Deck Read API
+  version: 2.0.0-draft
+  description: >-
+    Client-facing Deck Read contract. Version 2 is generation/cursor based.
+    Version 1 remains a deprecated bare-array adapter backed by the same local read model.
+servers:
+  - url: /
+security:
+  - bearerAuth: []
+tags:
+  - name: Deck
+paths:
+  /api/v2/deck:
+    get:
+      tags: [Deck]
+      summary: Read one page from the viewer's materialized deck
+      operationId: getDeckV2
+      x-requirements: [FR-1, FR-6, FR-7, FR-8, FR-9]
+      description: >-
+        Safe and idempotent. The opaque cursor is bound to a snapshot generation.
+        When a supplied cursor belongs to an expired or replaced generation, the server
+        starts at the first page of the current generation and sets cursorReset=true.
+        Fresh cards always precede repeat cards.
+      parameters:
+        - $ref: '#/components/parameters/Cursor'
+        - $ref: '#/components/parameters/Limit'
+      responses:
+        '200':
+          description: >-
+            A materialized page. EMPTY is authoritative only while the read model is ready.
+            A successful ensure with no source ZSET remains BUILDING for the 30-second
+            polling window, then becomes EMPTY without incrementing the failure counter.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DeckPage'
+              examples:
+                ready:
+                  value:
+                    items:
+                      - profileId: 36da8615-1aca-4b54-9654-72e7fe2d9845
+                        name: Anna
+                        age: 29
+                        city: Vienna
+                        bio: Coffee, climbing and Sunday museums.
+                        isActive: true
+                        preferences:
+                          minAge: 25
+                          maxAge: 38
+                          gender: ALL
+                          maxDistanceKm: 50
+                        photos:
+                          - photoId: d4f8c4df-fc3d-4756-862a-263c4c72e019
+                            url: https://cdn.example.test/profiles/36da8615/large.jpg
+                            order: 0
+                        hobbies: [climbing, museums]
+                    nextCursor: eyJnIjoxNywicCI6MX0
+                    generation: 17
+                    cursorReset: false
+                    state: READY
+                empty:
+                  value:
+                    items: []
+                    nextCursor: null
+                    generation: 18
+                    cursorReset: false
+                    state: EMPTY
+        '202':
+          description: >-
+            No usable snapshot yet; a refresh/ensure is in progress. A successful ensure
+            that still has no source ZSET remains BUILDING during the 30-second window.
+          headers:
+            Retry-After:
+              description: Retry delay in seconds.
+              required: true
+              schema:
+                type: integer
+                const: 2
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BuildingDeck'
+              example:
+                state: BUILDING
+                retryAfterSeconds: 2
+        '400':
+          description: Invalid limit or malformed/tampered cursor. Do not retry unchanged.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+              examples:
+                invalidCursor:
+                  value:
+                    type: https://tinder.example/problems/invalid-cursor
+                    title: Invalid deck cursor
+                    status: 400
+                    code: INVALID_CURSOR
+                    detail: The cursor is malformed or cannot be verified.
+                invalidLimit:
+                  value:
+                    type: https://tinder.example/problems/invalid-limit
+                    title: Invalid page limit
+                    status: 400
+                    code: INVALID_LIMIT
+                    detail: limit must be between 1 and 100.
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '503':
+          description: >-
+            Read model recovery is incomplete, or 30 seconds/two consecutive failures elapsed
+            and neither fresh nor eligible repeat data exists. Retry with backoff.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+              examples:
+                notReady:
+                  value:
+                    type: https://tinder.example/problems/read-model-not-ready
+                    title: Deck read model is recovering
+                    status: 503
+                    code: READ_MODEL_NOT_READY
+                    detail: Profile backfill and event catch-up have not completed.
+                temporarilyUnavailable:
+                  value:
+                    type: https://tinder.example/problems/deck-temporarily-unavailable
+                    title: Deck temporarily unavailable
+                    status: 503
+                    code: DECK_TEMPORARILY_UNAVAILABLE
+                    detail: No fresh or safely repeatable cards are available.
+  /api/v1/deck:
+    get:
+      tags: [Deck]
+      summary: Read the deprecated offset page
+      operationId: getDeckV1
+      deprecated: true
+      x-requirements: [FR-2, FR-7, FR-8]
+      description: >-
+        Compatibility adapter backed only by the Deck Read local projection.
+        A successful response remains a bare JSON array. Repeated calls are safe.
+      parameters:
+        - name: offset
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+      responses:
+        '200':
+          description: Bare array preserved for v1 clients.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/DeckCardV1'
+        '400':
+          description: Invalid offset or limit.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+              example:
+                type: https://tinder.example/problems/invalid-pagination
+                title: Invalid pagination
+                status: 400
+                code: INVALID_PAGINATION
+                detail: offset must be non-negative and limit must be between 1 and 100.
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '503':
+          description: Local read model is not safe to serve yet.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+              example:
+                type: https://tinder.example/problems/read-model-not-ready
+                title: Deck read model is recovering
+                status: 503
+                code: READ_MODEL_NOT_READY
+                detail: Profile backfill and event catch-up have not completed.
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  parameters:
+    Cursor:
+      name: cursor
+      in: query
+      required: false
+      description: Opaque server-issued cursor. Clients must not decode or modify it.
+      schema:
+        type: string
+        minLength: 1
+        maxLength: 1024
+    Limit:
+      name: limit
+      in: query
+      required: false
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 100
+        default: 20
+  responses:
+    Unauthenticated:
+      description: Missing, expired or invalid bearer token. Authenticate; do not retry unchanged.
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+          example:
+            type: https://tinder.example/problems/unauthenticated
+            title: Authentication required
+            status: 401
+            code: UNAUTHENTICATED
+            detail: A valid bearer token is required.
+  schemas:
+    DeckPage:
+      type: object
+      additionalProperties: false
+      required: [items, nextCursor, generation, cursorReset, state]
+      properties:
+        items:
+          type: array
+          maxItems: 100
+          items:
+            $ref: '#/components/schemas/DeckCard'
+        nextCursor:
+          type: [string, 'null']
+          maxLength: 1024
+        generation:
+          type: integer
+          format: int64
+          minimum: 1
+        cursorReset:
+          type: boolean
+        state:
+          type: string
+          enum: [READY, REFRESHING, DEGRADED, EMPTY]
+    BuildingDeck:
+      type: object
+      additionalProperties: false
+      required: [state, retryAfterSeconds]
+      properties:
+        state:
+          type: string
+          const: BUILDING
+        retryAfterSeconds:
+          type: integer
+          const: 2
+    DeckCard:
+      type: object
+      additionalProperties: false
+      required: [profileId, name, age, city, bio, isActive, preferences, photos, hobbies]
+      properties:
+        profileId:
+          type: string
+          format: uuid
+        name:
+          type: string
+          minLength: 1
+          maxLength: 100
+        age:
+          type: integer
+          minimum: 18
+          maximum: 120
+        city:
+          type: [string, 'null']
+          maxLength: 120
+        bio:
+          type: [string, 'null']
+          maxLength: 2000
+        isActive:
+          type: boolean
+        preferences:
+          $ref: '#/components/schemas/Preferences'
+        photos:
+          type: array
+          maxItems: 9
+          items:
+            $ref: '#/components/schemas/Photo'
+        hobbies:
+          type: array
+          maxItems: 50
+          uniqueItems: true
+          items:
+            type: string
+            maxLength: 100
+    DeckCardV1:
+      type: object
+      additionalProperties: false
+      required: [profileId, name, age, city, bio, photos, hobbies]
+      properties:
+        profileId: {type: string, format: uuid}
+        name: {type: string, minLength: 1, maxLength: 100}
+        age: {type: integer, minimum: 18, maximum: 120}
+        city: {type: [string, 'null'], maxLength: 120}
+        bio: {type: [string, 'null'], maxLength: 2000}
+        photos:
+          type: array
+          maxItems: 9
+          items:
+            $ref: '#/components/schemas/PhotoV1'
+        hobbies:
+          type: array
+          maxItems: 50
+          uniqueItems: true
+          items: {type: string, maxLength: 100}
+    Preferences:
+      type: object
+      additionalProperties: false
+      required: [minAge, maxAge, gender, maxDistanceKm]
+      properties:
+        minAge:
+          type: integer
+          minimum: 18
+          maximum: 120
+        maxAge:
+          type: integer
+          minimum: 18
+          maximum: 120
+        gender:
+          type: string
+          maxLength: 32
+        maxDistanceKm:
+          type: integer
+          minimum: 1
+          maximum: 20000
+    Photo:
+      type: object
+      additionalProperties: false
+      required: [photoId, url, order]
+      properties:
+        photoId:
+          type: string
+          format: uuid
+        url:
+          type: string
+          format: uri
+          maxLength: 2048
+        order:
+          type: integer
+          minimum: 0
+          maximum: 8
+    PhotoV1:
+      type: object
+      additionalProperties: false
+      required: [url, position, isPrimary]
+      properties:
+        url:
+          type: string
+          format: uri
+          maxLength: 2048
+        position:
+          type: integer
+          minimum: 0
+          maximum: 8
+        isPrimary:
+          type: boolean
+    Problem:
+      type: object
+      additionalProperties: true
+      required: [type, title, status, code, detail]
+      properties:
+        type:
+          type: string
+          format: uri
+        title:
+          type: string
+        status:
+          type: integer
+          minimum: 400
+          maximum: 599
+        code:
+          type: string
+          pattern: '^[A-Z0-9_]+$'
+        detail:
+          type: string
+        instance:
+          type: string
+          format: uri-reference
+        traceId:
+          type: string
+          maxLength: 128

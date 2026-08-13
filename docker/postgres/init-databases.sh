@@ -25,6 +25,8 @@ psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "profiles_db" <<-EO
 EOSQL
 psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "profiles_db" \
     -f /docker-entrypoint-initdb.d/migration/V1_profiles.sql
+psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "profiles_db" \
+    -f /docker-entrypoint-initdb.d/migration/V2_profiles_deck_read_cqrs.sql
 psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "profiles_db" <<-EOSQL
     ALTER TABLE preferences         OWNER TO profiles_app;
     ALTER TABLE location            OWNER TO profiles_app;
@@ -33,6 +35,7 @@ psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "profiles_db" <<-EO
     ALTER TABLE profile_hobbies     OWNER TO profiles_app;
     ALTER TABLE profile_event_outbox OWNER TO profiles_app;
     ALTER TABLE profile_cache_model OWNER TO profiles_app;
+    ALTER TABLE deck_card_projection_backfill_run OWNER TO profiles_app;
     ALTER SEQUENCE IF EXISTS preferences_id_seq         OWNER TO profiles_app;
     ALTER SEQUENCE IF EXISTS location_id_seq            OWNER TO profiles_app;
     ALTER SEQUENCE IF EXISTS profiles_id_seq            OWNER TO profiles_app;

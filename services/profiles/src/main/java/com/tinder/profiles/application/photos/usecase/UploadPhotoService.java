@@ -13,6 +13,7 @@ import com.tinder.profiles.application.photos.port.out.PhotoStoragePort;
 import com.tinder.profiles.application.photos.support.PhotoKeys;
 import com.tinder.profiles.application.photos.support.PhotoPolicy;
 import com.tinder.profiles.application.photos.support.ProfilePhotoOwner;
+import com.tinder.profiles.application.profile.port.out.DomainEventPublisherPort;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -37,6 +38,7 @@ public class UploadPhotoService {
     private final ImageVariantsPort images;
     private final CleanupOrphanedPhotosService cleanupOrphaned;
     private final PhotoPolicy policy;
+    private final DomainEventPublisherPort events;
 
     @Transactional
     public UploadedPhoto handle(UploadPhotoCommand cmd) {
@@ -81,6 +83,8 @@ public class UploadPhotoService {
                 storage.publicUrl(originalKey),
                 "image/jpeg",
                 variants.original().length));
+
+        events.publishCardChanged(profileId);
 
         return new UploadedPhoto(
                 storageId,

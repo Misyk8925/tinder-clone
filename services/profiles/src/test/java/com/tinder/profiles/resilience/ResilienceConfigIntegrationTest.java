@@ -1,5 +1,6 @@
 package com.tinder.profiles.config.resilience;
 
+import com.tinder.profiles.AbstractPostgresIntegrationTest;
 import io.github.resilience4j.circuitbreaker.CircuitBreaker;
 import io.github.resilience4j.circuitbreaker.CircuitBreakerRegistry;
 import org.junit.jupiter.api.Test;
@@ -14,7 +15,7 @@ import static org.assertj.core.api.Assertions.assertThat;
  */
 @SpringBootTest
 @ActiveProfiles("test")
-class ResilienceConfigIntegrationTest {
+class ResilienceConfigIntegrationTest extends AbstractPostgresIntegrationTest {
 
     @Autowired
     private CircuitBreakerRegistry circuitBreakerRegistry;

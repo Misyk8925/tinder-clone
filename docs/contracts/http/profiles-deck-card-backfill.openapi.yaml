@@ -1,0 +1,102 @@
+openapi: 3.1.0
+info:
+  title: Profiles Deck Card Projection Backfill API
+  version: 1.0.0
+  description: >-
+    Internal mTLS maintenance contract used to start, resume and observe one explicit
+    Deck Card projection backfill. The endpoint is never invoked on service startup.
+servers:
+  - url: https://profiles:8011
+security:
+  - mutualTLS: []
+paths:
+  /api/v1/profiles/internal/deck-card-projection/backfills/{runId}:
+    parameters:
+      - $ref: '#/components/parameters/RunId'
+    post:
+      operationId: startOrResumeDeckCardProjectionBackfill
+      summary: Start a new run or resume the same durable run
+      description: >-
+        The caller generates runId once and reuses it for every retry. Profiles locks the
+        checkpoint, reads profile IDs with keyset pagination in pages of at most 500, and
+        commits each page's normal outbox rows together with its cursor. A different runId
+        is rejected while another run is RUNNING.
+      responses:
+        '200':
+          description: The idempotently addressed run was already terminal or its current state was returned.
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/BackfillRun'}
+        '202':
+          description: All pages are durably ENQUEUED; the normal outbox publisher may still be draining them.
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/BackfillRun'}
+        '401': {$ref: '#/components/responses/MutualTlsRequired'}
+        '403': {$ref: '#/components/responses/InternalClientForbidden'}
+        '409':
+          description: A different backfill run is already RUNNING.
+          content:
+            application/problem+json:
+              schema: {$ref: '#/components/schemas/Problem'}
+    get:
+      operationId: getDeckCardProjectionBackfill
+      summary: Read the durable checkpoint and drain state
+      responses:
+        '200':
+          description: Current run state.
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/BackfillRun'}
+        '401': {$ref: '#/components/responses/MutualTlsRequired'}
+        '403': {$ref: '#/components/responses/InternalClientForbidden'}
+        '404':
+          description: The runId has never been started.
+components:
+  securitySchemes:
+    mutualTLS:
+      type: mutualTLS
+  parameters:
+    RunId:
+      name: runId
+      in: path
+      required: true
+      description: Caller-generated idempotency identity; reuse the same UUID after timeout or restart.
+      schema: {type: string, format: uuid}
+  responses:
+    MutualTlsRequired:
+      description: A trusted client certificate is required.
+    InternalClientForbidden:
+      description: The certificate identity is not authorized as an internal client.
+  schemas:
+    BackfillRun:
+      type: object
+      additionalProperties: false
+      required:
+        - runId
+        - status
+        - lastProfileId
+        - processedCount
+        - expectedCount
+        - startedAt
+        - updatedAt
+        - completedAt
+        - lastError
+      properties:
+        runId: {type: string, format: uuid}
+        status: {type: string, enum: [RUNNING, ENQUEUED, COMPLETED, FAILED]}
+        lastProfileId: {type: [string, 'null'], format: uuid}
+        processedCount: {type: integer, format: int64, minimum: 0}
+        expectedCount: {type: integer, format: int64, minimum: 0}
+        startedAt: {type: string, format: date-time}
+        updatedAt: {type: string, format: date-time}
+        completedAt: {type: [string, 'null'], format: date-time}
+        lastError: {type: [string, 'null'], maxLength: 500}
+    Problem:
+      type: object
+      required: [type, title, status, detail]
+      properties:
+        type: {type: string, format: uri-reference}
+        title: {type: string}
+        status: {type: integer}
+        detail: {type: string}

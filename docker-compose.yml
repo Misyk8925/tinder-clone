@@ -42,6 +42,33 @@ services:
       start_period: 30s
       retries: 5
 
+  # Idempotent Deck Read CQRS schema upgrade for both fresh and existing Profiles volumes.
+  # Profiles does not start until this one-shot migration succeeds.
+  profiles-migrations:
+    image: postgis/postgis:17-3.4
+    restart: "no"
+    init: true
+    security_opt:
+      - no-new-privileges:true
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      PGHOST: postgres
+      PGPORT: 5432
+      PGDATABASE: profiles_db
+      PGUSER: ${PROFILES_DB_USER:?PROFILES_DB_USER is required}
+      PGPASSWORD: ${PROFILES_DB_PASSWORD:?PROFILES_DB_PASSWORD is required}
+    volumes:
+      - ./migrations/migration:/migrations:ro
+    entrypoint:
+      - psql
+      - -v
+      - ON_ERROR_STOP=1
+      - --file=/migrations/V2_profiles_deck_read_cqrs.sql
+    networks:
+      - app
+
   keycloak-postgres:
     image: postgres:16-alpine
     restart: unless-stopped
@@ -99,6 +126,125 @@ services:
       timeout: 5s
       start_period: 10s
       retries: 5
+
+  # Deck Read-owned production cluster: three masters plus three replicas.
+  # The legacy single-node `redis` service above remains unchanged for Deck and
+  # local development; only dr:* data belongs here.
+  deck-read-redis-1:
+    image: redis:8.2.1-alpine
+    <<: *prod-mid-defaults
+    command: >-
+      redis-server --port 6379 --cluster-enabled yes
+      --cluster-config-file nodes.conf --cluster-node-timeout 5000
+      --appendonly yes --appendfsync everysec --maxmemory-policy noeviction
+      --save 900 1 --save 300 10 --save 60 10000
+    volumes: ["deck-read-redis-1-data:/data"]
+    networks: [app]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  deck-read-redis-2:
+    image: redis:8.2.1-alpine
+    <<: *prod-mid-defaults
+    command: >-
+      redis-server --port 6379 --cluster-enabled yes
+      --cluster-config-file nodes.conf --cluster-node-timeout 5000
+      --appendonly yes --appendfsync everysec --maxmemory-policy noeviction
+      --save 900 1 --save 300 10 --save 60 10000
+    volumes: ["deck-read-redis-2-data:/data"]
+    networks: [app]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  deck-read-redis-3:
+    image: redis:8.2.1-alpine
+    <<: *prod-mid-defaults
+    command: >-
+      redis-server --port 6379 --cluster-enabled yes
+      --cluster-config-file nodes.conf --cluster-node-timeout 5000
+      --appendonly yes --appendfsync everysec --maxmemory-policy noeviction
+      --save 900 1 --save 300 10 --save 60 10000
+    volumes: ["deck-read-redis-3-data:/data"]
+    networks: [app]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  deck-read-redis-4:
+    image: redis:8.2.1-alpine
+    <<: *prod-mid-defaults
+    command: >-
+      redis-server --port 6379 --cluster-enabled yes
+      --cluster-config-file nodes.conf --cluster-node-timeout 5000
+      --appendonly yes --appendfsync everysec --maxmemory-policy noeviction
+      --save 900 1 --save 300 10 --save 60 10000
+    volumes: ["deck-read-redis-4-data:/data"]
+    networks: [app]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  deck-read-redis-5:
+    image: redis:8.2.1-alpine
+    <<: *prod-mid-defaults
+    command: >-
+      redis-server --port 6379 --cluster-enabled yes
+      --cluster-config-file nodes.conf --cluster-node-timeout 5000
+      --appendonly yes --appendfsync everysec --maxmemory-policy noeviction
+      --save 900 1 --save 300 10 --save 60 10000
+    volumes: ["deck-read-redis-5-data:/data"]
+    networks: [app]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  deck-read-redis-6:
+    image: redis:8.2.1-alpine
+    <<: *prod-mid-defaults
+    command: >-
+      redis-server --port 6379 --cluster-enabled yes
+      --cluster-config-file nodes.conf --cluster-node-timeout 5000
+      --appendonly yes --appendfsync everysec --maxmemory-policy noeviction
+      --save 900 1 --save 300 10 --save 60 10000
+    volumes: ["deck-read-redis-6-data:/data"]
+    networks: [app]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  deck-read-cluster-init:
+    image: redis:8.2.1-alpine
+    restart: "no"
+    depends_on:
+      deck-read-redis-1: {condition: service_healthy}
+      deck-read-redis-2: {condition: service_healthy}
+      deck-read-redis-3: {condition: service_healthy}
+      deck-read-redis-4: {condition: service_healthy}
+      deck-read-redis-5: {condition: service_healthy}
+      deck-read-redis-6: {condition: service_healthy}
+    environment:
+      REDIS_CLUSTER_NODES: >-
+        deck-read-redis-1:6379 deck-read-redis-2:6379 deck-read-redis-3:6379
+        deck-read-redis-4:6379 deck-read-redis-5:6379 deck-read-redis-6:6379
+      REDIS_CLUSTER_REPLICAS: "1"
+    volumes:
+      - ./docker/redis-cluster/init-cluster.sh:/usr/local/bin/init-cluster.sh:ro
+    entrypoint: ["/bin/sh", "/usr/local/bin/init-cluster.sh"]
+    networks: [app]
 
   zookeeper:
     image: confluentinc/cp-zookeeper:7.5.0
@@ -262,6 +408,8 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+      profiles-migrations:
+        condition: service_completed_successfully
       kafka:
         condition: service_healthy
       redis:
@@ -288,6 +436,7 @@ services:
       SPRING_DATASOURCE_PASSWORD: ${PROFILES_DB_PASSWORD:?PROFILES_DB_PASSWORD is required}
       SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE: 16
       SPRING_DATASOURCE_HIKARI_MINIMUM_IDLE: 4
+      SPRING_JPA_HIBERNATE_DDL_AUTO: validate
       SPRING_DATA_REDIS_HOST: redis
       SPRING_DATA_REDIS_PORT: 6379
       SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:29092
@@ -366,24 +515,27 @@ services:
     depends_on:
       redis:
         condition: service_healthy
+      deck-read-cluster-init:
+        condition: service_completed_successfully
       deck:
         condition: service_started
-      profiles:
-        condition: service_started
+      kafka:
+        condition: service_healthy
     environment:
       KEYCLOAK_REALM_URL: ${KEYCLOAK_REALM_URL:-http://keycloak:9080/realms/spring}
-      REDIS_HOST: redis
-      REDIS_PORT: 6379
+      DECK_SOURCE_REDIS_HOST: redis
+      DECK_SOURCE_REDIS_PORT: 6379
+      DECK_READ_REDIS_HOSTS: >-
+        redis://deck-read-redis-1:6379,redis://deck-read-redis-2:6379,redis://deck-read-redis-3:6379,
+        redis://deck-read-redis-4:6379,redis://deck-read-redis-5:6379,redis://deck-read-redis-6:6379
+      KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+      DECK_READ_PROFILE_GROUP_ID: ${DECK_READ_PROFILE_GROUP_ID:-deck-read-profile-projection-v1}
+      DECK_READ_SWIPE_GROUP_ID: ${DECK_READ_SWIPE_GROUP_ID:-deck-read-swipe-projection-v1}
+      DECK_READ_MATCH_GROUP_ID: ${DECK_READ_MATCH_GROUP_ID:-deck-read-match-projection-v1}
       DECK_BASE_URL: http://deck:8030
-      PROFILES_BASE_URL: https://profiles:8011/api/v1/profiles/internal
-      DECK_READ_KEYSTORE_PATH: /certs/deck-read-service.p12
-      DECK_READ_KEYSTORE_PASSWORD: ${MTLS_KEYSTORE_PASSWORD:?MTLS_KEYSTORE_PASSWORD is required}
-      DECK_READ_TRUSTSTORE_PATH: /certs/truststore.jks
-      DECK_READ_TRUSTSTORE_PASSWORD: ${MTLS_TRUSTSTORE_PASSWORD:?MTLS_TRUSTSTORE_PASSWORD is required}
+      DECK_READ_REQUIRE_READY_MARKER: "true"
+      DECK_READ_CURSOR_SECRET: ${DECK_READ_CURSOR_SECRET:?DECK_READ_CURSOR_SECRET is required}
       JAVA_TOOL_OPTIONS: "-XX:+UseContainerSupport -XX:+UseG1GC -XX:InitialRAMPercentage=40.0 -XX:MaxRAMPercentage=75.0 -Dfile.encoding=UTF-8 -Dsun.net.inetaddr.ttl=60 -Djava.io.tmpdir=/tmp"
-    volumes:
-      - /etc/dokploy/certs/tinderclone/deck-read-service.p12:/certs/deck-read-service.p12:ro
-      - /etc/dokploy/certs/tinderclone/truststore.jks:/certs/truststore.jks:ro
     networks:
       - app
     mem_limit: 512m
@@ -450,7 +602,7 @@ services:
       SWIPES_SERVICE_URL: http://swipes:8040
       CONSUMER_SERVICE_URL: http://consumer:8050
       DECK_SERVICE_URL: http://deck:8030
-      # Client-facing deck reads (GET /api/v1/deck) are routed to deck-read.
+      # Client-facing deck reads (GET /api/v1/deck and /api/v2/deck) are routed to deck-read.
       DECK_READ_SERVICE_URL: ${DECK_READ_SERVICE_URL:-http://deck-read:8040}
       MATCH_SERVICE_URL: http://match:8080
       MATCH_WS_URL: ws://match:8080
@@ -688,3 +840,9 @@ volumes:
     driver: local
   kc-pgdata:
   nexus-data:
+  deck-read-redis-1-data:
+  deck-read-redis-2-data:
+  deck-read-redis-3-data:
+  deck-read-redis-4-data:
+  deck-read-redis-5-data:
+  deck-read-redis-6-data:

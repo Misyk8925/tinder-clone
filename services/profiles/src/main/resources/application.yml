@@ -70,7 +70,7 @@ spring:
         enable.idempotence: true
         spring.json.add.type.headers: false
   datasource:
-    url: ${PROFILES_DB_URL:jdbc:postgresql://127.0.0.1:54331/profiles_db}
+    url: ${PROFILES_DB_URL:jdbc:postgresql://postgres:5432/profiles_db}
     username: ${PROFILES_DB_USER:profiles_app}
     password: ${PROFILES_DB_PASSWORD:change_me_profiles_db_password}
     hikari:
@@ -86,7 +86,7 @@ spring:
           jwk-set-uri: http://localhost:9080/realms/spring/protocol/openid-connect/certs
   jpa:
     hibernate:
-      ddl-auto: update
+      ddl-auto: validate
     properties:
       hibernate:
         dialect: org.hibernate.dialect.PostgreSQLDialect
@@ -187,6 +187,7 @@ kafka:
       updated: profile.updated
       created: profile.created
       deleted: profile.deleted
+      deck-card-projection: profile.deck-card-projection.v1
 
 outbox:
   publisher:

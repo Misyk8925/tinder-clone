@@ -25,7 +25,8 @@ import java.util.UUID;
         name = "profile_event_outbox",
         indexes = {
                 @Index(name = "idx_outbox_publish_window", columnList = "published_at, dead_lettered_at, next_attempt_at, created_at"),
-                @Index(name = "idx_outbox_profile", columnList = "profile_id")
+                @Index(name = "idx_outbox_profile", columnList = "profile_id"),
+                @Index(name = "idx_outbox_backfill_run", columnList = "backfill_run_id")
         },
         uniqueConstraints = {
                 @UniqueConstraint(name = "uk_outbox_event_id", columnNames = "event_id")
@@ -43,6 +44,9 @@ public class ProfileEventOutbox {
 
     @Column(name = "profile_id", nullable = false, updatable = false)
     private UUID profileId;
+
+    @Column(name = "backfill_run_id", updatable = false)
+    private UUID backfillRunId;
 
     @Enumerated(EnumType.STRING)
     @Column(name = "event_type", nullable = false, updatable = false, length = 32)
@@ -76,6 +80,17 @@ public class ProfileEventOutbox {
             String payload,
             Instant now
     ) {
+        return pending(eventId, profileId, eventType, payload, now, null);
+    }
+
+    public static ProfileEventOutbox pending(
+            UUID eventId,
+            UUID profileId,
+            ProfileOutboxEventType eventType,
+            String payload,
+            Instant now,
+            UUID backfillRunId
+    ) {
         ProfileEventOutbox row = new ProfileEventOutbox();
         row.eventId = eventId;
         row.profileId = profileId;
@@ -84,6 +99,7 @@ public class ProfileEventOutbox {
         row.retryCount = 0;
         row.nextAttemptAt = now;
         row.createdAt = now;
+        row.backfillRunId = backfillRunId;
         return row;
     }
 

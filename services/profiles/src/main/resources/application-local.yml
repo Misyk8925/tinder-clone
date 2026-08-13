@@ -3,9 +3,9 @@ spring:
     activate:
       on-profile: local
   datasource:
-    url: jdbc:postgresql://127.0.0.1:54322/postgres?sslmode=disable
-    username: postgres
-    password: postgres
+    url: ${PROFILES_DB_URL:jdbc:postgresql://postgres:5432/profiles_db}
+    username: ${PROFILES_DB_USER:profiles_app}
+    password: ${PROFILES_DB_PASSWORD:change_me_profiles_db_password}
   ssl:
     bundle:
       jks:

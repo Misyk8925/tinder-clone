@@ -38,7 +38,7 @@ public class SecurityConfig {
     @Order(1)
     public SecurityWebFilterChain deckReadSecurityFilterChain(ServerHttpSecurity http) {
         return http
-                .securityMatcher(ServerWebExchangeMatchers.pathMatchers("/api/v1/deck"))
+                .securityMatcher(ServerWebExchangeMatchers.pathMatchers("/api/v1/deck", "/api/v2/deck"))
                 .csrf(ServerHttpSecurity.CsrfSpec::disable)
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
                 .authorizeExchange(exchange -> exchange.anyExchange().permitAll())
@@ -59,7 +59,7 @@ public class SecurityConfig {
                         // Stripe sends its own signature header — no JWT involved
                         .pathMatchers("/api/v1/webhook/**").permitAll()
                         // Deck-read validates this token itself and resolves the viewer from its subject.
-                        .pathMatchers("/api/v1/deck").permitAll()
+                        .pathMatchers("/api/v1/deck", "/api/v2/deck").permitAll()
                         // WebSocket upgrade — JWT auth handled inside the match service via STOMP channel interceptor
                         .pathMatchers("/ws", "/ws/**").permitAll()
                         // Match-service paths use no /api/v1 prefix but still require authentication

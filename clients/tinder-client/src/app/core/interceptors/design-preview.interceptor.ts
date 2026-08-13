@@ -2,6 +2,7 @@ import { HttpInterceptorFn, HttpResponse } from '@angular/common/http';
 import { of } from 'rxjs';
 import { environment } from '../../../environments/environment';
 import { Profile } from '../models/profile.model';
+import { DeckCard } from '../models/deck.model';
 
 const myProfile: Profile = {
   profileId: 'preview-me',
@@ -34,6 +35,27 @@ const milaProfile: Profile = {
   hobbies: ['HIKING', 'MUSIC', 'COOKING']
 };
 
+const milaDeckCard: DeckCard = {
+  profileId: milaProfile.profileId,
+  name: milaProfile.name,
+  age: milaProfile.age,
+  city: milaProfile.city,
+  bio: milaProfile.bio,
+  isActive: milaProfile.isActive,
+  preferences: {
+    minAge: milaProfile.preferences.minAge,
+    maxAge: milaProfile.preferences.maxAge,
+    gender: milaProfile.preferences.gender,
+    maxDistanceKm: milaProfile.preferences.maxRange
+  },
+  photos: milaProfile.photos.map(photo => ({
+    photoId: photo.photoID,
+    url: photo.url,
+    order: photo.position
+  })),
+  hobbies: milaProfile.hobbies
+};
+
 export const designPreviewInterceptor: HttpInterceptorFn = (request, next) => {
   if (!environment.designPreview) return next(request);
 
@@ -42,8 +64,17 @@ export const designPreviewInterceptor: HttpInterceptorFn = (request, next) => {
     return of(new HttpResponse({ status: 200, body: myProfile }));
   }
 
-  if (request.method === 'GET' && url.includes('/api/v1/deck')) {
-    return of(new HttpResponse({ status: 200, body: [milaProfile] }));
+  if (request.method === 'GET' && url.includes('/api/v2/deck')) {
+    return of(new HttpResponse({
+      status: 200,
+      body: {
+        items: [milaDeckCard],
+        nextCursor: null,
+        generation: 1,
+        cursorReset: false,
+        state: 'READY'
+      }
+    }));
   }
 
   if (request.method === 'GET' && url.includes('/api/v1/profiles/')) {

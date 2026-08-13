@@ -1,19 +1,20 @@
 import { Injectable, inject } from '@angular/core';
-import { HttpClient } from '@angular/common/http';
+import { HttpClient, HttpParams } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import { environment } from '../../../environments/environment';
 import { CreateProfileRequest, Profile } from '../models/profile.model';
+import { DeckResponse } from '../models/deck.model';
 
 @Injectable({ providedIn: 'root' })
 export class ProfileService {
   private http = inject(HttpClient);
   private base = `${environment.apiGatewayUrl}/api/v1/profiles`;
-  private deckUrl = `${environment.apiGatewayUrl}/api/v1/deck`;
+  private deckUrl = `${environment.apiGatewayUrl}/api/v2/deck`;
 
-  getMyDeck(offset = 0, limit = 20): Observable<Profile[]> {
-    return this.http.get<Profile[]>(this.deckUrl, {
-      params: { offset, limit }
-    });
+  getMyDeck(cursor?: string, limit = 20): Observable<DeckResponse> {
+    let params = new HttpParams().set('limit', limit);
+    if (cursor) params = params.set('cursor', cursor);
+    return this.http.get<DeckResponse>(this.deckUrl, { params });
   }
 
   getProfile(id: string): Observable<Profile> {

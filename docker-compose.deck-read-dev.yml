@@ -1,0 +1,21 @@
+name: tinder-deck-read-dev
+
+services:
+  deck-read-redis-dev:
+    image: redis:8.2.1-alpine
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:6380:6379"
+    command: >-
+      redis-server --appendonly yes --appendfsync everysec
+      --maxmemory-policy noeviction
+    volumes:
+      - deck-read-redis-dev-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+volumes:
+  deck-read-redis-dev-data:

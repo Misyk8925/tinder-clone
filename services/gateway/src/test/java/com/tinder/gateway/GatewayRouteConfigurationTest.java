@@ -21,7 +21,7 @@ class GatewayRouteConfigurationTest {
         assertThat(deckRead.get("uri"))
                 .isEqualTo("${DECK_READ_SERVICE_URL:http://localhost:8040}");
         assertThat(asStringList(deckRead.get("predicates")))
-                .containsExactly("Path=/api/v1/deck", "Method=GET");
+                .containsExactly("Path=/api/v1/deck,/api/v2/deck", "Method=GET");
         assertThat(asStringList(deckRead.get("filters")))
                 .doesNotContain("RewritePath");
     }

@@ -1,187 +1,232 @@
 package com.tinder.deckread.service;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.tinder.contracts.deck.DeckRedisKeys;
-import com.tinder.contracts.dto.DeckEntry;
-import com.tinder.contracts.dto.SharedPreferencesDto;
-import com.tinder.contracts.dto.SharedProfileDto;
+import com.tinder.contracts.event.v1.DeckCardPreferences;
+import com.tinder.contracts.event.v1.DeckCardProjection;
+import com.tinder.contracts.event.v1.ProfileDeckCardProjectionEvent;
+import com.tinder.contracts.event.v1.ProfileProjectionOperation;
+import com.tinder.contracts.event.v1.ProjectionSource;
 import com.tinder.deckread.dto.DeckCardDto;
-import com.tinder.deckread.client.DeckEnsureClient;
-import com.tinder.deckread.client.ProfilesClient;
-import io.quarkus.redis.datasource.ReactiveRedisDataSource;
+import com.tinder.deckread.dto.DeckCardV1Dto;
+import com.tinder.deckread.dto.DeckState;
+import com.tinder.deckread.messaging.MatchCreatedEvent;
+import com.tinder.deckread.messaging.SwipeSavedEvent;
+import com.tinder.deckread.readmodel.DeckSnapshotStore;
+import com.tinder.deckread.readmodel.ProfileProjectionStore;
+import com.tinder.deckread.readmodel.ReadModelKeys;
+import com.tinder.deckread.readmodel.ViewerMutationStore;
+import io.quarkus.redis.client.RedisClientName;
 import io.quarkus.redis.datasource.RedisDataSource;
-import io.quarkus.test.InjectMock;
 import io.quarkus.test.junit.QuarkusTest;
-import io.smallrye.mutiny.Uni;
 import jakarta.inject.Inject;
-import org.eclipse.microprofile.rest.client.inject.RestClient;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
+import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
 
-/**
- * Integration test for the read → ensure-on-miss → re-read → hydrate → reorder orchestration in
- * {@link DeckQueryService}. Uses a real Redis (Dev Services) for the reader and Mockito mocks for
- * the two REST clients.
- */
 @QuarkusTest
+@Tag("acceptance")
+@DisplayName("Feature: Deck Read materializes event-driven viewer output")
 class DeckQueryServiceIntegrationTest {
 
-    @Inject
-    DeckQueryService service;
+    private static final String VIEWER_USER_ID = "11111111-1111-1111-1111-111111111111";
+    private static final UUID VIEWER_PROFILE_ID = UUID.fromString("22222222-2222-2222-2222-222222222222");
+
+    @Inject DeckQueryService service;
+    @Inject ProfileProjectionStore profiles;
+    @Inject DeckSnapshotStore snapshots;
+    @Inject ViewerMutationStore mutations;
 
     @Inject
+    @RedisClientName("read-model")
     RedisDataSource redis;
 
-    @Inject
-    ReactiveRedisDataSource reactiveRedis;
-
-    @InjectMock
-    @RestClient
-    DeckEnsureClient ensureClient;
-
-    @InjectMock
-    @RestClient
-    ProfilesClient profilesClient;
-
-    private final ObjectMapper mapper = new ObjectMapper();
-
-    // ---- helpers -------------------------------------------------------------
-
-    private String member(UUID profileId) {
-        try {
-            return mapper.writeValueAsString(new DeckEntry(profileId, false));
-        } catch (Exception e) {
-            throw new RuntimeException(e);
-        }
-    }
-
-    private void seed(UUID viewer, double score, UUID profileId) {
-        redis.sortedSet(String.class, String.class).zadd(DeckRedisKeys.deck(viewer), score, member(profileId));
-    }
-
-    /** Reactive seed (safe to run on the event loop) used inside the ensure() mock answer. */
-    private Uni<Boolean> seedReactivelyThenTrue(UUID viewer, double score, UUID profileId) {
-        return reactiveRedis.sortedSet(String.class)
-                .zadd(DeckRedisKeys.deck(viewer), score, member(profileId))
-                .replaceWith(true);
-    }
-
-    private SharedProfileDto profile(UUID id, boolean deleted) {
-        return new SharedProfileDto(id, "name-" + id, 25, null, "Berlin", true, null,
-                new SharedPreferencesDto(18, 99, "ALL", 50), deleted, List.of(), List.of());
-    }
-
-    private List<DeckCardDto> get(UUID viewer, int offset, int limit) {
-        return service.getDeck(viewer, offset, limit).await().indefinitely();
-    }
-
-    // ---- tests ---------------------------------------------------------------
-
-    @Test
-    void presentDeckIsHydratedInDeckOrderWithoutEnsure() {
-        UUID viewer = UUID.randomUUID();
-        UUID p1 = UUID.randomUUID();
-        UUID p2 = UUID.randomUUID();
-        seed(viewer, 10.0, p1); // rank 1
-        seed(viewer, 30.0, p2); // rank 0
-
-        // Profiles service returns them in arbitrary order; service must reorder to deck order.
-        when(profilesClient.getByIds(anyString()))
-                .thenReturn(Uni.createFrom().item(List.of(profile(p1, false), profile(p2, false))));
-
-        List<UUID> ids = get(viewer, 0, 10).stream().map(DeckCardDto::profileId).toList();
-
-        assertThat(ids).containsExactly(p2, p1);
-        verify(ensureClient, never()).ensure(any());
+    @BeforeEach
+    void setUp() {
+        redis.flushall();
+        profiles.apply(event(VIEWER_PROFILE_ID, VIEWER_USER_ID, ProfileProjectionOperation.UPSERT))
+                .await().indefinitely();
     }
 
     @Test
-    void missingDeckTriggersEnsureThenRereads() {
-        UUID viewer = UUID.randomUUID();
-        UUID p1 = UUID.randomUUID();
+    @DisplayName("Scenario: Given locally projected cards, when a viewer reads the deck, then snapshot order is preserved")
+    void localCardsPreserveSnapshotOrder() {
+        // Given
+        UUID first = UUID.randomUUID();
+        UUID second = UUID.randomUUID();
+        apply(first);
+        apply(second);
+        snapshots.install(VIEWER_PROFILE_ID, 0, List.of(first, second), List.of(),
+                DeckState.READY, "10", Instant.now()).await().indefinitely();
 
-        // ensure() simulates the write service building the deck, then reports success.
-        when(ensureClient.ensure(viewer)).thenReturn(seedReactivelyThenTrue(viewer, 5.0, p1));
-        when(profilesClient.getByIds(anyString()))
-                .thenReturn(Uni.createFrom().item(List.of(profile(p1, false))));
+        // When
+        List<UUID> ids = service.getDeckV1(VIEWER_USER_ID, 0, 20)
+                .await().indefinitely().stream().map(DeckCardV1Dto::profileId).toList();
 
-        List<UUID> ids = get(viewer, 0, 10).stream().map(DeckCardDto::profileId).toList();
-
-        assertThat(ids).containsExactly(p1);
-        verify(ensureClient).ensure(viewer);
+        // Then
+        assertThat(ids).containsExactly(first, second);
     }
 
     @Test
-    void ensureReturningFalseYieldsEmptyAndSkipsHydration() {
-        UUID viewer = UUID.randomUUID();
-        when(ensureClient.ensure(viewer)).thenReturn(Uni.createFrom().item(false));
+    @DisplayName("Scenario: Given a fresh card, when the viewer swipes it, then it disappears from active output immediately")
+    void swipeImmediatelyRemovesCardFromFreshOutput() {
+        // Given
+        UUID candidate = UUID.randomUUID();
+        apply(candidate);
+        snapshots.install(VIEWER_PROFILE_ID, 0, List.of(candidate), List.of(),
+                DeckState.READY, "10", Instant.now()).await().indefinitely();
 
-        assertThat(get(viewer, 0, 10)).isEmpty();
-        verify(profilesClient, never()).getByIds(anyString());
+        // When
+        mutations.applySwipe(new SwipeSavedEvent(
+                UUID.randomUUID().toString(), VIEWER_PROFILE_ID.toString(),
+                candidate.toString(), false, Instant.now().toEpochMilli()))
+                .await().indefinitely();
+
+        // Then
+        assertThat(service.getDeckV1(VIEWER_USER_ID, 0, 20).await().indefinitely()).isEmpty();
     }
 
     @Test
-    void ensureFailureIsRecoveredAsEmpty() {
-        UUID viewer = UUID.randomUUID();
-        when(ensureClient.ensure(viewer))
-                .thenReturn(Uni.createFrom().failure(new RuntimeException("deck service down")));
+    @DisplayName("Scenario: Given a repeat card, when the profiles match, then the card is excluded in both viewer directions")
+    void matchRemovesRepeatCardFromBothViewerDirections() {
+        // Given
+        UUID candidate = UUID.randomUUID();
+        apply(candidate);
+        snapshots.install(VIEWER_PROFILE_ID, 0, List.of(), List.of(candidate),
+                DeckState.DEGRADED, "", Instant.now()).await().indefinitely();
 
-        assertThat(get(viewer, 0, 10)).isEmpty();
-        verify(profilesClient, never()).getByIds(anyString());
+        // When
+        mutations.applyMatch(new MatchCreatedEvent(
+                UUID.randomUUID().toString(), VIEWER_PROFILE_ID.toString(),
+                candidate.toString(), Instant.now())).await().indefinitely();
+
+        // Then
+        assertThat(service.getDeckV1(VIEWER_USER_ID, 0, 20).await().indefinitely()).isEmpty();
     }
 
     @Test
-    void servesStaleProfilesWhenHydrationFails() {
-        UUID viewer = UUID.randomUUID();
-        UUID p1 = UUID.randomUUID();
-        seed(viewer, 10.0, p1);
+    @DisplayName("Scenario: Given a projected card in a snapshot, when a newer DELETE tombstone arrives, then the card and user mapping disappear immediately")
+    void deleteTombstoneRemovesCardAndIdentityMapping() {
+        // Given
+        UUID candidate = UUID.randomUUID();
+        String candidateUserId = UUID.randomUUID().toString();
+        profiles.apply(event(candidate, candidateUserId, ProfileProjectionOperation.UPSERT))
+                .await().indefinitely();
+        snapshots.install(VIEWER_PROFILE_ID, 0, List.of(candidate), List.of(),
+                DeckState.READY, "10", Instant.now()).await().indefinitely();
 
-        // First read succeeds and populates the cache.
-        when(profilesClient.getByIds(anyString()))
-                .thenReturn(Uni.createFrom().item(List.of(profile(p1, false))));
-        assertThat(get(viewer, 0, 10).stream().map(DeckCardDto::profileId).toList()).containsExactly(p1);
+        // When
+        profiles.apply(new ProfileDeckCardProjectionEvent(
+                UUID.randomUUID(), candidate, candidateUserId, 2, Instant.now(),
+                ProfileProjectionOperation.DELETE, ProjectionSource.BACKFILL, UUID.randomUUID(),
+                new DeckCardProjection(
+                        candidate, "deleted", 25, "Berlin", "bio", false,
+                        new DeckCardPreferences(18, 99, "ALL", 50), List.of(), List.of())))
+                .await().indefinitely();
 
-        // Now profiles is "down". With the test TTL=0 the entry is stale, so the fetch is
-        // attempted, fails, and the stale cached copy is served instead of erroring.
-        when(profilesClient.getByIds(anyString()))
-                .thenReturn(Uni.createFrom().failure(new RuntimeException("profiles down")));
-        assertThat(get(viewer, 0, 10).stream().map(DeckCardDto::profileId).toList()).containsExactly(p1);
+        // Then
+        assertThat(profiles.card(candidate).await().indefinitely()).isEmpty();
+        assertThat(profiles.viewerProfileId(candidateUserId).await().indefinitely()).isNull();
+        assertThat(service.getDeckV1(VIEWER_USER_ID, 0, 20).await().indefinitely()).isEmpty();
     }
 
     @Test
-    void hydrationFailureWithNoCachedCopyYieldsEmpty() {
-        UUID viewer = UUID.randomUUID();
-        UUID p1 = UUID.randomUUID();
-        seed(viewer, 10.0, p1);
+    @DisplayName("Scenario: Given a newer card version, when older or conflicting same-version events arrive, then card and identity never roll back")
+    void olderAndConflictingSameVersionEventsCannotRollbackCardOrIdentityMapping() {
+        // Given
+        UUID candidate = UUID.randomUUID();
+        String originalUserId = UUID.randomUUID().toString();
+        String conflictingUserId = UUID.randomUUID().toString();
 
-        // Profiles down and nothing cached yet -> graceful empty, not a 5xx.
-        when(profilesClient.getByIds(anyString()))
-                .thenReturn(Uni.createFrom().failure(new RuntimeException("profiles down")));
-        assertThat(get(viewer, 0, 10)).isEmpty();
+        profiles.apply(event(candidate, originalUserId, 2, "version-two"))
+                .await().indefinitely();
+
+        // When
+        profiles.apply(event(candidate, conflictingUserId, 1, "older"))
+                .await().indefinitely();
+        profiles.apply(event(candidate, conflictingUserId, 2, "same-version-conflict"))
+                .await().indefinitely();
+
+        // Then
+        assertThat(profiles.card(candidate).await().indefinitely())
+                .get().extracting(DeckCardDto::name).isEqualTo("version-two");
+        assertThat(profiles.viewerProfileId(originalUserId).await().indefinitely())
+                .isEqualTo(candidate);
+        assertThat(profiles.viewerProfileId(conflictingUserId).await().indefinitely())
+                .isNull();
     }
 
     @Test
-    void deletedProfilesAreDroppedFromHydratedResult() {
-        UUID viewer = UUID.randomUUID();
-        UUID alive = UUID.randomUUID();
-        UUID deleted = UUID.randomUUID();
-        seed(viewer, 30.0, deleted); // rank 0, but soft-deleted
-        seed(viewer, 10.0, alive);   // rank 1
+    @DisplayName("Scenario: Given a partial cross-slot identity write, when the exact event is redelivered, then the missing user mapping is repaired")
+    void exactDuplicateRepairsCrossSlotIdentityWriteAfterPartialFailure() {
+        // Given
+        UUID candidate = UUID.randomUUID();
+        String userId = UUID.randomUUID().toString();
+        ProfileDeckCardProjectionEvent event = event(candidate, userId, 2, "stable");
+        profiles.apply(event).await().indefinitely();
+        redis.key().del(ReadModelKeys.userToProfile(userId));
 
-        when(profilesClient.getByIds(anyString()))
-                .thenReturn(Uni.createFrom().item(List.of(profile(alive, false), profile(deleted, true))));
+        // When
+        profiles.apply(event).await().indefinitely();
 
-        List<UUID> ids = get(viewer, 0, 10).stream().map(DeckCardDto::profileId).toList();
+        // Then
+        assertThat(profiles.viewerProfileId(userId).await().indefinitely()).isEqualTo(candidate);
+    }
 
-        assertThat(ids).containsExactly(alive);
+    @Test
+    @DisplayName("Scenario: Given two swipe deliveries for the same pair, when decisions conflict, then the first decision is retained once")
+    void duplicateSwipePreservesFirstDecisionAndDoesNotDuplicateRepeatCandidate() {
+        // Given
+        UUID candidate = UUID.randomUUID();
+        long firstTimestamp = Instant.now().minusSeconds(10).toEpochMilli();
+
+        // When
+        mutations.applySwipe(new SwipeSavedEvent(
+                UUID.randomUUID().toString(), VIEWER_PROFILE_ID.toString(),
+                candidate.toString(), false, firstTimestamp)).await().indefinitely();
+        mutations.applySwipe(new SwipeSavedEvent(
+                UUID.randomUUID().toString(), VIEWER_PROFILE_ID.toString(),
+                candidate.toString(), true, firstTimestamp + 5_000)).await().indefinitely();
+
+        // Then
+        assertThat(mutations.repeatCandidates(VIEWER_PROFILE_ID, 10, Instant.now())
+                .await().indefinitely()).containsExactly(candidate);
+    }
+
+    private void apply(UUID profileId) {
+        profiles.apply(event(profileId, UUID.randomUUID().toString(), ProfileProjectionOperation.UPSERT))
+                .await().indefinitely();
+    }
+
+    private ProfileDeckCardProjectionEvent event(
+            UUID profileId,
+            String userId,
+            ProfileProjectionOperation operation
+    ) {
+        return new ProfileDeckCardProjectionEvent(
+                UUID.randomUUID(), profileId, userId, 1, Instant.now(), operation,
+                ProjectionSource.LIVE, null,
+                new DeckCardProjection(
+                        profileId, "name-" + profileId, 25, "Berlin", "bio", true,
+                        new DeckCardPreferences(18, 99, "ALL", 50), List.of(), List.of()));
+    }
+
+    private ProfileDeckCardProjectionEvent event(
+            UUID profileId,
+            String userId,
+            long version,
+            String name
+    ) {
+        return new ProfileDeckCardProjectionEvent(
+                UUID.randomUUID(), profileId, userId, version, Instant.now(),
+                ProfileProjectionOperation.UPSERT, ProjectionSource.LIVE, null,
+                new DeckCardProjection(
+                        profileId, name, 25, "Berlin", "bio", true,
+                        new DeckCardPreferences(18, 99, "ALL", 50), List.of(), List.of()));
     }
 }

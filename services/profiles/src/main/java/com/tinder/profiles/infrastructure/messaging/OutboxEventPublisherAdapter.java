@@ -4,6 +4,7 @@ import com.tinder.contracts.event.v1.ChangeType;
 import com.tinder.contracts.event.v1.ProfileCreatedEvent;
 import com.tinder.contracts.event.v1.ProfileDeletedEvent;
 import com.tinder.contracts.event.v1.ProfileUpdatedEvent;
+import com.tinder.contracts.event.v1.ProfileProjectionOperation;
 import com.tinder.profiles.application.profile.port.out.DomainEventPublisherPort;
 import com.tinder.profiles.domain.profile.ProfileChangeType;
 import com.tinder.profiles.infrastructure.messaging.outbox.ProfileOutboxService;
@@ -25,11 +26,13 @@ import java.util.UUID;
 public class OutboxEventPublisherAdapter implements DomainEventPublisherPort {
 
     private final ProfileOutboxService outboxService;
+    private final DeckCardProjectionOutboxService deckCardProjectionOutboxService;
 
     @Override
     public void publishCreated(UUID profileId, String userId) {
         outboxService.enqueueProfileCreated(new ProfileCreatedEvent(
                 UUID.randomUUID(), profileId, userId, Instant.now()));
+        deckCardProjectionOutboxService.enqueueLive(profileId, ProfileProjectionOperation.UPSERT);
     }
 
     @Override
@@ -42,12 +45,19 @@ public class OutboxEventPublisherAdapter implements DomainEventPublisherPort {
                 changedFields,
                 Instant.now(),
                 String.format("Profile updated: %s", changeType)));
+        deckCardProjectionOutboxService.enqueueLive(profileId, ProfileProjectionOperation.UPSERT);
     }
 
     @Override
     public void publishDeleted(UUID profileId) {
         outboxService.enqueueProfileDeleted(new ProfileDeletedEvent(
                 UUID.randomUUID(), profileId, Instant.now()));
+        deckCardProjectionOutboxService.enqueueLive(profileId, ProfileProjectionOperation.DELETE);
+    }
+
+    @Override
+    public void publishCardChanged(UUID profileId) {
+        deckCardProjectionOutboxService.enqueueAfterPhotoMutation(profileId);
     }
 
     /**

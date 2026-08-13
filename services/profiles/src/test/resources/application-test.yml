@@ -109,6 +109,7 @@ kafka:
       updated: profile.updated
       created: profile.created
       deleted: profile.deleted
+      deck-card-projection: profile.deck-card-projection.v1
     match-events:
       created: match.created
 
@@ -125,7 +126,7 @@ swipes:
 
 outbox:
   publisher:
-    enabled: true
+    enabled: false
     batch-size: 200
     max-batches-per-run: 10
     poll-interval-ms: 100

@@ -11,6 +11,8 @@ public record KafkaTopicProperties(
 
         @DefaultValue("profile.updated") String updated,
 
-        @DefaultValue("profile.deleted") String deleted
+        @DefaultValue("profile.deleted") String deleted,
+
+        @DefaultValue("profile.deck-card-projection.v1") String deckCardProjection
 ) {
 }

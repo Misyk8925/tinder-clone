@@ -1,188 +1,233 @@
 package com.tinder.deckread.service;
 
-import com.tinder.contracts.dto.SharedPhotoDto;
-import com.tinder.contracts.dto.SharedProfileDto;
-import com.tinder.deckread.cache.ProfileCache;
-import com.tinder.deckread.client.DeckEnsureClient;
-import com.tinder.deckread.client.ProfilesClient;
 import com.tinder.deckread.dto.DeckCardDto;
-import com.tinder.deckread.redis.DeckRedisReader;
-import io.micrometer.core.instrument.MeterRegistry;
-import io.micrometer.core.instrument.Timer;
+import com.tinder.deckread.dto.DeckCardV1Dto;
+import com.tinder.deckread.dto.DeckPage;
+import com.tinder.deckread.dto.DeckState;
+import com.tinder.deckread.readmodel.DeckSnapshot;
+import com.tinder.deckread.readmodel.DeckSnapshotStore;
+import com.tinder.deckread.readmodel.ProfileProjectionStore;
+import com.tinder.deckread.readmodel.ReadModelReadiness;
+import com.tinder.deckread.readmodel.ViewerMutationStore;
 import io.smallrye.mutiny.Uni;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
-import org.eclipse.microprofile.rest.client.inject.RestClient;
 
-import java.util.ArrayList;
-import java.util.Comparator;
-import java.util.HashMap;
+import java.time.Duration;
+import java.time.Instant;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
+import java.util.Set;
 import java.util.UUID;
-import java.util.stream.Collectors;
 
-/**
- * Orchestrates a deck read:
- * <pre>
- *   read(viewerId) ── empty? ──> ensure(viewerId) ──> re-read ──> hydrate ──> reorder
- * </pre>
- * Returns hydrated {@link SharedProfileDto}s in deck order. If the deck is still empty
- * after ensure, returns an empty list (no emergency on-the-fly build — see spec).
- *
- * <p>Hydration serves cache-fresh profiles locally, batch-fetches only the misses, and — when the
- * profiles service is unavailable (circuit open / timeout) — falls back to stale cached copies so
- * the endpoint degrades gracefully instead of failing. Per-stage Micrometer timers expose where
- * time goes.
- */
+/** Client queries backed only by the Deck Read Redis projection. */
 @ApplicationScoped
 public class DeckQueryService {
 
-    @Inject
-    DeckRedisReader redisReader;
+    public static final String DECK_TEMPORARILY_UNAVAILABLE = "DECK_TEMPORARILY_UNAVAILABLE";
+    public static final String INVALID_CURSOR = "INVALID_CURSOR";
+    public static final String INVALID_LIMIT = "INVALID_LIMIT";
+    public static final String INVALID_PAGINATION = "INVALID_PAGINATION";
+    public static final String UNAUTHENTICATED = "UNAUTHENTICATED";
+    public static final String READ_MODEL_NOT_READY = "READ_MODEL_NOT_READY";
 
     @Inject
-    @RestClient
-    DeckEnsureClient deckEnsureClient;
+    ProfileProjectionStore profiles;
 
     @Inject
-    @RestClient
-    ProfilesClient profilesClient;
+    DeckSnapshotStore snapshots;
 
     @Inject
-    ProfileCache profileCache;
+    ViewerMutationStore viewerMutations;
 
     @Inject
-    com.tinder.deckread.cache.ViewerIdentityCache viewerIdentityCache;
+    ReadModelReadiness readiness;
 
     @Inject
-    MeterRegistry registry;
+    DeckSnapshotBuilder builder;
 
-    /**
-     * Deck read for an authenticated user: resolves the JWT {@code sub} (Keycloak userId)
-     * to the profileId that decks are keyed by (cached locally), then reads the deck.
-     * A user without an active profile gets an empty deck, not an error.
-     */
-    public Uni<List<DeckCardDto>> getDeckForUser(String userId, int offset, int limit) {
-        UUID cached = viewerIdentityCache.get(userId);
-        Uni<UUID> viewerId = cached != null
-                ? Uni.createFrom().item(cached)
-                : profilesClient.profileIdByUser(userId)
-                        .onItem().invoke(id -> viewerIdentityCache.put(userId, id))
-                        .onFailure().recoverWithItem(failure -> {
-                            registry.counter("deckread.viewer-id.resolve", "outcome", "failure").increment();
-                            return null;
-                        });
-        return viewerId.flatMap(id -> id == null
-                ? Uni.createFrom().item(List.of())
-                : getDeck(id, offset, limit));
+    @Inject
+    DeckCursorCodec cursors;
+
+    public Uni<Boolean> isReadModelReady() {
+        return readiness.isReady();
     }
 
-    public Uni<List<DeckCardDto>> getDeck(UUID viewerId, int offset, int limit) {
-        Timer.Sample readSample = Timer.start(registry);
-        return redisReader.read(viewerId, offset, limit)
-                .onItemOrFailure().invoke((r, f) -> readSample.stop(registry.timer("deckread.redis.read")))
-                .flatMap(ids -> ids.isEmpty()
-                        ? ensureThenReread(viewerId, offset, limit)
-                        : Uni.createFrom().item(ids))
-                .flatMap(this::hydrate);
-    }
-
-    private Uni<List<UUID>> ensureThenReread(UUID viewerId, int offset, int limit) {
-        return deckEnsureClient.ensure(viewerId)
-                .onFailure().recoverWithItem(false)
-                .flatMap(ensured -> Boolean.TRUE.equals(ensured)
-                        ? redisReader.read(viewerId, offset, limit)
-                        : Uni.createFrom().item(List.of()));
-    }
-
-    /**
-     * Hydrate IDs into lean {@link DeckCardDto}s in deck order.
-     * Cache-fresh cards are served locally; only misses are batch-fetched, mapped to the lean
-     * shape, and cached. If that fetch fails (timeout / open circuit), stale cached cards are
-     * served for whatever is available. Soft-deleted profiles are dropped during mapping.
-     */
-    private Uni<List<DeckCardDto>> hydrate(List<UUID> ids) {
-        if (ids.isEmpty()) {
-            return Uni.createFrom().item(List.of());
-        }
-
-        Map<UUID, DeckCardDto> resolved = new HashMap<>();
-        List<UUID> misses = new ArrayList<>();
-        for (UUID id : ids) {
-            DeckCardDto fresh = profileCache.getFresh(id);
-            if (fresh != null) {
-                resolved.put(id, fresh);
-            } else {
-                misses.add(id);
+    public Uni<DeckQueryResult> getDeckV2(String viewerUserId, String cursor, int limit) {
+        if (cursor != null) {
+            try {
+                cursors.decode(cursor);
+            } catch (DeckCursorCodec.InvalidCursorException invalid) {
+                return Uni.createFrom().item(new DeckQueryResult.Failure(
+                        400, INVALID_CURSOR, "Invalid deck cursor",
+                        "The cursor is malformed or cannot be verified."));
             }
         }
-
-        if (misses.isEmpty()) {
-            registry.counter("deckread.hydrate.fetch", "outcome", "all-cached").increment();
-            return Uni.createFrom().item(assemble(ids, resolved));
-        }
-
-        Timer.Sample sample = Timer.start(registry);
-        String idsParam = misses.stream().map(UUID::toString).collect(Collectors.joining(","));
-        return profilesClient.getByIds(idsParam)
-                .map(this::mapAndCache)
-                .onItem().invoke(() ->
-                        sample.stop(registry.timer("deckread.hydrate.fetch", "outcome", "success")))
-                .onFailure().recoverWithItem(() -> {
-                    sample.stop(registry.timer("deckread.hydrate.fetch", "outcome", "failure"));
-                    return staleFallback(misses);
+        return readiness.isReady()
+                .flatMap(ready -> ready
+                        ? profiles.viewerProfileId(viewerUserId)
+                        : Uni.createFrom().item((UUID) null))
+                .flatMap(viewerProfileId -> {
+                    if (viewerProfileId == null) {
+                        return readiness.isReady().map(ready -> ready
+                                ? new DeckQueryResult.Building()
+                                : failureNotReady());
+                    }
+                    return snapshots.load(viewerProfileId)
+                            .flatMap(snapshot -> snapshot.isEmpty()
+                                    ? requestAndBuild(viewerProfileId)
+                                    : page(viewerProfileId, snapshot.get(), cursor, limit));
                 })
-                .map(fetchedById -> {
-                    resolved.putAll(fetchedById);
-                    return assemble(ids, resolved);
+                .onFailure(DeckCursorCodec.InvalidCursorException.class)
+                .recoverWithItem(new DeckQueryResult.Failure(
+                        400, INVALID_CURSOR, "Invalid deck cursor",
+                        "The cursor is malformed or cannot be verified."))
+                .onFailure().recoverWithItem(failureNotReady());
+    }
+
+    public Uni<List<DeckCardV1Dto>> getDeckV1(String viewerUserId, int offset, int limit) {
+        return profiles.viewerProfileId(viewerUserId)
+                .flatMap(viewerProfileId -> {
+                    if (viewerProfileId == null) {
+                        return Uni.createFrom().item(List.<DeckCardV1Dto>of());
+                    }
+                    return snapshots.load(viewerProfileId)
+                            .flatMap(snapshot -> {
+                                if (snapshot.isEmpty()) {
+                                    builder.requestBuild(viewerProfileId);
+                                    return Uni.createFrom().item(List.<DeckCardV1Dto>of());
+                                }
+                                return scanVisible(viewerProfileId, ordered(snapshot.get()), 0, offset + limit)
+                                        .map(result -> result.cards().stream()
+                                                .skip(offset)
+                                                .limit(limit)
+                                                .map(DeckCardV1Dto::from)
+                                                .toList());
+                            });
                 });
     }
 
-    /** Stale-while-revalidate: serve last-known cached cards for ids we could not fetch. */
-    private Map<UUID, DeckCardDto> staleFallback(List<UUID> misses) {
-        Map<UUID, DeckCardDto> stale = new HashMap<>();
-        for (UUID id : misses) {
-            DeckCardDto s = profileCache.getStale(id);
-            if (s != null) {
-                stale.put(id, s);
-            }
-        }
-        if (!stale.isEmpty()) {
-            registry.counter("deckread.hydrate.stale-served").increment(stale.size());
-        }
-        return stale;
+    private Uni<DeckQueryResult> requestAndBuild(UUID viewerProfileId) {
+        builder.requestBuild(viewerProfileId);
+        return Uni.createFrom().item(new DeckQueryResult.Building());
     }
 
-    /** Map fetched profiles to lean cards (dropping soft-deleted), caching each. */
-    private Map<UUID, DeckCardDto> mapAndCache(List<SharedProfileDto> profiles) {
-        Map<UUID, DeckCardDto> byId = new HashMap<>();
-        for (SharedProfileDto p : profiles) {
-            if (p.isDeleted()) {
-                continue;
-            }
-            DeckCardDto card = toCard(p);
-            profileCache.put(card);
-            byId.put(card.profileId(), card);
+    private Uni<DeckQueryResult> page(
+            UUID viewerProfileId,
+            DeckSnapshot snapshot,
+            String cursor,
+            int limit
+    ) {
+        if (snapshot.meta().unavailable()) {
+            builder.requestBuild(viewerProfileId);
+            return Uni.createFrom().item(new DeckQueryResult.Failure(
+                    503, DECK_TEMPORARILY_UNAVAILABLE, "Deck temporarily unavailable",
+                    "No fresh or safely repeatable cards are available."));
         }
-        return byId;
+
+        boolean stale = snapshot.meta().builtAt() != null
+                && snapshot.meta().builtAt().plus(Duration.ofMinutes(DeckSnapshotStore.SOFT_FRESHNESS_MINUTES))
+                .isBefore(Instant.now());
+        if (stale) {
+            builder.requestBuild(viewerProfileId);
+        }
+
+        DeckCursorCodec.Cursor decoded = cursor == null ? null : cursors.decode(cursor);
+        boolean cursorReset = decoded != null && decoded.generation() != snapshot.meta().generation();
+        int position = decoded == null || cursorReset ? 0 : decoded.position();
+
+        List<Candidate> ordered = ordered(snapshot);
+        int start = Math.min(position, ordered.size());
+        return scanVisible(viewerProfileId, ordered, start, limit)
+                .map(result -> {
+                    String next = result.nextPosition() < ordered.size()
+                            ? cursors.encode(snapshot.meta().generation(), result.nextPosition())
+                            : null;
+                    DeckState state = stale ? DeckState.REFRESHING : snapshot.meta().state();
+                    if (result.cards().isEmpty() && start == 0 && next == null && state != DeckState.DEGRADED) {
+                        state = DeckState.EMPTY;
+                    }
+                    return (DeckQueryResult) new DeckQueryResult.Page(new DeckPage(
+                            result.cards(), next, snapshot.meta().generation(), cursorReset, state));
+                });
     }
 
-    private DeckCardDto toCard(SharedProfileDto p) {
-        List<DeckCardDto.Photo> photos = p.photos() == null ? List.of()
-                : p.photos().stream()
-                        .sorted(Comparator.comparingInt(SharedPhotoDto::position))
-                        .map(ph -> new DeckCardDto.Photo(ph.url(), ph.position(), ph.isPrimary()))
-                        .toList();
-        return new DeckCardDto(p.id(), p.name(), p.age(), p.city(), p.bio(), photos, p.hobbies());
+    private List<Candidate> ordered(DeckSnapshot snapshot) {
+        LinkedHashMap<UUID, Candidate> ordered = new LinkedHashMap<>();
+        snapshot.fresh().forEach(id -> ordered.putIfAbsent(id, new Candidate(id, true)));
+        snapshot.repeat().forEach(id -> ordered.putIfAbsent(id, new Candidate(id, false)));
+        return List.copyOf(ordered.values());
     }
 
-    /** Assemble in deck order, dropping ids with no resolved card. */
-    private List<DeckCardDto> assemble(List<UUID> ids, Map<UUID, DeckCardDto> resolved) {
-        return ids.stream()
-                .map(resolved::get)
-                .filter(Objects::nonNull)
+    private Uni<ScanResult> scanVisible(
+            UUID viewerProfileId,
+            List<Candidate> ordered,
+            int position,
+            int limit
+    ) {
+        return scanVisible(viewerProfileId, ordered, position, limit, List.of());
+    }
+
+    private Uni<ScanResult> scanVisible(
+            UUID viewerProfileId,
+            List<Candidate> ordered,
+            int position,
+            int limit,
+            List<DeckCardDto> accumulated
+    ) {
+        if (position >= ordered.size() || accumulated.size() >= limit) {
+            return Uni.createFrom().item(new ScanResult(accumulated, position));
+        }
+
+        int batchEnd = Math.min(position + Math.min(100, Math.max(limit, 20)), ordered.size());
+        List<Candidate> batch = ordered.subList(position, batchEnd);
+        List<UUID> ids = batch.stream().map(Candidate::profileId).toList();
+        List<UUID> freshIds = batch.stream()
+                .filter(Candidate::fresh)
+                .map(Candidate::profileId)
                 .toList();
+
+        return Uni.combine().all().unis(
+                        profiles.cards(ids),
+                        viewerMutations.swiped(viewerProfileId, freshIds),
+                        viewerMutations.matched(viewerProfileId, ids))
+                .asTuple()
+                .flatMap(tuple -> {
+                    Map<UUID, DeckCardDto> cards = tuple.getItem1();
+                    Set<UUID> isSwiped = tuple.getItem2();
+                    Set<UUID> matched = tuple.getItem3();
+                    List<DeckCardDto> visible = new java.util.ArrayList<>(accumulated);
+                    int nextPosition = position;
+                    for (Candidate candidate : batch) {
+                        nextPosition++;
+                        DeckCardDto card = cards.get(candidate.profileId());
+                        if (card != null
+                                && !matched.contains(candidate.profileId())
+                                && (!candidate.fresh() || !isSwiped.contains(candidate.profileId()))) {
+                            visible.add(card);
+                            if (visible.size() == limit) {
+                                break;
+                            }
+                        }
+                    }
+                    List<DeckCardDto> result = List.copyOf(visible);
+                    if (result.size() >= limit || nextPosition >= ordered.size()) {
+                        return Uni.createFrom().item(new ScanResult(result, nextPosition));
+                    }
+                    return scanVisible(viewerProfileId, ordered, nextPosition, limit, result);
+                });
+    }
+
+    private DeckQueryResult failureNotReady() {
+        return new DeckQueryResult.Failure(
+                503, READ_MODEL_NOT_READY, "Deck read model is recovering",
+                "Profile backfill and event catch-up have not completed.");
+    }
+
+    private record Candidate(UUID profileId, boolean fresh) {
+    }
+
+    private record ScanResult(List<DeckCardDto> cards, int nextPosition) {
     }
 }

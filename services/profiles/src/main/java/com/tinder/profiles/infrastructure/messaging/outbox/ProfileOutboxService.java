@@ -5,6 +5,8 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.tinder.contracts.event.v1.ProfileCreatedEvent;
 import com.tinder.contracts.event.v1.ProfileDeletedEvent;
 import com.tinder.contracts.event.v1.ProfileUpdatedEvent;
+import com.tinder.contracts.event.v1.ProfileDeckCardProjectionEvent;
+import com.tinder.contracts.event.v1.ProjectionSource;
 import com.tinder.profiles.infrastructure.messaging.outbox.model.ProfileEventOutbox;
 import com.tinder.profiles.infrastructure.messaging.outbox.model.ProfileOutboxEventType;
 import lombok.RequiredArgsConstructor;
@@ -33,7 +35,28 @@ public class ProfileOutboxService {
         enqueue(event.eventId(), event.profileId(), ProfileOutboxEventType.PROFILE_DELETED, event);
     }
 
+    public void enqueueDeckCardProjection(ProfileDeckCardProjectionEvent event) {
+        if (event.source() != ProjectionSource.LIVE || event.backfillRunId() != null) {
+            throw new IllegalArgumentException("BACKFILL projection must retain its run linkage");
+        }
+        enqueue(event.eventId(), event.profileId(), ProfileOutboxEventType.DECK_CARD_PROJECTION, event, null);
+    }
+
+    public void enqueueDeckCardProjection(ProfileDeckCardProjectionEvent event, UUID backfillRunId) {
+        Objects.requireNonNull(backfillRunId, "backfillRunId must not be null");
+        if (event.source() != ProjectionSource.BACKFILL
+                || !backfillRunId.equals(event.backfillRunId())) {
+            throw new IllegalArgumentException("BACKFILL event and outbox run linkage must match");
+        }
+        enqueue(event.eventId(), event.profileId(), ProfileOutboxEventType.DECK_CARD_PROJECTION, event, backfillRunId);
+    }
+
     private void enqueue(UUID eventId, UUID profileId, ProfileOutboxEventType eventType, Object eventPayload) {
+        enqueue(eventId, profileId, eventType, eventPayload, null);
+    }
+
+    private void enqueue(UUID eventId, UUID profileId, ProfileOutboxEventType eventType,
+                         Object eventPayload, UUID backfillRunId) {
         Objects.requireNonNull(eventId, "eventId must not be null");
         Objects.requireNonNull(profileId, "profileId must not be null");
         Objects.requireNonNull(eventPayload, "eventPayload must not be null");
@@ -43,7 +66,8 @@ public class ProfileOutboxService {
                 profileId,
                 eventType,
                 serialize(eventPayload),
-                Instant.now()
+                Instant.now(),
+                backfillRunId
         );
 
         outboxRepository.save(outboxRow);

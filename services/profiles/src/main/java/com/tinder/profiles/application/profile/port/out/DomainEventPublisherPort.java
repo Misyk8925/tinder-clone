@@ -22,4 +22,10 @@ public interface DomainEventPublisherPort {
     void publishUpdated(UUID profileId, ProfileChangeType changeType, Set<String> changedFields);
 
     void publishDeleted(UUID profileId);
+
+    /**
+     * Publishes a full Deck Card UPSERT after a photo catalogue mutation. The
+     * adapter increments the same profile aggregate version before enqueueing.
+     */
+    void publishCardChanged(UUID profileId);
 }

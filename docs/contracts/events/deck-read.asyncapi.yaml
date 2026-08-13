@@ -1,0 +1,257 @@
+asyncapi: 2.6.0
+info:
+  title: Deck Read projection events
+  version: 1.0.0-draft
+  description: >-
+    Kafka boundaries required by the autonomous Deck Read read model. Kafka is transport and
+    bounded replay, not the authoritative archive for rebuilding profile cards.
+defaultContentType: application/json
+servers:
+  kafka:
+    url: kafka:9092
+    protocol: kafka
+    description: Logical broker address; deployment overrides the host.
+channels:
+  profile.deck-card-projection.v1:
+    description: >-
+      Full versioned card projection from Profiles. An explicitly triggered initial/recovery job
+      reads at most 500 profiles per page and inserts the same event shape into the existing outbox;
+      it never publishes directly to Kafka.
+    x-requirements: [FR-3, FR-4, FR-7, FR-8]
+    x-producer: Profiles
+    x-consumers: [Deck Read]
+    x-retention: >-
+      Normal event retention is deployment-defined; compaction by profileId may accelerate recovery,
+      but Profiles PostgreSQL paged backfill remains the authoritative rebuild source.
+    publish:
+      operationId: publishDeckCardProjection
+      message:
+        $ref: '#/components/messages/ProfileDeckCardProjection'
+    bindings:
+      kafka:
+        topic: profile.deck-card-projection.v1
+        partitions: 6
+        replicas: 3
+        bindingVersion: 0.4.0
+  swipe-saved:
+    description: Existing persisted swipe event; wire payload and producer are unchanged.
+    x-requirements: [FR-4, FR-6, FR-7, FR-8]
+    x-producer: Consumer
+    x-consumers: [Deck, Deck Read]
+    x-retention: At least 7 days for Read Cluster recovery and repeat eligibility.
+    subscribe:
+      operationId: consumeSwipeSaved
+      message:
+        $ref: '#/components/messages/SwipeSaved'
+    bindings:
+      kafka:
+        topic: swipe-saved
+        bindingVersion: 0.4.0
+  match.created:
+    description: Existing compatible match event; wire payload and producer are unchanged.
+    x-requirements: [FR-4, FR-7, FR-8]
+    x-producer: Consumer
+    x-consumers: [Match, Deck Read]
+    x-retention: At least 7 days for Read Cluster recovery and exclusion safety.
+    subscribe:
+      operationId: consumeMatchCreated
+      message:
+        $ref: '#/components/messages/MatchCreated'
+    bindings:
+      kafka:
+        topic: match.created
+        bindingVersion: 0.4.0
+components:
+  messages:
+    ProfileDeckCardProjection:
+      name: ProfileDeckCardProjectionV1
+      title: Full Deck card projection
+      summary: UPSERT or DELETE projection with aggregate version.
+      contentType: application/json
+      correlationId:
+        location: $message.payload#/eventId
+      headers:
+        type: object
+        additionalProperties: true
+      payload:
+        $ref: '#/components/schemas/ProfileDeckCardProjectionEvent'
+      bindings:
+        kafka:
+          key:
+            type: string
+            format: uuid
+            description: profileId; all versions for one profile remain ordered.
+          bindingVersion: 0.4.0
+      x-delivery: at-least-once
+      x-idempotency: >-
+        eventId is processed once; version <= stored version is a no-op. A bounded retry ends in
+        profile.deck-card-projection.v1.dlt with sanitized failure metadata.
+    SwipeSaved:
+      name: SwipeSaved
+      title: Persisted swipe
+      contentType: application/json
+      correlationId:
+        location: $message.payload#/eventId
+      payload:
+        $ref: '#/components/schemas/SwipeSavedEvent'
+      bindings:
+        kafka:
+          key:
+            type: string
+            format: uuid
+            description: profile1Id (viewer); existing producer ordering is preserved.
+          bindingVersion: 0.4.0
+      x-delivery: at-least-once
+      x-idempotency: >-
+        eventId is processed once. The first observed event for viewer/profile2 is stored with NX;
+        duplicates or later decisions do not reset firstSwipeAt or create another repeat candidate.
+        Bounded retry ends in swipe-saved.dlt.
+    MatchCreated:
+      name: MatchCreated
+      title: Match created
+      contentType: application/json
+      correlationId:
+        location: $message.payload#/eventId
+      payload:
+        $ref: '#/components/schemas/MatchCreatedEvent'
+      bindings:
+        kafka:
+          key:
+            type: string
+            format: uuid
+            description: profile1Id; unchanged existing producer key.
+          bindingVersion: 0.4.0
+      x-delivery: at-least-once
+      x-idempotency: eventId is processed once; pair exclusion is set-like. Bounded retry ends in match.created.dlt.
+  schemas:
+    ProfileDeckCardProjectionEvent:
+      type: object
+      additionalProperties: false
+      required: [eventId, profileId, userId, version, occurredAt, operation, source, card]
+      properties:
+        eventId:
+          type: string
+          format: uuid
+        profileId:
+          type: string
+          format: uuid
+        userId:
+          type: string
+          format: uuid
+        version:
+          type: integer
+          format: int64
+          minimum: 1
+          description: Current Profiles aggregate version; photo mutations increment this same version.
+        occurredAt:
+          type: string
+          format: date-time
+        operation:
+          type: string
+          enum: [UPSERT, DELETE]
+        source:
+          type: string
+          enum: [LIVE, BACKFILL]
+          description: LIVE for normal profile/photo mutations; BACKFILL for initial/recovery pages.
+        backfillRunId:
+          type: [string, 'null']
+          format: uuid
+          description: Required by the readable contract when source is BACKFILL; null/absent for LIVE.
+        card:
+          $ref: '#/components/schemas/DeckCardProjection'
+    DeckCardProjection:
+      type: object
+      additionalProperties: false
+      required: [profileId, name, age, city, bio, isActive, preferences, photos, hobbies]
+      properties:
+        profileId:
+          type: string
+          format: uuid
+        name:
+          type: string
+          minLength: 1
+          maxLength: 100
+        age:
+          type: integer
+          minimum: 18
+          maximum: 120
+        city:
+          type: [string, 'null']
+          maxLength: 120
+        bio:
+          type: [string, 'null']
+          maxLength: 2000
+        isActive:
+          type: boolean
+        preferences:
+          $ref: '#/components/schemas/Preferences'
+        photos:
+          type: array
+          maxItems: 9
+          items:
+            $ref: '#/components/schemas/Photo'
+        hobbies:
+          type: array
+          maxItems: 50
+          uniqueItems: true
+          items:
+            type: string
+            maxLength: 100
+    Preferences:
+      type: object
+      additionalProperties: false
+      required: [minAge, maxAge, gender, maxDistanceKm]
+      properties:
+        minAge: {type: integer, minimum: 18, maximum: 120}
+        maxAge: {type: integer, minimum: 18, maximum: 120}
+        gender: {type: string, maxLength: 32}
+        maxDistanceKm: {type: integer, minimum: 1, maximum: 20000}
+    Photo:
+      type: object
+      additionalProperties: false
+      required: [photoId, url, order]
+      properties:
+        photoId: {type: string, format: uuid}
+        url: {type: string, format: uri, maxLength: 2048}
+        order: {type: integer, minimum: 0, maximum: 8}
+    SwipeSavedEvent:
+      type: object
+      additionalProperties: false
+      required: [eventId, profile1Id, profile2Id, decision, timestamp]
+      properties:
+        eventId:
+          type: string
+          format: uuid
+        profile1Id:
+          type: string
+          format: uuid
+          description: Viewer/swiper profileId.
+        profile2Id:
+          type: string
+          format: uuid
+          description: Candidate profileId.
+        decision:
+          type: boolean
+          description: Existing wire value; both PASS(false) and LIKE(true) become repeat-eligible by policy.
+        timestamp:
+          type: integer
+          format: int64
+          minimum: 0
+          description: Existing epoch-millisecond timestamp.
+    MatchCreatedEvent:
+      type: object
+      additionalProperties: false
+      required: [eventId, profile1Id, profile2Id, createdAt]
+      properties:
+        eventId:
+          type: string
+          format: uuid
+        profile1Id:
+          type: string
+          format: uuid
+        profile2Id:
+          type: string
+          format: uuid
+        createdAt:
+          type: string
+          format: date-time

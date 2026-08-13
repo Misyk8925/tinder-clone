@@ -3,7 +3,7 @@ import {
 } from '@angular/core';
 import { NgClass, NgStyle } from '@angular/common';
 import { LucideAngularModule } from 'lucide-angular';
-import { Profile } from '../../../core/models/profile.model';
+import { DeckCard } from '../../../core/models/deck.model';
 
 @Component({
   selector: 'app-swipe-card',
@@ -29,7 +29,7 @@ import { Profile } from '../../../core/models/profile.model';
 
         @if (profile.photos.length > 1) {
           <div class="photo-progress" aria-label="Profile photos">
-            @for (photo of profile.photos; track photo.photoID; let index = $index) {
+            @for (photo of profile.photos; track photo.photoId; let index = $index) {
               <button
                 type="button"
                 [class.active]="currentPhoto() === index"
@@ -86,7 +86,7 @@ import { Profile } from '../../../core/models/profile.model';
         @if (expanded()) {
           <div class="more-details">
             <div><span>Age range</span><strong>{{ profile.preferences.minAge }}–{{ profile.preferences.maxAge }}</strong></div>
-            <div><span>Distance</span><strong>Within {{ profile.preferences.maxRange }} km</strong></div>
+            <div><span>Distance</span><strong>Within {{ profile.preferences.maxDistanceKm }} km</strong></div>
           </div>
         }
       </div>
@@ -363,7 +363,7 @@ import { Profile } from '../../../core/models/profile.model';
   `]
 })
 export class SwipeCardComponent implements OnInit, OnDestroy {
-  @Input({ required: true }) profile!: Profile;
+  @Input({ required: true }) profile!: DeckCard;
   @Output() swiped = new EventEmitter<'left' | 'right'>();
 
   currentPhoto = signal(0);
