@@ -69,6 +69,32 @@ services:
     networks:
       - app
 
+  # Idempotent identity lookup index required by swipes-go for JWT-sub ownership checks.
+  swipes-migrations:
+    image: postgis/postgis:17-3.4
+    restart: "no"
+    init: true
+    security_opt:
+      - no-new-privileges:true
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      PGHOST: postgres
+      PGPORT: 5432
+      PGDATABASE: swipes_db
+      PGUSER: ${POSTGRES_USER:-postgres}
+      PGPASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
+    volumes:
+      - ./migrations/migration:/migrations:ro
+    entrypoint:
+      - psql
+      - -v
+      - ON_ERROR_STOP=1
+      - --file=/migrations/V2_swipes_identity_index.sql
+    networks:
+      - app
+
   keycloak-postgres:
     image: postgres:16-alpine
     restart: unless-stopped

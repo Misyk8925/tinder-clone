@@ -44,6 +44,8 @@ What the system does **not** do:
 
 ## 6. Suggested solution
 
+Everything in this section remains a proposal until the Phase-1 gate approves it. Cite any reused prior owner decision; do not present an agent recommendation as an already accepted decision.
+
 ### Diagram
 (only if there's enough to draw — see `references/phase-1-concept.md`; delete this subsection for a simple, single-flow design)
 

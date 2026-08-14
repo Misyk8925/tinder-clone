@@ -45,6 +45,8 @@ Post a Linear Project Update, not a markdown table row, whenever:
 - A risk changes status.
 - Something changed direction mid-phase and future-you would otherwise have to reconstruct why from a diff.
 
+Record the owner or approval source. An agent recommendation remains `Proposed`; do not post it as a decision until the owner answers or an existing durable decision is linked.
+
 Use the update's health field honestly — "At risk" if there's an unresolved `risk-open` item close to a deadline, not just "On track" by default.
 
 ## Leaving this adapter

@@ -1,4 +1,4 @@
-package main
+package config
 
 import (
 	"fmt"
@@ -10,14 +10,15 @@ import (
 )
 
 type Config struct {
+	AppEnv                  string
 	Port                    string
-	HTTPServerEngine        string
 	InternalAuthSecret      string
 	InternalBypassProfile   bool
 	KafkaBrokers            []string
 	SwipeTopic              string
 	ProfileCreatedTopic     string
 	ProfileDeletedTopic     string
+	ProfileConsumerGroup    string
 	ProducerQueueCapacity   int
 	ProducerConcurrency     int
 	ProducerBatchSize       int
@@ -27,19 +28,22 @@ type Config struct {
 	DatabaseURL             string
 	ProfilesBaseURL         string
 	JWKSetURL               string
+	JWTIssuer               string
+	JWTAudience             string
 	ProfileConsumersEnabled bool
 }
 
-func LoadConfig() (Config, error) {
+func Load() (Config, error) {
 	cfg := Config{
-		Port:                    firstEnv("PORT", "SERVER_PORT"),
-		HTTPServerEngine:        strings.ToLower(stringEnv("nethttp", "HTTP_SERVER_ENGINE")),
+		AppEnv:                  strings.ToLower(stringEnv("development", "APP_ENV")),
+		Port:                    stringEnv("8040", "PORT", "SERVER_PORT"),
 		InternalAuthSecret:      firstEnv("INTERNAL_SWIPES_AUTH_SECRET", "SWIPES_INTERNAL_AUTH_SECRET"),
 		InternalBypassProfile:   boolEnv(false, "SWIPES_INTERNAL_BYPASS_PROFILE_CHECK"),
 		KafkaBrokers:            splitCSV(firstEnv("KAFKA_BROKERS", "SPRING_KAFKA_BOOTSTRAP_SERVERS")),
 		SwipeTopic:              stringEnv("swipe-created", "SWIPES_KAFKA_TOPIC", "KAFKA_TOPIC_SWIPE_CREATED"),
 		ProfileCreatedTopic:     stringEnv("profile.created", "KAFKA_TOPICS_PROFILE_CREATED", "KAFKA_TOPIC_PROFILE_CREATED"),
 		ProfileDeletedTopic:     stringEnv("profile.deleted", "KAFKA_TOPICS_PROFILE_DELETED", "KAFKA_TOPIC_PROFILE_DELETED"),
+		ProfileConsumerGroup:    stringEnv("swipes-profile-cache", "SWIPES_PROFILE_CONSUMER_GROUP"),
 		ProducerQueueCapacity:   intEnv(200000, "SWIPES_PRODUCER_QUEUE_CAPACITY"),
 		ProducerConcurrency:     intEnv(4, "SWIPES_PRODUCER_CONCURRENCY", "SWIPES_PRODUCER_WORKER_COUNT"),
 		ProducerBatchSize:       intEnv(500, "SWIPES_PRODUCER_BATCH_SIZE"),
@@ -49,27 +53,40 @@ func LoadConfig() (Config, error) {
 		DatabaseURL:             databaseURLFromEnv(),
 		ProfilesBaseURL:         strings.TrimRight(stringEnv("http://localhost:8010/api/v1/profiles", "SERVICES_PROFILES_BASE_URL", "PROFILES_BASE_URL"), "/"),
 		JWKSetURL:               firstEnv("JWK_SET_URL", "SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_JWK_SET_URI", "KEYCLOAK_JWK_SET_URI"),
+		JWTIssuer:               firstEnv("SWIPES_JWT_ISSUER", "JWT_ISSUER"),
+		JWTAudience:             stringEnv("tinder-client", "SWIPES_JWT_AUDIENCE", "JWT_AUDIENCE"),
 		ProfileConsumersEnabled: boolEnv(true, "PROFILE_CACHE_CONSUMERS_ENABLED", "SWIPES_PROFILE_CACHE_CONSUMERS_ENABLED"),
-	}
-	if cfg.Port == "" {
-		cfg.Port = "8040"
 	}
 	if len(cfg.KafkaBrokers) == 0 {
 		cfg.KafkaBrokers = []string{"localhost:9092"}
 	}
-	if cfg.ProducerQueueCapacity < 1 {
-		cfg.ProducerQueueCapacity = 1
+	if cfg.JWTIssuer == "" {
+		cfg.JWTIssuer = issuerFromJWKURL(cfg.JWKSetURL)
 	}
-	if cfg.ProducerConcurrency < 1 {
-		cfg.ProducerConcurrency = 1
-	}
-	if cfg.ProducerBatchSize < 1 {
-		cfg.ProducerBatchSize = 1
-	}
-	if cfg.ProducerBufferTimeout <= 0 {
-		cfg.ProducerBufferTimeout = time.Millisecond
+	if err := cfg.Validate(); err != nil {
+		return Config{}, err
 	}
 	return cfg, nil
+}
+
+func (cfg Config) Validate() error {
+	if cfg.ProducerQueueCapacity < 1 || cfg.ProducerConcurrency < 1 || cfg.ProducerBatchSize < 1 {
+		return fmt.Errorf("producer queue capacity, concurrency, and batch size must be positive")
+	}
+	if cfg.ProducerBufferTimeout <= 0 {
+		return fmt.Errorf("producer buffer timeout must be positive")
+	}
+	if cfg.JWKSetURL == "" || cfg.JWTIssuer == "" || cfg.JWTAudience == "" {
+		return fmt.Errorf("JWT JWK URL, issuer, and audience are required")
+	}
+	benchmarkAuth := cfg.InternalAuthSecret != "" || cfg.InternalBypassProfile
+	if benchmarkAuth && cfg.AppEnv != "benchmark" {
+		return fmt.Errorf("internal swipe authentication is allowed only when APP_ENV=benchmark")
+	}
+	if cfg.AppEnv == "benchmark" && cfg.InternalAuthSecret == "" {
+		return fmt.Errorf("INTERNAL_SWIPES_AUTH_SECRET is required in benchmark mode")
+	}
+	return nil
 }
 
 func firstEnv(keys ...string) string {
@@ -90,8 +107,7 @@ func stringEnv(def string, keys ...string) string {
 
 func intEnv(def int, keys ...string) int {
 	if value := firstEnv(keys...); value != "" {
-		parsed, err := strconv.Atoi(value)
-		if err == nil {
+		if parsed, err := strconv.Atoi(value); err == nil {
 			return parsed
 		}
 	}
@@ -100,8 +116,7 @@ func intEnv(def int, keys ...string) int {
 
 func boolEnv(def bool, keys ...string) bool {
 	if value := firstEnv(keys...); value != "" {
-		parsed, err := strconv.ParseBool(value)
-		if err == nil {
+		if parsed, err := strconv.ParseBool(value); err == nil {
 			return parsed
 		}
 	}
@@ -110,8 +125,7 @@ func boolEnv(def bool, keys ...string) bool {
 
 func durationEnv(def time.Duration, keys ...string) time.Duration {
 	if value := firstEnv(keys...); value != "" {
-		parsed, err := time.ParseDuration(value)
-		if err == nil {
+		if parsed, err := time.ParseDuration(value); err == nil {
 			return parsed
 		}
 	}
@@ -133,9 +147,7 @@ func redisAddrFromEnv() string {
 	if value := firstEnv("REDIS_ADDR", "SPRING_REDIS_URL"); value != "" {
 		return value
 	}
-	host := stringEnv("localhost", "SPRING_DATA_REDIS_HOST", "REDIS_HOST")
-	port := stringEnv("6379", "SPRING_DATA_REDIS_PORT", "REDIS_PORT")
-	return host + ":" + port
+	return stringEnv("localhost", "SPRING_DATA_REDIS_HOST", "REDIS_HOST") + ":" + stringEnv("6379", "SPRING_DATA_REDIS_PORT", "REDIS_PORT")
 }
 
 func databaseURLFromEnv() string {
@@ -146,12 +158,7 @@ func databaseURLFromEnv() string {
 	if raw == "" {
 		return ""
 	}
-	user := stringEnv("swipes_app", "SPRING_DATASOURCE_USERNAME", "SWIPES_DB_USER")
-	password := firstEnv("SPRING_DATASOURCE_PASSWORD", "SWIPES_DB_PASSWORD")
-	converted, err := jdbcPostgresToURL(raw, user, password)
-	if err != nil {
-		return ""
-	}
+	converted, _ := jdbcPostgresToURL(raw, stringEnv("swipes_app", "SPRING_DATASOURCE_USERNAME", "SWIPES_DB_USER"), firstEnv("SPRING_DATASOURCE_PASSWORD", "SWIPES_DB_PASSWORD"))
 	return converted
 }
 
@@ -160,36 +167,21 @@ func jdbcPostgresToURL(raw, user, password string) (string, error) {
 	if !strings.HasPrefix(raw, prefix) {
 		return raw, nil
 	}
-	withoutPrefix := strings.TrimPrefix(raw, prefix)
-	parts := strings.SplitN(withoutPrefix, "?", 2)
-	hostPath := parts[0]
-	query := url.Values{}
-	if len(parts) == 2 {
-		parsedQuery, err := url.ParseQuery(parts[1])
-		if err == nil {
-			query = parsedQuery
-		}
+	parsed, err := url.Parse("postgres://" + strings.TrimPrefix(raw, prefix))
+	if err != nil || parsed.Host == "" || parsed.Path == "" {
+		return "", fmt.Errorf("invalid JDBC PostgreSQL URL")
 	}
-	if query.Get("sslmode") == "" {
+	if parsed.Query().Get("sslmode") == "" {
+		query := parsed.Query()
 		query.Set("sslmode", "disable")
-	}
-	u := url.URL{
-		Scheme:   "postgres",
-		Host:     strings.SplitN(hostPath, "/", 2)[0],
-		RawQuery: query.Encode(),
-	}
-	if strings.Contains(hostPath, "/") {
-		u.Path = "/" + strings.SplitN(hostPath, "/", 2)[1]
+		parsed.RawQuery = query.Encode()
 	}
 	if user != "" {
-		if password != "" {
-			u.User = url.UserPassword(user, password)
-		} else {
-			u.User = url.User(user)
-		}
+		parsed.User = url.UserPassword(user, password)
 	}
-	if u.Host == "" || u.Path == "" {
-		return "", fmt.Errorf("invalid jdbc postgres url")
-	}
-	return u.String(), nil
+	return parsed.String(), nil
+}
+
+func issuerFromJWKURL(raw string) string {
+	return strings.TrimSuffix(strings.TrimRight(raw, "/"), "/protocol/openid-connect/certs")
 }

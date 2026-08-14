@@ -75,6 +75,11 @@
       "id": 15,
       "prompt": "Fix duplicate match creation in an unfamiliar multi-service monorepo. Augment Context Engine and Serena are already configured. Find the real callers, transaction boundary, existing concurrency tests, and affected consumers before changing code.",
       "expected_output": "Routes to bug-fix and uses question-driven project search: exact local search for known identifiers, Serena for symbol definitions/references, and Augment for bounded cross-service semantic retrieval where needed. It verifies indexed results in the current checkout, avoids reading or querying the whole repository, then records root-cause and faithful regression evidence."
+    },
+    {
+      "id": 16,
+      "prompt": "Use universal-workflow. Let's finish the CQRS Deck Read service. It currently calls Profiles synchronously and depends on it too much. Should it own its data and DTO? It must support distributed storage and horizontal scaling. Chat in Russian.",
+      "expected_output": "Routes to full-feature-delivery and inspects the current Deck Read/Profiles contracts and consumers before deciding. It shows a compact dependency tree with Fact, Proposed, Open, and Approved states, then asks the first ready frontier questions about consistency/staleness, failure behavior and synchronous fallback, recovery RPO/RTO, and event semantics. It may recommend snapshot events, Redis, Kafka, or another design with evidence and tradeoffs, but does not label them key decisions or draft the concept until the owner answers or a durable prior approval is cited."
     }
   ]
 }

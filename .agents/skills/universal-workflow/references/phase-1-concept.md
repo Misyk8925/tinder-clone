@@ -6,8 +6,13 @@ Goal: agree on *what problem we solve and roughly how*, before anyone argues abo
 
 1. **Set up the selected tracker.** Resolve `references/project-profile.md`. For full feature delivery, create its feature/project container and phase milestones; shorter modes do not enter phase 1. Use `references/linear-integration.md` only when Linear is the selected adapter.
 2. **Create or update the feature index** in the project's established location. If none exists, use `docs/features/<slug>/README.md` from `assets/templates/feature-readme.md`. Link the tracker and canonical contracts/tests; do not copy them.
-3. **Build the decision tree from facts.** Read the codebase, existing contracts, feature history, tracker, and relevant external evidence first. Separate facts the agent can establish from consequential choices only the owner can make. Represent the unresolved choices as a small dependency tree: a decision becomes ready only when its prerequisites are known.
-4. **Interview the frontier.** Ask only the ready product, scope, architecture, UX, cost, or risk choices that cannot be inferred. Give the evidence, a recommended answer, and the meaningful tradeoff for each. For a small feature, ask them in one batch. For a large uncertain feature, use a few bounded rounds: after each answer, update the decision tree and ask only the newly ready questions. Do not turn the category checklist into a script or ask the user for facts the project can answer.
+3. **Build and expose the decision tree from facts.** Read the codebase, existing contracts, feature history, tracker, and relevant external evidence first. Separate facts the agent can establish from consequential choices only the owner can make. Before presenting "key decisions," a concept draft, or a chosen architecture, show a compact dependency tree whose nodes are marked:
+   - `Fact` — established by the agent, with the code/artifact evidence;
+   - `Approved` — explicitly answered by the owner or backed by a cited durable prior decision;
+   - `Proposed` — the agent's recommendation, still awaiting an owner choice;
+   - `Open` — not yet ready or lacking sufficient evidence.
+   A recommendation does not become `Approved` because it looks obvious or is the cheapest option. A decision becomes ready only when its prerequisites are facts or approved choices.
+4. **Interview the frontier.** Ask only the ready `Proposed` or `Open` product, scope, architecture, UX, cost, or risk choices that cannot be inferred. Give the evidence, a recommended answer, and the meaningful tradeoff for each. Run at least one frontier round whenever any consequential choice remains unresolved. For a small feature, ask the ready questions in one batch. For a large uncertain feature, use a few bounded rounds: after each answer, update and re-show the tree, then ask only the newly ready questions. If every consequential choice was already approved, state that there is no unresolved frontier and cite each decision source instead of asking ceremonial questions. Do not turn the category checklist into a script or ask the user for facts the project can answer.
    - **User & alternative** — who has this, what do they do today instead.
    - **Trigger & success** — what starts this, what tells you it worked — both in a test and after it ships to production.
    - **Boundaries** — what it must not do, what's explicitly out of scope for v1.
@@ -17,7 +22,7 @@ Goal: agree on *what problem we solve and roughly how*, before anyone argues abo
    - **Stakeholders** — who besides the user is affected and needs to know when this ships (support, ops, another team's service).
    For a small, obvious feature most of these should already be inferable — the checklist is there so nothing gets silently skipped on a bigger one, not to turn every feature into an interrogation.
 5. **Split discovery only when needed.** If several independent unknown branches cannot be resolved coherently in the current decision context, create Wayfinder-style research, prototype, or decision issues. Each issue answers one named question, records dependencies, produces one reviewable artifact, and stops without implementing production code. A prototype is disposable evidence for a decision, not an early implementation. Merge the resulting facts and owner decisions back into one concept; the split never bypasses the phase-1 approval gate.
-6. **Confirm shared understanding.** Summarize the problem, observable behaviour, boundaries, accepted choices, rejected alternatives, and unresolved questions. Ask the owner to correct this summary before turning it into the concept draft. This confirmation is not the approval gate.
+6. **Confirm shared understanding.** Summarize the problem, observable behaviour, boundaries, approved choices with their sources, proposed recommendations, rejected alternatives, and unresolved questions. Ask the owner to correct this summary before turning it into the concept draft. Do not relabel proposed recommendations as accepted choices. This confirmation is not the approval gate.
 7. **Draft the concept** in the language(s) selected by the project profile. Use the concept templates for section structure when useful. If several language versions are requested, keep their structure and requirement numbering aligned.
 8. **Self-check loop.** Before this draft goes anywhere near the user, verify it against reality — see below. This is not a second gate; it is quality control on the one gate that exists.
 9. **Create the phase-1 gate item** ("Gate: approve concept") in the selected tracker and assign the approver when supported.
@@ -113,6 +118,8 @@ Rejected: serverless functions — cold starts break NFR-1.
 - The suggested solution has been checked against the existing project (stack, conventions, prior tracker decisions) — no silent conflicts.
 - Checkable claims (feasibility, numbers, external limits) were checked, or explicitly raised as risks.
 - Open questions are recorded in the selected tracker, not silently answered.
+- The decision tree was shown before any "key decisions," concept draft, or chosen architecture; every node distinguishes `Fact`, `Proposed`, `Open`, and `Approved`.
+- At least one frontier round occurred while consequential choices remained unresolved; if none remained, the response explicitly said so and cited the durable sources for every approved choice.
 - Consequential choices came from the owner; agent-established facts carry evidence, and no implementation agent is left to guess an unresolved decision.
 - Any split research or prototype issue answers one named question and has been folded back into the single concept.
 - The owner confirmed the shared-understanding summary before the approval request.

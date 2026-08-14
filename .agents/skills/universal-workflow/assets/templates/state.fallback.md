@@ -44,8 +44,8 @@ One row per confirmed bug — see `references/targeted-defect-review.md`; save t
 
 ## Decisions log
 
-| Date | Decision | Why |
-|------|----------|-----|
+| Date | Decision | Why | Owner / approval source |
+|------|----------|-----|-------------------------|
 
 ## Next action
 

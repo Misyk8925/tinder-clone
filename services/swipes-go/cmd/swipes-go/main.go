@@ -4,85 +4,80 @@ import (
 	"context"
 	"errors"
 	"log"
-	"net/http"
+	"net"
 	"os"
 	"os/signal"
 	"syscall"
 	"time"
+
+	"github.com/valyala/fasthttp"
+	"tinder-clone/services/swipes-go/internal/config"
+	swipekafka "tinder-clone/services/swipes-go/internal/kafka"
+	"tinder-clone/services/swipes-go/internal/metrics"
+	"tinder-clone/services/swipes-go/internal/repository"
+	"tinder-clone/services/swipes-go/internal/router"
+	"tinder-clone/services/swipes-go/internal/security"
+	"tinder-clone/services/swipes-go/internal/service"
 )
+
+const maxBodyBytes = 2 << 20
 
 func main() {
 	logger := log.New(os.Stdout, "swipes-go ", log.LstdFlags|log.LUTC)
-	cfg, err := LoadConfig()
+	cfg, err := config.Load()
 	if err != nil {
-		logger.Fatalf("failed to load config: %v", err)
+		logger.Fatalf("configuration failed: %v", err)
 	}
-
 	rootCtx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
 
-	producer, err := NewSwipeProducer(rootCtx, cfg, logger)
+	jwtValidator := security.NewJWTValidator(cfg.JWKSetURL, cfg.JWTIssuer, cfg.JWTAudience)
+	startupCtx, cancelStartup := context.WithTimeout(rootCtx, 20*time.Second)
+	defer cancelStartup()
+	if err := jwtValidator.Initialize(startupCtx); err != nil {
+		logger.Fatalf("JWT readiness failed: %v", err)
+	}
+	profileRepo, err := repository.NewProfiles(startupCtx, cfg.RedisAddr, cfg.DatabaseURL, cfg.ProfilesBaseURL, logger)
 	if err != nil {
-		logger.Fatalf("failed to create swipe producer: %v", err)
+		logger.Fatalf("profile repository failed: %v", err)
 	}
-	defer producer.Close()
-
-	profileCache := NewProfileCache(rootCtx, cfg, logger)
-	defer profileCache.Close()
-	StartProfileConsumers(rootCtx, cfg, profileCache, logger)
-
-	service := NewSwipeService(producer, profileCache, cfg.InternalBypassProfile)
-	auth := NewAuthenticator(cfg, logger)
-	if cfg.HTTPServerEngine == "fasthttp" {
-		runFastHTTP(rootCtx, cfg, service, auth, logger)
-		return
+	defer profileRepo.Close()
+	serviceMetrics := &metrics.Metrics{}
+	producer, err := swipekafka.NewProducer(startupCtx, cfg, serviceMetrics, logger)
+	if err != nil {
+		logger.Fatalf("swipe producer failed: %v", err)
 	}
-
-	api := NewAPIServer(service, auth, logger)
-	httpServer := &http.Server{
-		Addr:              ":" + cfg.Port,
-		Handler:           api.Routes(),
-		ReadHeaderTimeout: 2 * time.Second,
-		IdleTimeout:       60 * time.Second,
+	consumers := swipekafka.StartConsumers(rootCtx, cfg, profileRepo, serviceMetrics, logger)
+	authenticator := security.NewAuthenticator(cfg.InternalAuthSecret, jwtValidator)
+	swipeService := service.New(producer, profileRepo, serviceMetrics, cfg.InternalBypassProfile)
+	httpRouter := router.New(swipeService, authenticator, serviceMetrics, producer, logger)
+	server := &fasthttp.Server{
+		Handler: httpRouter.Handler, Name: "swipes-go", ReadTimeout: 5 * time.Second,
+		WriteTimeout: 5 * time.Second, IdleTimeout: 60 * time.Second, MaxRequestBodySize: maxBodyBytes,
 	}
-
+	listener, err := net.Listen("tcp", ":"+cfg.Port)
+	if err != nil {
+		logger.Fatalf("listen failed: %v", err)
+	}
+	serveErr := make(chan error, 1)
 	go func() {
-		logger.Printf("starting swipes-go on :%s", cfg.Port)
-		if err := httpServer.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
-			logger.Fatalf("http server failed: %v", err)
-		}
-	}()
-
-	<-rootCtx.Done()
-	shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-	if err := httpServer.Shutdown(shutdownCtx); err != nil {
-		logger.Printf("http shutdown failed: %v", err)
-	}
-}
-
-func runFastHTTP(rootCtx context.Context, cfg Config, service *SwipeService, auth *Authenticator, logger *log.Logger) {
-	server := newFastHTTPServer(service, auth, logger)
-	go func() {
-		logger.Printf("starting swipes-go fasthttp on :%s", cfg.Port)
-		if err := server.ListenAndServe(":" + cfg.Port); err != nil {
-			logger.Fatalf("fasthttp server failed: %v", err)
-		}
-	}()
-
-	<-rootCtx.Done()
-	shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-	done := make(chan struct{})
-	go func() {
-		if err := server.Shutdown(); err != nil {
-			logger.Printf("fasthttp shutdown failed: %v", err)
-		}
-		close(done)
+		logger.Printf("ready on :%s", cfg.Port)
+		serveErr <- server.Serve(listener)
 	}()
 	select {
-	case <-done:
-	case <-shutdownCtx.Done():
-		logger.Printf("fasthttp shutdown timed out")
+	case <-rootCtx.Done():
+	case err := <-serveErr:
+		if err != nil && !errors.Is(err, net.ErrClosed) {
+			logger.Printf("HTTP server failed: %v", err)
+		}
+	}
+	shutdownCtx, cancelShutdown := context.WithTimeout(context.Background(), 20*time.Second)
+	defer cancelShutdown()
+	if err := server.ShutdownWithContext(shutdownCtx); err != nil {
+		logger.Printf("HTTP shutdown failed: %v", err)
+	}
+	consumers.Close()
+	if err := producer.Close(); err != nil {
+		logger.Printf("Kafka producer shutdown failed: %v", err)
 	}
 }

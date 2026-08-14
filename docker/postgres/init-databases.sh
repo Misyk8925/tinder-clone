@@ -92,7 +92,10 @@ EOSQL
 # swipes_db
 psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "swipes_db" \
     -f /docker-entrypoint-initdb.d/migration/V1_swipes.sql
+psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "swipes_db" \
+    -f /docker-entrypoint-initdb.d/migration/V2_swipes_identity_index.sql
 psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "swipes_db" <<-EOSQL
+    ALTER TABLE profile_cache OWNER TO swipes_app;
     REVOKE ALL ON DATABASE swipes_db FROM PUBLIC;
     GRANT CONNECT ON DATABASE swipes_db TO swipes_app;
     GRANT USAGE, CREATE ON SCHEMA public TO swipes_app;

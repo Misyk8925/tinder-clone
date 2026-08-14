@@ -1,0 +1,30 @@
+services:
+  swipes:
+    build:
+      context: ./services/swipes-go
+    depends_on:
+      postgres:
+        condition: service_healthy
+      swipes-migrations:
+        condition: service_completed_successfully
+      kafka:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      keycloak:
+        condition: service_started
+      profiles:
+        condition: service_healthy
+    environment:
+      APP_ENV: production
+      INTERNAL_SWIPES_AUTH_SECRET: ""
+      SWIPES_INTERNAL_BYPASS_PROFILE_CHECK: "false"
+      SWIPES_JWT_ISSUER: ${SWIPES_JWT_ISSUER:?SWIPES_JWT_ISSUER is required}
+      SWIPES_JWT_AUDIENCE: ${SWIPES_JWT_AUDIENCE:?SWIPES_JWT_AUDIENCE is required}
+      SWIPES_PROFILE_CONSUMER_GROUP: swipes-profile-cache-go
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8040/actuator/health"]
+      interval: 10s
+      timeout: 5s
+      start_period: 30s
+      retries: 10
