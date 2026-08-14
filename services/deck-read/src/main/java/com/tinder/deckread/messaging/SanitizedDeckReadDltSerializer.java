@@ -3,6 +3,7 @@ package com.tinder.deckread.messaging;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.tinder.contracts.event.v1.ProfileDeckCardProjectionEvent;
+import com.tinder.contracts.event.v1.DeckBuiltEventV1;
 import org.apache.kafka.common.serialization.Serializer;
 
 import java.util.LinkedHashMap;
@@ -37,6 +38,17 @@ public final class SanitizedDeckReadDltSerializer implements Serializer<Object> 
             sanitized.put("eventId", event.eventId());
             sanitized.put("profile1Id", event.profile1Id());
             sanitized.put("profile2Id", event.profile2Id());
+        } else if (value instanceof DeckBuiltEventV1 event) {
+            sanitized.put("payloadType", "deck.built.v1");
+            sanitized.put("eventId", event.eventId());
+            sanitized.put("viewerProfileId", event.viewerProfileId());
+            sanitized.put("sourceBuildTimestamp", event.sourceBuildTimestamp());
+        } else if (value instanceof DeckMaterializationRequest event) {
+            sanitized.put("payloadType", "deck-read.materialization-requested.v1");
+            sanitized.put("eventId", event.eventId());
+            sanitized.put("viewerProfileId", event.viewerProfileId());
+            sanitized.put("requestedRevision", event.requestedRevision());
+            sanitized.put("reason", event.reason());
         } else {
             sanitized.put("payloadType", "unknown");
         }

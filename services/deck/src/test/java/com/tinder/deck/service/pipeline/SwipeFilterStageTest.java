@@ -130,9 +130,9 @@ class SwipeFilterStageTest {
         // When: service errors out
         Flux<SharedProfileDto> result = swipeFilterStage.filterBySwipeHistory(viewer, candidates);
 
-        // Then: should exclude the batch instead of caching possibly already-swiped profiles
         StepVerifier.create(result)
-                .verifyComplete();
+                .expectErrorMatches(error -> error == serviceError)
+                .verify();
     }
 
     @Test

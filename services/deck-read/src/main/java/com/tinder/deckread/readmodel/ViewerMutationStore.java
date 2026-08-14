@@ -66,10 +66,23 @@ public class ViewerMutationStore {
     public Uni<Void> applyMatch(MatchCreatedEvent event) {
         UUID left = UUID.fromString(event.profile1Id());
         UUID right = UUID.fromString(event.profile2Id());
+        long retentionSeconds = Duration.ofDays(REPEAT_RETENTION_DAYS).toSeconds();
         // The two writes live in different viewer slots. Both are idempotent;
         // at-least-once delivery repairs a partial cross-slot failure.
         return sets.sadd(ReadModelKeys.matched(left), right.toString())
+                .flatMap(ignored -> redis.execute(
+                        "EXPIRE", ReadModelKeys.matched(left), Long.toString(retentionSeconds)))
                 .flatMap(ignored -> sets.sadd(ReadModelKeys.matched(right), left.toString()))
+                .flatMap(ignored -> redis.execute(
+                        "EXPIRE", ReadModelKeys.matched(right), Long.toString(retentionSeconds)))
+                .replaceWithVoid();
+    }
+
+    public Uni<Void> suppress(UUID viewerProfileId, UUID candidateProfileId) {
+        return sets.sadd(ReadModelKeys.suppressed(viewerProfileId), candidateProfileId.toString())
+                .flatMap(ignored -> redis.execute(
+                        "EXPIRE", ReadModelKeys.suppressed(viewerProfileId),
+                        Long.toString(Duration.ofDays(REPEAT_RETENTION_DAYS).toSeconds())))
                 .replaceWithVoid();
     }
 

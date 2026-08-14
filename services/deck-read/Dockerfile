@@ -26,6 +26,6 @@ ENV TZ=UTC \
     JAVA_TOOL_OPTIONS="-XX:+UseContainerSupport -XX:+UseZGC -XX:MaxRAMPercentage=75.0 -Dfile.encoding=UTF-8 -Dsun.net.inetaddr.ttl=60 -Djava.io.tmpdir=/tmp"
 
 USER appuser
-EXPOSE 8040
+EXPOSE 8040 8041
 
 ENTRYPOINT ["java", "-jar", "/app/quarkus-run.jar"]

@@ -188,13 +188,15 @@ class DeckServiceTest {
         // Given: No candidates from profiles service
         when(profilesHttp.searchProfiles(eq(viewerId), eq(preferences), eq(2000)))
                 .thenReturn(Flux.empty());
+        when(deckCache.writeDeck(eq(viewerId), eq(List.of()), any(Duration.class)))
+                .thenReturn(Mono.empty());
 
         // When: Rebuilding deck
         StepVerifier.create(deckService.rebuildOneDeck(viewerProfile))
                 .verifyComplete();
 
-        // Then: Cache should NOT be called (no candidates to cache)
-        verify(deckCache, never()).writeDeck(any(), any(), any());
+        // Then: an empty result is still a stable snapshot with a build timestamp.
+        verify(deckCache).writeDeck(eq(viewerId), eq(List.of()), any(Duration.class));
     }
 
     @Test
@@ -203,12 +205,11 @@ class DeckServiceTest {
         // Given: Profiles service throws error
         when(profilesHttp.searchProfiles(eq(viewerId), eq(preferences), eq(2000)))
                 .thenReturn(Flux.error(new RuntimeException("Profiles service error")));
-
         // When: Rebuilding deck
         StepVerifier.create(deckService.rebuildOneDeck(viewerProfile))
-                .verifyComplete();
+                .expectErrorMessage("Profiles service error")
+                .verify();
 
-        // Then: Cache should NOT be called (error was handled gracefully)
         verify(deckCache, never()).writeDeck(any(), any(), any());
     }
 
@@ -224,10 +225,10 @@ class DeckServiceTest {
         // Swipes service throws error
         when(swipesHttp.betweenBatch(eq(viewerId), anyList()))
                 .thenReturn(Mono.error(new RuntimeException("Swipes service error")));
-
         // When: Rebuilding deck
         StepVerifier.create(deckService.rebuildOneDeck(viewerProfile))
-                .verifyComplete();
+                .expectErrorMessage("Swipes service error")
+                .verify();
 
         // Then: Candidates should not be cached when swipe history could not be checked
         verify(scoringService, never()).score(eq(viewerProfile), eq(candidate1));
@@ -304,7 +305,6 @@ class DeckServiceTest {
     @Test
     @DisplayName("Should return true without rebuild when deck is fresh")
     void testEnsureDeckSkipsFreshDeck() {
-        when(deckCache.size(viewerId)).thenReturn(Mono.just(5L));
         when(deckCache.getBuildInstant(viewerId)).thenReturn(Mono.just(Optional.of(Instant.now())));
 
         StepVerifier.create(deckService.ensureDeck(viewerId))
@@ -320,7 +320,6 @@ class DeckServiceTest {
     void testEnsureDeckRebuildsStaleDeck() {
         SharedProfileDto candidate = createProfile(UUID.randomUUID(), "Alice", 28, null);
 
-        when(deckCache.size(viewerId)).thenReturn(Mono.just(10L), Mono.just(10L));
         when(deckCache.getBuildInstant(viewerId)).thenReturn(
                 Mono.just(Optional.of(Instant.now().minus(Duration.ofHours(2)))),
                 Mono.just(Optional.of(Instant.now().minus(Duration.ofHours(2))))
@@ -333,7 +332,6 @@ class DeckServiceTest {
                 .thenReturn(Mono.just(Collections.emptyMap()));
         when(scoringService.score(eq(viewerProfile), eq(candidate))).thenReturn(42.0);
         when(deckCache.writeDeck(eq(viewerId), anyList(), any(Duration.class))).thenReturn(Mono.empty());
-        when(deckCache.exists(viewerId)).thenReturn(Mono.just(true));
 
         StepVerifier.create(deckService.ensureDeck(viewerId))
                 .expectNext(true)
@@ -347,7 +345,7 @@ class DeckServiceTest {
     @Test
     @DisplayName("Should return false when viewer is missing during ensure")
     void testEnsureDeckReturnsFalseWhenViewerMissing() {
-        when(deckCache.size(viewerId)).thenReturn(Mono.just(0L));
+        when(deckCache.getBuildInstant(viewerId)).thenReturn(Mono.just(Optional.empty()));
         when(deckCache.withLock(eq(viewerId), any())).thenAnswer(invocation -> invocation.getArgument(1));
         when(profilesHttp.getProfile(viewerId)).thenReturn(Mono.empty());
 

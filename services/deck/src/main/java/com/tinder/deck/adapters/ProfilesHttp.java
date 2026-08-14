@@ -55,10 +55,6 @@ public class ProfilesHttp {
                     if (st == SignalType.CANCEL) {
                         log.debug("Profiles search cancelled for viewer {}", viewerId);
                     }
-                })
-                .onErrorResume(throwable -> {
-                    log.warn("Profiles search failed (viewerId={}) -> empty result. Cause: {}", viewerId, throwable.toString());
-                    return Flux.empty();
                 });
     }
 

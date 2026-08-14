@@ -108,4 +108,14 @@ class DeckSnapshotStoreAcceptanceTest {
         assertThat(finalSnapshot.meta().sourceBuildTimestamp()).isEqualTo("source-2");
         assertThat(finalSnapshot.fresh()).containsExactly(generationTwoCard);
     }
+
+    @Test
+    @DisplayName("Scenario: only the current lock owner can renew the materialization lease")
+    void onlyCurrentOwnerRenewsTheBuildLease() {
+        UUID viewer = UUID.randomUUID();
+
+        assertThat(snapshots.acquireBuildLock(viewer, "owner").await().indefinitely()).isTrue();
+        assertThat(snapshots.renewBuildLock(viewer, "owner").await().indefinitely()).isTrue();
+        assertThat(snapshots.renewBuildLock(viewer, "stale-owner").await().indefinitely()).isFalse();
+    }
 }

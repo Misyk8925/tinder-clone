@@ -9,6 +9,25 @@ x-prod-mid-defaults: &prod-mid-defaults
       max-size: "8m"
       max-file: "4"
 
+x-deck-read-environment: &deck-read-environment
+  KEYCLOAK_REALM_URL: ${KEYCLOAK_REALM_URL:-http://keycloak:9080/realms/spring}
+  DECK_SOURCE_REDIS_HOST: redis
+  DECK_SOURCE_REDIS_PORT: 6379
+  DECK_READ_REDIS_HOSTS: >-
+    redis://deck-read-redis-1:6379,redis://deck-read-redis-2:6379,redis://deck-read-redis-3:6379,
+    redis://deck-read-redis-4:6379,redis://deck-read-redis-5:6379,redis://deck-read-redis-6:6379
+  KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+  DECK_READ_PROFILE_GROUP_ID: ${DECK_READ_PROFILE_GROUP_ID:-deck-read-profile-projection-v1}
+  DECK_READ_SWIPE_GROUP_ID: ${DECK_READ_SWIPE_GROUP_ID:-deck-read-swipe-projection-v1}
+  DECK_READ_MATCH_GROUP_ID: ${DECK_READ_MATCH_GROUP_ID:-deck-read-match-projection-v1}
+  DECK_READ_DECK_BUILT_GROUP_ID: ${DECK_READ_DECK_BUILT_GROUP_ID:-deck-read-deck-built-v1}
+  DECK_READ_MATERIALIZATION_GROUP_ID: ${DECK_READ_MATERIALIZATION_GROUP_ID:-deck-read-materialization-v1}
+  DECK_BASE_URL: http://deck:8030
+  DECK_READ_REQUIRE_READY_MARKER: "true"
+  DECK_READ_MATERIALIZED_REQUIRED: ${DECK_READ_MATERIALIZED_REQUIRED:-true}
+  DECK_READ_CURSOR_SECRET: ${DECK_READ_CURSOR_SECRET:?DECK_READ_CURSOR_SECRET is required}
+  JAVA_TOOL_OPTIONS: "-XX:+UseContainerSupport -XX:+UseG1GC -XX:InitialRAMPercentage=40.0 -XX:MaxRAMPercentage=75.0 -Dfile.encoding=UTF-8 -Dsun.net.inetaddr.ttl=60 -Djava.io.tmpdir=/tmp"
+
 services:
   postgres:
     image: postgis/postgis:17-3.4
@@ -312,6 +331,21 @@ services:
       start_period: 240s
       retries: 20
 
+  deck-read-topics:
+    image: confluentinc/cp-kafka:7.5.0
+    restart: "no"
+    depends_on:
+      kafka:
+        condition: service_healthy
+    entrypoint: ["/bin/bash", "-ec"]
+    command:
+      - >-
+        kafka-topics --bootstrap-server kafka:29092 --create --if-not-exists
+        --topic deck.built.v1 --partitions 48 --replication-factor 1
+        && kafka-topics --bootstrap-server kafka:29092 --create --if-not-exists
+        --topic deck-read.materialization-requested.v1 --partitions 48 --replication-factor 1
+    networks: [app]
+
 #  elasticsearch:
 #    image: docker.elastic.co/elasticsearch/elasticsearch:8.12.0
 #    container_name: elasticsearch
@@ -502,6 +536,8 @@ services:
 
       kafka:
         condition: service_healthy
+      deck-read-topics:
+        condition: service_completed_successfully
       redis:
         condition: service_healthy
     environment:
@@ -531,11 +567,11 @@ services:
       start_period: 300s
       retries: 10
 
-  deck-read:
+  # One deck-read artifact, split into independently scalable process roles.
+  deck-read-api:
     build:
       context: ./services
       dockerfile: deck-read/Dockerfile
-    container_name: deck-read
     <<: *prod-mid-defaults
     ports: []
     depends_on:
@@ -547,27 +583,48 @@ services:
         condition: service_started
       kafka:
         condition: service_healthy
+      deck-read-topics:
+        condition: service_completed_successfully
     environment:
-      KEYCLOAK_REALM_URL: ${KEYCLOAK_REALM_URL:-http://keycloak:9080/realms/spring}
-      DECK_SOURCE_REDIS_HOST: redis
-      DECK_SOURCE_REDIS_PORT: 6379
-      DECK_READ_REDIS_HOSTS: >-
-        redis://deck-read-redis-1:6379,redis://deck-read-redis-2:6379,redis://deck-read-redis-3:6379,
-        redis://deck-read-redis-4:6379,redis://deck-read-redis-5:6379,redis://deck-read-redis-6:6379
-      KAFKA_BOOTSTRAP_SERVERS: kafka:29092
-      DECK_READ_PROFILE_GROUP_ID: ${DECK_READ_PROFILE_GROUP_ID:-deck-read-profile-projection-v1}
-      DECK_READ_SWIPE_GROUP_ID: ${DECK_READ_SWIPE_GROUP_ID:-deck-read-swipe-projection-v1}
-      DECK_READ_MATCH_GROUP_ID: ${DECK_READ_MATCH_GROUP_ID:-deck-read-match-projection-v1}
-      DECK_BASE_URL: http://deck:8030
-      DECK_READ_REQUIRE_READY_MARKER: "true"
-      DECK_READ_CURSOR_SECRET: ${DECK_READ_CURSOR_SECRET:?DECK_READ_CURSOR_SECRET is required}
-      JAVA_TOOL_OPTIONS: "-XX:+UseContainerSupport -XX:+UseG1GC -XX:InitialRAMPercentage=40.0 -XX:MaxRAMPercentage=75.0 -Dfile.encoding=UTF-8 -Dsun.net.inetaddr.ttl=60 -Djava.io.tmpdir=/tmp"
+      <<: *deck-read-environment
+      QUARKUS_PROFILE: prod,api
     networks:
       - app
     mem_limit: 512m
     cpus: "2.00"
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://localhost:8040/q/health | grep -q UP || exit 1"]
+      interval: 15s
+      timeout: 10s
+      start_period: 120s
+      retries: 10
+
+  deck-read-worker:
+    build:
+      context: ./services
+      dockerfile: deck-read/Dockerfile
+    <<: *prod-mid-defaults
+    ports: []
+    depends_on:
+      redis:
+        condition: service_healthy
+      deck-read-cluster-init:
+        condition: service_completed_successfully
+      deck:
+        condition: service_started
+      kafka:
+        condition: service_healthy
+      deck-read-topics:
+        condition: service_completed_successfully
+    environment:
+      <<: *deck-read-environment
+      QUARKUS_PROFILE: prod,worker
+    networks:
+      - app
+    mem_limit: 768m
+    cpus: "2.00"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8041/q/health | grep -q UP || exit 1"]
       interval: 15s
       timeout: 10s
       start_period: 120s
@@ -615,7 +672,7 @@ services:
         condition: service_healthy
       profiles:
         condition: service_started
-      deck-read:
+      deck-read-api:
         condition: service_started
     environment:
       SPRING_PROFILES_ACTIVE: prod
@@ -629,7 +686,7 @@ services:
       CONSUMER_SERVICE_URL: http://consumer:8050
       DECK_SERVICE_URL: http://deck:8030
       # Client-facing deck reads (GET /api/v1/deck and /api/v2/deck) are routed to deck-read.
-      DECK_READ_SERVICE_URL: ${DECK_READ_SERVICE_URL:-http://deck-read:8040}
+      DECK_READ_SERVICE_URL: ${DECK_READ_SERVICE_URL:-http://deck-read-api:8040}
       MATCH_SERVICE_URL: http://match:8080
       MATCH_WS_URL: ws://match:8080
       SUBSCRIPTIONS_SERVICE_URL: http://subscriptions:8095

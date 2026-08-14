@@ -91,8 +91,8 @@ v1_required = http.dig("components", "schemas", "DeckCardV1", "required")
 assert(v1_required == %w[profileId name age city bio photos hobbies], "v1 legacy card shape drifted")
 assert(!http.dig("components", "schemas", "DeckCardV1", "properties").key?("preferences"), "v1 must not gain v2 preferences")
 
-expected_channels = ["profile.deck-card-projection.v1", "swipe-saved", "match.created"]
-assert(events.fetch("channels").keys.sort == expected_channels.sort, "event scope must contain only the profile projection and existing swipe/match topics")
+expected_channels = ["profile.deck-card-projection.v1", "swipe-saved", "match.created", "deck.built.v1", "deck-read.materialization-requested.v1"]
+assert(events.fetch("channels").keys.sort == expected_channels.sort, "event scope must contain projection, mutation, Deck-built and materialization topics")
 
 profile_event_required = events.dig("components", "schemas", "ProfileDeckCardProjectionEvent", "required")
 assert(%w[eventId profileId userId version occurredAt operation source card].all? { |field| profile_event_required.include?(field) }, "profile projection metadata/card/source is incomplete")
@@ -121,7 +121,7 @@ end
 
 (1..9).each { |number| assert(concept.include?("FR-#{number}"), "concept misses FR-#{number}") }
 assert(concept.include?("Profiles PostgreSQL — authoritative recovery source"), "authoritative recovery source is not explicit")
-assert(concept.include?("не меняет `services/deck`"), "Deck service exclusion is not explicit")
+assert(concept.include?("`deck.built.v1`"), "Deck build notification boundary is not explicit")
 assert(concept.include?("viewerUserId → viewerProfileId"), "userId/profileId viewer boundary is ambiguous")
 assert(concept.include?("максимум по 500 строк"), "backfill page limit is not explicit")
 assert(concept.include?("события страницы в существующий `profile_event_outbox`"), "same-outbox page transaction is not explicit")
@@ -141,10 +141,20 @@ assert(migration, "existing Profiles volumes have no one-shot migration service"
 assert(migration.fetch("entrypoint").include?("--file=/migrations/V2_profiles_deck_read_cqrs.sql"), "Profiles migration service does not execute V2")
 assert(compose.dig("services", "profiles", "depends_on", "profiles-migrations", "condition") == "service_completed_successfully", "Profiles must wait for the V2 migration")
 assert(compose.dig("services", "profiles", "environment", "SPRING_JPA_HIBERNATE_DDL_AUTO") == "validate", "Compose Profiles must validate rather than mutate schema")
-deck_read_environment = compose.dig("services", "deck-read", "environment")
+deck_read_api = compose.dig("services", "deck-read-api")
+deck_read_worker = compose.dig("services", "deck-read-worker")
+assert(deck_read_api, "Deck Read API role is missing")
+assert(deck_read_worker, "Deck Read worker role is missing")
+api_profiles = deck_read_api.dig("environment", "QUARKUS_PROFILE").to_s.split(",")
+worker_profiles = deck_read_worker.dig("environment", "QUARKUS_PROFILE").to_s.split(",")
+assert(api_profiles.include?("prod") && api_profiles.include?("api"), "Deck Read API must activate prod and api profiles")
+assert(worker_profiles.include?("prod") && worker_profiles.include?("worker"), "Deck Read worker must activate prod and worker profiles")
+deck_read_environment = deck_read_worker.fetch("environment")
 assert(deck_read_environment.key?("DECK_READ_PROFILE_GROUP_ID"), "Compose cannot override the profile recovery group")
 assert(deck_read_environment.key?("DECK_READ_SWIPE_GROUP_ID"), "Compose cannot override the swipe recovery group")
 assert(deck_read_environment.key?("DECK_READ_MATCH_GROUP_ID"), "Compose cannot override the match recovery group")
+assert(deck_read_environment.key?("DECK_READ_DECK_BUILT_GROUP_ID"), "Compose cannot override the Deck-built group")
+assert(deck_read_environment.key?("DECK_READ_MATERIALIZATION_GROUP_ID"), "Compose cannot override the materialization group")
 assert(profiles_config.dig("spring", "jpa", "hibernate", "ddl-auto") == "validate", "Profiles default Hibernate mode must be validate")
 assert(migration_sql.include?("ADD COLUMN IF NOT EXISTS"), "V2 column upgrade must be replay-safe")
 assert(migration_sql.include?("CREATE TABLE IF NOT EXISTS"), "V2 table upgrade must be replay-safe")

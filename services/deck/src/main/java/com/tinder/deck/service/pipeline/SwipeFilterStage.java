@@ -56,11 +56,6 @@ public class SwipeFilterStage extends BasicStage {
                     log.debug("Swipe filter: viewer={} batch={} kept={} excluded={}",
                             viewerId, before, filtered.size(), before - filtered.size());
                     return Flux.fromIterable(filtered);
-                })
-                .onErrorResume(error -> {
-                    log.warn("Swipes service error for viewer {} (batch size {}), excluding batch to avoid resurfacing swiped profiles: {}",
-                            viewerId, candidateIds.size(), error.getMessage());
-                    return Flux.empty();
                 });
     }
 

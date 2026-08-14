@@ -3,6 +3,8 @@
 Статус: **УТВЕРЖДЁН 2026-08-11**
 Автор: Codex вместе с Michael · Slug: `deck-read-cqrs`
 
+Дополнение производительности: `services/deck` после стабильной записи source snapshot публикует repairable keyed notification `deck.built.v1`. Один artifact Deck Read запускается как независимо масштабируемые роли `api` и `worker`; worker материализует первые 100 готовых карточек и tail до 400 ID с revision-fenced atomic generation switch.
+
 Linear Project Document: [Phase 1 — Concept (RU)](https://linear.app/mischa8925/document/phase-1-concept-ru-ce53fdcdd0a0)
 
 ## 1. Проблема
@@ -55,7 +57,7 @@ Deck Read сейчас синхронно запрашивает Profiles для
 | FR-2 | Deprecated v1 сохраняет bare-array success contract и читает только локальную Read Cluster projection. | HTTP и architecture acceptance. |
 | FR-3 | Profiles публикует полную `profile.deck-card-projection.v1` через outbox при profile/photo mutation/delete. Для initial fill и recovery оператор явно запускает maintenance-job: он читает PostgreSQL страницами по 500, атомарно добавляет события в тот же outbox и сохраняет durable cursor, поэтому после рестарта продолжает со следующей страницы. | Profiles boundary acceptance + AsyncAPI/data-contract validation. |
 | FR-4 | Deck Read применяет profile/event versions идемпотентно и не откатывает projection старым или duplicate event. | Projection acceptance с duplicate/out-of-order сценариями. |
-| FR-5 | Deck Read сохраняет ensure-on-miss и стабильно импортирует ordering из existing Deck Redis, проверяя build timestamp до и после ZSET; source entry с `isSwiped=true` не попадает во fresh; `services/deck` не меняется. | Architecture/source-import acceptance. |
+| FR-5 | Deck Read сохраняет ensure-on-miss и стабильно импортирует ordering из existing Deck Redis, проверяя build timestamp до и после ZSET; source entry с `isSwiped=true` не попадает во fresh. Deck после стабильной записи, включая authoritative empty snapshot, публикует repairable `deck.built.v1`. | Architecture/source-import acceptance. |
 | FR-6 | Fresh всегда предшествует repeat; PASS/LIKE становятся repeat после 30 секунд или двух consecutive failures; успешный ensure без source ZSET остаётся BUILDING 30 секунд и затем материализуется как EMPTY без увеличения failure count; snapshot содержит не больше 500+500 IDs. | Snapshot policy acceptance с injected clock. |
 | FR-7 | Swipe, match и profile delete немедленно удаляют карточку из активной выдачи; match/delete запрещают repeat. | Materializer acceptance. |
 | FR-8 | При пустом/потерянном Read Cluster API возвращает 503 READ_MODEL_NOT_READY до завершения Profiles backfill, catch-up, count verification и safe replay/warm-up. | Recovery/readiness acceptance. |
@@ -105,7 +107,7 @@ flowchart LR
 
 В существующем Redis Deck Read читает только `deck:<viewerProfileId>` и `deck:build:ts:<viewerProfileId>` и никогда не пишет. Параметр `viewerId` существующего ensure endpoint также означает profileId. `deck:stale:*`, locks, reverse indexes, invalidation, recent viewers и preferences остаются исключительно внутренними деталями Deck.
 
-Новый cluster хранит `dr:profile:{profileId}:card`, `dr:user:{viewerUserId}:profile`, backfill readiness и viewer-local snapshot/repeat/match/event/refresh keys. Все viewer keys имеют форму `dr:viewer:{viewerProfileId}:...`; Redis hash tag содержит именно profileId. Отдельный profile→viewers reverse index Deck Read не нужен: delete/inactive отсекается карточной tombstone, а swipe/match — viewer mutation projection при чтении.
+Новый cluster хранит `dr:profile:{profileId}:card`, `dr:user:{viewerUserId}:profile`, backfill readiness и viewer-local snapshot/repeat/match/event/refresh keys. Все viewer keys имеют форму `dr:viewer:{viewerProfileId}:...`; Redis hash tag содержит именно profileId. Для profile update/delete используется TTL-bounded hot reverse index только по первым 100 материализованным карточкам; expiry хранится на каждом viewer-member, поэтому популярный профиль не удерживает устаревшие membership бесконечно. Delete/inactive дополнительно отсекается карточной tombstone/suppression, а swipe/match — viewer mutation projection при чтении.
 
 Active card projection не имеет семидневного TTL: это materialized read model. Семь дней относятся к repeat eligibility и hard retention current snapshot. Profile tombstone хранится минимум семь дней.
 

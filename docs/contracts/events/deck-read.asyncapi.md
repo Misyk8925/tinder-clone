@@ -15,8 +15,10 @@ Backfill is not automatic on every Profiles startup. An operator explicitly star
 | `profile.deck-card-projection.v1` | Profiles outbox and backfill | consume | profileId; versions for one profile ordered | eventId once; version `<=` stored is no-op | Deployment retention/optional compaction; authoritative rebuild is PostgreSQL backfill; `.dlt`. |
 | `swipe-saved` | Consumer outbox, unchanged | consume | profile1Id viewer, unchanged | eventId once; first viewer→candidate record uses NX so later/duplicate decision cannot reset firstSwipeAt | At least 7 days; `swipe-saved.dlt`. |
 | `match.created` | Consumer outbox, unchanged | consume | profile1Id, unchanged | eventId once; matched pair exclusion is set-like | At least 7 days; `match.created.dlt`. |
+| `deck.built.v1` | Deck after stable Redis commit | consume | viewerProfileId | Repairable notification; source timestamp identifies the snapshot | `deck.built.v1.dlt`; reconciliation and GET enqueue repair loss. |
+| `deck-read.materialization-requested.v1` | Deck Read API/worker | consume | viewerProfileId | Redis requestedRevision fences duplicate and stale workers | 48 partitions; `.dlt`. |
 
-There are deliberately no discovery, builder, build-requested, rebuilt or build-failed topics in this feature.
+There are deliberately no discovery, synchronous builder, rebuilt or build-failed topics. Deck-built is a repairable notification, while materialization-requested is the internal horizontally scalable work queue.
 
 ## profile.deck-card-projection.v1
 
@@ -55,3 +57,5 @@ Serves FR-4, FR-7 and FR-8. Existing wire payload remains `eventId`, `profile1Id
 ## Ordering and scaling
 
 Profile projection is ordered by profileId. Its userId builds the local `viewerUserId → viewerProfileId` mapping. Existing swipe and match fields are already profileIds and their Kafka keys remain unchanged, so Deck Read uses idempotent set/NX operations rather than assuming cross-partition pair order. Multiple Deck Read replicas share one consumer group; Kafka assigns each partition to one replica at a time. Viewer mutations use `{viewerProfileId}` Redis hash tags and an atomic Lua install with monotonic generation.
+
+Deck Read is one artifact with separate `api` and `worker` runtime roles. Every semantic materialization request increments a viewer-local requestedRevision before Kafka publication. Repeated GET repair triggers atomically reuse a pending revision and, after a short interval, republish that same revision so request storms cannot fence a worker forever. Workers stage immutable ready-card and tail keys, then atomically switch the current generation only if that revision is still current. A lock avoids duplicate work; revision fencing is the correctness guarantee across rebalance, lease expiry and retries. The first 100 cards are stored as ready JSON payloads, while up to 400 IDs remain as the compatibility tail.

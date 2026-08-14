@@ -20,6 +20,26 @@ public final class ReadModelKeys {
         return viewer(viewerProfileId) + ":meta";
     }
 
+    public static String materializedOrder(UUID viewerProfileId, long generation) {
+        return viewer(viewerProfileId) + ":m:order:" + generation;
+    }
+
+    public static String materializedCards(UUID viewerProfileId, long generation) {
+        return viewer(viewerProfileId) + ":m:cards:" + generation;
+    }
+
+    public static String materializedTail(UUID viewerProfileId, long generation) {
+        return viewer(viewerProfileId) + ":m:tail:" + generation;
+    }
+
+    public static String materializedMeta(UUID viewerProfileId) {
+        return viewer(viewerProfileId) + ":m:meta";
+    }
+
+    public static String hotViewers(UUID profileId) {
+        return "dr:profile:{" + profileId + "}:hot-viewers";
+    }
+
     public static String fresh(UUID viewerProfileId, long generation) {
         return viewer(viewerProfileId) + ":fresh:" + generation;
     }
@@ -38,6 +58,10 @@ public final class ReadModelKeys {
 
     public static String matched(UUID viewerProfileId) {
         return viewer(viewerProfileId) + ":matched";
+    }
+
+    public static String suppressed(UUID viewerProfileId) {
+        return viewer(viewerProfileId) + ":suppressed";
     }
 
     public static String buildLock(UUID viewerProfileId) {

@@ -30,13 +30,7 @@ public class DeckPipeline {
                 .transform(filtered -> scoringStage.scoreAndRank(viewer, filtered))
                 .take(perUserLimit)
                 .collectList()
-                .flatMap(rankedList -> {
-                    if (rankedList.isEmpty()) {
-                        log.info("No candidates to cache for viewer {}", viewer.id());
-                        return Mono.empty();
-                    }
-                    return cacheStage.cacheDeck(viewer.id(), Flux.fromIterable(rankedList));
-                });
+                .flatMap(rankedList -> cacheStage.cacheDeck(viewer.id(), Flux.fromIterable(rankedList)));
     }
 
 }

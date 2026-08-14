@@ -186,7 +186,11 @@ class DeckReadKafkaRedisRuntimeAcceptanceTest {
                 .isEqualTo(first.profileId());
         assertThat(profiles.viewerProfileId(second.userId()).await().indefinitely())
                 .isEqualTo(second.profileId());
-        assertThat(redis.execute("DBSIZE").toInteger()).isEqualTo(4);
+        // Profile events also create viewer-local materialization-request metadata.
+        // Count the projection contract explicitly instead of coupling recovery to
+        // the number of internal read-model keys.
+        assertThat(redis.execute("KEYS", "dr:profile:*:card").size()).isEqualTo(2);
+        assertThat(redis.execute("KEYS", "dr:user:*:profile").size()).isEqualTo(2);
         assertThat(endOffset(partition) - committedOffset(PROFILE_MATERIALIZER_GROUP, partition))
                 .isZero();
 
@@ -310,6 +314,7 @@ class DeckReadKafkaRedisRuntimeAcceptanceTest {
             config.put("mp.messaging.incoming.swipe-saved.group.id", MATERIALIZER_GROUP);
             config.put("mp.messaging.incoming.profile-deck-card-projection.enabled", "true");
             config.put("mp.messaging.incoming.profile-deck-card-projection.group.id", PROFILE_MATERIALIZER_GROUP);
+            config.put("mp.messaging.outgoing.materialization-requests-out.enabled", "true");
             config.put("mp.messaging.incoming.match-created.enabled", "false");
             config.put("deck-read.read-model.require-ready-marker", "true");
             return Map.copyOf(config);

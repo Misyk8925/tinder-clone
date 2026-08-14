@@ -61,6 +61,32 @@ channels:
       kafka:
         topic: match.created
         bindingVersion: 0.4.0
+  deck.built.v1:
+    description: Repairable notification emitted after Deck installs a stable Redis snapshot.
+    x-producer: Deck
+    x-consumers: [Deck Read worker]
+    publish:
+      operationId: publishDeckBuilt
+      message:
+        $ref: '#/components/messages/DeckBuilt'
+    bindings:
+      kafka:
+        topic: deck.built.v1
+        partitions: 48
+        bindingVersion: 0.4.0
+  deck-read.materialization-requested.v1:
+    description: Viewer-keyed internal work queue fenced by a Redis requestedRevision.
+    x-producer: Deck Read API and worker
+    x-consumers: [Deck Read worker]
+    subscribe:
+      operationId: materializeViewerDeck
+      message:
+        $ref: '#/components/messages/DeckMaterializationRequested'
+    bindings:
+      kafka:
+        topic: deck-read.materialization-requested.v1
+        partitions: 48
+        bindingVersion: 0.4.0
 components:
   messages:
     ProfileDeckCardProjection:
@@ -123,7 +149,62 @@ components:
           bindingVersion: 0.4.0
       x-delivery: at-least-once
       x-idempotency: eventId is processed once; pair exclusion is set-like. Bounded retry ends in match.created.dlt.
+    DeckBuilt:
+      name: DeckBuiltEventV1
+      title: Stable Deck source snapshot installed
+      contentType: application/json
+      correlationId:
+        location: $message.payload#/eventId
+      payload:
+        $ref: '#/components/schemas/DeckBuiltEventV1'
+      bindings:
+        kafka:
+          key:
+            type: string
+            format: uuid
+            description: viewerProfileId
+          bindingVersion: 0.4.0
+      x-delivery: repairable at-least-once trigger; reconciliation and API misses recover loss.
+    DeckMaterializationRequested:
+      name: DeckMaterializationRequestV1
+      title: Materialize one viewer generation
+      contentType: application/json
+      correlationId:
+        location: $message.payload#/eventId
+      payload:
+        $ref: '#/components/schemas/DeckMaterializationRequest'
+      bindings:
+        kafka:
+          key:
+            type: string
+            format: uuid
+            description: viewerProfileId
+          bindingVersion: 0.4.0
+      x-idempotency: requestedRevision fences duplicate and stale workers in Redis.
   schemas:
+    DeckBuiltEventV1:
+      type: object
+      additionalProperties: false
+      required: [eventId, viewerProfileId, sourceBuildTimestamp, candidateCount, occurredAt]
+      properties:
+        eventId: {type: string, format: uuid}
+        viewerProfileId: {type: string, format: uuid}
+        sourceBuildTimestamp: {type: string, minLength: 1}
+        candidateCount: {type: integer, minimum: 0}
+        occurredAt: {type: string, format: date-time}
+    DeckMaterializationRequest:
+      type: object
+      additionalProperties: false
+      required: [eventId, viewerProfileId, requestedRevision, reason, sourceBuildTimestamp, requestedAt]
+      properties:
+        eventId: {type: string, format: uuid}
+        viewerProfileId: {type: string, format: uuid}
+        requestedRevision: {type: integer, format: int64, minimum: 1}
+        reason:
+          type: string
+          enum: [DECK_BUILT, SWIPE_SAVED, MATCH_CREATED, PROFILE_CHANGED, PROFILE_DELETED, API_MISS, API_STALE, RECONCILIATION]
+        sourceBuildTimestamp: {type: string}
+        requestedAt: {type: string, format: date-time}
     ProfileDeckCardProjectionEvent:
       type: object
       additionalProperties: false

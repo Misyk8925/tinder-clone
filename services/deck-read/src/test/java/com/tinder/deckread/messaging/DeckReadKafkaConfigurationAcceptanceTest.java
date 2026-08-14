@@ -32,5 +32,11 @@ class DeckReadKafkaConfigurationAcceptanceTest {
         assertThat(config.getValue(
                 "mp.messaging.incoming.match-created.dead-letter-queue.value.serializer",
                 String.class)).isEqualTo(SERIALIZER);
+        assertThat(config.getValue(
+                "mp.messaging.incoming.deck-built.dead-letter-queue.value.serializer",
+                String.class)).isEqualTo(SERIALIZER);
+        assertThat(config.getValue(
+                "mp.messaging.incoming.materialization-requests-in.dead-letter-queue.value.serializer",
+                String.class)).isEqualTo(SERIALIZER);
     }
 }

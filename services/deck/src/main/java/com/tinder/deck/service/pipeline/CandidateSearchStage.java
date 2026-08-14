@@ -116,11 +116,6 @@ public class CandidateSearchStage extends BasicStage {
      */
     private Flux<SharedProfileDto> searchFromDatabase(UUID viewerId, SharedPreferencesDto prefs) {
         return profilesHttp.searchProfiles(viewerId, prefs, searchLimit)
-                .onErrorResume(e -> {
-                    log.warn("Candidate search failed for viewer {}: {}",
-                            viewerId, e.getMessage());
-                    return Flux.empty();
-                })
                 .doOnComplete(() -> log.debug("Candidate search completed for viewer {}", viewerId));
     }
 

@@ -122,6 +122,13 @@ public class DeckSnapshotStore {
             return 0
             """;
 
+    private static final String RENEW_LOCK_SCRIPT = """
+            if redis.call('GET', KEYS[1]) == ARGV[1] then
+              return redis.call('EXPIRE', KEYS[1], ARGV[2])
+            end
+            return 0
+            """;
+
     private final ReactiveRedisDataSource redis;
     private final ReactiveHashCommands<String, String, String> hashes;
     private final ReactiveListCommands<String, String> lists;
@@ -262,6 +269,11 @@ public class DeckSnapshotStore {
     public Uni<Boolean> acquireBuildLock(UUID viewerProfileId, String token) {
         return redis.execute("SET", ReadModelKeys.buildLock(viewerProfileId), token, "NX", "EX", "30")
                 .map(response -> response != null);
+    }
+
+    public Uni<Boolean> renewBuildLock(UUID viewerProfileId, String token) {
+        return redis.execute("EVAL", RENEW_LOCK_SCRIPT, "1", ReadModelKeys.buildLock(viewerProfileId), token, "30")
+                .map(response -> response.toInteger() == 1);
     }
 
     public Uni<Void> releaseBuildLock(UUID viewerProfileId, String token) {

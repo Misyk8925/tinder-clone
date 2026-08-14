@@ -111,12 +111,14 @@ class CacheStageTest {
         // When
         Mono<Void> result = cacheStage.cacheDeck(viewerId, scoredCandidates);
 
-        // Then: should complete without calling writeDeck
+        when(deckCache.writeDeck(eq(viewerId), anyList(), any(Duration.class)))
+                .thenReturn(Mono.empty());
+
+        // Then: empty is an authoritative built snapshot and receives a timestamp
         StepVerifier.create(result)
                 .verifyComplete();
 
-        // Verify: writeDeck was NOT called for empty deck
-        verify(deckCache, never()).writeDeck(any(), anyList(), any(Duration.class));
+        verify(deckCache).writeDeck(eq(viewerId), eq(List.of()), eq(Duration.ofMinutes(TTL_MINUTES)));
     }
 
     @Test

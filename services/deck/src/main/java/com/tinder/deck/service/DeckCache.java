@@ -55,10 +55,12 @@ public class DeckCache {
 
         ReactiveZSetOperations<String, String> z = redis.opsForZSet();
 
-        Mono<Long> addAll = Flux.fromIterable(deck)
-                .map(e -> ZSetOperations.TypedTuple.of(serializeEntry(DeckEntry.fresh(e.getKey())), e.getValue()))
-                .collect(Collectors.toSet())
-                .flatMap(tuples -> z.addAll(key, tuples));
+        Mono<Long> addAll = deck.isEmpty()
+                ? Mono.just(0L)
+                : Flux.fromIterable(deck)
+                        .map(e -> ZSetOperations.TypedTuple.of(serializeEntry(DeckEntry.fresh(e.getKey())), e.getValue()))
+                        .collect(Collectors.toSet())
+                        .flatMap(tuples -> z.addAll(key, tuples));
 
         // Maintain the reverse index so deletions/critical-changes can fan out cheaply.
         // For each profile in this deck, record that viewerId's deck contains it.
@@ -72,7 +74,7 @@ public class DeckCache {
 
         return redis.delete(key, tsKey)
                 .then(addAll)
-                .then(redis.expire(key, ttl))
+                .then(deck.isEmpty() ? Mono.just(false) : redis.expire(key, ttl))
                 .then(redis.opsForValue().set(tsKey, String.valueOf(System.currentTimeMillis()), ttl))
                 .then(indexAll)
                 .then();

@@ -85,7 +85,7 @@ class CandidateSearchStageTest {
     }
 
     @Test
-    void shouldReturnEmptyFluxOnError() {
+    void shouldPropagateErrorWithoutTurningItIntoAnEmptyDeck() {
         // Given: a viewer and a failing profiles service
         SharedProfileDto viewer = createProfile(UUID.randomUUID(), "Viewer", VIEWER_AGE);
         RuntimeException serviceError = new RuntimeException("Service unavailable");
@@ -96,9 +96,9 @@ class CandidateSearchStageTest {
         // When: searching for candidates with error
         Flux<SharedProfileDto> result = candidateSearchStage.searchCandidates(viewer);
 
-        // Then: should complete without error (error recovery)
         StepVerifier.create(result)
-                .verifyComplete();
+                .expectErrorMatches(error -> error == serviceError)
+                .verify();
     }
 
     @Test

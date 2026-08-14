@@ -143,18 +143,17 @@ class DeckPipelineTest {
         when(scoringStage.scoreAndRank(eq(viewer), any()))
                 .thenAnswer(invocation -> Flux.defer(() -> invocation.getArgument(1)));
 
-        // Note: cacheDeck should NOT be called when deck is empty
+        when(cacheStage.cacheDeck(eq(viewerId), any())).thenReturn(Mono.empty());
 
         // When: building deck with no candidates
         Mono<Void> result = deckPipeline.buildDeck(viewer);
 
-        // Then: should complete successfully without caching
+        // Then: should complete successfully and persist the authoritative empty build
         StepVerifier.create(result)
                 .expectComplete()
                 .verify(Duration.ofSeconds(5));
 
-        // Verify: cache stage was NOT called (empty deck not cached)
-        verify(cacheStage, never()).cacheDeck(eq(viewerId), any());
+        verify(cacheStage).cacheDeck(eq(viewerId), any());
     }
 
     @Test
@@ -304,7 +303,7 @@ class DeckPipelineTest {
         when(scoringStage.scoreAndRank(eq(viewer), any()))
                 .thenAnswer(invocation -> Flux.defer(() -> invocation.getArgument(1)));
 
-        // Note: cacheDeck should NOT be called when all candidates filtered out
+        when(cacheStage.cacheDeck(eq(viewerId), any())).thenReturn(Mono.empty());
 
         // When: all candidates get filtered out
         Mono<Void> result = deckPipeline.buildDeck(viewer);
@@ -318,8 +317,7 @@ class DeckPipelineTest {
         verify(filterStage, atLeastOnce()).filterBySwipeHistory(eq(viewer), any());
         verify(scoringStage, atLeastOnce()).scoreAndRank(eq(viewer), any());
 
-        // Verify: cache stage was NOT called (empty deck not cached)
-        verify(cacheStage, never()).cacheDeck(eq(viewerId), any());
+        verify(cacheStage).cacheDeck(eq(viewerId), any());
     }
 
     // Helper method

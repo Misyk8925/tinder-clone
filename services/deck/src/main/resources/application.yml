@@ -96,6 +96,7 @@ kafka:
     profile-events: profile.updated
     swipe-events: swipe-saved
     delete-events: profile.deleted
+    deck-built: deck.built.v1
 
 # Metrics
 management:

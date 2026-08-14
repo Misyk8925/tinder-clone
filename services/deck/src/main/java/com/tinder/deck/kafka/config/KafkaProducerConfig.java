@@ -1,5 +1,6 @@
 package com.tinder.deck.kafka.config;
 
+import com.tinder.contracts.event.v1.DeckBuiltEventV1;
 import com.tinder.contracts.event.v1.ProfileUpdatedEvent;
 import com.tinder.deck.kafka.dto.SwipeCreatedEvent;
 import org.apache.kafka.clients.producer.ProducerConfig;
@@ -65,6 +66,22 @@ public class KafkaProducerConfig {
     @Bean
     public KafkaTemplate<String, SwipeCreatedEvent> swipeKafkaTemplate() {
         return new KafkaTemplate<>(swipeEventProducerFactory());
+    }
+
+    @Bean
+    public ProducerFactory<String, DeckBuiltEventV1> deckBuiltProducerFactory() {
+        Map<String, Object> props = new HashMap<>();
+        props.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers);
+        props.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, StringSerializer.class);
+        props.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, JsonSerializer.class);
+        props.put(ProducerConfig.ACKS_CONFIG, "all");
+        props.put(ProducerConfig.ENABLE_IDEMPOTENCE_CONFIG, true);
+        return new DefaultKafkaProducerFactory<>(props);
+    }
+
+    @Bean("deckBuiltKafkaTemplate")
+    public KafkaTemplate<String, DeckBuiltEventV1> deckBuiltKafkaTemplate() {
+        return new KafkaTemplate<>(deckBuiltProducerFactory());
     }
 
     /**

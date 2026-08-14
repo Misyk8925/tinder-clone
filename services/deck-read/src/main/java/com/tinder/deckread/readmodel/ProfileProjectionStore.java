@@ -10,6 +10,7 @@ import io.quarkus.redis.datasource.ReactiveRedisDataSource;
 import io.quarkus.redis.datasource.hash.ReactiveHashCommands;
 import io.quarkus.redis.datasource.keys.ReactiveKeyCommands;
 import io.quarkus.redis.datasource.value.ReactiveValueCommands;
+import io.smallrye.mutiny.Multi;
 import io.smallrye.mutiny.Uni;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
@@ -102,20 +103,19 @@ public class ProfileProjectionStore {
         if (profileIds.isEmpty()) {
             return Uni.createFrom().item(Map.of());
         }
-        List<Uni<Map.Entry<UUID, Optional<DeckCardDto>>>> reads = profileIds.stream()
-                .distinct()
-                .map(id -> card(id).map(card -> Map.entry(id, card)))
-                .toList();
-        return Uni.combine().all().unis(reads).with(results -> {
-            java.util.LinkedHashMap<UUID, DeckCardDto> cards = new java.util.LinkedHashMap<>();
-            for (Object result : results) {
-                @SuppressWarnings("unchecked")
-                Map.Entry<UUID, Optional<DeckCardDto>> entry =
-                        (Map.Entry<UUID, Optional<DeckCardDto>>) result;
-                entry.getValue().ifPresent(card -> cards.put(entry.getKey(), card));
-            }
-            return Map.copyOf(cards);
-        });
+        return Multi.createFrom().iterable(profileIds.stream().distinct().toList())
+                .onItem().transformToUni(id -> card(id).map(card -> Map.entry(id, card)))
+                // Profile keys intentionally live in different Cluster slots. Bound the
+                // fan-out so several workers cannot consume the whole Redis connection pool.
+                .merge(32)
+                .collect().asList()
+                .map(results -> {
+                    java.util.LinkedHashMap<UUID, DeckCardDto> cards = new java.util.LinkedHashMap<>();
+                    for (Map.Entry<UUID, Optional<DeckCardDto>> entry : results) {
+                        entry.getValue().ifPresent(card -> cards.put(entry.getKey(), card));
+                    }
+                    return Map.copyOf(cards);
+                });
     }
 
     private DeckCardDto toCard(ProfileDeckCardProjectionEvent event) {
