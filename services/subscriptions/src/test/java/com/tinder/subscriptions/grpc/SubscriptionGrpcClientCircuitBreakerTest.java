@@ -8,9 +8,11 @@ import io.grpc.Status;
 import io.grpc.StatusRuntimeException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 
 import java.lang.reflect.Field;
 import java.time.Duration;
+import java.time.Instant;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -52,10 +54,37 @@ class SubscriptionGrpcClientCircuitBreakerTest {
         when(mockStub.updatePremiumUser(any()))
                 .thenReturn(UpdatePremiumUserResponse.newBuilder().setSuccess(true).build());
 
-        UpdatePremiumUserResponse response = client.updatePremiumUser("user-1");
+        UpdatePremiumUserResponse response = updatePremiumUser("user-1");
 
         assertThat(response.getSuccess()).isTrue();
         assertThat(circuitBreaker.getState()).isEqualTo(CircuitBreaker.State.CLOSED);
+    }
+
+    @Test
+    void activatePremiumSendsAuthoritativePaidThroughTime() {
+        when(mockStub.updatePremiumUser(any()))
+                .thenReturn(UpdatePremiumUserResponse.newBuilder().setSuccess(true).build());
+        Instant paidThrough = Instant.parse("2030-02-03T04:05:06Z");
+
+        client.activatePremiumUntil("user-1", paidThrough);
+
+        ArgumentCaptor<UpdatePremiumUserRequest> request = ArgumentCaptor.forClass(UpdatePremiumUserRequest.class);
+        verify(mockStub).updatePremiumUser(request.capture());
+        assertThat(request.getValue().getPremiumStatus()).isEqualTo(PremiumStatus.PREMIUM_STATUS_ACTIVE);
+        assertThat(request.getValue().getPremiumUntilEpochSeconds()).isEqualTo(paidThrough.getEpochSecond());
+    }
+
+    @Test
+    void revokePremiumSendsInactiveState() {
+        when(mockStub.updatePremiumUser(any()))
+                .thenReturn(UpdatePremiumUserResponse.newBuilder().setSuccess(true).build());
+
+        client.revokePremium("user-1");
+
+        ArgumentCaptor<UpdatePremiumUserRequest> request = ArgumentCaptor.forClass(UpdatePremiumUserRequest.class);
+        verify(mockStub).updatePremiumUser(request.capture());
+        assertThat(request.getValue().getPremiumStatus()).isEqualTo(PremiumStatus.PREMIUM_STATUS_INACTIVE);
+        assertThat(request.getValue().getPremiumUntilEpochSeconds()).isZero();
     }
 
     @Test
@@ -65,7 +94,7 @@ class SubscriptionGrpcClientCircuitBreakerTest {
 
         // Fill the sliding window with failures (all 3 fail = 100% > 50% threshold)
         for (int i = 0; i < WINDOW_SIZE; i++) {
-            try { client.updatePremiumUser("user-" + i); } catch (StatusRuntimeException ignored) {}
+            try { updatePremiumUser("user-" + i); } catch (StatusRuntimeException ignored) {}
         }
 
         assertThat(circuitBreaker.getState()).isEqualTo(CircuitBreaker.State.OPEN);
@@ -78,12 +107,12 @@ class SubscriptionGrpcClientCircuitBreakerTest {
 
         // Trip the circuit open
         for (int i = 0; i < WINDOW_SIZE; i++) {
-            try { client.updatePremiumUser("user-" + i); } catch (StatusRuntimeException ignored) {}
+            try { updatePremiumUser("user-" + i); } catch (StatusRuntimeException ignored) {}
         }
         assertThat(circuitBreaker.getState()).isEqualTo(CircuitBreaker.State.OPEN);
 
         // Next call must be rejected by the circuit breaker without hitting the stub
-        assertThatThrownBy(() -> client.updatePremiumUser("user-blocked"))
+        assertThatThrownBy(() -> updatePremiumUser("user-blocked"))
                 .isInstanceOf(CallNotPermittedException.class);
 
         // Stub was called only for the window-filling attempts, not the blocked one
@@ -101,9 +130,9 @@ class SubscriptionGrpcClientCircuitBreakerTest {
                 .thenReturn(success)
                 .thenReturn(success);
 
-        try { client.updatePremiumUser("user-1"); } catch (StatusRuntimeException ignored) {}
-        client.updatePremiumUser("user-2");
-        client.updatePremiumUser("user-3");
+        try { updatePremiumUser("user-1"); } catch (StatusRuntimeException ignored) {}
+        updatePremiumUser("user-2");
+        updatePremiumUser("user-3");
 
         assertThat(circuitBreaker.getState()).isEqualTo(CircuitBreaker.State.CLOSED);
     }
@@ -119,7 +148,7 @@ class SubscriptionGrpcClientCircuitBreakerTest {
 
         // Trip circuit open
         for (int i = 0; i < WINDOW_SIZE; i++) {
-            try { client.updatePremiumUser("user-" + i); } catch (StatusRuntimeException ignored) {}
+            try { updatePremiumUser("user-" + i); } catch (StatusRuntimeException ignored) {}
         }
         assertThat(circuitBreaker.getState()).isEqualTo(CircuitBreaker.State.OPEN);
 
@@ -127,7 +156,7 @@ class SubscriptionGrpcClientCircuitBreakerTest {
         Thread.sleep(150);
 
         // The first permitted call in HALF_OPEN state succeeds → circuit CLOSED
-        UpdatePremiumUserResponse response = client.updatePremiumUser("user-recovery");
+        UpdatePremiumUserResponse response = updatePremiumUser("user-recovery");
 
         assertThat(response.getSuccess()).isTrue();
         assertThat(circuitBreaker.getState()).isEqualTo(CircuitBreaker.State.CLOSED);
@@ -140,7 +169,7 @@ class SubscriptionGrpcClientCircuitBreakerTest {
 
         // Trip circuit open
         for (int i = 0; i < WINDOW_SIZE; i++) {
-            try { client.updatePremiumUser("user-" + i); } catch (StatusRuntimeException ignored) {}
+            try { updatePremiumUser("user-" + i); } catch (StatusRuntimeException ignored) {}
         }
         assertThat(circuitBreaker.getState()).isEqualTo(CircuitBreaker.State.OPEN);
 
@@ -148,8 +177,12 @@ class SubscriptionGrpcClientCircuitBreakerTest {
         Thread.sleep(150);
 
         // The permitted call in HALF_OPEN also fails → circuit goes back to OPEN
-        try { client.updatePremiumUser("user-halfopen"); } catch (StatusRuntimeException ignored) {}
+        try { updatePremiumUser("user-halfopen"); } catch (StatusRuntimeException ignored) {}
 
         assertThat(circuitBreaker.getState()).isEqualTo(CircuitBreaker.State.OPEN);
+    }
+
+    private UpdatePremiumUserResponse updatePremiumUser(String userId) {
+        return client.activatePremiumUntil(userId, Instant.parse("2030-02-03T04:05:06Z"));
     }
 }

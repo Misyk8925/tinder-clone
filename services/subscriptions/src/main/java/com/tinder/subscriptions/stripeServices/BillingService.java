@@ -54,11 +54,12 @@ public class BillingService {
         ensureStripeApiKeyConfigured();
         StripeCustomer customer = getOrCreateCustomer(userId);
         String customerId = customer.getStripeCustomerId();
-        SessionCreateParams param = SessionCreateParams.builder()
+        com.stripe.param.billingportal.SessionCreateParams param =
+                com.stripe.param.billingportal.SessionCreateParams.builder()
                 .setCustomer(customerId)
                 .setReturnUrl(returnUrl)
                 .build();
-        return Session.create(param).getUrl();
+        return com.stripe.model.billingportal.Session.create(param).getUrl();
     }
 
     public StripeCustomer getOrCreateCustomer(String userId) {

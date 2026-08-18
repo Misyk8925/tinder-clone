@@ -64,7 +64,8 @@ class SubscriptionGrpcClientConnectionTest {
         field.setAccessible(true);
         field.set(client, stub);
 
-        UpdatePremiumUserResponse response = client.updatePremiumUser("user-123");
+        UpdatePremiumUserResponse response = client.activatePremiumUntil(
+                "user-123", java.time.Instant.parse("2030-02-03T04:05:06Z"));
 
         assertTrue(response.getSuccess());
     }

@@ -7,6 +7,8 @@ import lombok.extern.slf4j.Slf4j;
 import net.devh.boot.grpc.client.inject.GrpcClient;
 import org.springframework.stereotype.Service;
 
+import java.time.Instant;
+
 @Service
 @Slf4j
 public class SubscriptionGrpcClient {
@@ -20,10 +22,23 @@ public class SubscriptionGrpcClient {
         this.circuitBreaker = profilesGrpcCircuitBreaker;
     }
 
-    public UpdatePremiumUserResponse updatePremiumUser(String userId) {
-        UpdatePremiumUserRequest request = UpdatePremiumUserRequest.newBuilder()
+    public UpdatePremiumUserResponse activatePremiumUntil(String userId, Instant premiumUntil) {
+        return execute(UpdatePremiumUserRequest.newBuilder()
                 .setUserId(userId)
-                .build();
+                .setPremiumStatus(PremiumStatus.PREMIUM_STATUS_ACTIVE)
+                .setPremiumUntilEpochSeconds(premiumUntil.getEpochSecond())
+                .build());
+    }
+
+    public UpdatePremiumUserResponse revokePremium(String userId) {
+        return execute(UpdatePremiumUserRequest.newBuilder()
+                .setUserId(userId)
+                .setPremiumStatus(PremiumStatus.PREMIUM_STATUS_INACTIVE)
+                .build());
+    }
+
+    private UpdatePremiumUserResponse execute(UpdatePremiumUserRequest request) {
+        String userId = request.getUserId();
         try {
             return circuitBreaker.executeSupplier(() -> {
                 try {

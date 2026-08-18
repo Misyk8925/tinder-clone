@@ -9,6 +9,15 @@ package subscriptions;
 // Request message for updating premium user
 message UpdatePremiumUserRequest {
   string user_id = 1;
+  PremiumStatus premium_status = 2;
+  int64 premium_until_epoch_seconds = 3;
+}
+
+// UNSPECIFIED preserves compatibility with older clients during rolling deploys.
+enum PremiumStatus {
+  PREMIUM_STATUS_UNSPECIFIED = 0;
+  PREMIUM_STATUS_ACTIVE = 1;
+  PREMIUM_STATUS_INACTIVE = 2;
 }
 
 // Response message after updating premium user

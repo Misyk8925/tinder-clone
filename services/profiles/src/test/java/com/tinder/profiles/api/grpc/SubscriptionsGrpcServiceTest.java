@@ -10,7 +10,9 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import java.time.Instant;
 import java.time.LocalDateTime;
+import java.time.ZoneOffset;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
@@ -35,18 +37,52 @@ class SubscriptionsGrpcServiceTest {
 
     @Test
     void validRequestActivatesPremiumAndReturnsSuccess() {
-        LocalDateTime before = LocalDateTime.now().plusDays(30).minusSeconds(5);
+        Instant paidThrough = Instant.parse("2030-02-03T04:05:06Z");
 
         grpcService.updatePremiumUser(
-                UpdatePremiumUserRequest.newBuilder().setUserId("user-abc").build(),
+                UpdatePremiumUserRequest.newBuilder()
+                        .setUserId("user-abc")
+                        .setPremiumStatus(PremiumStatus.PREMIUM_STATUS_ACTIVE)
+                        .setPremiumUntilEpochSeconds(paidThrough.getEpochSecond())
+                        .build(),
                 responseObserver);
 
-        ArgumentCaptor<LocalDateTime> expiry = ArgumentCaptor.forClass(LocalDateTime.class);
-        verify(premiumMembership).activate(eq("user-abc"), expiry.capture());
-        assertThat(expiry.getValue()).isAfterOrEqualTo(before);
+        verify(premiumMembership).activate(
+                "user-abc", LocalDateTime.ofInstant(paidThrough, ZoneOffset.UTC));
         verify(responseObserver).onNext(
                 org.mockito.ArgumentMatchers.argThat(UpdatePremiumUserResponse::getSuccess));
         verify(responseObserver).onCompleted();
+    }
+
+    @Test
+    void inactiveRequestRevokesPremiumAndReturnsSuccess() {
+        grpcService.updatePremiumUser(
+                UpdatePremiumUserRequest.newBuilder()
+                        .setUserId("user-abc")
+                        .setPremiumStatus(PremiumStatus.PREMIUM_STATUS_INACTIVE)
+                        .build(),
+                responseObserver);
+
+        verify(premiumMembership).revoke("user-abc");
+        verify(responseObserver).onNext(
+                org.mockito.ArgumentMatchers.argThat(UpdatePremiumUserResponse::getSuccess));
+        verify(responseObserver).onCompleted();
+    }
+
+    @Test
+    void activeRequestWithoutExpiryReturnsInvalidArgument() {
+        grpcService.updatePremiumUser(
+                UpdatePremiumUserRequest.newBuilder()
+                        .setUserId("user-abc")
+                        .setPremiumStatus(PremiumStatus.PREMIUM_STATUS_ACTIVE)
+                        .build(),
+                responseObserver);
+
+        ArgumentCaptor<StatusRuntimeException> error = ArgumentCaptor.forClass(StatusRuntimeException.class);
+        verify(responseObserver).onError(error.capture());
+        assertThat(error.getValue().getStatus().getCode())
+                .isEqualTo(io.grpc.Status.INVALID_ARGUMENT.getCode());
+        verifyNoInteractions(premiumMembership);
     }
 
     @Test

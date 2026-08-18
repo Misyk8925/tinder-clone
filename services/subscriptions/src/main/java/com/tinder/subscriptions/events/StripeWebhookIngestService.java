@@ -22,14 +22,14 @@ public class StripeWebhookIngestService {
     @Transactional
     public void ingestEvent(String payload, String signature) throws SignatureVerificationException {
 
-        log.info("Processing event: {}", payload);
         Event event = Webhook.constructEvent(
                 payload,
                 signature,
                 stripeConfig.getWebhookSecret()
         );
 
-        log.info("Event created: {}", event.getCreated());
+        log.info("Verified Stripe event id={}, type={}, created={}",
+                event.getId(), event.getType(), event.getCreated());
 
         if (stripeEventInboxRepository.existsById(event.getId())) {
             return;
@@ -46,7 +46,6 @@ public class StripeWebhookIngestService {
                 .nextRetryAt(Instant.now())
                 .build();
 
-        log.info("Saving event: {}", stripeEventInbox);
         stripeEventInboxRepository.save(stripeEventInbox);
 
     }
