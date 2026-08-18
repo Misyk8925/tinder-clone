@@ -15,9 +15,11 @@ spring:
           keystore:
             location: ${PROFILES_GRPC_KEYSTORE_PATH}
             password: ${PROFILES_GRPC_KEYSTORE_PASSWORD}
+            type: PKCS12
           truststore:
             location: ${PROFILES_GRPC_TRUSTSTORE_PATH}
             password: ${PROFILES_GRPC_TRUSTSTORE_PASSWORD}
+            type: JKS
 
 internal:
   server:

@@ -168,6 +168,14 @@
     </dependencyManagement>
 
 	<build>
+		<testResources>
+			<testResource>
+				<directory>src/test/resources</directory>
+			</testResource>
+			<testResource>
+				<directory>${project.build.directory}/test-mtls</directory>
+			</testResource>
+		</testResources>
 		<plugins>
 			<plugin>
 				<groupId>org.apache.maven.plugins</groupId>
@@ -181,6 +189,27 @@
 						</path>
 					</annotationProcessorPaths>
 				</configuration>
+			</plugin>
+			<plugin>
+				<groupId>org.codehaus.mojo</groupId>
+				<artifactId>exec-maven-plugin</artifactId>
+				<version>3.5.1</version>
+				<executions>
+					<execution>
+						<id>generate-test-mtls-certs</id>
+						<phase>generate-test-resources</phase>
+						<goals>
+							<goal>exec</goal>
+						</goals>
+						<configuration>
+							<executable>bash</executable>
+							<arguments>
+								<argument>${project.basedir}/../../certs/generate-test-certs.sh</argument>
+								<argument>${project.build.directory}/test-mtls</argument>
+							</arguments>
+						</configuration>
+					</execution>
+				</executions>
 			</plugin>
 			<plugin>
 				<groupId>org.springframework.boot</groupId>

@@ -38,8 +38,8 @@ public abstract class AbstractIntegrationTest {
 
     @DynamicPropertySource
     static void overrideProperties(DynamicPropertyRegistry registry) {
-        // Disable Kafka auto-configuration for tests that do not need it
-        registry.add("spring.kafka.bootstrap-servers", () -> "localhost:9999");
+        registry.add("spring.kafka.bootstrap-servers", () -> "127.0.0.1:65535");
+        registry.add("spring.kafka.listener.auto-startup", () -> "false");
     }
 }
 

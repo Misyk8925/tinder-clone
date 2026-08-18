@@ -2,6 +2,21 @@ spring:
   grpc:
     server:
       port: 0
+      ssl:
+        bundle: grpc-server-tls
+        client-auth: REQUIRE
+  ssl:
+    bundle:
+      jks:
+        grpc-server-tls:
+          keystore:
+            location: classpath:profiles-service.p12
+            password: changeit
+            type: PKCS12
+          truststore:
+            location: classpath:truststore.jks
+            password: changeit
+            type: JKS
   main:
     allow-bean-definition-overriding: true
   cloud:
@@ -67,11 +82,9 @@ server:
     # Prefix lives in @RequestMapping("/api/v1/profiles") since the refactor
     context-path: /
 
-# Disable the second mTLS Tomcat connector in tests.
-# Step 9 of ComprehensiveIntegrationTest probes port 8011 via isPortOpen()
-# and skips live-TLS assertions when it is not reachable.
-# To run live mTLS tests: start the full stack with docker-compose and set
-# internal.server.ssl.enabled=true via env var or a separate test profile.
+# Extra Tomcat mTLS connector stays off in unit/IT so parallel Spring contexts
+# do not bind 8011. Live TLS tests skip when that port is closed.
+# gRPC mTLS uses keystores from certs/generate-test-certs.sh.
 internal:
   server:
     port: 8011

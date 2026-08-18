@@ -13,9 +13,11 @@ spring:
           keystore:
             location: classpath:profiles-service.p12
             password: changeit
+            type: PKCS12
           truststore:
             location: classpath:truststore.jks
             password: changeit
+            type: JKS
 
 internal:
   server:

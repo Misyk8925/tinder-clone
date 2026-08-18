@@ -1,4 +1,16 @@
 # Test profile — real values are injected via @DynamicPropertySource from Testcontainers
+# Internal Tomcat mTLS uses keystores generated in generate-test-resources.
+internal:
+  server:
+    ssl:
+      enabled: true
+      key-store: classpath:consumer-service.p12
+      key-store-password: changeit
+      key-store-type: PKCS12
+      trust-store: classpath:truststore.jks
+      trust-store-password: changeit
+      trust-store-type: JKS
+
 spring:
   jpa:
     hibernate:

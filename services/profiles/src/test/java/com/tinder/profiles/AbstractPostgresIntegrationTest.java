@@ -55,6 +55,9 @@ public abstract class AbstractPostgresIntegrationTest {
         registry.add("spring.data.redis.port", redisContainer::getFirstMappedPort);
         registry.add("eureka.client.enabled", () -> "false");
         registry.add("spring.cloud.discovery.enabled", () -> "false");
+        // Extra Tomcat connector stays off so parallel Spring contexts do not bind 8011.
+        // gRPC mTLS uses keystores generated in generate-test-resources.
+        registry.add("internal.server.ssl.enabled", () -> "false");
     }
 
     @Autowired(required = false)

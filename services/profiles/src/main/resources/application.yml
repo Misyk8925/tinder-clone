@@ -38,9 +38,7 @@ spring:
       servlet:
         enabled: false   # run gRPC on its own Netty port, not embedded in Servlet
       ssl:
-        # Wire the SSL bundle defined below — spring-grpc creates TlsServerCredentials from it
         bundle: grpc-server-tls
-        # REQUIRE means every gRPC client must present a valid certificate (mTLS)
         client-auth: REQUIRE
   ssl:
     bundle:
