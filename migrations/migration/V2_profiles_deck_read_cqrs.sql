@@ -41,3 +41,11 @@ BEGIN
     END IF;
 END
 $$;
+
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'profiles_app') THEN
+        ALTER TABLE IF EXISTS deck_card_projection_backfill_run OWNER TO profiles_app;
+    END IF;
+END
+$$;

@@ -138,7 +138,7 @@ assert(dev_redis.fetch("command").include?("noeviction"), "development Redis mus
 
 migration = compose.dig("services", "profiles-migrations")
 assert(migration, "existing Profiles volumes have no one-shot migration service")
-assert(migration.fetch("entrypoint").include?("--file=/migrations/V2_profiles_deck_read_cqrs.sql"), "Profiles migration service does not execute V2")
+assert(migration.fetch("entrypoint").include?("/migrations/V2_profiles_deck_read_cqrs.sql"), "Profiles migration service does not execute V2")
 assert(compose.dig("services", "profiles", "depends_on", "profiles-migrations", "condition") == "service_completed_successfully", "Profiles must wait for the V2 migration")
 assert(compose.dig("services", "profiles", "environment", "SPRING_JPA_HIBERNATE_DDL_AUTO") == "validate", "Compose Profiles must validate rather than mutate schema")
 deck_read_api = compose.dig("services", "deck-read-api")

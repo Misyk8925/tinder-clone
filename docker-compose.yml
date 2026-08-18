@@ -55,7 +55,7 @@ services:
     shm_size: 1g
     cpus: "4.00"
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres}"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} && psql -U ${POSTGRES_USER:-postgres} -d profiles_db -c 'SELECT 1' >/dev/null"]
       interval: 10s
       timeout: 5s
       start_period: 30s
@@ -76,15 +76,12 @@ services:
       PGHOST: postgres
       PGPORT: 5432
       PGDATABASE: profiles_db
-      PGUSER: ${PROFILES_DB_USER:?PROFILES_DB_USER is required}
-      PGPASSWORD: ${PROFILES_DB_PASSWORD:?PROFILES_DB_PASSWORD is required}
+      PGUSER: ${POSTGRES_USER:-postgres}
+      PGPASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
     volumes:
       - ./migrations/migration:/migrations:ro
-    entrypoint:
-      - psql
-      - -v
-      - ON_ERROR_STOP=1
-      - --file=/migrations/V2_profiles_deck_read_cqrs.sql
+      - ./docker/postgres/run-sql-migration.sh:/run-sql-migration.sh:ro
+    entrypoint: ["/bin/sh", "/run-sql-migration.sh", "/migrations/V2_profiles_deck_read_cqrs.sql"]
     networks:
       - app
 
@@ -106,11 +103,8 @@ services:
       PGPASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
     volumes:
       - ./migrations/migration:/migrations:ro
-    entrypoint:
-      - psql
-      - -v
-      - ON_ERROR_STOP=1
-      - --file=/migrations/V2_swipes_identity_index.sql
+      - ./docker/postgres/run-sql-migration.sh:/run-sql-migration.sh:ro
+    entrypoint: ["/bin/sh", "/run-sql-migration.sh", "/migrations/V2_swipes_identity_index.sql"]
     networks:
       - app
 
