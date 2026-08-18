@@ -12,6 +12,7 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.kafka.config.KafkaListenerEndpointRegistry;
 
 import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -52,7 +53,7 @@ class ProfileEventServiceIntegrationTest extends AbstractIntegrationTest {
         Optional<ProfileCacheModel> saved = profileCacheRepository.findById(profileId);
         assertThat(saved).isPresent();
         assertThat(saved.get().getProfileId()).isEqualTo(profileId);
-        assertThat(saved.get().getCreatedAt()).isEqualTo(timestamp);
+        assertThat(saved.get().getCreatedAt()).isEqualTo(timestamp.truncatedTo(ChronoUnit.MICROS));
     }
 
     @Test

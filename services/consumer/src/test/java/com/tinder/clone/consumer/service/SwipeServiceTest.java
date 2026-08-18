@@ -4,11 +4,14 @@ import com.tinder.clone.consumer.kafka.event.MatchCreateEvent;
 import com.tinder.clone.consumer.kafka.event.SwipeCreatedEvent;
 import com.tinder.clone.consumer.model.embedded.SwipeRecordId;
 import com.tinder.clone.consumer.outbox.MatchOutboxService;
+import com.tinder.clone.consumer.outbox.SwipeOutboxService;
+import com.tinder.clone.consumer.repository.PendingLikeRepository;
 import com.tinder.clone.consumer.repository.SwipeRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
+import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.redis.core.RedisTemplate;
@@ -47,6 +50,13 @@ class SwipeServiceTest {
     @Mock
     private MatchOutboxService matchOutboxService;
 
+    @Mock
+    private SwipeOutboxService swipeOutboxService;
+
+    @Mock
+    private PendingLikeRepository pendingLikeRepo;
+
+    @InjectMocks
     private SwipeService swipeService;
 
     @BeforeEach
