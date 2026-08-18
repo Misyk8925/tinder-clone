@@ -1,0 +1,281 @@
+# Required status check for the main ruleset: ci-gate
+# Do not require path-filtered or matrix job names (profiles, client, …).
+
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+permissions:
+  contents: read
+
+env:
+  JAVA_TOOL_OPTIONS: -XX:MaxRAMPercentage=50.0
+
+jobs:
+  detect:
+    name: detect
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      ci: ${{ steps.filter.outputs.ci }}
+      contracts: ${{ steps.filter.outputs.contracts }}
+      platform: ${{ steps.filter.outputs.platform }}
+      deck-read: ${{ steps.filter.outputs.deck-read }}
+      location-go: ${{ steps.filter.outputs.location-go }}
+      swipes-go: ${{ steps.filter.outputs.swipes-go }}
+      client: ${{ steps.filter.outputs.client }}
+      java-matrix: ${{ steps.matrix.outputs.java }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: dorny/paths-filter@d1c1ffe0248fe513906c8e24db8ea791d46f8590 # v3.0.3
+        id: filter
+        with:
+          filters: |
+            ci:
+              - '.github/workflows/ci.yml'
+              - '.github/actions/**'
+            contracts:
+              - 'services/tinder-contracts/**'
+            platform:
+              - 'platform/**'
+              - 'docker-compose.yml'
+              - 'scripts/generate-platform-dsl.rb'
+            profiles:
+              - 'services/profiles/**'
+              - 'services/tinder-contracts/**'
+            deck:
+              - 'services/deck/**'
+              - 'services/tinder-contracts/**'
+            deck-read:
+              - 'services/deck-read/**'
+              - 'services/tinder-contracts/**'
+            consumer:
+              - 'services/consumer/**'
+            match:
+              - 'services/match/**'
+            gateway:
+              - 'services/gateway/**'
+            subscriptions:
+              - 'services/subscriptions/**'
+            swipes-demo:
+              - 'services/swipes-demo/**'
+            config-server2:
+              - 'services/config-server2/**'
+            discovery:
+              - 'services/discovery/**'
+            location-go:
+              - 'services/location-go/**'
+            swipes-go:
+              - 'services/swipes-go/**'
+            client:
+              - 'clients/tinder-client/**'
+      - id: matrix
+        env:
+          ALL: ${{ github.event_name == 'workflow_dispatch' || steps.filter.outputs.ci == 'true' }}
+          PROFILES: ${{ steps.filter.outputs.profiles }}
+          DECK: ${{ steps.filter.outputs.deck }}
+          CONSUMER: ${{ steps.filter.outputs.consumer }}
+          MATCH: ${{ steps.filter.outputs.match }}
+          GATEWAY: ${{ steps.filter.outputs.gateway }}
+          SUBSCRIPTIONS: ${{ steps.filter.outputs.subscriptions }}
+          SWIPES_DEMO: ${{ steps.filter.outputs.swipes-demo }}
+          CONFIG_SERVER2: ${{ steps.filter.outputs.config-server2 }}
+          DISCOVERY: ${{ steps.filter.outputs.discovery }}
+        run: |
+          python3 - <<'PY'
+          import json, os
+          all_run = os.environ["ALL"] == "true"
+          specs = [
+            ("PROFILES", {"service": "profiles", "wrapper": True, "contracts": True}),
+            ("DECK", {"service": "deck", "wrapper": True, "contracts": True}),
+            ("CONSUMER", {"service": "consumer", "wrapper": True, "contracts": False}),
+            ("MATCH", {"service": "match", "wrapper": True, "contracts": False}),
+            ("GATEWAY", {"service": "gateway", "wrapper": True, "contracts": False}),
+            ("SUBSCRIPTIONS", {"service": "subscriptions", "wrapper": True, "contracts": False}),
+            ("SWIPES_DEMO", {"service": "swipes-demo", "wrapper": True, "contracts": False}),
+            ("CONFIG_SERVER2", {"service": "config-server2", "wrapper": True, "contracts": False}),
+            ("DISCOVERY", {"service": "discovery", "wrapper": True, "contracts": False}),
+          ]
+          java = [spec for env_name, spec in specs if all_run or os.environ.get(env_name) == "true"]
+          with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as fh:
+              fh.write("java<<EOF\n")
+              fh.write(json.dumps(java))
+              fh.write("\nEOF\n")
+          PY
+
+  contracts:
+    name: contracts
+    needs: detect
+    if: github.event_name == 'workflow_dispatch' || needs.detect.outputs.ci == 'true' || needs.detect.outputs.contracts == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v5
+      - uses: ./.github/actions/setup-java-maven
+      - name: Test tinder-contracts
+        run: mvn -B -ntp -f services/tinder-contracts/pom.xml test
+
+  platform:
+    name: platform
+    needs: detect
+    if: github.event_name == 'workflow_dispatch' || needs.detect.outputs.ci == 'true' || needs.detect.outputs.platform == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v5
+      - uses: ./.github/actions/setup-java-maven
+      - name: Test platform policy DSLs
+        run: mvn -B -ntp -f platform/pom.xml test
+      - name: Export catalogs and generate missing DSL stubs
+        run: |
+          mkdir -p platform/generated
+          mvn -B -ntp -f platform/kafka-policy-dsl/pom.xml exec:java \
+            -Dexec.cleanupDaemonThreads=false \
+            -Dexec.args="$PWD/platform/generated/kafka-catalog.json"
+          mvn -B -ntp -f platform/redis-policy-dsl/pom.xml exec:java \
+            -Dexec.cleanupDaemonThreads=false \
+            -Dexec.args="$PWD/platform/generated/redis-catalog.json"
+          ruby scripts/generate-platform-dsl.rb
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: platform-dsl-catalogs
+          path: platform/generated/
+          if-no-files-found: ignore
+
+  java:
+    name: ${{ matrix.service }}
+    needs: detect
+    if: needs.detect.outputs.java-matrix != '[]'
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix:
+        include: ${{ fromJSON(needs.detect.outputs.java-matrix) }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: ./.github/actions/setup-java-maven
+        with:
+          install-contracts: ${{ matrix.contracts }}
+      - name: Test ${{ matrix.service }}
+        working-directory: services/${{ matrix.service }}
+        run: |
+          if [ "${{ matrix.wrapper }}" = "true" ]; then
+            chmod +x mvnw
+            ./mvnw -B -ntp test
+          else
+            mvn -B -ntp test
+          fi
+
+  deck-read:
+    name: deck-read
+    needs: detect
+    if: github.event_name == 'workflow_dispatch' || needs.detect.outputs.ci == 'true' || needs.detect.outputs.deck-read == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v5
+      - uses: ./.github/actions/setup-java-maven
+        with:
+          install-contracts: "true"
+      - name: Test deck-read
+        working-directory: services/deck-read
+        # Surefire only. DeckReadTwoReplicaIT is disabled when CI=true (7 GB runners).
+        run: mvn -B -ntp test
+
+  location-go:
+    name: location-go
+    needs: detect
+    if: github.event_name == 'workflow_dispatch' || needs.detect.outputs.ci == 'true' || needs.detect.outputs.location-go == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: services/location-go/go.mod
+          cache-dependency-path: services/location-go/go.sum
+      - name: Test location-go
+        working-directory: services/location-go
+        run: go test ./...
+
+  swipes-go:
+    name: swipes-go
+    needs: detect
+    if: github.event_name == 'workflow_dispatch' || needs.detect.outputs.ci == 'true' || needs.detect.outputs.swipes-go == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: services/swipes-go/go.mod
+          cache-dependency-path: services/swipes-go/go.sum
+      - name: Test swipes-go
+        working-directory: services/swipes-go
+        run: go test ./...
+
+  client:
+    name: client
+    needs: detect
+    if: github.event_name == 'workflow_dispatch' || needs.detect.outputs.ci == 'true' || needs.detect.outputs.client == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: clients/tinder-client
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: clients/tinder-client/package-lock.json
+      - run: npm ci
+      - run: npm test
+      - run: npm run build
+
+  ci-gate:
+    name: ci-gate
+    needs:
+      - detect
+      - contracts
+      - platform
+      - java
+      - deck-read
+      - location-go
+      - swipes-go
+      - client
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - name: Require no failed or cancelled jobs
+        env:
+          RESULTS: ${{ toJSON(needs) }}
+        run: |
+          python3 - <<'PY'
+          import json, os, sys
+          needs = json.loads(os.environ["RESULTS"])
+          failed = [
+              f"{name}={data.get('result')}"
+              for name, data in needs.items()
+              if data.get("result") in ("failure", "cancelled")
+          ]
+          detect = needs.get("detect", {}).get("result")
+          if detect != "success":
+              failed.append(f"detect={detect}")
+          if failed:
+              print("CI gate failed:", ", ".join(dict.fromkeys(failed)))
+              sys.exit(1)
+          print("CI gate passed")
+          PY
