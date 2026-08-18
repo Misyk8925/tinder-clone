@@ -12,8 +12,8 @@
 # when their scans are skipped.
 #
 # CodeQL and dependency-review need GitHub Code Security on private repos.
-# Trivy/Docker actions stay on version tags: SHA pins prevented this workflow
-# from registering any jobs on GitHub (parse/load failure, 0s).
+# Trivy tags must use the v prefix (v0.36.0). Bare 0.36.0 was deleted after the
+# 2026 supply-chain incident and GitHub cannot resolve it.
 
 name: Security
 
@@ -127,9 +127,7 @@ jobs:
 
   dependency-review:
     name: dependency-review
-    if: >-
-      github.event_name == 'pull_request'
-      && (!github.event.repository.private || vars.ENABLE_GHAS == 'true')
+    if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:
@@ -137,7 +135,22 @@ jobs:
       pull-requests: write
     steps:
       - uses: actions/checkout@v5
-      - uses: actions/dependency-review-action@v4
+      - id: graph
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          base='${{ github.event.pull_request.base.sha }}'
+          head='${{ github.sha }}'
+          url="repos/${{ github.repository }}/dependency-graph/compare/${base}...${head}"
+          if gh api "$url" >/dev/null 2>err.log; then
+            echo "available=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "available=false" >> "$GITHUB_OUTPUT"
+            echo "Dependency graph compare is unavailable; skipping review."
+            cat err.log
+          fi
+      - if: steps.graph.outputs.available == 'true'
+        uses: actions/dependency-review-action@v4
         with:
           fail-on-severity: high
           comment-summary-in-pr: on-failure
@@ -160,7 +173,12 @@ jobs:
   codeql:
     name: codeql-${{ matrix.language }}
     needs: detect
-    if: "${{ !github.event.repository.private || vars.ENABLE_GHAS == 'true' }}"
+    if: >-
+      ${{ (!github.event.repository.private || vars.ENABLE_GHAS == 'true')
+          && (github.event_name != 'pull_request'
+              || (matrix.language == 'java-kotlin' && needs.detect.outputs.java == 'true')
+              || (matrix.language == 'javascript-typescript' && needs.detect.outputs.js == 'true')
+              || (matrix.language == 'go' && needs.detect.outputs.go == 'true')) }}
     runs-on: ubuntu-latest
     timeout-minutes: 45
     permissions:
@@ -176,7 +194,7 @@ jobs:
           - language: javascript-typescript
             build-mode: none
           - language: go
-            build-mode: none
+            build-mode: autobuild
     steps:
       - uses: actions/checkout@v5
       - uses: github/codeql-action/init@v4
@@ -213,7 +231,7 @@ jobs:
     steps:
       - uses: actions/checkout@v5
       - name: Filesystem, secrets, and IaC
-        uses: aquasecurity/trivy-action@0.36.0
+        uses: aquasecurity/trivy-action@v0.36.0
         with:
           scan-type: fs
           scan-ref: .
@@ -260,7 +278,7 @@ jobs:
           cache-from: type=gha,scope=trivy-${{ matrix.service }}
           cache-to: type=gha,mode=max,scope=trivy-${{ matrix.service }}
       - name: Scan image
-        uses: aquasecurity/trivy-action@0.36.0
+        uses: aquasecurity/trivy-action@v0.36.0
         with:
           input: /tmp/${{ matrix.service }}.tar
           severity: CRITICAL,HIGH
