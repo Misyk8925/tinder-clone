@@ -1,0 +1,6 @@
+asyncapi: 2.6.0
+info:
+  title: bio-max-length events
+  version: 0.1.0
+  description: Sample has no event. Replace with one channel when P2.2 is Done.
+channels: {}

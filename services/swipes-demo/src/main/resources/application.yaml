@@ -39,13 +39,17 @@ spring:
   kafka:
     bootstrap-servers: localhost:9092
     producer:
-      acks: 1
+      acks: all
       batch-size: 131072        # 128kb
       linger-ms: 20
 
       buffer-memory: 67108864  # 64MB
       key-serializer: org.apache.kafka.common.serialization.StringSerializer
       value-serializer: org.apache.kafka.common.serialization.StringSerializer
+      properties:
+        enable.idempotence: true
+        max.in.flight.requests.per.connection: 5
+        delivery.timeout.ms: 30000
 
 server:
   port: 8040
@@ -64,6 +68,10 @@ swipes:
     batch-size: ${SWIPES_PRODUCER_BATCH_SIZE:500}
     buffer-timeout: ${SWIPES_PRODUCER_BUFFER_TIMEOUT:1ms}
     warmup-enabled: ${SWIPES_PRODUCER_WARMUP_ENABLED:true}
+  kafka:
+    error-handler:
+      max-retries: 5
+      backoff-ms: 1000
 
 kafka:
   topics:

@@ -2,10 +2,9 @@ package com.tinder.profiles;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.tinder.profiles.profile.Profile;
-import com.tinder.profiles.profile.ProfileRepository;
+import com.tinder.profiles.infrastructure.persistence.profile.ProfileJpaEntity;
+import com.tinder.profiles.infrastructure.persistence.profile.ProfileRepository;
 
-import com.tinder.profiles.util.KeycloakTestHelper;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -14,13 +13,10 @@ import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMock
 import org.springframework.cache.CacheManager;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.ActiveProfiles;
+import org.springframework.context.annotation.Import;
 import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
-import org.testcontainers.containers.GenericContainer;
-import org.testcontainers.junit.jupiter.Container;
-import org.testcontainers.junit.jupiter.Testcontainers;
-import org.testcontainers.utility.DockerImageName;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.redis.core.StringRedisTemplate;
@@ -28,19 +24,16 @@ import org.springframework.data.redis.core.StringRedisTemplate;
 import java.util.Objects;
 import java.util.UUID;
 
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultHandlers.print;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
-@Testcontainers
 @AutoConfigureMockMvc
 @ActiveProfiles("test")
-class RedisTests {
-
-    @Container
-    static GenericContainer<?> redis = new GenericContainer<>(DockerImageName.parse("redis:8.2.1-alpine"))
-            .withExposedPorts(6379);
+@Import(TestJwtSecurityConfig.class)
+class RedisTests extends AbstractPostgresIntegrationTest {
 
 
     private final String createProfileBody = """
@@ -71,8 +64,6 @@ class RedisTests {
                         "maxRange": 4
                     }
                 }""";
-
-    KeycloakTestHelper keycloakTestHelper = new KeycloakTestHelper();
 
 
 
@@ -105,7 +96,7 @@ class RedisTests {
 
         MvcResult result = mockMvc.perform(post("/api/v1/profiles")
                         .content(createProfileBody)
-                        .header("Authorization", keycloakTestHelper.createAuthorizationHeader("kovalmisha2000@gmail.com", "koval"))
+                        .header("Authorization", TestJwtSecurityConfig.bearer("kovalmisha2000@gmail.com"))
 
                         .contentType(MediaType.APPLICATION_JSON))
 
@@ -121,13 +112,19 @@ class RedisTests {
         Assertions.assertNotNull(profileId);
         Assertions.assertTrue(repo.findById(profileId).isPresent());
 
+        // The write path evicts rather than populates (CQRS Stage 2); the entity
+        // cache fills on the first read, so perform a read before asserting.
+        mockMvc.perform(get("/api/v1/profiles/{id}", profileId)
+                        .header("Authorization", TestJwtSecurityConfig.bearer("kovalmisha2000@gmail.com")))
+                .andExpect(status().isOk());
+
         // check cache
         Assertions.assertTrue(cacheManager.getCacheNames().contains("PROFILE_ENTITY_CACHE"));
         Assertions.assertTrue(Objects.requireNonNull(cacheManager.getCache("PROFILE_ENTITY_CACHE")).get(profileId) != null);
 
         Object cached = Objects.requireNonNull(Objects.requireNonNull(cacheManager.getCache("PROFILE_ENTITY_CACHE")).get(profileId)).get();
 
-        Assertions.assertTrue(cached instanceof Profile profile1);
+        Assertions.assertTrue(cached instanceof ProfileJpaEntity profile1);
     }
 
 

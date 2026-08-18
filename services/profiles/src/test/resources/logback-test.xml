@@ -8,8 +8,8 @@
     </appender>
 
     <!-- Suppress expected error logs produced by tests that deliberately trigger failure paths -->
-    <logger name="com.tinder.profiles.grpc.SubscriptionsGrpcService"     level="OFF" />
-    <logger name="com.tinder.profiles.grpc.PremiumExpirationScheduler"    level="OFF" />
+    <logger name="com.tinder.profiles.api.grpc.SubscriptionsGrpcService"     level="OFF" />
+    <logger name="com.tinder.profiles.api.scheduling.PremiumExpirationScheduler"    level="OFF" />
     <logger name="com.tinder.profiles.profile.DeletedProfileCleanupScheduler" level="OFF" />
 
     <!-- Keep general application logs at WARN to avoid test noise -->

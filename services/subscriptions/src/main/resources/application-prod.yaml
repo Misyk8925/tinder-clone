@@ -5,8 +5,6 @@ spring:
   jpa:
     hibernate:
       ddl-auto: validate
-  kafka:
-    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS}
   datasource:
     url: ${SUBSCRIPTIONS_DB_URL}
     username: ${SUBSCRIPTIONS_DB_USER}
@@ -14,3 +12,8 @@ spring:
 
 profiles:
   base-url: ${PROFILES_BASE_URL}
+
+stripe:
+  success-url: ${STRIPE_SUCCESS_URL}
+  cancel-url: ${STRIPE_CANCEL_URL}
+  return-url: ${STRIPE_RETURN_URL}

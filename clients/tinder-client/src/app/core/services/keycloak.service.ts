@@ -15,6 +15,7 @@ export class KeycloakService {
   }
 
   async init(): Promise<boolean> {
+    if (environment.designPreview) return true;
     const authenticated = await this.keycloak.init({
       onLoad: 'check-sso',
       silentCheckSsoRedirectUri: window.location.origin + '/silent-check-sso.html',
@@ -25,14 +26,17 @@ export class KeycloakService {
   }
 
   login(): void {
+    if (environment.designPreview) return;
     this.keycloak.login();
   }
 
   logout(): void {
+    if (environment.designPreview) return;
     this.keycloak.logout({ redirectUri: window.location.origin });
   }
 
   async getToken(): Promise<string | undefined> {
+    if (environment.designPreview) return undefined;
     if (this.keycloak.isTokenExpired(30)) {
       await this.keycloak.updateToken(30);
     }
@@ -40,6 +44,7 @@ export class KeycloakService {
   }
 
   isAuthenticated(): boolean {
+    if (environment.designPreview) return true;
     return !!this.keycloak.authenticated;
   }
 

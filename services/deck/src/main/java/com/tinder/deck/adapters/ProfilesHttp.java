@@ -55,10 +55,6 @@ public class ProfilesHttp {
                     if (st == SignalType.CANCEL) {
                         log.debug("Profiles search cancelled for viewer {}", viewerId);
                     }
-                })
-                .onErrorResume(throwable -> {
-                    log.warn("Profiles search failed (viewerId={}) -> empty result. Cause: {}", viewerId, throwable.toString());
-                    return Flux.empty();
                 });
     }
 
@@ -118,23 +114,5 @@ public class ProfilesHttp {
 
         return resilience.protectProfiles(call)
                 .doOnError(throwable -> log.warn("Profiles getProfilesByIds failed (size={}). Cause: {}", profileIds.size(), throwable.toString()));
-    }
-
-    public Mono<Boolean> prebuildDeckPage(UUID viewerId, int offset, int limit) {
-        Mono<Boolean> call = profilesWebClient.post()
-                .uri(uri -> uri.path("/deck-page/prebuild")
-                        .queryParam("viewerId", viewerId)
-                        .queryParam("offset", offset)
-                        .queryParam("limit", limit)
-                        .build())
-                .retrieve()
-                .bodyToMono(Boolean.class);
-
-        return resilience.protectProfiles(call)
-                .onErrorResume(throwable -> {
-                    log.debug("Profiles prebuildDeckPage failed for viewer {}. Cause: {}",
-                            viewerId, throwable.toString());
-                    return Mono.just(false);
-                });
     }
 }

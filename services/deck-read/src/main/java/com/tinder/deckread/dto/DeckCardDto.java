@@ -6,14 +6,8 @@ import java.util.List;
 import java.util.UUID;
 
 /**
- * Lean swipe-card projection returned by {@code GET /api/v1/deck}.
- *
- * <p>Contains only the fields the discover/swipe UI actually renders (verified against the Angular
- * client's {@code swipe-card} and {@code discover} components): identity, name, age, city, bio,
- * ordered photo URLs, and hobbies. Internal/unused fields carried by the full profile
- * (gender, isActive, isDeleted, preferences, location, and per-photo s3Key/contentType/size/
- * createdAt/ids) are dropped — cutting response serialization, wire bytes to clients, and the
- * cache footprint.
+ * Deck Read-owned client projection. It is materialized from Kafka and never
+ * hydrated synchronously from Profiles.
  */
 public record DeckCardDto(
         UUID profileId,
@@ -21,9 +15,17 @@ public record DeckCardDto(
         Integer age,
         String city,
         String bio,
+        boolean isActive,
+        Preferences preferences,
         List<Photo> photos,
         List<Hobby> hobbies
 ) {
-    /** Minimal photo: just what the carousel needs (URL + display order). */
-    public record Photo(String url, int position, boolean isPrimary) {}
+    public DeckCardDto {
+        photos = photos == null ? List.of() : List.copyOf(photos);
+        hobbies = hobbies == null ? List.of() : List.copyOf(hobbies);
+    }
+
+    public record Preferences(Integer minAge, Integer maxAge, String gender, Integer maxDistanceKm) {}
+
+    public record Photo(UUID photoId, String url, int order) {}
 }

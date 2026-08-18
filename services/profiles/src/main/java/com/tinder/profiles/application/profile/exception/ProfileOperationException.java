@@ -1,0 +1,23 @@
+package com.tinder.profiles.application.profile.exception;
+
+/**
+ * Thrown when a profile operation fails due to business rules.
+ * For example: trying to delete an already deleted profile,
+ * trying to activate a deleted profile, etc.
+ */
+public class ProfileOperationException extends ProfileException {
+
+    public ProfileOperationException(String message) {
+        super(
+            message,
+            "PROFILE_OPERATION_ERROR"
+        );
+    }
+
+    public ProfileOperationException(String operation, String reason) {
+        super(
+            "Cannot perform operation '%s': %s".formatted(operation, reason),
+            "PROFILE_OPERATION_ERROR"
+        );
+    }
+}

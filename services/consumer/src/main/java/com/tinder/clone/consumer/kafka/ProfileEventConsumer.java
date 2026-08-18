@@ -39,6 +39,7 @@ public class ProfileEventConsumer {
             log.info("Acknowledged ProfileCreatedEvent: {}", event.getEventId());
         } catch (Exception e) {
             log.error("Error processing ProfileCreatedEvent: {}", event, e);
+            throw e;
         }
     }
 
@@ -63,7 +64,7 @@ public class ProfileEventConsumer {
         } catch (Exception e) {
             log.error("Error processing ProfileDeleteEvent: eventId={}, profileId={}",
                     event.getEventId(), event.getProfileId(), e);
-            acknowledgment.acknowledge();
+            throw e;
         }
     }
 }

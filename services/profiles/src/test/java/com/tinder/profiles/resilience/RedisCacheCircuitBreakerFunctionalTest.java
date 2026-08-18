@@ -1,6 +1,7 @@
-package com.tinder.profiles.resilience;
+package com.tinder.profiles.config.resilience;
 
-import com.tinder.profiles.redis.ResilientCacheManager;
+import com.tinder.profiles.AbstractPostgresIntegrationTest;
+import com.tinder.profiles.infrastructure.cache.ResilientCacheManager;
 import io.github.resilience4j.circuitbreaker.CircuitBreaker;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -18,7 +19,7 @@ import static org.assertj.core.api.Assertions.assertThat;
  */
 @SpringBootTest
 @ActiveProfiles("test")
-class RedisCacheCircuitBreakerFunctionalTest {
+class RedisCacheCircuitBreakerFunctionalTest extends AbstractPostgresIntegrationTest {
 
     @Autowired
     private ResilientCacheManager resilientCacheManager;

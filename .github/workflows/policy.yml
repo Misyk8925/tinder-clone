@@ -1,0 +1,37 @@
+# Required status checks for the main ruleset:
+#   redis-policy
+#   deck-read-contracts
+
+name: Policy
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: policy-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  redis-policy:
+    name: redis-policy
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v5
+      - name: Validate Redis Compose policy
+        run: ruby scripts/validate-redis-config.rb
+
+  deck-read-contracts:
+    name: deck-read-contracts
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v5
+      - name: Validate Deck-Read contracts
+        run: ruby scripts/validate-deck-read-contracts.rb

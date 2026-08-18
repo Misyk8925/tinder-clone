@@ -1,17 +1,25 @@
 package com.example.swipes_demo.profileCache.kafka;
 
 import com.example.swipes_demo.profileCache.ProfileDeleteEvent;
+import org.apache.kafka.clients.admin.NewTopic;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
+import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.common.serialization.StringDeserializer;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.kafka.config.ConcurrentKafkaListenerContainerFactory;
+import org.springframework.kafka.config.TopicBuilder;
 import org.springframework.kafka.core.ConsumerFactory;
 import org.springframework.kafka.core.DefaultKafkaConsumerFactory;
+import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.kafka.listener.ContainerProperties;
+import org.springframework.kafka.listener.DeadLetterPublishingRecoverer;
+import org.springframework.kafka.listener.DefaultErrorHandler;
 import org.springframework.kafka.support.serializer.ErrorHandlingDeserializer;
 import org.springframework.kafka.support.serializer.JacksonJsonDeserializer;
+import org.springframework.util.backoff.FixedBackOff;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -23,6 +31,42 @@ public class KafkaConsumerConfig {
     private String bootstrapServers;
 
     private String groupId = "swipes-service";
+
+    @Value("${swipes.kafka.error-handler.max-retries:5}")
+    private long maxRetries;
+
+    @Value("${swipes.kafka.error-handler.backoff-ms:1000}")
+    private long retryBackoffMs;
+
+    @Value("${kafka.topics.profile-created}")
+    private String profileCreatedTopic;
+
+    @Value("${kafka.topics.profile-deleted}")
+    private String profileDeletedTopic;
+
+    @Bean
+    public NewTopic profileCreatedDeadLetterTopic() {
+        return deadLetterTopic(profileCreatedTopic + ".dlt");
+    }
+
+    @Bean
+    public NewTopic profileDeletedDeadLetterTopic() {
+        return deadLetterTopic(profileDeletedTopic + ".dlt");
+    }
+
+    @Bean
+    public DefaultErrorHandler profileKafkaErrorHandler(
+            @Qualifier("profileDeadLetterKafkaTemplate") KafkaTemplate<Object, Object> kafkaTemplate) {
+        DeadLetterPublishingRecoverer recoverer = new DeadLetterPublishingRecoverer(
+                kafkaTemplate,
+                (record, exception) -> new TopicPartition(record.topic() + ".dlt", -1)
+        );
+        recoverer.setFailIfSendResultIsError(true);
+        return new DefaultErrorHandler(
+                recoverer,
+                new FixedBackOff(Math.max(0, retryBackoffMs), Math.max(0, maxRetries))
+        );
+    }
 
     /**
      * Consumer factory for ProfileCreateEvent deserialization
@@ -54,12 +98,14 @@ public class KafkaConsumerConfig {
 
     @Bean
     public ConcurrentKafkaListenerContainerFactory<String, ProfileCreateEvent> profileCreateEventKafkaListenerContainerFactory(
-            ConsumerFactory<String, ProfileCreateEvent> profileCreateEventConsumerFactory
+            ConsumerFactory<String, ProfileCreateEvent> profileCreateEventConsumerFactory,
+            DefaultErrorHandler profileKafkaErrorHandler
     ) {
         ConcurrentKafkaListenerContainerFactory<String, ProfileCreateEvent> factory =
                 new ConcurrentKafkaListenerContainerFactory<>();
         factory.setConsumerFactory(profileCreateEventConsumerFactory);
-        factory.getContainerProperties().setAckMode(ContainerProperties.AckMode.BATCH);
+        factory.getContainerProperties().setAckMode(ContainerProperties.AckMode.RECORD);
+        factory.setCommonErrorHandler(profileKafkaErrorHandler);
         return factory;
     }
 
@@ -93,12 +139,23 @@ public class KafkaConsumerConfig {
 
     @Bean
     public ConcurrentKafkaListenerContainerFactory<String, ProfileDeleteEvent> profileDeleteEventKafkaListenerContainerFactory(
-            ConsumerFactory<String, ProfileDeleteEvent> profileDeleteEventConsumerFactory
+            ConsumerFactory<String, ProfileDeleteEvent> profileDeleteEventConsumerFactory,
+            DefaultErrorHandler profileKafkaErrorHandler
     ) {
         ConcurrentKafkaListenerContainerFactory<String, ProfileDeleteEvent> factory =
                 new ConcurrentKafkaListenerContainerFactory<>();
         factory.setConsumerFactory(profileDeleteEventConsumerFactory);
-        factory.getContainerProperties().setAckMode(ContainerProperties.AckMode.BATCH);
+        factory.getContainerProperties().setAckMode(ContainerProperties.AckMode.RECORD);
+        factory.setCommonErrorHandler(profileKafkaErrorHandler);
         return factory;
+    }
+
+    private NewTopic deadLetterTopic(String name) {
+        return TopicBuilder.name(name)
+                .partitions(10)
+                .replicas(1)
+                .config("retention.ms", "1209600000")
+                .config("cleanup.policy", "delete")
+                .build();
     }
 }

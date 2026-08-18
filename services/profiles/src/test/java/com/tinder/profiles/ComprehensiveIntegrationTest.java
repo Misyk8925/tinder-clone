@@ -1,11 +1,11 @@
 package com.tinder.profiles;
 
 import com.fasterxml.jackson.core.type.TypeReference;
-import com.tinder.profiles.kafka.dto.MatchCreateEvent;
+import com.tinder.profiles.infrastructure.messaging.kafka.dto.MatchCreateEvent;
 import com.tinder.contracts.event.v1.ProfileCreatedEvent;
-import com.tinder.profiles.profile.Profile;
-import com.tinder.profiles.user.NewUserRecord;
-import com.tinder.profiles.user.UserService;
+import com.tinder.profiles.infrastructure.persistence.profile.ProfileJpaEntity;
+import com.tinder.profiles.infrastructure.external.keycloak.NewUserRecord;
+import com.tinder.profiles.infrastructure.external.keycloak.UserService;
 import com.tinder.profiles.util.KafkaAdminHelper;
 import com.tinder.profiles.util.KeycloakTestHelper;
 import io.netty.handler.ssl.SslContext;
@@ -15,6 +15,7 @@ import org.apache.kafka.clients.producer.ProducerConfig;
 import org.apache.kafka.clients.producer.ProducerRecord;
 import org.apache.kafka.common.serialization.StringSerializer;
 import org.junit.jupiter.api.*;
+import org.junit.jupiter.api.condition.EnabledIfSystemProperty;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -25,6 +26,7 @@ import org.springframework.core.io.ClassPathResource;
 import org.springframework.http.MediaType;
 import org.springframework.http.client.reactive.ReactorClientHttpConnector;
 import org.springframework.test.context.ActiveProfiles;
+import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders;
 import org.springframework.web.reactive.function.client.WebClient;
 import org.springframework.web.reactive.function.client.WebClientResponseException;
@@ -74,6 +76,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @ActiveProfiles("test")
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 @TestMethodOrder(MethodOrderer.OrderAnnotation.class)
+@EnabledIfSystemProperty(named = "profiles.full-stack", matches = "true")
+@TestPropertySource(properties = "outbox.publisher.enabled=true")
 public class ComprehensiveIntegrationTest extends AbstractProfilesIntegrationTest {
 
     private static final Logger log = LoggerFactory.getLogger(ComprehensiveIntegrationTest.class);
@@ -351,7 +355,7 @@ public class ComprehensiveIntegrationTest extends AbstractProfilesIntegrationTes
                 .subscribeOn(Schedulers.boundedElastic())
                 .onErrorResume(e -> {
                     failCount.incrementAndGet();
-                    log.error("[{}] Profile creation failed for {}: {}", i + 1, user.username(), e.getMessage());
+                    log.error("[{}] ProfileJpaEntity creation failed for {}: {}", i + 1, user.username(), e.getMessage());
                     return Mono.empty();
                 });
             }, PARALLEL_THREADS * 2)
@@ -361,7 +365,7 @@ public class ComprehensiveIntegrationTest extends AbstractProfilesIntegrationTes
         stats.profilesCreated = successCount.get();
         stats.profilesFailed  = failCount.get();
 
-        log.info("Profile creation done in {} ms: {}/{} succeeded, {} failed",
+        log.info("ProfileJpaEntity creation done in {} ms: {}/{} succeeded, {} failed",
                 System.currentTimeMillis() - profileStart,
                 stats.profilesCreated, keycloakUsers.size(), stats.profilesFailed);
 
@@ -826,13 +830,13 @@ public class ComprehensiveIntegrationTest extends AbstractProfilesIntegrationTes
         log.info("========================================");
 
         Map<String, Set<String>> userSwipedProfiles = buildSwipeMap(createdProfiles);
-        List<Profile> allProfiles = profileRepository.findAll();
+        List<ProfileJpaEntity> allProfiles = profileRepository.findAll();
         allProfiles.sort(Comparator.comparing(p -> p.getProfileId().toString()));
         log.info("Loaded {} profiles from database for validation", allProfiles.size());
 
         // Build O(1) lookup index for profiles
-        Map<String, Profile> profileIndex = new HashMap<>(allProfiles.size());
-        for (Profile p : allProfiles) profileIndex.put(p.getProfileId().toString(), p);
+        Map<String, ProfileJpaEntity> profileIndex = new HashMap<>(allProfiles.size());
+        for (ProfileJpaEntity p : allProfiles) profileIndex.put(p.getProfileId().toString(), p);
 
         // Build O(1) lookup index for test data
         Map<String, ProfileTestData> testDataIndex = new HashMap<>(createdProfiles.size());
@@ -941,23 +945,6 @@ public class ComprehensiveIntegrationTest extends AbstractProfilesIntegrationTes
             log.error("9.1 FAILED — /internal/active: {}", e.getMessage(), e);
         }
 
-        // ── 9.2  GET /internal/page ───────────────────────────────────────────
-        log.info("9.2: GET /internal/page via mTLS");
-        try {
-            List<?> page = internalMtlsClient.get()
-                    .uri(u -> u.path("/page").queryParam("page", 0).queryParam("size", 20).build())
-                    .retrieve()
-                    .bodyToMono(List.class)
-                    .block(Duration.ofSeconds(15));
-
-            assertThat(page).isNotNull();
-            log.info("9.2 PASSED — /internal/page returned {} items", page.size());
-            stats.mtlsInternalEndpointsVerified++;
-        } catch (Exception e) {
-            stats.mtlsInternalEndpointsFailed++;
-            log.error("9.2 FAILED — /internal/page: {}", e.getMessage(), e);
-        }
-
         // ── 9.3  GET /internal/search ─────────────────────────────────────────
         log.info("9.3: GET /internal/search via mTLS (viewerId={})", viewerId.substring(0, 8));
         try {
@@ -1005,27 +992,6 @@ public class ComprehensiveIntegrationTest extends AbstractProfilesIntegrationTes
         } catch (Exception e) {
             stats.mtlsInternalEndpointsFailed++;
             log.error("9.4 FAILED — /internal/by-ids: {}", e.getMessage(), e);
-        }
-
-        // ── 9.5  GET /internal/deck ───────────────────────────────────────────
-        log.info("9.5: GET /internal/deck via mTLS (viewerId={})", viewerId.substring(0, 8));
-        try {
-            List<?> deck = internalMtlsClient.get()
-                    .uri(u -> u.path("/deck")
-                            .queryParam("viewerId", viewerId)
-                            .queryParam("offset", 0)
-                            .queryParam("limit", 20)
-                            .build())
-                    .retrieve()
-                    .bodyToMono(List.class)
-                    .block(Duration.ofSeconds(15));
-
-            assertThat(deck).isNotNull();
-            log.info("9.5 PASSED — /internal/deck returned {} entries", deck.size());
-            stats.mtlsInternalEndpointsVerified++;
-        } catch (Exception e) {
-            stats.mtlsInternalEndpointsFailed++;
-            log.error("9.5 FAILED — /internal/deck: {}", e.getMessage(), e);
         }
 
         // ── 9.6  Reject: wrong CN must be denied ─────────────────────────────
@@ -1184,7 +1150,7 @@ public class ComprehensiveIntegrationTest extends AbstractProfilesIntegrationTes
 
         String profileJson = buildProfileJsonWithIndex(user.firstName(), age, gender, preferredGender, index);
 
-        String response = mockMvc.perform(post("")
+        String response = mockMvc.perform(post("/api/v1/profiles")
                         .content(profileJson)
                         .header("Authorization", authHeader)
                         .contentType(MediaType.APPLICATION_JSON))
@@ -1193,7 +1159,7 @@ public class ComprehensiveIntegrationTest extends AbstractProfilesIntegrationTes
 
         Map<String, Object> profileData = objectMapper.readValue(response, new TypeReference<>() {});
         String profileId = (String) profileData.get("data");
-        if (profileId == null) throw new IllegalStateException("Profile creation returned null id");
+        if (profileId == null) throw new IllegalStateException("ProfileJpaEntity creation returned null id");
 
         return new ProfileTestData(profileId, token, user.username(),
                 user.firstName(), age, gender, preferredGender);
@@ -1401,7 +1367,7 @@ public class ComprehensiveIntegrationTest extends AbstractProfilesIntegrationTes
                             {"hobbies":["HIKING","PHOTOGRAPHY","GAMING","READING"]}""";
                     updateType = "HOBBIES"; hobbiesUpdates++;
                 }
-                mockMvc.perform(patch("")
+                mockMvc.perform(patch("/api/v1/profiles")
                                 .content(patchJson)
                                 .header("Authorization", "Bearer " + freshToken)
                                 .contentType(MediaType.APPLICATION_JSON))
@@ -1421,7 +1387,7 @@ public class ComprehensiveIntegrationTest extends AbstractProfilesIntegrationTes
                                 .findFirst().map(NewUserRecord::password)
                                 .orElse("Password" + (profilesToUpdate + i + 1) + "!"));
                 String newCity = (i % 2 == 0) ? "Munich" : "Hamburg";
-                mockMvc.perform(patch("")
+                mockMvc.perform(patch("/api/v1/profiles")
                                 .content(String.format("{\"city\":\"%s\"}", newCity))
                                 .header("Authorization", "Bearer " + freshToken)
                                 .contentType(MediaType.APPLICATION_JSON))
@@ -1515,7 +1481,7 @@ public class ComprehensiveIntegrationTest extends AbstractProfilesIntegrationTes
                 String freshToken = keycloakTestHelper.getAccessToken(profile.username(),
                         keycloakUsers.stream().filter(u -> u.username().equals(profile.username()))
                                 .findFirst().map(NewUserRecord::password).orElse("Password" + (i + 1) + "!"));
-                mockMvc.perform(MockMvcRequestBuilders.delete("")
+                mockMvc.perform(MockMvcRequestBuilders.delete("/api/v1/profiles")
                                 .header("Authorization", "Bearer " + freshToken))
                         .andExpect(status().isNoContent());
                 profilesDeleted++;
@@ -1599,15 +1565,15 @@ public class ComprehensiveIntegrationTest extends AbstractProfilesIntegrationTes
     }
 
     private boolean verifyCandidatesMatchPreferences(ProfileTestData profile, List<String> deckContents,
-                                                     Map<String, Profile> profileIndex) {
-        Profile viewer = profileIndex.get(profile.profileId());
+                                                     Map<String, ProfileJpaEntity> profileIndex) {
+        ProfileJpaEntity viewer = profileIndex.get(profile.profileId());
         if (viewer == null) return false;
-        com.tinder.profiles.preferences.Preferences prefs = viewer.getPreferences();
+        com.tinder.profiles.infrastructure.persistence.preferences.Preferences prefs = viewer.getPreferences();
         if (prefs == null) return false;
 
         List<String> invalid = new ArrayList<>();
         for (String candidateId : deckContents) {
-            Profile candidate = profileIndex.get(candidateId);
+            ProfileJpaEntity candidate = profileIndex.get(candidateId);
             if (candidate == null) { invalid.add(candidateId + " (not found)"); continue; }
             if (!matchesGenderPreference(candidate.getGender(), prefs.getGender()))
                 { invalid.add(candidateId + " (wrong gender)"); continue; }
@@ -1619,10 +1585,10 @@ public class ComprehensiveIntegrationTest extends AbstractProfilesIntegrationTes
     }
 
     private boolean verifyDeckQuality(ProfileTestData profile, List<String> deckContents,
-                                      Map<String, Profile> profileIndex) {
+                                      Map<String, ProfileJpaEntity> profileIndex) {
         if (deckContents.isEmpty() || deckContents.size() > 1000) return false;
         for (String candidateId : deckContents) {
-            Profile candidate = profileIndex.get(candidateId);
+            ProfileJpaEntity candidate = profileIndex.get(candidateId);
             if (candidate == null) return false;
             if (candidate.getProfileId().toString().equals(profile.profileId())) return false;
             if (candidate.isDeleted()) return false;

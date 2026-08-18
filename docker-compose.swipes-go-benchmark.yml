@@ -1,0 +1,6 @@
+services:
+  swipes:
+    environment:
+      APP_ENV: benchmark
+      INTERNAL_SWIPES_AUTH_SECRET: ${INTERNAL_SWIPES_AUTH_SECRET:?INTERNAL_SWIPES_AUTH_SECRET is required}
+      SWIPES_INTERNAL_BYPASS_PROFILE_CHECK: "true"

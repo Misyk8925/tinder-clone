@@ -1,0 +1,58 @@
+services:
+  deck-read-redis-1:
+    image: redis:8.2.1-alpine
+    command: >-
+      redis-server --port 6379 --cluster-enabled yes
+      --cluster-config-file nodes.conf --cluster-node-timeout 5000
+      --appendonly yes --appendfsync everysec --maxmemory-policy noeviction
+    networks: [deck-read-cluster-test]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 2s
+      timeout: 2s
+      retries: 20
+
+  deck-read-redis-2:
+    image: redis:8.2.1-alpine
+    command: >-
+      redis-server --port 6379 --cluster-enabled yes
+      --cluster-config-file nodes.conf --cluster-node-timeout 5000
+      --appendonly yes --appendfsync everysec --maxmemory-policy noeviction
+    networks: [deck-read-cluster-test]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 2s
+      timeout: 2s
+      retries: 20
+
+  deck-read-redis-3:
+    image: redis:8.2.1-alpine
+    command: >-
+      redis-server --port 6379 --cluster-enabled yes
+      --cluster-config-file nodes.conf --cluster-node-timeout 5000
+      --appendonly yes --appendfsync everysec --maxmemory-policy noeviction
+    networks: [deck-read-cluster-test]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 2s
+      timeout: 2s
+      retries: 20
+
+  deck-read-cluster-init:
+    image: redis:8.2.1-alpine
+    depends_on:
+      deck-read-redis-1: {condition: service_healthy}
+      deck-read-redis-2: {condition: service_healthy}
+      deck-read-redis-3: {condition: service_healthy}
+    environment:
+      REDIS_CLUSTER_NODES: >-
+        deck-read-redis-1:6379 deck-read-redis-2:6379 deck-read-redis-3:6379
+      REDIS_CLUSTER_REPLICAS: "0"
+    volumes:
+      - ./docker/redis-cluster/init-cluster.sh:/usr/local/bin/init-cluster.sh:ro
+    entrypoint: ["/bin/sh", "/usr/local/bin/init-cluster.sh"]
+    networks: [deck-read-cluster-test]
+
+networks:
+  deck-read-cluster-test:
+    driver: bridge

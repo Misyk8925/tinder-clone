@@ -1,669 +1,419 @@
-import { Component, inject, OnInit, signal, ViewChildren, QueryList } from '@angular/core';
+import { Component, inject, OnDestroy, OnInit, QueryList, signal, ViewChildren } from '@angular/core';
 import { HttpErrorResponse } from '@angular/common/http';
 import { NgClass } from '@angular/common';
-import { Profile } from '../../core/models/profile.model';
+import { LucideAngularModule } from 'lucide-angular';
+import { Router } from '@angular/router';
+import { DeckCard, DeckPage, isBuildingDeck } from '../../core/models/deck.model';
 import { ProfileService } from '../../core/services/profile.service';
 import { SwipeService } from '../../core/services/swipe.service';
 import { SwipeCardComponent } from '../../shared/components/swipe-card/swipe-card.component';
-import { Router } from '@angular/router';
 
 @Component({
   selector: 'app-discover',
-  imports: [SwipeCardComponent, NgClass],
+  imports: [SwipeCardComponent, NgClass, LucideAngularModule],
   template: `
     <div class="discover">
-      <header class="header">
-        <div class="header-spacer"></div>
-
-        <div class="logo">
-          <svg viewBox="0 0 24 24" fill="#ff4458" width="26" height="26">
-            <path d="M17.66 11.2c-.23-.3-.51-.56-.77-.82-.67-.6-1.43-1.03-2.07-1.66C13.33 7.26 13 4.85 13.95 3c-.95.23-1.78.75-2.49 1.32-2.59 2.11-3.66 5.65-2.67 8.9.04.14.08.28.08.43 0 .28-.19.52-.45.57-.28.07-.53-.09-.63-.37-.04-.1-.06-.21-.09-.32C7.15 13 7 12.5 7 11.85c0-.58.16-1.2.44-1.7-1.16 1.27-1.86 2.97-1.86 4.77 0 3.31 2.69 6 6 6s6-2.69 6-6c0-1.88-.82-3.63-2.09-4.82z"/>
-          </svg>
-          <span class="logo-text">tinder</span>
+      <header class="discover-header">
+        <h1>Discover</h1>
+        <div class="header-actions">
+          <button type="button" class="icon-button" (click)="goToFilters()" aria-label="Edit discovery filters">
+            <lucide-icon name="sliders-horizontal" [size]="24" strokeWidth="1.8" />
+          </button>
+          <span class="availability" title="Discovery is active" aria-label="Discovery is active"></span>
         </div>
-
-        <button class="header-btn">
-          <svg viewBox="0 0 24 24" fill="none" stroke="#9e9ea0" stroke-width="1.8" width="26" height="26">
-            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
-          </svg>
-        </button>
       </header>
 
-      <div class="deck-area">
+      <main class="deck-area">
         @if (loading()) {
-          <div class="empty-state">
+          <div class="state-panel" aria-live="polite">
             <div class="spinner"></div>
+            <p>Finding thoughtful matches nearby…</p>
+          </div>
+        } @else if (retrying() && currentIndex() >= profiles().length) {
+          <div class="state-panel" aria-live="polite">
+            <span class="state-icon"><lucide-icon name="refresh-cw" [size]="36" strokeWidth="1.6" /></span>
+            <h2>Still preparing your deck</h2>
+            <p>It is taking longer than usual. We will keep trying in the background.</p>
+            <button type="button" class="primary-button" (click)="retryNow()">
+              <lucide-icon name="refresh-cw" [size]="18" strokeWidth="2" /> Try again
+            </button>
           </div>
         } @else if (currentIndex() >= profiles().length) {
-          <div class="empty-state">
-            <div class="card-illustration">
-              <div class="ill-card ill-back-2"></div>
-              <div class="ill-card ill-back-1"></div>
-              <div class="ill-card ill-front">
-                <div class="ill-like-stamp">LIKE</div>
-              </div>
-            </div>
-            <h3>You've seen everyone!</h3>
-            <p>Check back later for new people nearby</p>
-            <button class="btn-refresh" (click)="refresh()">
-              <svg viewBox="0 0 24 24" fill="currentColor" width="18" height="18"><path d="M17.65 6.35C16.2 4.9 14.21 4 12 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08c-.82 2.33-3.04 4-5.65 4-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"/></svg>
-              Refresh
+          <div class="state-panel">
+            <span class="state-icon"><lucide-icon name="user-round-search" [size]="36" strokeWidth="1.6" /></span>
+            <h2>You’re all caught up</h2>
+            <p>New people appear as the community grows. Check again in a little while.</p>
+            <button type="button" class="primary-button" (click)="refresh()">
+              <lucide-icon name="refresh-cw" [size]="18" strokeWidth="2" /> Refresh
             </button>
           </div>
         } @else {
           <div class="cards-stack">
-            @for (profile of visibleProfiles(); track profile.profileId; let i = $index) {
-              <div class="card-wrapper" [ngClass]="'z' + (visibleProfiles().length - i)">
-                <app-swipe-card
-                  [profile]="profile"
-                  (swiped)="onSwipe($event, profile)"
-                />
+            @for (profile of visibleProfiles(); track profile.profileId; let index = $index) {
+              <div class="card-wrapper" [ngClass]="'z' + (3 - index)">
+                <app-swipe-card [profile]="profile" (swiped)="onSwipe($event, profile)" />
               </div>
             }
           </div>
 
-          <div class="action-buttons">
-            <button class="btn-action nope" (click)="swipeLeft()" title="Nope">
-              <svg viewBox="0 0 24 24" fill="currentColor"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+          <div class="action-buttons" aria-label="Profile actions">
+            <button type="button" class="action-button pass" (click)="swipeLeft()" aria-label="Pass">
+              <lucide-icon name="x" [size]="30" strokeWidth="1.8" />
             </button>
-            <button class="btn-action superlike" (click)="superLike()" title="Super Like">
-              <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z"/></svg>
+            <button type="button" class="action-button standout" (click)="superLike()" aria-label="Stand out">
+              <lucide-icon name="star" [size]="29" fill="#ffffff" strokeWidth="1.7" />
             </button>
-            <button class="btn-action like" (click)="swipeRight()" title="Like">
-              <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 21.593c-5.63-5.539-11-10.297-11-14.402 0-3.791 3.068-5.191 5.281-5.191 1.312 0 4.151.501 5.719 4.457 1.59-3.968 4.464-4.447 5.726-4.447 2.54 0 5.274 1.621 5.274 5.181 0 4.069-5.136 8.625-11 14.402z"/></svg>
+            <button type="button" class="action-button like" (click)="swipeRight()" aria-label="Like">
+              <lucide-icon name="heart" [size]="30" strokeWidth="1.8" />
             </button>
           </div>
         }
-      </div>
+      </main>
 
       @if (showPremiumModal()) {
-        <div class="match-overlay" (click)="dismissPremiumModal()">
-          <div class="match-content premium-modal" (click)="$event.stopPropagation()">
-            <div class="premium-icon">
-              <svg viewBox="0 0 24 24" fill="#f6b53f" width="56" height="56">
-                <path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z"/>
-              </svg>
-            </div>
-            <div class="premium-title">Super Like is Premium</div>
-            <p class="premium-sub">Upgrade to Tinder Gold to send Super Likes and stand out from the crowd.</p>
-            <div class="match-actions">
-              <button class="btn-send-msg btn-upgrade" (click)="dismissPremiumModal()">
-                Upgrade to Gold
-              </button>
-              <button class="btn-keep-swiping" (click)="dismissPremiumModal()">Maybe Later</button>
-            </div>
-          </div>
+        <div class="overlay" (click)="dismissPremiumModal()">
+          <section class="dialog" (click)="$event.stopPropagation()" aria-modal="true" role="dialog" aria-labelledby="premium-title">
+            <span class="dialog-icon premium"><lucide-icon name="star" [size]="34" fill="currentColor" /></span>
+            <h2 id="premium-title">Stand out with Premium</h2>
+            <p>Send a priority like when you want someone to notice you first.</p>
+            <button type="button" class="primary-button wide" (click)="goToPremium()">View Premium</button>
+            <button type="button" class="secondary-button" (click)="dismissPremiumModal()">Maybe later</button>
+          </section>
         </div>
       }
 
       @if (toast()) {
-        <div class="toast-msg">{{ toast() }}</div>
+        <div class="toast" role="status">{{ toast() }}</div>
       }
 
       @if (matchedProfile()) {
-        <div class="match-overlay" (click)="dismissMatch()">
-          <div class="match-content" (click)="$event.stopPropagation()">
-            <div class="match-header">
-              <svg viewBox="0 0 24 24" fill="white" width="36" height="36" class="match-flame">
-                <path d="M17.66 11.2c-.23-.3-.51-.56-.77-.82-.67-.6-1.43-1.03-2.07-1.66C13.33 7.26 13 4.85 13.95 3c-.95.23-1.78.75-2.49 1.32-2.59 2.11-3.66 5.65-2.67 8.9.04.14.08.28.08.43 0 .28-.19.52-.45.57-.28.07-.53-.09-.63-.37-.04-.1-.06-.21-.09-.32C7.15 13 7 12.5 7 11.85c0-.58.16-1.2.44-1.7-1.16 1.27-1.86 2.97-1.86 4.77 0 3.31 2.69 6 6 6s6-2.69 6-6c0-1.88-.82-3.63-2.09-4.82z"/>
-              </svg>
-              <div class="match-title">It's a Match!</div>
-              <p class="match-sub">You and {{ matchedProfile()!.name }} liked each other</p>
+        <div class="overlay" (click)="dismissMatch()">
+          <section class="dialog match-dialog" (click)="$event.stopPropagation()" aria-modal="true" role="dialog" aria-labelledby="match-title">
+            <span class="dialog-icon"><lucide-icon name="heart-handshake" [size]="34" strokeWidth="1.7" /></span>
+            <p class="eyebrow">A mutual connection</p>
+            <h2 id="match-title">You matched with {{ matchedProfile()!.name }}</h2>
+            <p>Start with something you noticed in their profile.</p>
+            <div class="match-photo">
+              @if (matchedProfile()!.photos.length) {
+                <img [src]="matchedProfile()!.photos[0].url" [alt]="matchedProfile()!.name" />
+              } @else {
+                <span>{{ matchedProfile()!.name[0] }}</span>
+              }
             </div>
-
-            <div class="match-avatars">
-              <div class="avatar-ring me">
-                <div class="avatar-circle">
-                  <span>Me</span>
-                </div>
-              </div>
-              <div class="avatar-ring them">
-                <div class="avatar-circle">
-                  @if (matchedProfile()!.photos?.length) {
-                    <img [src]="matchedProfile()!.photos[0].url" [alt]="matchedProfile()!.name" />
-                  } @else {
-                    <span>{{ matchedProfile()!.name[0] }}</span>
-                  }
-                </div>
-              </div>
-            </div>
-
-            <div class="match-actions">
-              <button class="btn-send-msg" (click)="goToMatches()">
-                Send a Message
-              </button>
-              <button class="btn-keep-swiping" (click)="dismissMatch()">Keep Swiping</button>
-            </div>
-          </div>
+            <button type="button" class="primary-button wide" (click)="goToMatches()">Send a message</button>
+            <button type="button" class="secondary-button" (click)="dismissMatch()">Keep discovering</button>
+          </section>
         </div>
       }
     </div>
   `,
   styles: [`
     .discover {
+      height: 100dvh;
       display: flex;
       flex-direction: column;
-      height: 100dvh;
-      background: transparent;
-      padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 88px);
+      padding-bottom: calc(56px + env(safe-area-inset-bottom, 0px));
+      background: var(--bg);
+      overflow: hidden;
     }
 
-    .header {
+    .discover-header {
+      min-height: var(--mobile-topbar-height);
       display: flex;
+      align-items: center;
       justify-content: space-between;
-      align-items: center;
-      padding: 10px;
-      background: var(--surface-glass);
-      border-bottom: 1px solid var(--border);
-      flex-shrink: 0;
-      position: sticky;
-      top: 0;
-      z-index: 10;
-      backdrop-filter: blur(16px);
-      -webkit-backdrop-filter: blur(16px);
-      box-shadow: 0 8px 20px var(--shadow-sm);
+      padding: 6px 16px;
+      flex: 0 0 auto;
+      background: var(--header-surface);
     }
 
-    @media (min-width: 768px) {
-      .discover {
-        padding-bottom: 0;
-        height: 100dvh;
-      }
-
-      .header {
-        display: none;
-      }
-
-      .cards-stack {
-        max-width: 460px;
-      }
-
-      .btn-action {
-        &.nope { width: 68px; height: 68px; svg { width: 32px; height: 32px; } }
-        &.like { width: 68px; height: 68px; svg { width: 32px; height: 32px; } }
-        &.superlike { width: 58px; height: 58px; svg { width: 26px; height: 26px; } }
-      }
-
-      .action-buttons {
-        gap: 20px;
-        padding: 14px 0 18px;
-      }
+    h1 {
+      margin: 0;
+      color: var(--text-primary);
+      font-size: 28px;
+      line-height: 1;
+      letter-spacing: -0.055em;
+      font-weight: 700;
     }
 
-    .header-spacer {
-      width: 36px;
-    }
+    .header-actions { display: flex; align-items: center; gap: 10px; }
 
-    .header-btn {
-      background: none;
-      border: none;
-      cursor: pointer;
-      padding: 4px;
+    .icon-button {
+      width: 40px;
+      height: 40px;
+      display: grid;
+      place-items: center;
+      border: 0;
       border-radius: 50%;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      width: 36px;
-      height: 36px;
-      transition: background 0.15s;
-
-      &:active { background: var(--surface-2); }
+      color: var(--text-primary);
+      background: transparent;
+      cursor: pointer;
+      transition: background 160ms ease, transform 160ms ease;
     }
 
-    .logo {
-      display: flex;
-      align-items: center;
-      gap: 5px;
+    .icon-button:hover { background: var(--brand-soft); transform: translateY(-1px); }
+    .icon-button:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; }
 
-      .logo-text {
-        font-size: 22px;
-        font-weight: 800;
-        color: var(--brand);
-        letter-spacing: -0.5px;
-      }
+    .availability {
+      width: 18px;
+      height: 18px;
+      display: block;
+      border-radius: 50%;
+      background: var(--brand);
+      box-shadow: 0 0 0 5px var(--brand-soft);
     }
 
     .deck-area {
       flex: 1;
+      min-height: 0;
       display: flex;
       flex-direction: column;
       align-items: center;
-      padding: 14px 16px 0;
-      gap: 16px;
+      gap: 10px;
+      padding: 0 0 8px;
       overflow: hidden;
-      min-height: 0;
     }
 
     .cards-stack {
       position: relative;
       width: 100%;
-      max-width: 400px;
       flex: 1;
       min-height: 0;
-
-      .card-wrapper {
-        position: absolute;
-        inset: 0;
-
-        &.z1 { z-index: 1; transform: scale(0.93) translateY(22px); }
-        &.z2 { z-index: 2; transform: scale(0.97) translateY(11px); }
-        &.z3 { z-index: 3; transform: scale(1); }
-      }
     }
+
+    .card-wrapper { position: absolute; inset: 0; }
+    .card-wrapper.z1 { z-index: 1; transform: scale(0.965) translateY(8px); opacity: 0.3; }
+    .card-wrapper.z2 { z-index: 2; transform: scale(0.985) translateY(4px); opacity: 0.58; }
+    .card-wrapper.z3 { z-index: 3; }
 
     .action-buttons {
+      min-height: 96px;
       display: flex;
-      justify-content: center;
       align-items: center;
-      gap: 18px;
-      padding: 14px 0 18px;
-      flex-shrink: 0;
+      justify-content: center;
+      gap: clamp(20px, 8vw, 34px);
+      flex: 0 0 auto;
+      width: 100%;
     }
 
-    .btn-action {
-      border: 1px solid rgba(255,255,255,0.6);
+    .action-button {
+      width: clamp(72px, 19vw, 82px);
+      height: clamp(72px, 19vw, 82px);
+      display: grid;
+      place-items: center;
       border-radius: 50%;
+      border: 1px solid var(--card-border);
+      color: var(--text-secondary);
+      background: var(--card-surface);
+      box-shadow: var(--shadow-float);
       cursor: pointer;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      background: rgba(255,255,255,0.92);
-      box-shadow: 0 16px 30px var(--shadow-md);
-      transition: transform 0.18s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.18s, border-color 0.18s;
-
-      &:active {
-        transform: scale(0.9) !important;
-        box-shadow: 0 6px 16px var(--shadow-sm);
-      }
-
-      &.nope {
-        width: 62px; height: 62px;
-        border: 2px solid rgba(255, 77, 90, 0.6);
-        color: var(--nope);
-        svg { width: 28px; height: 28px; }
-
-        &:hover { box-shadow: 0 12px 26px rgba(255, 77, 90, 0.25); transform: translateY(-2px) scale(1.05); }
-      }
-
-      &.superlike {
-        width: 54px; height: 54px;
-        border: 2px solid rgba(47, 140, 255, 0.6);
-        color: var(--super);
-        svg { width: 22px; height: 22px; }
-
-        &:hover { box-shadow: 0 12px 26px rgba(47, 140, 255, 0.25); transform: translateY(-2px) scale(1.05); }
-      }
-
-      &.like {
-        width: 62px; height: 62px;
-        border: 2px solid rgba(39, 209, 162, 0.6);
-        color: var(--like);
-        svg { width: 28px; height: 28px; }
-
-        &:hover { box-shadow: 0 12px 26px rgba(39, 209, 162, 0.25); transform: translateY(-2px) scale(1.05); }
-      }
+      transition: transform 160ms ease, box-shadow 160ms ease, background 160ms ease;
     }
 
-    [data-theme="dark"] .btn-action {
-      background: rgba(30, 28, 38, 0.9);
-      border-color: rgba(255,255,255,0.08);
+    .action-button:hover { transform: translateY(-2px); box-shadow: var(--shadow-card); }
+    .action-button:active { transform: scale(0.94); }
+    .action-button:focus-visible { outline: 2px solid var(--brand); outline-offset: 3px; }
+
+    .action-button.standout {
+      width: clamp(78px, 19.5vw, 84px);
+      height: clamp(78px, 19.5vw, 84px);
+      color: white;
+      border-color: var(--brand);
+      background: var(--brand);
+      box-shadow: 0 14px 32px rgba(109, 144, 55, 0.22), 0 3px 10px rgba(109, 144, 55, 0.12);
     }
 
-    .empty-state {
+    .action-button.like { color: var(--brand-strong); border-color: rgba(109, 144, 55, 0.35); }
+
+    .state-panel {
+      flex: 1;
+      width: min(100%, 420px);
       display: flex;
       flex-direction: column;
       align-items: center;
       justify-content: center;
-      flex: 1;
       gap: 14px;
+      padding: 30px;
       text-align: center;
-      padding: 20px;
-
-      h3 { margin: 0; font-size: 22px; font-weight: 800; color: var(--text-primary); }
-      p { margin: 0; color: var(--text-muted); font-size: 14px; max-width: 240px; line-height: 1.5; }
     }
 
-    .card-illustration {
-      position: relative;
-      width: 150px;
-      height: 170px;
-      margin-bottom: 8px;
+    .state-icon,
+    .dialog-icon {
+      width: 68px;
+      height: 68px;
+      display: grid;
+      place-items: center;
+      border-radius: 22px;
+      color: var(--text-primary);
+      background: var(--brand);
     }
 
-    .ill-card {
-      position: absolute;
-      border-radius: 14px;
-    }
-
-    .ill-back-2 {
-      width: 106px; height: 138px;
-      bottom: 0; left: 50%;
-      transform: translateX(-50%) rotate(-6deg) translateY(4px);
-      background: var(--surface);
-      border: 2px solid var(--border);
-    }
-
-    .ill-back-1 {
-      width: 110px; height: 142px;
-      bottom: 0; left: 50%;
-      transform: translateX(-50%) rotate(-2deg) translateY(2px);
-      background: var(--surface);
-      border: 2px solid var(--border);
-    }
-
-    .ill-front {
-      width: 114px; height: 148px;
-      bottom: 0; left: 50%;
-      transform: translateX(-50%) rotate(8deg);
-      background: rgba(39, 209, 162, 0.14);
-      border: 2.5px solid var(--like);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-    }
-
-    [data-theme="dark"] .ill-front {
-      background: #0d2a1a;
-    }
-
-    .ill-like-stamp {
-      font-size: 20px;
-      font-weight: 800;
-      color: var(--like);
-      border: 3px solid var(--like);
-      border-radius: 6px;
-      padding: 3px 10px;
-      letter-spacing: 2px;
-      transform: rotate(-8deg);
-    }
+    .state-panel h2,
+    .dialog h2 { margin: 0; color: var(--text-primary); font-size: 26px; letter-spacing: -0.035em; }
+    .state-panel p,
+    .dialog p { margin: 0; max-width: 300px; color: var(--text-secondary); font-size: 15px; line-height: 1.55; }
 
     .spinner {
-      width: 44px; height: 44px;
-      border: 3px solid var(--border);
-      border-top: 3px solid var(--brand);
+      width: 42px;
+      height: 42px;
+      border: 3px solid var(--surface-3);
+      border-top-color: var(--brand);
       border-radius: 50%;
-      animation: spin 0.8s linear infinite;
+      animation: spin 800ms linear infinite;
     }
 
     @keyframes spin { to { transform: rotate(360deg); } }
 
-    .btn-refresh {
-      display: flex;
+    .primary-button,
+    .secondary-button {
+      min-height: 48px;
+      display: inline-flex;
       align-items: center;
+      justify-content: center;
       gap: 8px;
-      background: var(--brand-gradient);
-      color: #fff;
-      border: none;
-      border-radius: 30px;
-      padding: 12px 28px;
-      font-size: 15px;
-      font-weight: 700;
-      cursor: pointer;
-      box-shadow: 0 10px 22px rgba(255, 68, 88, 0.3);
-      transition: transform 0.15s;
-
-      &:active { transform: scale(0.95); }
-    }
-
-    /* ── Match Overlay ── */
-    .match-overlay {
-      position: fixed;
-      inset: 0;
-      background: radial-gradient(circle at top, rgba(255, 68, 88, 0.18), transparent 50%), rgba(7, 7, 12, 0.92);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      z-index: 1000;
-      animation: fadeIn 0.25s ease;
-    }
-
-    @keyframes fadeIn {
-      from { opacity: 0; }
-      to { opacity: 1; }
-    }
-
-    .match-content {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      padding: 0 32px;
-      width: 100%;
-      max-width: 360px;
-      animation: slideUp 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
-    }
-
-    @keyframes slideUp {
-      from { transform: translateY(40px); opacity: 0; }
-      to { transform: translateY(0); opacity: 1; }
-    }
-
-    .match-header {
-      text-align: center;
-      margin-bottom: 32px;
-
-      .match-flame {
-        opacity: 0.9;
-        margin-bottom: 10px;
-      }
-    }
-
-    .match-title {
-      font-size: 42px;
-      font-weight: 800;
-      background: var(--brand-gradient);
-      -webkit-background-clip: text;
-      -webkit-text-fill-color: transparent;
-      background-clip: text;
-      line-height: 1.1;
-      margin-bottom: 10px;
-    }
-
-    .match-sub {
-      margin: 0;
-      font-size: 15px;
-      color: rgba(255,255,255,0.75);
-      font-weight: 400;
-    }
-
-    .match-avatars {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      margin-bottom: 40px;
-
-      .avatar-ring {
-        padding: 3px;
-        border-radius: 50%;
-        background: var(--brand-gradient);
-
-        &:first-child { margin-right: -16px; z-index: 1; }
-        &:last-child { margin-left: -16px; z-index: 2; }
-      }
-    }
-
-    .avatar-circle {
-      width: 96px;
-      height: 96px;
-      border-radius: 50%;
-      border: 3px solid #1a1a1a;
-      overflow: hidden;
-      background: rgba(255,255,255,0.15);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 32px;
-      font-weight: 700;
-      color: #fff;
-
-      img { width: 100%; height: 100%; object-fit: cover; }
-    }
-
-    .match-actions {
-      display: flex;
-      flex-direction: column;
-      gap: 12px;
-      width: 100%;
-    }
-
-    .btn-send-msg {
-      width: 100%;
-      padding: 16px;
-      border: none;
-      border-radius: 50px;
-      background: var(--brand-gradient);
-      color: #fff;
-      font-size: 16px;
-      font-weight: 700;
-      cursor: pointer;
-      letter-spacing: 0.3px;
-      box-shadow: 0 10px 24px rgba(255, 68, 88, 0.35);
-      transition: transform 0.15s;
-
-      &:active { transform: scale(0.97); }
-    }
-
-    .btn-keep-swiping {
-      width: 100%;
-      padding: 14px;
-      border: 1.5px solid rgba(255,255,255,0.3);
-      border-radius: 50px;
-      background: transparent;
-      color: rgba(255,255,255,0.8);
-      font-size: 15px;
-      font-weight: 500;
-      cursor: pointer;
-      transition: border-color 0.15s;
-
-      &:active { border-color: rgba(255,255,255,0.6); }
-    }
-
-    /* ── Premium Modal ── */
-    .premium-modal {
-      gap: 0;
-    }
-
-    .premium-icon {
-      margin-bottom: 16px;
-      filter: drop-shadow(0 0 18px rgba(246, 181, 63, 0.6));
-    }
-
-    .premium-title {
-      font-size: 28px;
-      font-weight: 800;
-      background: linear-gradient(135deg, var(--gold), var(--gold-2));
-      -webkit-background-clip: text;
-      -webkit-text-fill-color: transparent;
-      background-clip: text;
-      margin-bottom: 12px;
-      text-align: center;
-    }
-
-    .premium-sub {
-      margin: 0 0 32px;
-      font-size: 15px;
-      color: rgba(255,255,255,0.75);
-      text-align: center;
-      line-height: 1.5;
-    }
-
-    .btn-upgrade {
-      background: linear-gradient(135deg, var(--gold), var(--gold-2));
-      box-shadow: 0 8px 20px rgba(246, 181, 63, 0.45);
-    }
-
-    .toast-msg {
-      position: fixed;
-      bottom: 100px;
-      left: 50%;
-      transform: translateX(-50%);
-      background: rgba(20, 20, 20, 0.94);
-      color: #fff;
-      padding: 12px 20px;
-      border-radius: 24px;
+      padding: 0 22px;
+      border-radius: 14px;
+      font: inherit;
       font-size: 14px;
-      font-weight: 500;
-      z-index: 2000;
-      white-space: nowrap;
-      max-width: 90vw;
-      text-align: center;
-      animation: toastIn 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
-      box-shadow: 0 4px 20px rgba(0,0,0,0.35);
-      backdrop-filter: blur(12px);
+      font-weight: 700;
+      cursor: pointer;
     }
 
-    @keyframes toastIn {
-      from { opacity: 0; transform: translateX(-50%) translateY(10px) scale(0.95); }
-      to { opacity: 1; transform: translateX(-50%) translateY(0) scale(1); }
+    .primary-button { border: 0; color: var(--text-primary); background: var(--brand); }
+    .primary-button.wide { width: 100%; }
+    .secondary-button { width: 100%; border: 0; color: var(--text-secondary); background: transparent; }
+
+    .overlay {
+      position: fixed;
+      z-index: 1000;
+      inset: 0;
+      display: grid;
+      place-items: center;
+      padding: 22px;
+      background: rgba(31, 33, 30, 0.72);
+      backdrop-filter: blur(10px);
+    }
+
+    .dialog {
+      width: min(100%, 370px);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 14px;
+      padding: 26px;
+      border-radius: 26px;
+      color: var(--text-primary);
+      background: var(--surface);
+      box-shadow: 0 24px 70px rgba(0, 0, 0, 0.28);
+      text-align: center;
+    }
+
+    .dialog-icon.premium { color: var(--text-primary); }
+    .eyebrow { color: var(--brand-strong) !important; font-size: 12px !important; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; }
+
+    .match-photo {
+      width: 112px;
+      height: 112px;
+      display: grid;
+      place-items: center;
+      overflow: hidden;
+      border-radius: 50%;
+      border: 4px solid var(--brand);
+      color: var(--text-primary);
+      background: var(--surface-2);
+      font-size: 38px;
+      font-weight: 700;
+    }
+
+    .match-photo img { width: 100%; height: 100%; object-fit: cover; }
+
+    .toast {
+      position: fixed;
+      z-index: 2000;
+      left: 50%;
+      bottom: 96px;
+      transform: translateX(-50%);
+      max-width: min(88vw, 420px);
+      padding: 12px 18px;
+      border-radius: 14px;
+      color: white;
+      background: rgba(47, 48, 49, 0.94);
+      box-shadow: 0 12px 32px var(--shadow-md);
+      font-size: 13px;
+      text-align: center;
+    }
+
+    @media (min-width: 768px) {
+      .discover { padding-bottom: 0; }
+      .discover-header { width: min(100%, 560px); margin: 0 auto; padding: 12px 18px; background: transparent; }
+      h1 { font-size: 30px; }
+      .deck-area { padding-bottom: 18px; }
+      .cards-stack { width: min(100%, 420px); max-height: 720px; }
+      .action-buttons { min-height: 96px; }
+    }
+
+    @media (max-height: 740px) {
+      .discover-header { min-height: var(--mobile-topbar-height); }
+      h1 { font-size: 28px; }
+      .icon-button { width: 40px; height: 40px; }
+      .deck-area { padding-top: 4px; gap: 5px; }
+      .action-buttons { min-height: 66px; }
+      .action-button { width: 52px; height: 52px; }
+      .action-button.standout { width: 60px; height: 60px; }
     }
   `]
 })
-export class DiscoverComponent implements OnInit {
+export class DiscoverComponent implements OnInit, OnDestroy {
   @ViewChildren(SwipeCardComponent) swipeCards!: QueryList<SwipeCardComponent>;
 
   private profileService = inject(ProfileService);
   private swipeService = inject(SwipeService);
   private router = inject(Router);
 
-  profiles = signal<Profile[]>([]);
+  profiles = signal<DeckCard[]>([]);
   currentIndex = signal(0);
   loading = signal(true);
-  matchedProfile = signal<Profile | null>(null);
+  matchedProfile = signal<DeckCard | null>(null);
+  retrying = signal(false);
   showPremiumModal = signal(false);
   toast = signal<string | null>(null);
   private toastTimer: ReturnType<typeof setTimeout> | null = null;
   private nextSuperLike = false;
-
-  private showToast(msg: string): void {
-    if (this.toastTimer) clearTimeout(this.toastTimer);
-    this.toast.set(msg);
-    this.toastTimer = setTimeout(() => this.toast.set(null), 4000);
-  }
-
-  visibleProfiles = () => {
-    const all = this.profiles();
-    const idx = this.currentIndex();
-    return all.slice(idx, idx + 3);
-  };
-
   private myProfileId: string | null = null;
+  private generation: number | null = null;
+  private nextCursor: string | null = null;
+  private pollStartedAt = 0;
+  private pollTimer: ReturnType<typeof setTimeout> | null = null;
+  private requestInFlight = false;
+
+  visibleProfiles = () => this.profiles().slice(this.currentIndex(), this.currentIndex() + 3);
 
   ngOnInit(): void {
     this.profileService.getMe().subscribe({
-      next: (p) => { this.myProfileId = p.profileId; },
-      error: (err: HttpErrorResponse) => {
-        if (err.status === 429) {
-          this.showToast('Too many requests. Please wait a moment.');
-        } else {
-          this.router.navigate(['/profile/edit']);
-        }
+      next: profile => { this.myProfileId = profile.profileId; },
+      error: (error: HttpErrorResponse) => {
+        if (error.status === 429) this.showToast('Too many requests. Please wait a moment.');
+        else this.router.navigate(['/profile/edit']);
       }
     });
     this.loadDeck();
   }
 
-  loadDeck(): void {
-    this.loading.set(true);
-    this.profileService.getMyDeck().subscribe({
-      next: (profiles) => {
-        this.profiles.set(profiles);
-        this.currentIndex.set(0);
-        this.loading.set(false);
-      },
-      error: (err: HttpErrorResponse) => {
-        this.loading.set(false);
-        if (err.status === 429) {
-          this.showToast('Too many requests. Please wait before refreshing.');
-        } else if (err.status === 404) {
-          this.router.navigate(['/profile/edit']);
-        }
-      }
-    });
+  ngOnDestroy(): void {
+    if (this.pollTimer) clearTimeout(this.pollTimer);
+    if (this.toastTimer) clearTimeout(this.toastTimer);
   }
 
-  onSwipe(direction: 'left' | 'right', profile: Profile): void {
+  loadDeck(): void {
+    this.pollStartedAt = Date.now();
+    this.retrying.set(false);
+    this.loading.set(this.profiles().length === 0);
+    this.requestPage(undefined, true);
+  }
+
+  onSwipe(direction: 'left' | 'right', profile: DeckCard): void {
     const isSuper = this.nextSuperLike;
     this.nextSuperLike = false;
-
     if (!this.myProfileId) return;
 
     this.swipeService.swipe({
@@ -672,52 +422,124 @@ export class DiscoverComponent implements OnInit {
       decision: direction === 'right',
       isSuper
     }).subscribe({
-      next: () => { this.currentIndex.update(v => v + 1); },
-      error: (err: HttpErrorResponse) => {
-        if (isSuper && err.status === 403) {
-          this.showPremiumModal.set(true);
-        } else if (err.status === 429) {
-          this.showToast("You're swiping too fast! Please slow down.");
-        } else {
-          this.currentIndex.update(v => v + 1);
-        }
+      next: () => this.advanceCard(),
+      error: (error: HttpErrorResponse) => {
+        if (isSuper && error.status === 403) this.showPremiumModal.set(true);
+        else if (error.status === 429) this.showToast('You’re moving fast. Take a moment before the next profile.');
+        else this.advanceCard();
       }
     });
   }
 
-  dismissPremiumModal(): void {
-    this.showPremiumModal.set(false);
-  }
-
-  swipeLeft(): void {
-    const topCard = this.swipeCards?.first;
-    if (topCard) topCard.triggerSwipe('left');
-  }
-
-  swipeRight(): void {
-    const topCard = this.swipeCards?.first;
-    if (topCard) topCard.triggerSwipe('right');
-  }
+  swipeLeft(): void { this.swipeCards?.first?.triggerSwipe('left'); }
+  swipeRight(): void { this.swipeCards?.first?.triggerSwipe('right'); }
 
   superLike(): void {
-    const current = this.profiles()[this.currentIndex()];
-    if (!current) return;
+    if (!this.profiles()[this.currentIndex()]) return;
     this.nextSuperLike = true;
-    const topCard = this.swipeCards?.first;
-    if (topCard) topCard.triggerSwipe('up');
+    const card = this.swipeCards?.first;
+    if (card) card.triggerSwipe('up');
     else this.nextSuperLike = false;
   }
 
-  refresh(): void {
-    this.loadDeck();
+  refresh(): void { this.loadDeck(); }
+  retryNow(): void {
+    this.pollStartedAt = Date.now();
+    this.retrying.set(false);
+    this.requestPage(undefined, true);
+  }
+  dismissPremiumModal(): void { this.showPremiumModal.set(false); }
+  dismissMatch(): void { this.matchedProfile.set(null); }
+  goToFilters(): void { this.router.navigate(['/profile/edit']); }
+  goToPremium(): void { this.dismissPremiumModal(); this.router.navigate(['/profile']); }
+  goToMatches(): void { this.dismissMatch(); this.router.navigate(['/matches']); }
+
+  private showToast(message: string): void {
+    if (this.toastTimer) clearTimeout(this.toastTimer);
+    this.toast.set(message);
+    this.toastTimer = setTimeout(() => this.toast.set(null), 4000);
   }
 
-  dismissMatch(): void {
-    this.matchedProfile.set(null);
+  private requestPage(cursor?: string, reset = false): void {
+    if (this.requestInFlight) return;
+    this.requestInFlight = true;
+    this.profileService.getMyDeck(cursor).subscribe({
+      next: response => {
+        this.requestInFlight = false;
+        if (isBuildingDeck(response)) {
+          this.schedulePoll();
+          return;
+        }
+        this.applyPage(response, reset);
+      },
+      error: (error: HttpErrorResponse) => {
+        this.requestInFlight = false;
+        this.loading.set(false);
+        if (error.status === 429) {
+          this.showToast('Too many requests. Please wait before refreshing.');
+          return;
+        }
+        if (error.status === 404) {
+          this.router.navigate(['/profile/edit']);
+          return;
+        }
+        this.retrying.set(true);
+        this.schedulePoll();
+      }
+    });
   }
 
-  goToMatches(): void {
-    this.matchedProfile.set(null);
-    this.router.navigate(['/matches']);
+  private applyPage(page: DeckPage, reset: boolean): void {
+    const existing = this.profiles();
+    const current = existing[this.currentIndex()] ?? null;
+    const generationChanged = this.generation !== null && this.generation !== page.generation;
+    const shouldReset = reset || generationChanged || page.cursorReset;
+
+    if (shouldReset) {
+      const head = current ? [current] : [];
+      this.profiles.set(this.uniqueByProfileId([...head, ...page.items]));
+      this.currentIndex.set(0);
+    } else {
+      this.profiles.set(this.uniqueByProfileId([...existing, ...page.items]));
+    }
+
+    this.generation = page.generation;
+    this.nextCursor = page.nextCursor;
+    this.loading.set(false);
+    this.retrying.set(false);
+
+    // REFRESHING is intentionally not rendered as degraded; the current card
+    // stays in place while a newer generation is polled in the background.
+    if (page.state === 'REFRESHING') this.schedulePoll();
+  }
+
+  private schedulePoll(): void {
+    if (this.pollTimer) clearTimeout(this.pollTimer);
+    const elapsed = Date.now() - this.pollStartedAt;
+    const initialWindow = elapsed < 30_000;
+    this.retrying.set(!initialWindow);
+    this.loading.set(initialWindow && this.profiles().length === 0);
+    this.pollTimer = setTimeout(
+      () => this.requestPage(undefined, true),
+      initialWindow ? 2_000 : 10_000
+    );
+  }
+
+  private advanceCard(): void {
+    this.currentIndex.update(value => value + 1);
+    const remaining = this.profiles().length - this.currentIndex();
+    if (remaining <= 3 && this.nextCursor) {
+      const cursor = this.nextCursor;
+      this.nextCursor = null;
+      this.requestPage(cursor, false);
+    }
+  }
+
+  private uniqueByProfileId(cards: DeckCard[]): DeckCard[] {
+    const unique = new Map<string, DeckCard>();
+    cards.forEach(card => {
+      if (!unique.has(card.profileId)) unique.set(card.profileId, card);
+    });
+    return [...unique.values()];
   }
 }

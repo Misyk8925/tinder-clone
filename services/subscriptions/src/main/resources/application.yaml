@@ -37,7 +37,7 @@ spring:
       hibernate:
         dialect: org.hibernate.dialect.PostgreSQLDialect
     hibernate:
-      ddl-auto: create-drop
+      ddl-auto: validate
   datasource:
     url: ${SUBSCRIPTIONS_DB_URL:jdbc:postgresql://127.0.0.1:54334/subscriptions_db}
     username: ${SUBSCRIPTIONS_DB_USER:subscriptions_app}
@@ -59,4 +59,3 @@ resilience4j:
         waitDurationInOpenState: 10s
         permittedNumberOfCallsInHalfOpenState: 2
         registerHealthIndicator: true
-

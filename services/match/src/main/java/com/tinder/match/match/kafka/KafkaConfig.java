@@ -3,6 +3,7 @@ package com.tinder.match.match.kafka;
 import lombok.RequiredArgsConstructor;
 import org.apache.kafka.clients.admin.NewTopic;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
+import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.common.serialization.StringDeserializer;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
@@ -11,10 +12,13 @@ import org.springframework.kafka.config.ConcurrentKafkaListenerContainerFactory;
 import org.springframework.kafka.config.TopicBuilder;
 import org.springframework.kafka.core.ConsumerFactory;
 import org.springframework.kafka.core.DefaultKafkaConsumerFactory;
+import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.kafka.listener.ContainerProperties;
+import org.springframework.kafka.listener.DeadLetterPublishingRecoverer;
 import org.springframework.kafka.listener.DefaultErrorHandler;
 import org.springframework.kafka.support.serializer.ErrorHandlingDeserializer;
 import org.springframework.kafka.support.serializer.JacksonJsonDeserializer;
+import org.springframework.util.backoff.FixedBackOff;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -35,6 +39,12 @@ public class KafkaConfig {
     @Value("${spring.kafka.consumer.group-id}")
     private String groupId;
 
+    @Value("${app.kafka.error-handler.max-retries:5}")
+    private long maxRetries;
+
+    @Value("${app.kafka.error-handler.backoff-ms:1000}")
+    private long retryBackoffMs;
+
     @Bean
     public NewTopic matchCreatedTopic(){
         return TopicBuilder.name(topic)
@@ -46,19 +56,45 @@ public class KafkaConfig {
     }
 
     @Bean
+    public NewTopic matchCreatedDeadLetterTopic() {
+        return TopicBuilder.name(topic + ".dlt")
+                .partitions(10)
+                .replicas(1)
+                .config("retention.ms", "1209600000")
+                .config("cleanup.policy", "delete")
+                .build();
+    }
+
+    @Bean
+    public DefaultErrorHandler kafkaErrorHandler(KafkaTemplate<Object, Object> kafkaTemplate) {
+        DeadLetterPublishingRecoverer recoverer = new DeadLetterPublishingRecoverer(
+                kafkaTemplate,
+                (record, exception) -> new TopicPartition(record.topic() + ".dlt", -1)
+        );
+        recoverer.setFailIfSendResultIsError(true);
+        DefaultErrorHandler errorHandler = new DefaultErrorHandler(
+                recoverer,
+                new FixedBackOff(Math.max(0, retryBackoffMs), Math.max(0, maxRetries))
+        );
+        errorHandler.setCommitRecovered(true);
+        return errorHandler;
+    }
+
+    @Bean
     public ConsumerFactory<String, MatchCreateEvent> matchCreateConsumerFactory(){
         Map<String, Object> props = baseConsumerProps(groupId+"match.created", MatchCreateEvent.class);
         return new DefaultKafkaConsumerFactory<>(props);
     }
 
     @Bean
-    public ConcurrentKafkaListenerContainerFactory<String, MatchCreateEvent> kafkaListenerContainerFactory() {
+    public ConcurrentKafkaListenerContainerFactory<String, MatchCreateEvent> kafkaListenerContainerFactory(
+            DefaultErrorHandler kafkaErrorHandler) {
         ConcurrentKafkaListenerContainerFactory<String, MatchCreateEvent> factory =
                 new ConcurrentKafkaListenerContainerFactory<>();
         factory.setConsumerFactory(matchCreateConsumerFactory());
         factory.setConcurrency(concurrency);
-        factory.getContainerProperties().setAckMode(ContainerProperties.AckMode.MANUAL);
-        factory.setCommonErrorHandler(new DefaultErrorHandler());
+        factory.getContainerProperties().setAckMode(ContainerProperties.AckMode.MANUAL_IMMEDIATE);
+        factory.setCommonErrorHandler(kafkaErrorHandler);
         return factory;
     }
 

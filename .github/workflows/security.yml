@@ -1,0 +1,309 @@
+# After GitHub Code Security on a private repo: set ENABLE_GHAS=true
+#
+# Required status checks for the main ruleset:
+#   codeql-gate
+#   dependency-review-gate
+#   trivy-fs
+#   trivy-image-gate
+#
+# Do not require matrix legs (codeql-*, trivy-image (*)) or the raw
+# dependency-review job: it is skipped on private repos until GHAS is on,
+# and a skipped required check blocks merge. The *-gate jobs stay green
+# when their scans are skipped.
+#
+# CodeQL and dependency-review need GitHub Code Security on private repos.
+# Trivy tags must use the v prefix (v0.36.0). Bare 0.36.0 was deleted after the
+# 2026 supply-chain incident and GitHub cannot resolve it.
+
+name: Security
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  schedule:
+    - cron: "17 4 * * 1"
+  workflow_dispatch:
+
+concurrency:
+  group: security-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+permissions:
+  contents: read
+
+env:
+  ENABLE_GHAS: ${{ !github.event.repository.private || vars.ENABLE_GHAS == 'true' }}
+
+jobs:
+  detect:
+    name: detect
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      java: ${{ steps.filter.outputs.java }}
+      js: ${{ steps.filter.outputs.js }}
+      go: ${{ steps.filter.outputs.go }}
+      image-matrix: ${{ steps.images.outputs.matrix }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: dorny/paths-filter@d1c1ffe0248fe513906c8e24db8ea791d46f8590 # v3.0.3
+        id: filter
+        with:
+          filters: |
+            java:
+              - 'services/**/*.java'
+              - 'services/**/*.kt'
+              - 'platform/**'
+              - '**/pom.xml'
+            js:
+              - 'clients/tinder-client/**'
+            go:
+              - '**/*.go'
+              - '**/go.mod'
+              - '**/go.sum'
+            profiles:
+              - 'services/profiles/**'
+              - 'services/tinder-contracts/**'
+            deck:
+              - 'services/deck/**'
+              - 'services/tinder-contracts/**'
+            deck-read:
+              - 'services/deck-read/**'
+              - 'services/tinder-contracts/**'
+            gateway:
+              - 'services/gateway/**'
+            match:
+              - 'services/match/**'
+            consumer:
+              - 'services/consumer/**'
+            subscriptions:
+              - 'services/subscriptions/**'
+            swipes-demo:
+              - 'services/swipes-demo/**'
+            location-go:
+              - 'services/location-go/**'
+            swipes-go:
+              - 'services/swipes-go/**'
+            client:
+              - 'clients/tinder-client/**'
+      - id: images
+        env:
+          ALL: ${{ github.event_name != 'pull_request' }}
+          PROFILES: ${{ steps.filter.outputs.profiles }}
+          DECK: ${{ steps.filter.outputs.deck }}
+          DECK_READ: ${{ steps.filter.outputs.deck-read }}
+          GATEWAY: ${{ steps.filter.outputs.gateway }}
+          MATCH: ${{ steps.filter.outputs.match }}
+          CONSUMER: ${{ steps.filter.outputs.consumer }}
+          SUBSCRIPTIONS: ${{ steps.filter.outputs.subscriptions }}
+          SWIPES_DEMO: ${{ steps.filter.outputs.swipes-demo }}
+          LOCATION_GO: ${{ steps.filter.outputs.location-go }}
+          SWIPES_GO: ${{ steps.filter.outputs.swipes-go }}
+          CLIENT: ${{ steps.filter.outputs.client }}
+        run: |
+          python3 - <<'PY'
+          import json, os
+          all_run = os.environ["ALL"] == "true"
+          specs = [
+            ("PROFILES", {"service": "profiles", "context": "services", "file": "services/profiles/Dockerfile"}),
+            ("DECK", {"service": "deck", "context": "services", "file": "services/deck/Dockerfile"}),
+            ("DECK_READ", {"service": "deck-read", "context": "services", "file": "services/deck-read/Dockerfile"}),
+            ("GATEWAY", {"service": "gateway", "context": "services/gateway", "file": "services/gateway/Dockerfile"}),
+            ("MATCH", {"service": "match", "context": "services/match", "file": "services/match/Dockerfile"}),
+            ("CONSUMER", {"service": "consumer", "context": "services/consumer", "file": "services/consumer/Dockerfile"}),
+            ("SUBSCRIPTIONS", {"service": "subscriptions", "context": "services/subscriptions", "file": "services/subscriptions/Dockerfile"}),
+            ("SWIPES_DEMO", {"service": "swipes-demo", "context": "services/swipes-demo", "file": "services/swipes-demo/Dockerfile"}),
+            ("LOCATION_GO", {"service": "location-go", "context": "services/location-go", "file": "services/location-go/Dockerfile"}),
+            ("SWIPES_GO", {"service": "swipes-go", "context": "services/swipes-go", "file": "services/swipes-go/Dockerfile"}),
+            ("CLIENT", {"service": "tinder-client", "context": "clients/tinder-client", "file": "clients/tinder-client/Dockerfile"}),
+          ]
+          matrix = [spec for env_name, spec in specs if all_run or os.environ.get(env_name) == "true"]
+          with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as fh:
+              fh.write("matrix<<EOF\n")
+              fh.write(json.dumps(matrix))
+              fh.write("\nEOF\n")
+          PY
+
+  dependency-review:
+    name: dependency-review
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v5
+      - id: graph
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          base='${{ github.event.pull_request.base.sha }}'
+          head='${{ github.sha }}'
+          url="repos/${{ github.repository }}/dependency-graph/compare/${base}...${head}"
+          if gh api "$url" >/dev/null 2>err.log; then
+            echo "available=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "available=false" >> "$GITHUB_OUTPUT"
+            echo "Dependency graph compare is unavailable; skipping review."
+            cat err.log
+          fi
+      - if: steps.graph.outputs.available == 'true'
+        uses: actions/dependency-review-action@v4
+        with:
+          fail-on-severity: high
+          comment-summary-in-pr: on-failure
+
+  dependency-review-gate:
+    name: dependency-review-gate
+    needs: [dependency-review]
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - name: Require dependency-review when it ran
+        run: |
+          result='${{ needs.dependency-review.result }}'
+          echo "dependency-review=$result"
+          if [ "$result" = "failure" ] || [ "$result" = "cancelled" ]; then
+            exit 1
+          fi
+
+  codeql:
+    name: codeql-${{ matrix.language }}
+    needs: detect
+    if: >-
+      ${{ (!github.event.repository.private || vars.ENABLE_GHAS == 'true')
+          && (github.event_name != 'pull_request'
+              || (matrix.language == 'java-kotlin' && needs.detect.outputs.java == 'true')
+              || (matrix.language == 'javascript-typescript' && needs.detect.outputs.js == 'true')
+              || (matrix.language == 'go' && needs.detect.outputs.go == 'true')) }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    permissions:
+      contents: read
+      security-events: write
+      actions: read
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - language: java-kotlin
+            build-mode: none
+          - language: javascript-typescript
+            build-mode: none
+          - language: go
+            build-mode: autobuild
+    steps:
+      - uses: actions/checkout@v5
+      - uses: github/codeql-action/init@v4
+        with:
+          languages: ${{ matrix.language }}
+          build-mode: ${{ matrix.build-mode }}
+          queries: security-extended
+      - uses: github/codeql-action/analyze@v4
+        with:
+          category: "/language:${{ matrix.language }}"
+
+  codeql-gate:
+    name: codeql-gate
+    needs: [codeql]
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - name: Require CodeQL when it ran
+        run: |
+          result='${{ needs.codeql.result }}'
+          echo "codeql=$result"
+          if [ "$result" = "failure" ] || [ "$result" = "cancelled" ]; then
+            exit 1
+          fi
+
+  trivy-fs:
+    name: trivy-fs
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      security-events: write
+    steps:
+      - uses: actions/checkout@v5
+      - name: Filesystem, secrets, and IaC
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          scan-type: fs
+          scan-ref: .
+          scanners: vuln,secret,misconfig
+          severity: CRITICAL,HIGH
+          ignore-unfixed: true
+          format: sarif
+          output: trivy-fs.sarif
+          exit-code: "1"
+          skip-dirs: .git,**/node_modules,**/target,**/dist,.idea
+      - name: Upload SARIF
+        if: always() && env.ENABLE_GHAS == 'true'
+        uses: github/codeql-action/upload-sarif@v4
+        with:
+          sarif_file: trivy-fs.sarif
+          category: trivy-fs
+
+  trivy-image:
+    name: trivy-image (${{ matrix.service }})
+    needs: detect
+    if: needs.detect.outputs.image-matrix != '[]'
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    permissions:
+      contents: read
+      security-events: write
+      actions: write
+    strategy:
+      fail-fast: false
+      matrix:
+        include: ${{ fromJSON(needs.detect.outputs.image-matrix) }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: docker/setup-buildx-action@v3
+      - name: Build image tarball
+        uses: docker/build-push-action@v6
+        with:
+          context: ${{ matrix.context }}
+          file: ${{ matrix.file }}
+          push: false
+          provenance: false
+          tags: tinder/${{ matrix.service }}:${{ github.sha }}
+          outputs: type=oci,dest=/tmp/${{ matrix.service }}.tar
+          cache-from: type=gha,scope=trivy-${{ matrix.service }}
+          cache-to: type=gha,mode=max,scope=trivy-${{ matrix.service }}
+      - name: Scan image
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          input: /tmp/${{ matrix.service }}.tar
+          severity: CRITICAL,HIGH
+          ignore-unfixed: true
+          format: sarif
+          output: trivy-image-${{ matrix.service }}.sarif
+          exit-code: "1"
+      - name: Upload SARIF
+        if: always() && env.ENABLE_GHAS == 'true'
+        uses: github/codeql-action/upload-sarif@v4
+        with:
+          sarif_file: trivy-image-${{ matrix.service }}.sarif
+          category: trivy-image-${{ matrix.service }}
+
+  trivy-image-gate:
+    name: trivy-image-gate
+    needs: [trivy-image]
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - name: Require image scans when they ran
+        run: |
+          result='${{ needs.trivy-image.result }}'
+          echo "trivy-image=$result"
+          if [ "$result" = "failure" ] || [ "$result" = "cancelled" ]; then
+            exit 1
+          fi

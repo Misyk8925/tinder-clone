@@ -9,25 +9,30 @@
 #
 # Usage:
 #   cd <project-root>
-#   bash certs/generate-docker-certs.sh
+#   bash certs/generate-docker-certs.sh [output-dir]
 #
 # Prerequisites: JDK keytool (included with any JDK installation)
-# Output:        docker/certs/{service}.p12, docker/certs/truststore.jks
+# Output:        {output-dir}/{service}.p12, {output-dir}/truststore.jks
+# Default dir:   docker/certs/
 
 set -euo pipefail
 
 CERTS_DIR="$(cd "$(dirname "$0")" && pwd)"
 B="$(cd "$CERTS_DIR/.." && pwd)"
-OUT="$B/docker/certs"
+if [[ $# -ge 1 ]]; then
+  mkdir -p "$1"
+  OUT="$(cd "$1" && pwd)"
+else
+  OUT="$B/docker/certs"
+  mkdir -p "$OUT"
+fi
 KEYSTORE_PASSWORD="${MTLS_KEYSTORE_PASSWORD:-changeit}"
 TRUSTSTORE_PASSWORD="${MTLS_TRUSTSTORE_PASSWORD:-$KEYSTORE_PASSWORD}"
 VALIDITY_DAYS=3650
 
-mkdir -p "$OUT"
-
 echo ""
 echo "╔══════════════════════════════════════════════════════════════╗"
-echo "║   Generating Docker mTLS Certificates → docker/certs/       ║"
+echo "║   Generating mTLS certificates                               ║"
 echo "╚══════════════════════════════════════════════════════════════╝"
 echo ""
 echo "  Output dir : $OUT"
@@ -98,6 +103,11 @@ generate_service_cert \
   "subscriptions-service" \
   "DNS:subscriptions-service,DNS:subscriptions,DNS:localhost,IP:127.0.0.1"
 
+generate_service_cert \
+  "deck-read-service" \
+  "deck-read-service" \
+  "DNS:deck-read-service,DNS:deck-read,DNS:localhost,IP:127.0.0.1"
+
 # ─── Build shared truststore ──────────────────────────────────────────────────
 
 echo ""
@@ -105,7 +115,7 @@ echo "▶ Building shared truststore.jks ..."
 
 rm -f "$OUT/truststore.jks"
 
-for alias in profiles-service consumer-service deck-service subscriptions-service; do
+for alias in profiles-service consumer-service deck-service subscriptions-service deck-read-service; do
   keytool -importcert \
     -alias     "$alias" \
     -file      "$OUT/$alias.cer" \
@@ -120,7 +130,7 @@ done
 
 echo ""
 echo "▶ Verifying SANs ..."
-for alias in profiles-service consumer-service deck-service subscriptions-service; do
+for alias in profiles-service consumer-service deck-service subscriptions-service deck-read-service; do
   echo ""
   echo "  ── $alias ──"
   keytool -list -v \
@@ -140,8 +150,9 @@ keytool -list \
 
 echo ""
 echo "╔══════════════════════════════════════════════════════════════╗"
-echo "║   Done! Certs written to docker/certs/                      ║"
-echo "║                                                              ║"
-echo "║   Next step: docker compose up --build                      ║"
+echo "║   Done! Certs written to ${OUT}"
+if [[ "$OUT" == "$B/docker/certs" ]]; then
+  echo "║   Next step: docker compose up --build                      ║"
+fi
 echo "╚══════════════════════════════════════════════════════════════╝"
 echo ""

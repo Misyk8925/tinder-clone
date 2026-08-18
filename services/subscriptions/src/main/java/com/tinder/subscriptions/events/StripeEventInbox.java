@@ -35,6 +35,6 @@ public class StripeEventInbox {
     private Instant nextRetryAt;
     private Instant processedAt;
 
-    public enum Status { PENDING, PROCESSED, FAILED }
+    public enum Status { PENDING, PROCESSING, PROCESSED, FAILED }
 
 }

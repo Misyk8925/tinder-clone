@@ -1,0 +1,26 @@
+openapi: 3.1.0
+info:
+  title: bio-max-length
+  version: 0.1.0
+paths:
+  /profiles/{id}:
+    put:
+      operationId: updateProfileBio
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [bio]
+              properties:
+                bio: { type: string, maxLength: 500 }
+      responses:
+        '204': { description: Saved }
+        '400':
+          description: BIO_TOO_LONG — length > 500

@@ -52,15 +52,18 @@ type nominatimResult struct {
 	Lon string `json:"lon"`
 }
 
+// geoResult is the package-level coordinate pair passed through the circuit
+// breaker. It must be a single shared type: two identically-named local types
+// are distinct, and asserting one as the other panics at runtime.
+type geoResult struct {
+	lat, lon float64
+}
+
 // Geocode resolves a city name to coordinates. Returns (0, 0, err) when geocoding fails.
 func (g *Geocoder) Geocode(ctx context.Context, city string) (lat, lon float64, err error) {
 	city = strings.TrimSpace(city)
 	if city == "" {
 		return 0, 0, fmt.Errorf("city is empty")
-	}
-
-	type result struct {
-		lat, lon float64
 	}
 
 	val, cbErr := g.cb.Execute(func() (interface{}, error) {
@@ -72,13 +75,11 @@ func (g *Geocoder) Geocode(ctx context.Context, city string) (lat, lon float64, 
 		return 0, 0, cbErr
 	}
 
-	r := val.(result)
+	r := val.(geoResult)
 	return r.lat, r.lon, nil
 }
 
 func (g *Geocoder) doGeocode(ctx context.Context, city string) (interface{}, error) {
-	type result struct{ lat, lon float64 }
-
 	q := url.Values{}
 	q.Set("q", city)
 	q.Set("format", "jsonv2")
@@ -134,7 +135,7 @@ func (g *Geocoder) doGeocode(ctx context.Context, city string) (interface{}, err
 			return nil, fmt.Errorf("invalid coordinates from geocoder")
 		}
 
-		return result{lat: lat, lon: lon}, nil
+		return geoResult{lat: lat, lon: lon}, nil
 	}
 
 	return nil, fmt.Errorf("geocoding failed after retries: %w", lastErr)

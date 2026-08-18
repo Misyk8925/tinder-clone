@@ -1,313 +1,347 @@
 import { Component, inject } from '@angular/core';
-import { RouterLink, RouterLinkActive, Router, NavigationEnd } from '@angular/router';
+import { NavigationEnd, Router, RouterLink, RouterLinkActive } from '@angular/router';
+import { LucideAngularModule } from 'lucide-angular';
+import { filter } from 'rxjs/operators';
 import { KeycloakService } from '../../../core/services/keycloak.service';
 import { ThemeService } from '../../../core/services/theme.service';
-import { filter } from 'rxjs/operators';
-import { LucideAngularModule } from 'lucide-angular';
 
 @Component({
   selector: 'app-navbar',
   imports: [RouterLink, RouterLinkActive, LucideAngularModule],
   template: `
-    <nav class="navbar" [class.chat-hidden]="hidden">
-
-      <!-- Desktop: logo + wordmark -->
-      <div class="nav-logo">
-        <svg viewBox="0 0 24 24" fill="#ff4458" width="26" height="26">
-          <path d="M17.66 11.2c-.23-.3-.51-.56-.77-.82-.67-.6-1.43-1.03-2.07-1.66C13.33 7.26 13 4.85 13.95 3c-.95.23-1.78.75-2.49 1.32-2.59 2.11-3.66 5.65-2.67 8.9.04.14.08.28.08.43 0 .28-.19.52-.45.57-.28.07-.53-.09-.63-.37-.04-.1-.06-.21-.09-.32C7.15 13 7 12.5 7 11.85c0-.58.16-1.2.44-1.7-1.16 1.27-1.86 2.97-1.86 4.77 0 3.31 2.69 6 6 6s6-2.69 6-6c0-1.88-.82-3.63-2.09-4.82z"/>
-        </svg>
-        <span class="logo-text">tinder</span>
-      </div>
-
-      <div class="nav-section">
-        <a routerLink="/discover" routerLinkActive="active" class="nav-item">
-          <lucide-icon name="flame" [size]="22" strokeWidth="1.75"></lucide-icon>
-          <span class="nav-label">Discover</span>
-          <div class="nav-dot"></div>
+    @if (isAuthenticated) {
+      <nav class="navbar" [class.chat-hidden]="hidden" aria-label="Primary navigation">
+        <a routerLink="/discover" class="brand-lockup" aria-label="Connect home">
+          <span class="brand-icon"><lucide-icon name="heart-handshake" [size]="22" strokeWidth="1.8" /></span>
+          <span class="brand-text">
+            <span class="brand-copy">connect</span>
+            <span class="brand-tagline">HTL St. Pölten</span>
+          </span>
         </a>
 
-        <a routerLink="/likes" routerLinkActive="active" class="nav-item">
-          <lucide-icon name="heart" [size]="22" strokeWidth="1.75"></lucide-icon>
-          <span class="nav-label">Likes</span>
-          <div class="nav-dot"></div>
-        </a>
+        <p class="nav-label">Explore</p>
+        <div class="nav-section">
+          <a routerLink="/discover" routerLinkActive="active" ariaCurrentWhenActive="page" class="nav-item" aria-label="Discover">
+            <span class="nav-item-icon"><lucide-icon name="compass" [size]="22" strokeWidth="2.2" /></span>
+            <span class="nav-item-label">Discover</span>
+          </a>
+          <a routerLink="/likes" routerLinkActive="active" ariaCurrentWhenActive="page" class="nav-item" aria-label="Likes">
+            <span class="nav-item-icon"><lucide-icon name="heart" [size]="22" strokeWidth="2.2" /></span>
+            <span class="nav-item-label">Likes</span>
+          </a>
+          <a routerLink="/matches" routerLinkActive="active" ariaCurrentWhenActive="page" class="nav-item" aria-label="Messages">
+            <span class="nav-item-icon"><lucide-icon name="message-circle" [size]="22" strokeWidth="2.2" /></span>
+            <span class="nav-item-label">Messages</span>
+          </a>
+          <a routerLink="/profile" routerLinkActive="active" ariaCurrentWhenActive="page" class="nav-item" aria-label="Profile">
+            <span class="nav-item-icon"><lucide-icon name="user-round" [size]="22" strokeWidth="2.2" /></span>
+            <span class="nav-item-label">Profile</span>
+          </a>
+        </div>
 
-        <a routerLink="/matches" routerLinkActive="active" class="nav-item">
-          <lucide-icon name="message-circle" [size]="22" strokeWidth="1.75"></lucide-icon>
-          <span class="nav-label">Messages</span>
-          <div class="nav-dot"></div>
-        </a>
-
-        <a routerLink="/profile" routerLinkActive="active" class="nav-item">
-          <lucide-icon name="user" [size]="22" strokeWidth="1.75"></lucide-icon>
-          <span class="nav-label">Profile</span>
-          <div class="nav-dot"></div>
-        </a>
-      </div>
-
-      <div class="nav-actions">
-        <button class="theme-toggle" (click)="theme.toggle()" [title]="theme.isDark() ? 'Switch to light mode' : 'Switch to dark mode'">
-          <lucide-icon [name]="theme.isDark() ? 'sun' : 'moon'" [size]="18" strokeWidth="1.75"></lucide-icon>
-          <span>{{ theme.isDark() ? 'Light Mode' : 'Dark Mode' }}</span>
-        </button>
-        <a routerLink="/profile/edit" class="nav-action edit">
-          <lucide-icon name="pencil" [size]="18" strokeWidth="1.75"></lucide-icon>
-          <span>Edit Profile</span>
-        </a>
-      </div>
-
-    </nav>
+        <div class="nav-actions">
+          <p class="nav-label account-label">Account</p>
+          <button type="button" class="utility-action" (click)="theme.toggle()"
+            [attr.aria-label]="theme.isDark() ? 'Switch to light mode' : 'Switch to dark mode'">
+            <lucide-icon [name]="theme.isDark() ? 'sun' : 'moon'" [size]="18" strokeWidth="2.1" />
+            <span>{{ theme.isDark() ? 'Light mode' : 'Dark mode' }}</span>
+          </button>
+          <a routerLink="/profile/edit" class="utility-action edit-action">
+            <lucide-icon name="pencil" [size]="18" strokeWidth="2.1" />
+            <span>Edit profile</span>
+          </a>
+        </div>
+      </nav>
+    }
   `,
   styles: [`
-    :host {
-      display: contents;
-    }
+    :host { display: contents; }
 
-    /* ────────────────────────────
-       Mobile: bottom tab bar
-    ──────────────────────────── */
-    .nav-logo,
-    .nav-label,
-    .nav-actions {
-      display: none;
-    }
+    .brand-lockup,
+    .nav-actions,
+    .nav-label { display: none; }
 
-    .nav-section {
-      display: contents;
-    }
-
-    .navbar.chat-hidden {
-      display: none;
-    }
+    .navbar.chat-hidden { display: none; }
 
     .navbar {
       position: fixed;
-      bottom: calc(env(safe-area-inset-bottom, 0px) + 10px);
-      left: 12px;
-      right: 12px;
-      display: flex;
-      justify-content: space-around;
-      align-items: center;
-      background: var(--surface-glass);
-      border: 1px solid var(--border);
-      padding: 3px;
-      border-radius: 22px;
       z-index: 100;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      min-height: 56px;
+      padding: 4px 12px calc(4px + env(safe-area-inset-bottom, 0px));
+      background: var(--surface-glass);
+      border-top: 1px solid var(--border-light);
       backdrop-filter: blur(18px);
       -webkit-backdrop-filter: blur(18px);
-      box-shadow: 0 -12px 30px var(--shadow-md);
     }
 
-    [data-theme="dark"] .navbar {
-      background: rgba(24, 22, 30, 0.8);
-      border-color: rgba(255,255,255,0.06);
+    .nav-section {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      align-items: center;
+      max-width: 520px;
+      margin: 0 auto;
     }
 
-    /* On mobile render all nav-items as direct children of navbar */
     .nav-item {
+      position: relative;
+      min-height: 48px;
       display: flex;
       flex-direction: column;
       align-items: center;
       justify-content: center;
-      color: var(--text-muted);
+      color: var(--text-secondary);
       text-decoration: none;
-      padding: 8px 18px;
-      border-radius: 16px;
-      transition: color 0.18s, transform 0.2s, background 0.2s, box-shadow 0.2s;
-      position: relative;
-      gap: 2px;
+      border-radius: 14px;
+      transition: color 160ms ease, background 160ms ease;
+
+      .nav-item-label { display: none; }
+
+      .nav-item-icon {
+        position: relative;
+        width: 38px;
+        height: 38px;
+        display: grid;
+        place-items: center;
+        border-radius: 14px;
+        transition: color 160ms ease, background 160ms ease, transform 160ms ease, box-shadow 160ms ease;
+
+        lucide-icon {
+          width: 22px;
+          height: 22px;
+          display: grid;
+          place-items: center;
+          line-height: 0;
+        }
+      }
 
       &.active {
-        color: #fff;
-        background: var(--brand-gradient);
-        box-shadow: 0 10px 22px rgba(255, 68, 88, 0.35);
-        transform: translateY(-1px);
+        color: var(--brand);
+        background: transparent;
+
+        .nav-item-icon {
+          color: var(--brand);
+          background: transparent;
+          box-shadow: none;
+          transform: none;
+
+          &::after {
+            content: '';
+            position: absolute;
+            left: 50%;
+            bottom: 0;
+            width: 4px;
+            height: 4px;
+            border-radius: 999px;
+            background: currentColor;
+            transform: translateX(-50%);
+          }
+        }
       }
-      &:active { opacity: 0.75; }
+
+      &:focus-visible {
+        outline: 2px solid var(--brand);
+        outline-offset: 2px;
+      }
     }
 
-    .nav-dot { display: none; }
-
-    .nav-item lucide-icon svg {
-      stroke: var(--text-muted);
-    }
-
-    .nav-item.active lucide-icon svg {
-      stroke: #ffffff;
-    }
-
-    /* ────────────────────────────
-       Desktop: left sidebar 200px
-    ──────────────────────────── */
     @media (min-width: 768px) {
       :host {
         display: block;
+        width: 260px;
         flex-shrink: 0;
-        width: 200px;
+        background: var(--bg);
       }
 
-      .navbar.chat-hidden {
-        display: flex;
-      }
+      .navbar.chat-hidden { display: flex; }
 
       .navbar {
-        position: fixed;
-        left: 0;
-        top: 0;
-        bottom: 0;
-        width: 200px;
-        height: 100dvh;
+        top: 14px;
+        bottom: 14px;
+        left: 14px;
+        right: auto;
+        width: 232px;
+        min-height: 0;
+        height: calc(100dvh - 28px);
+        padding: 14px;
+        display: flex;
         flex-direction: column;
-        justify-content: flex-start;
-        align-items: stretch;
-        background: var(--surface);
-        border-top: none;
-        border-right: 1px solid var(--border);
-        padding: 0;
-        gap: 0;
-        overflow-y: auto;
-        overflow-x: hidden;
-        right: unset;
-        backdrop-filter: none;
-        -webkit-backdrop-filter: none;
-        border-radius: 0 24px 24px 0;
-        box-shadow: 8px 0 30px var(--shadow-sm);
+        background: var(--surface-glass);
+        border: 1px solid var(--border-light);
+        border-radius: 26px;
+        box-shadow: 0 24px 60px var(--shadow-sm);
+        backdrop-filter: blur(24px);
+        -webkit-backdrop-filter: blur(24px);
       }
 
-      [data-theme="dark"] .navbar {
-        background: var(--surface);
-      }
-
-      /* Logo row */
-      .nav-logo {
+      .brand-lockup {
         display: flex;
         align-items: center;
         gap: 10px;
-        padding: 24px 20px 18px;
-        border-bottom: 1px solid var(--border);
-        flex-shrink: 0;
-        background: linear-gradient(135deg, rgba(255, 68, 88, 0.08), rgba(255, 138, 61, 0.08));
+        padding: 4px 4px 22px;
+        text-decoration: none;
+        color: var(--text-primary);
       }
 
-      .logo-text {
-        font-size: 22px;
-        font-weight: 800;
-        color: var(--brand);
-        letter-spacing: -0.6px;
-        text-transform: lowercase;
+      .brand-icon {
+        width: 42px;
+        height: 42px;
+        display: grid;
+        place-items: center;
+        flex: 0 0 auto;
+        border-radius: 14px;
+        color: var(--text-primary);
+        background: var(--brand);
+        box-shadow: 0 10px 22px rgba(109, 144, 55, 0.2);
       }
 
-      /* Nav section wraps all items */
-      .nav-section {
+      .brand-text {
+        min-width: 0;
         display: flex;
         flex-direction: column;
-        padding: 12px 8px;
-        flex: 1;
-        gap: 4px;
+        gap: 1px;
+      }
+
+      .brand-copy {
+        font-size: 20px;
+        font-weight: 700;
+        letter-spacing: -0.5px;
+        line-height: 1.05;
+      }
+
+      .brand-tagline {
+        color: var(--text-muted);
+        font-size: 10px;
+        font-weight: 600;
+        letter-spacing: 0.02em;
       }
 
       .nav-label {
         display: block;
-        font-size: 14px;
-        font-weight: 500;
+        margin: 0 10px 8px;
+        color: var(--text-muted);
+        font-size: 10px;
+        font-weight: 700;
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
       }
 
-      .nav-dot { display: none; }
+      .nav-section {
+        width: 100%;
+        display: flex;
+        flex-direction: column;
+        align-items: stretch;
+        gap: 5px;
+        margin: 0;
+      }
 
       .nav-item {
-        display: flex;
-        flex-direction: row;
-        align-items: center;
-        gap: 12px;
-        padding: 12px 14px 12px 16px;
-        border-radius: 14px;
-        justify-content: flex-start;
-        color: var(--text-secondary);
-        margin: 4px 8px;
-        transition: color 0.18s, background 0.18s, transform 0.18s, box-shadow 0.18s;
-        transform: none;
         position: relative;
+        min-height: 52px;
+        flex-direction: row;
+        justify-content: flex-start;
+        gap: 12px;
+        padding: 0 13px;
+        border-radius: 16px;
+        font-weight: 600;
+        transition: color 160ms ease, background 160ms ease, transform 160ms ease, box-shadow 160ms ease;
 
-        &.active {
-          color: var(--text-primary);
-          background: linear-gradient(90deg, rgba(255, 68, 88, 0.16), rgba(255, 68, 88, 0.02));
-          box-shadow: inset 0 0 0 1px rgba(255, 68, 88, 0.12);
+        .nav-item-label { display: inline; font-size: 14px; }
 
-          &::before {
-            content: '';
-            position: absolute;
-            left: 8px;
-            top: 50%;
-            transform: translateY(-50%);
-            width: 4px;
-            height: 60%;
-            border-radius: 4px;
-            background: var(--brand-gradient);
-          }
-
-          .nav-label { font-weight: 700; }
+        .nav-item-icon {
+          width: 24px;
+          height: 24px;
+          border-radius: 0;
         }
-
-        &:active { transform: none; }
 
         &:hover:not(.active) {
           color: var(--text-primary);
           background: var(--surface-2);
+          transform: translateX(2px);
         }
-      }
 
-      .nav-item lucide-icon svg {
-        stroke: var(--text-secondary);
-      }
+        &.active {
+          color: var(--text-primary);
+          background: transparent;
+          box-shadow: none;
+          font-weight: 700;
 
-      .nav-item.active lucide-icon svg {
-        stroke: var(--brand);
+          &::before {
+            content: '';
+            position: absolute;
+            left: 0;
+            top: 50%;
+            width: 3px;
+            height: 20px;
+            border-radius: 999px;
+            background: var(--brand);
+            transform: translateY(-50%);
+          }
+
+          .nav-item-icon {
+            color: var(--brand);
+            background: transparent;
+            box-shadow: none;
+            transform: none;
+
+            &::after { display: none; }
+          }
+        }
       }
 
       .nav-actions {
         display: flex;
         flex-direction: column;
-        gap: 10px;
-        padding: 12px 16px 20px;
+        gap: 5px;
+        margin-top: auto;
+        padding: 8px;
+        border: 1px solid var(--border-light);
+        border-radius: 18px;
+        background: var(--surface-2);
       }
 
-      .nav-actions .theme-toggle,
-      .nav-actions .nav-action {
+      .account-label {
+        margin: 2px 4px 4px;
+      }
+
+      .utility-action {
+        min-height: 42px;
         display: flex;
         align-items: center;
         gap: 10px;
-        background: var(--surface-2);
-        border: 1px solid var(--border);
-        color: var(--text-primary);
-        border-radius: 14px;
-        padding: 10px 12px;
+        padding: 0 10px;
+        border: 0;
+        border-radius: 12px;
+        background: transparent;
+        color: var(--text-secondary);
+        text-decoration: none;
         font-size: 13px;
         font-weight: 600;
-        text-decoration: none;
         cursor: pointer;
-        transition: transform 0.15s, box-shadow 0.15s, background 0.15s;
+        transition: color 160ms ease, background 160ms ease, transform 160ms ease;
+
+        &:hover {
+          color: var(--text-primary);
+          background: var(--surface);
+        }
+
+        &:focus-visible {
+          outline: 2px solid var(--brand);
+          outline-offset: 2px;
+        }
       }
 
-      .nav-actions .theme-toggle {
-        appearance: none;
-      }
+      .edit-action {
+        color: var(--text-primary);
+        background: var(--brand);
+        box-shadow: 0 8px 18px rgba(109, 144, 55, 0.18);
 
-      .nav-actions .theme-toggle:hover,
-      .nav-actions .nav-action:hover {
-        background: var(--surface-3);
-        box-shadow: 0 8px 16px var(--shadow-sm);
-        transform: translateY(-1px);
-      }
-
-      .nav-actions .nav-action.edit {
-        background: var(--brand-gradient);
-        color: #fff;
-        border-color: transparent;
-        box-shadow: 0 10px 20px rgba(255, 68, 88, 0.28);
-      }
-
-      .nav-actions .nav-action.edit lucide-icon svg {
-        stroke: #fff;
+        &:hover {
+          background: var(--brand-2);
+          transform: translateY(-1px);
+        }
       }
     }
   `]
@@ -321,17 +355,13 @@ export class NavbarComponent {
 
   constructor() {
     this.router.events.pipe(
-      filter(e => e instanceof NavigationEnd)
-    ).subscribe((e: NavigationEnd) => {
-      this.hidden = e.urlAfterRedirects.includes('/chat/');
+      filter(event => event instanceof NavigationEnd)
+    ).subscribe((event: NavigationEnd) => {
+      this.hidden = event.urlAfterRedirects.includes('/chat/');
     });
   }
 
   get isAuthenticated(): boolean {
     return this.keycloak.isAuthenticated();
-  }
-
-  get isPremiumOrAdmin(): boolean {
-    return this.keycloak.hasRole('USER_PREMIUM') || this.keycloak.hasRole('ADMIN');
   }
 }

@@ -1,4 +1,4 @@
-package com.tinder.profiles.kafka.dto;
+package com.tinder.profiles.infrastructure.messaging.kafka.dto;
 
 import java.time.Instant;
 

@@ -13,6 +13,7 @@ import org.springframework.kafka.support.Acknowledgment;
 import java.time.Instant;
 import java.util.UUID;
 
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.*;
 
 /**
@@ -48,7 +49,7 @@ class ProfileEventConsumerTest {
     }
 
     @Test
-    void handleProfileCreatedEvent_doesNotAcknowledge_whenServiceThrows() {
+    void givenProfileCreateFails_whenHandlingEvent_thenFailureReachesKafkaErrorHandler() {
         ProfileCreateEvent event = ProfileCreateEvent.builder()
                 .eventId(UUID.randomUUID())
                 .profileId(UUID.randomUUID())
@@ -56,7 +57,10 @@ class ProfileEventConsumerTest {
                 .build();
         doThrow(new RuntimeException("Redis failure")).when(profileEventService).saveProfileCache(event);
 
-        profileEventConsumer.handleProfileCreatedEvent(event, 0, 0L, acknowledgment);
+        assertThatThrownBy(() ->
+                profileEventConsumer.handleProfileCreatedEvent(event, 0, 0L, acknowledgment))
+                .isInstanceOf(RuntimeException.class)
+                .hasMessage("Redis failure");
 
         verify(acknowledgment, never()).acknowledge();
     }
@@ -92,8 +96,7 @@ class ProfileEventConsumerTest {
     }
 
     @Test
-    void handleProfileDeletedEvent_acknowledgesEvenWhenServiceThrows() {
-        // The delete handler catches exceptions and still acknowledges
+    void givenProfileDeleteFails_whenHandlingEvent_thenFailureIsNotAcknowledgedAndReachesErrorHandler() {
         ProfileDeleteEvent event = ProfileDeleteEvent.builder()
                 .eventId(UUID.randomUUID())
                 .profileId(UUID.randomUUID())
@@ -101,9 +104,11 @@ class ProfileEventConsumerTest {
                 .build();
         doThrow(new RuntimeException("DB error")).when(profileEventService).deleteProfileCache(event);
 
-        profileEventConsumer.handleProfileDeletedEvent(event, 0, 0L, acknowledgment);
+        assertThatThrownBy(() ->
+                profileEventConsumer.handleProfileDeletedEvent(event, 0, 0L, acknowledgment))
+                .isInstanceOf(RuntimeException.class)
+                .hasMessage("DB error");
 
-        verify(acknowledgment).acknowledge();
+        verify(acknowledgment, never()).acknowledge();
     }
 }
-

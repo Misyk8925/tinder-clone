@@ -3,6 +3,14 @@
 .idea
 /rlScript.sh
 .env
+.DS_Store
+target/
+/clients/tinder-client/design-qa-*.png
+/clients/tinder-client/design-qa-*.jpg
+/services/consumer/load-tests/seed-100m-valid-swipes.sh
+/services/profiles/load-tests/wrk/generate-loadtest-jwts.sh
+/services/profiles/load-tests/wrk/prewarm-profile-decks.sh
+/services/profiles/load-tests/wrk/run-wrk-profile-deck.sh
 # Allow docker/certs to be committed (self-signed mTLS certs)
 *.p12
 *.jks
@@ -17,3 +25,7 @@
 /services/swipes-demo/benchmark-isolate-vps.sh
 /services/deck-read/target/
 /services/deck-read/target
+/docker/certs/
+/certs/*
+!/certs/*.sh
+/platform/generated/

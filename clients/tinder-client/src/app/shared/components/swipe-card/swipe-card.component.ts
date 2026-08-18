@@ -1,344 +1,374 @@
 import {
-  Component, Input, Output, EventEmitter,
-  ElementRef, OnInit, OnDestroy, signal
+  Component, EventEmitter, Input, OnDestroy, OnInit, Output, signal
 } from '@angular/core';
 import { NgClass, NgStyle } from '@angular/common';
-import { Profile } from '../../../core/models/profile.model';
+import { LucideAngularModule } from 'lucide-angular';
+import { DeckCard } from '../../../core/models/deck.model';
 
 @Component({
   selector: 'app-swipe-card',
-  imports: [NgClass, NgStyle],
+  imports: [NgClass, NgStyle, LucideAngularModule],
   template: `
-    <div
-      class="card"
-      [ngClass]="{ 'liked': swipeDir() === 'right', 'noped': swipeDir() === 'left' }"
+    <article
+      class="profile-card"
+      [ngClass]="{ liked: swipeDir() === 'right', passed: swipeDir() === 'left', expanded: expanded() }"
       [ngStyle]="cardStyle()"
       (mousedown)="onDragStart($event)"
       (touchstart)="onTouchStart($event)"
     >
-      <div class="card-photo">
-        @if (profile.photos?.length) {
-          <img [src]="profile.photos[currentPhoto()].url" [alt]="profile.name" (error)="onImgError($event)" />
-          @if (profile.photos.length > 1) {
-            <div class="photo-segments">
-              @for (photo of profile.photos; track $index) {
-                <div class="segment" [ngClass]="{ active: currentPhoto() === $index }" (click)="setPhoto($index)"></div>
-              }
-            </div>
-            <div class="photo-prev" (click)="prevPhoto()"></div>
-            <div class="photo-next" (click)="nextPhoto()"></div>
-          }
+      <div class="photo-stage">
+        @if (profile.photos.length) {
+          <img
+            [src]="profile.photos[currentPhoto()].url"
+            [alt]="profile.name + ' profile photo ' + (currentPhoto() + 1)"
+            (error)="onImgError($event)"
+          />
         } @else {
-          <div class="no-photo">
-            <span>{{ profile.name[0] }}</span>
-          </div>
+          <div class="photo-placeholder" aria-hidden="true">{{ profile.name[0] }}</div>
         }
 
-        <div class="like-badge">
-          <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 21.593c-5.63-5.539-11-10.297-11-14.402 0-3.791 3.068-5.191 5.281-5.191 1.312 0 4.151.501 5.719 4.457 1.59-3.968 4.464-4.447 5.726-4.447 2.54 0 5.274 1.621 5.274 5.181 0 4.069-5.136 8.625-11 14.402z"/></svg>
-          LIKE
-        </div>
-        <div class="nope-badge">
-          <svg viewBox="0 0 24 24" fill="currentColor"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
-          NOPE
-        </div>
-        <div class="super-badge">
-          <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z"/></svg>
-          SUPER
-        </div>
+        @if (profile.photos.length > 1) {
+          <div class="photo-progress" aria-label="Profile photos">
+            @for (photo of profile.photos; track photo.photoId; let index = $index) {
+              <button
+                type="button"
+                [class.active]="currentPhoto() === index"
+                (click)="$event.stopPropagation(); setPhoto(index)"
+                [attr.aria-label]="'Show photo ' + (index + 1)"
+              ></button>
+            }
+          </div>
+          <button type="button" class="photo-zone previous" (click)="$event.stopPropagation(); prevPhoto()" aria-label="Previous photo"></button>
+          <button type="button" class="photo-zone next" (click)="$event.stopPropagation(); nextPhoto()" aria-label="Next photo"></button>
+        }
+
+        <button
+          type="button"
+          class="expand-control"
+          (click)="$event.stopPropagation(); toggleExpanded()"
+          [attr.aria-expanded]="expanded()"
+          aria-label="Show more profile details"
+        >
+          <lucide-icon [name]="expanded() ? 'chevron-up' : 'chevron-down'" [size]="26" strokeWidth="2" />
+        </button>
+
+        <div class="decision-stamp like-stamp"><lucide-icon name="heart" [size]="22" fill="currentColor" /> Like</div>
+        <div class="decision-stamp pass-stamp"><lucide-icon name="x" [size]="24" /> Pass</div>
       </div>
 
-      <div class="card-gradient"></div>
-
-      <div class="card-info">
-        <div class="card-name-row">
-          <div class="name-age">
-            <h2>{{ profile.name }}<span class="age">, {{ profile.age }}</span></h2>
+      <div class="profile-story">
+        <div class="identity-row">
+          <div>
+            <div class="name-line">
+              <h2>{{ profile.name }}, {{ profile.age }}</h2>
+              @if (profile.isActive) {
+                <span class="active-dot" title="Active profile" aria-label="Active profile"></span>
+              }
+            </div>
+            @if (profile.city) {
+              <p class="location"><lucide-icon name="map-pin" [size]="16" strokeWidth="1.8" /> {{ profile.city }}</p>
+            }
           </div>
-          <button class="info-btn" (click)="$event.stopPropagation()">
-            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/></svg>
-          </button>
         </div>
-        @if (profile.city) {
-          <div class="location-row">
-            <svg viewBox="0 0 24 24" fill="currentColor" class="loc-icon"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/></svg>
-            <span>{{ profile.city }}</span>
-          </div>
-        }
-        @if (profile.bio) {
-          <p class="bio">{{ profile.bio }}</p>
-        }
-        @if (profile.hobbies?.length) {
-          <div class="hobbies">
-            @for (hobby of profile.hobbies.slice(0, 4); track hobby) {
-              <span class="hobby-tag">{{ hobbyLabel(hobby) }}</span>
+
+        <div class="story-divider"></div>
+        <p class="prompt-label">A perfect Saturday…</p>
+        <p class="prompt-answer">{{ profile.bio || 'Coffee, a trail, then live music.' }}</p>
+
+        @if (profile.hobbies.length) {
+          <div class="hobbies" aria-label="Interests">
+            @for (hobby of profile.hobbies.slice(0, expanded() ? 6 : 3); track hobby) {
+              <span>{{ hobbyLabel(hobby) }}</span>
             }
           </div>
         }
+
+        @if (expanded()) {
+          <div class="more-details">
+            <div><span>Age range</span><strong>{{ profile.preferences.minAge }}–{{ profile.preferences.maxAge }}</strong></div>
+            <div><span>Distance</span><strong>Within {{ profile.preferences.maxDistanceKm }} km</strong></div>
+          </div>
+        }
       </div>
-    </div>
+    </article>
   `,
   styles: [`
-    .card {
+    :host { display: block; position: absolute; inset: 0; }
+
+    .profile-card {
       position: absolute;
+      inset: 0;
       width: 100%;
-      height: 100%;
-      border-radius: 26px;
+      max-width: 100%;
+      display: grid;
+      grid-template-rows: minmax(0, 1fr) auto;
       overflow: hidden;
-      background: var(--surface);
-      border: 1px solid rgba(255,255,255,0.5);
-      box-shadow: 0 20px 40px rgba(15,23,42,0.24), 0 2px 8px rgba(15,23,42,0.08);
+      isolation: isolate;
+      border-radius: 20px;
+      background: var(--card-surface);
+      border: 1px solid var(--card-border);
+      box-shadow: 0 12px 34px var(--shadow-md);
       cursor: grab;
       user-select: none;
       touch-action: none;
       will-change: transform;
-
-      &:active { cursor: grabbing; }
-
-      &::after {
-        content: '';
-        position: absolute;
-        inset: 0;
-        border-radius: inherit;
-        border: 1px solid rgba(255,255,255,0.25);
-        pointer-events: none;
-      }
     }
 
-    [data-theme="dark"] .card {
-      border-color: rgba(255,255,255,0.12);
-      box-shadow: 0 20px 46px rgba(0,0,0,0.6);
+    .profile-card:active { cursor: grabbing; }
+
+    .photo-stage {
+      position: relative;
+      min-height: 0;
+      overflow: hidden;
+      background: var(--surface-3);
     }
 
-    .card-photo {
-      position: absolute;
-      inset: 0;
+    .photo-stage > img {
       width: 100%;
       height: 100%;
-
-      img {
-        width: 100%;
-        height: 100%;
-        object-fit: cover;
-        pointer-events: none;
-      }
-    }
-
-    .no-photo {
-      width: 100%;
-      height: 100%;
-      background: var(--brand-gradient);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-
-      span {
-        font-size: 100px;
-        color: rgba(255,255,255,0.4);
-        font-weight: 800;
-        text-transform: uppercase;
-      }
-    }
-
-    .photo-segments {
-      position: absolute;
-      top: 12px;
-      left: 12px;
-      right: 12px;
-      display: flex;
-      gap: 4px;
-      z-index: 3;
+      display: block;
+      object-fit: cover;
+      object-position: center 40%;
       pointer-events: none;
     }
 
-    .segment {
+    .photo-placeholder {
+      width: 100%;
+      height: 100%;
+      display: grid;
+      place-items: center;
+      color: var(--text-secondary);
+      background: var(--surface-3);
+      font-size: 86px;
+      font-weight: 700;
+    }
+
+    .photo-progress {
+      position: absolute;
+      z-index: 4;
+      top: 12px;
+      left: 14px;
+      right: 14px;
+      display: flex;
+      gap: 5px;
+    }
+
+    .photo-progress button {
+      min-width: 0;
       flex: 1;
       height: 3px;
-      border-radius: 2px;
-      background: rgba(255,255,255,0.35);
-      cursor: pointer;
-      pointer-events: all;
-      transition: background 0.2s;
-
-      &.active {
-        background: rgba(255,255,255,0.98);
-      }
-    }
-
-    .photo-prev, .photo-next {
-      position: absolute;
-      top: 0;
-      bottom: 0;
-      width: 38%;
-      z-index: 2;
-      cursor: pointer;
-    }
-
-    .photo-prev { left: 0; }
-    .photo-next { right: 0; }
-
-    /* LIKE / NOPE / SUPER badges */
-    .like-badge, .nope-badge, .super-badge {
-      position: absolute;
-      top: 34px;
-      padding: 6px 14px;
-      border-radius: 10px;
-      font-size: 20px;
-      font-weight: 800;
-      letter-spacing: 2px;
-      opacity: 0;
-      transition: opacity 0.1s;
-      z-index: 10;
-      border: 3px solid;
-      display: flex;
-      align-items: center;
-      gap: 6px;
-      background: rgba(0,0,0,0.25);
-      backdrop-filter: blur(6px);
-
-      svg {
-        width: 20px;
-        height: 20px;
-      }
-    }
-
-    .like-badge {
-      left: 20px;
-      color: var(--like);
-      border-color: var(--like);
-      transform: rotate(-20deg);
-    }
-
-    .nope-badge {
-      right: 20px;
-      color: var(--nope);
-      border-color: var(--nope);
-      transform: rotate(20deg);
-    }
-
-    .super-badge {
-      left: 50%;
-      transform: translateX(-50%);
-      color: var(--super);
-      border-color: var(--super);
-    }
-
-    .card.liked .like-badge { opacity: 1; }
-    .card.noped .nope-badge { opacity: 1; }
-    .card.super .super-badge { opacity: 1; }
-
-    /* Bottom gradient overlay */
-    .card-gradient {
-      position: absolute;
-      bottom: 0;
-      left: 0;
-      right: 0;
-      height: 68%;
-      background: linear-gradient(to top,
-        rgba(0,0,0,0.9) 0%,
-        rgba(0,0,0,0.6) 35%,
-        rgba(0,0,0,0.2) 65%,
-        transparent 100%);
-      pointer-events: none;
-      z-index: 1;
-    }
-
-    .card-info {
-      position: absolute;
-      bottom: 0;
-      left: 0;
-      right: 0;
-      padding: 16px 18px 22px;
-      color: #fff;
-      z-index: 2;
-    }
-
-    .card-name-row {
-      display: flex;
-      align-items: flex-end;
-      justify-content: space-between;
-      gap: 8px;
-      margin-bottom: 4px;
-    }
-
-    .name-age h2 {
-      margin: 0;
-      font-size: 28px;
-      font-weight: 700;
-      line-height: 1.1;
-      text-shadow: 0 1px 10px rgba(0,0,0,0.35);
-
-      .age {
-        font-size: 26px;
-        font-weight: 500;
-      }
-    }
-
-    .info-btn {
-      background: rgba(255,255,255,0.12);
-      border: 1.5px solid rgba(255,255,255,0.7);
-      border-radius: 50%;
-      width: 36px;
-      height: 36px;
-      min-width: 36px;
-      color: #fff;
-      cursor: pointer;
-      display: flex;
-      align-items: center;
-      justify-content: center;
       padding: 0;
-      flex-shrink: 0;
-      transition: background 0.15s, transform 0.15s;
-
-      svg { width: 20px; height: 20px; }
-      &:active { background: rgba(255,255,255,0.22); transform: scale(0.96); }
+      border: 0;
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.56);
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+      cursor: pointer;
     }
 
-    .location-row {
+    .photo-progress button.active { background: var(--brand); }
+
+    .photo-zone {
+      position: absolute;
+      z-index: 2;
+      top: 30px;
+      bottom: 0;
+      width: 34%;
+      border: 0;
+      background: transparent;
+      cursor: pointer;
+    }
+
+    .photo-zone.previous { left: 0; }
+    .photo-zone.next { right: 0; }
+
+    .expand-control {
+      position: absolute;
+      z-index: 5;
+      right: 12px;
+      bottom: 12px;
+      width: 38px;
+      height: 38px;
+      display: grid;
+      place-items: center;
+      border: 1px solid var(--card-border);
+      border-radius: 50%;
+      color: var(--text-primary);
+      background: var(--surface-glass);
+      box-shadow: 0 4px 14px var(--shadow-sm);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      cursor: pointer;
+      transition: transform 180ms ease;
+    }
+
+    .expand-control:hover { transform: translateY(-2px); }
+
+    .decision-stamp {
+      position: absolute;
+      z-index: 6;
+      top: 38px;
       display: flex;
       align-items: center;
-      gap: 4px;
-      margin-bottom: 6px;
-      font-size: 14px;
-      opacity: 0.9;
-
-      .loc-icon { width: 14px; height: 14px; flex-shrink: 0; }
+      gap: 7px;
+      padding: 8px 14px;
+      border: 2px solid currentColor;
+      border-radius: 12px;
+      background: var(--card-surface);
+      font-size: 16px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      opacity: 0;
     }
 
-    .bio {
-      margin: 0 0 8px;
-      font-size: 14px;
-      opacity: 0.9;
-      line-height: 1.4;
-      display: -webkit-box;
-      -webkit-line-clamp: 2;
-      -webkit-box-orient: vertical;
+    .like-stamp { left: 18px; color: var(--brand-strong); transform: rotate(-8deg); }
+    .pass-stamp { right: 18px; color: var(--text-secondary); transform: rotate(8deg); }
+    .profile-card.liked .like-stamp,
+    .profile-card.passed .pass-stamp { opacity: 1; }
+
+    .profile-story {
+      position: relative;
+      z-index: 3;
+      width: 100%;
+      min-height: 0;
+      margin-top: 0;
+      padding: 16px clamp(16px, 5vw, 22px);
+      border-radius: 0;
+      border-top: 1px solid var(--card-border);
+      background: var(--card-surface);
+      box-shadow: none;
       overflow: hidden;
+      transform: none;
+    }
+
+    .identity-row {
+      min-width: 0;
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+    }
+
+    .identity-row > div { min-width: 0; max-width: 100%; }
+
+    .name-line {
+      min-width: 0;
+      max-width: 100%;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    h2 {
+      min-width: 0;
+      margin: 0;
+      color: var(--text-primary);
+      font-size: clamp(22px, 5.8vw, 25px);
+      line-height: 1.1;
+      letter-spacing: -0.035em;
+      font-weight: 700;
+      overflow-wrap: anywhere;
+    }
+
+    .active-dot {
+      width: 12px;
+      height: 12px;
+      flex: 0 0 auto;
+      border-radius: 50%;
+      background: var(--brand);
+      box-shadow: 0 0 0 4px var(--brand-soft);
+    }
+
+    .location {
+      min-width: 0;
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      margin: 5px 0 0;
+      color: var(--text-muted);
+      font-size: 14px;
+      font-weight: var(--ui-label-weight);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .story-divider { height: 1px; margin: 13px 0 11px; background: var(--border-light); }
+
+    .prompt-label {
+      margin: 0 0 4px;
+      color: var(--text-secondary);
+      font-size: 11px;
+      font-weight: 500;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .prompt-answer {
+      margin: 0;
+      color: var(--text-primary);
+      font-family: inherit;
+      font-size: clamp(18px, 4.9vw, 22px);
+      line-height: 1.3;
+      letter-spacing: -0.02em;
+      font-weight: 500;
     }
 
     .hobbies {
       display: flex;
       flex-wrap: wrap;
-      gap: 6px;
+      gap: 8px;
+      margin-top: 13px;
     }
 
-    .hobby-tag {
-      background: rgba(255,255,255,0.2);
-      border: 1px solid rgba(255,255,255,0.45);
-      backdrop-filter: blur(6px);
-      padding: 4px 12px;
-      border-radius: 20px;
+    .hobbies span {
+      display: inline-flex;
+      align-items: center;
+      padding: 5px 10px;
+      border-radius: 999px;
+      border: 1px solid var(--border);
+      color: var(--text-secondary);
+      background: transparent;
       font-size: 12px;
-      font-weight: 500;
+      font-weight: 600;
+    }
+
+    .more-details {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      margin-top: 14px;
+      padding-top: 12px;
+      border-top: 1px solid var(--border);
+    }
+
+    .more-details div { display: flex; flex-direction: column; gap: 3px; }
+    .more-details span { color: var(--text-muted); font-size: 11px; }
+    .more-details strong { color: var(--text-primary); font-size: 13px; }
+
+    .profile-card.expanded { grid-template-rows: minmax(0, 46%) minmax(0, 54%); }
+    .profile-card.expanded .profile-story { overflow-y: auto; }
+
+    @media (min-width: 768px) {
+      .profile-card { grid-template-rows: minmax(0, 67%) minmax(0, 33%); }
+      .profile-story { padding: 18px 22px; }
+    }
+
+    @media (max-height: 740px) {
+      .profile-card { grid-template-rows: minmax(0, 1fr) auto; }
+      .profile-story { padding: 14px 18px 16px; }
+      .story-divider { margin: 10px 0 9px; }
+      .hobbies { margin-top: 10px; }
+      .hobbies span { padding: 5px 9px; }
     }
   `]
 })
 export class SwipeCardComponent implements OnInit, OnDestroy {
-  @Input({ required: true }) profile!: Profile;
+  @Input({ required: true }) profile!: DeckCard;
   @Output() swiped = new EventEmitter<'left' | 'right'>();
 
   currentPhoto = signal(0);
   swipeDir = signal<'left' | 'right' | null>(null);
+  expanded = signal(false);
   cardStyle = signal<Record<string, string>>({});
 
   private startX = 0;
@@ -351,8 +381,6 @@ export class SwipeCardComponent implements OnInit, OnDestroy {
   private mouseUpHandler = this.onDragEnd.bind(this);
   private touchMoveHandler = this.onTouchMove.bind(this);
   private touchEndHandler = this.onTouchEnd.bind(this);
-
-  constructor(private el: ElementRef) {}
 
   ngOnInit(): void {
     document.addEventListener('mousemove', this.mouseMoveHandler);
@@ -368,24 +396,22 @@ export class SwipeCardComponent implements OnInit, OnDestroy {
     document.removeEventListener('touchend', this.touchEndHandler);
   }
 
-  /** Called by parent to animate programmatic swipe (button click) */
   public triggerSwipe(direction: 'left' | 'right' | 'up'): void {
     if (this.isAnimating || this.isDragging) return;
     this.isAnimating = true;
-
     const emitDir: 'left' | 'right' = direction === 'left' ? 'left' : 'right';
 
     if (direction === 'up') {
       this.cardStyle.set({
-        transform: 'translate(0, -1400px) scale(0.8)',
+        transform: 'translate(0, -1200px) scale(0.84)',
         transition: 'transform 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94)'
       });
     } else {
-      const flyX = direction === 'right' ? 1300 : -1300;
-      const rotation = direction === 'right' ? 30 : -30;
+      const flyX = direction === 'right' ? 1200 : -1200;
+      const rotation = direction === 'right' ? 24 : -24;
       this.swipeDir.set(direction);
       this.cardStyle.set({
-        transform: `translate(${flyX}px, -150px) rotate(${rotation}deg)`,
+        transform: `translate(${flyX}px, -120px) rotate(${rotation}deg)`,
         transition: 'transform 0.38s cubic-bezier(0.25, 0.46, 0.45, 0.94)'
       });
     }
@@ -393,92 +419,94 @@ export class SwipeCardComponent implements OnInit, OnDestroy {
     setTimeout(() => this.swiped.emit(emitDir), 360);
   }
 
-  onDragStart(e: MouseEvent): void {
-    if (this.isAnimating) return;
+  onDragStart(event: MouseEvent): void {
+    if (this.isAnimating || this.isInteractiveTarget(event.target)) return;
     this.isDragging = true;
-    this.startX = e.clientX;
-    this.startY = e.clientY;
+    this.startX = event.clientX;
+    this.startY = event.clientY;
   }
 
-  onTouchStart(e: TouchEvent): void {
-    if (this.isAnimating) return;
+  onTouchStart(event: TouchEvent): void {
+    if (this.isAnimating || this.isInteractiveTarget(event.target)) return;
     this.isDragging = true;
-    this.startX = e.touches[0].clientX;
-    this.startY = e.touches[0].clientY;
+    this.startX = event.touches[0].clientX;
+    this.startY = event.touches[0].clientY;
   }
 
-  onDragMove(e: MouseEvent): void {
+  onDragMove(event: MouseEvent): void {
     if (!this.isDragging) return;
-    this.updateCardPosition(e.clientX - this.startX, e.clientY - this.startY);
+    this.updateCardPosition(event.clientX - this.startX, event.clientY - this.startY);
   }
 
-  onTouchMove(e: TouchEvent): void {
+  onTouchMove(event: TouchEvent): void {
     if (!this.isDragging) return;
-    e.preventDefault();
-    this.updateCardPosition(e.touches[0].clientX - this.startX, e.touches[0].clientY - this.startY);
+    event.preventDefault();
+    this.updateCardPosition(event.touches[0].clientX - this.startX, event.touches[0].clientY - this.startY);
+  }
+
+  onDragEnd(event: MouseEvent): void {
+    if (!this.isDragging) return;
+    this.isDragging = false;
+    this.finishSwipe(event.clientX - this.startX);
+  }
+
+  onTouchEnd(event: TouchEvent): void {
+    if (!this.isDragging) return;
+    this.isDragging = false;
+    this.finishSwipe(event.changedTouches[0].clientX - this.startX);
   }
 
   private updateCardPosition(dx: number, dy: number): void {
-    const rotation = dx * 0.08;
-    this.cardStyle.set({
-      transform: `translate(${dx}px, ${dy}px) rotate(${rotation}deg)`,
-      transition: 'none'
-    });
-
+    this.cardStyle.set({ transform: `translate(${dx}px, ${dy}px) rotate(${dx * 0.06}deg)`, transition: 'none' });
     if (dx > 30) this.swipeDir.set('right');
     else if (dx < -30) this.swipeDir.set('left');
     else this.swipeDir.set(null);
-  }
-
-  onDragEnd(e: MouseEvent): void {
-    if (!this.isDragging) return;
-    this.isDragging = false;
-    this.finishSwipe(e.clientX - this.startX);
-  }
-
-  onTouchEnd(e: TouchEvent): void {
-    if (!this.isDragging) return;
-    this.isDragging = false;
-    const dx = e.changedTouches[0].clientX - this.startX;
-    this.finishSwipe(dx);
   }
 
   private finishSwipe(dx: number): void {
     if (Math.abs(dx) > this.SWIPE_THRESHOLD) {
       this.isAnimating = true;
       const direction = dx > 0 ? 'right' : 'left';
-      const flyX = direction === 'right' ? 1300 : -1300;
-      const rotation = direction === 'right' ? 30 : -30;
+      const flyX = direction === 'right' ? 1200 : -1200;
+      const rotation = direction === 'right' ? 24 : -24;
       this.cardStyle.set({
-        transform: `translate(${flyX}px, -150px) rotate(${rotation}deg)`,
+        transform: `translate(${flyX}px, -120px) rotate(${rotation}deg)`,
         transition: 'transform 0.38s cubic-bezier(0.25, 0.46, 0.45, 0.94)'
       });
       setTimeout(() => this.swiped.emit(direction), 360);
-    } else {
-      this.cardStyle.set({ transform: 'translate(0,0) rotate(0deg)', transition: 'transform 0.35s cubic-bezier(0.34, 1.56, 0.64, 1)' });
-      this.swipeDir.set(null);
+      return;
     }
+
+    this.cardStyle.set({ transform: 'translate(0,0) rotate(0deg)', transition: 'transform 0.28s ease' });
+    this.swipeDir.set(null);
   }
 
-  setPhoto(index: number): void {
-    this.currentPhoto.set(index);
+  private isInteractiveTarget(target: EventTarget | null): boolean {
+    return target instanceof Element && Boolean(target.closest('button'));
   }
 
-  prevPhoto(): void {
-    if (this.currentPhoto() > 0) this.currentPhoto.update(v => v - 1);
-  }
-
+  toggleExpanded(): void { this.expanded.update(value => !value); }
+  setPhoto(index: number): void { this.currentPhoto.set(index); }
+  prevPhoto(): void { if (this.currentPhoto() > 0) this.currentPhoto.update(value => value - 1); }
   nextPhoto(): void {
-    if (this.currentPhoto() < (this.profile.photos?.length ?? 0) - 1) {
-      this.currentPhoto.update(v => v + 1);
-    }
+    if (this.currentPhoto() < (this.profile.photos?.length ?? 0) - 1) this.currentPhoto.update(value => value + 1);
   }
 
-  onImgError(e: Event): void {
-    (e.target as HTMLImageElement).style.display = 'none';
-  }
+  onImgError(event: Event): void { (event.target as HTMLImageElement).src = '/assets/profiles/mila-discover.png'; }
 
   hobbyLabel(hobby: string): string {
     return hobby.charAt(0) + hobby.slice(1).toLowerCase().replace(/_/g, ' ');
+  }
+
+  hobbyIcon(hobby: string): string {
+    const icons: Record<string, string> = {
+      HIKING: 'mountain',
+      CYCLING: 'bike',
+      MUSIC: 'music-2',
+      COOKING: 'coffee',
+      READING: 'book-open',
+      GYM: 'dumbbell',
+    };
+    return icons[hobby] ?? 'sparkles';
   }
 }

@@ -1,5 +1,6 @@
 export const environment = {
   production: false,
+  designPreview: false,
   apiGatewayUrl: 'https://api.mykh.studio',
   wsUrl: 'wss://api.mykh.studio/ws',
   keycloak: {
@@ -8,4 +9,3 @@ export const environment = {
     clientId: 'tinder-client'
   }
 };
-

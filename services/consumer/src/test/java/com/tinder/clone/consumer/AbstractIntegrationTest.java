@@ -7,39 +7,40 @@ import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.PostgreSQLContainer;
-import org.testcontainers.junit.jupiter.Container;
-import org.testcontainers.junit.jupiter.Testcontainers;
+import org.testcontainers.lifecycle.Startables;
+
+import java.util.stream.Stream;
 
 /**
- * Base class for integration tests.
- * Starts PostgreSQL and Redis containers once for the whole test suite.
- * Uses @ServiceConnection so Spring Boot automatically wires the datasource URL,
- * which is more reliable than @DynamicPropertySource for datasource configuration.
+ * Shared PostgreSQL and Redis for every Spring context test in Consumer.
+ * Containers are started once in a static block (not {@code @Container}) so
+ * Testcontainers does not stop them between test classes while Spring still
+ * caches the datasource URL.
  */
 @SpringBootTest
-@Testcontainers
 @ActiveProfiles("test")
 public abstract class AbstractIntegrationTest {
 
-    @Container
     @ServiceConnection
-    static PostgreSQLContainer<?> postgres =
+    static final PostgreSQLContainer<?> postgres =
             new PostgreSQLContainer<>("postgres:15-alpine")
                     .withDatabaseName("consumer_test")
                     .withUsername("test")
                     .withPassword("test");
 
-    @Container
     @ServiceConnection(name = "redis")
     @SuppressWarnings("resource")
-    static GenericContainer<?> redis =
+    static final GenericContainer<?> redis =
             new GenericContainer<>("redis:7-alpine")
                     .withExposedPorts(6379);
 
+    static {
+        Startables.deepStart(Stream.of(postgres, redis)).join();
+    }
+
     @DynamicPropertySource
     static void overrideProperties(DynamicPropertyRegistry registry) {
-        // Disable Kafka auto-configuration for tests that do not need it
-        registry.add("spring.kafka.bootstrap-servers", () -> "localhost:9999");
+        registry.add("spring.kafka.bootstrap-servers", () -> "127.0.0.1:65535");
+        registry.add("spring.kafka.listener.auto-startup", () -> "false");
     }
 }
-

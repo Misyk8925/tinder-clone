@@ -1,9 +1,12 @@
 package com.tinder.deckread.redis;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.tinder.contracts.deck.DeckRedisKeys;
 import com.tinder.contracts.dto.DeckEntry;
 import io.quarkus.redis.datasource.ReactiveRedisDataSource;
+import io.quarkus.redis.client.RedisClientName;
 import io.quarkus.redis.datasource.sortedset.ReactiveSortedSetCommands;
+import io.quarkus.redis.datasource.value.ReactiveValueCommands;
 import io.quarkus.redis.datasource.sortedset.ZRangeArgs;
 import io.smallrye.mutiny.Uni;
 import jakarta.enterprise.context.ApplicationScoped;
@@ -17,13 +20,9 @@ import java.util.UUID;
 /**
  * Reads a page of the cached deck for a viewer and returns the ordered profile IDs.
  *
- * <p><b>Pure pass-through.</b> The reader returns exactly what is in the {@code deck:{viewerId}}
- * sorted set — no filtering of deleted / invalidated / swiped profiles, no build-timestamp logic.
- * Correctness is the write side's responsibility: the deck (write) service eagerly removes
- * deleted and critically-changed profiles from every affected deck (via its
- * {@code deck:contains:{profileId}} reverse index) and removes swiped profiles on each swipe
- * event. The only residue is a sub-millisecond window during a swipe's mark→remove sequence,
- * which is accepted.
+ * <p>The source client is read-only. Filtering and card hydration happen later
+ * from Deck Read's own event projections; this class only imports ordered IDs
+ * and verifies a stable build timestamp.
  *
  * <p>Members are read highest-score-first (ZRANGE … REV) and parsed with Jackson into the shared
  * {@link DeckEntry}; a legacy bare-UUID member (a 36-char UUID string) is also tolerated.
@@ -34,11 +33,14 @@ public class DeckRedisReader {
     private static final Logger LOG = Logger.getLogger(DeckRedisReader.class);
 
     private final ReactiveSortedSetCommands<String, String> sortedSet;
+    private final ReactiveValueCommands<String, String> values;
     private final ObjectMapper objectMapper;
 
     @Inject
-    public DeckRedisReader(ReactiveRedisDataSource redis, ObjectMapper objectMapper) {
+    public DeckRedisReader(@RedisClientName("deck-source") ReactiveRedisDataSource redis,
+                           ObjectMapper objectMapper) {
         this.sortedSet = redis.sortedSet(String.class);
+        this.values = redis.value(String.class);
         this.objectMapper = objectMapper;
     }
 
@@ -54,13 +56,43 @@ public class DeckRedisReader {
         }
         int off = Math.max(offset, 0);
         long end = (long) off + limit - 1;
-        String key = DeckKeySchema.deck(viewerId);
+        String key = DeckRedisKeys.deck(viewerId);
 
         return sortedSet.zrange(key, off, end, new ZRangeArgs().rev())
                 .map(members -> members.stream()
                         .map(this::parseProfileId)
                         .filter(Objects::nonNull)
                         .toList());
+    }
+
+    /**
+     * Imports a whole source snapshot only when the Deck build timestamp is
+     * unchanged before and after the ZSET read. A concurrent writer causes a
+     * bounded retry instead of a mixed generation.
+     */
+    public Uni<SourceDeckSnapshot> readStable(UUID viewerProfileId, int limit) {
+        return readStable(viewerProfileId, Math.min(Math.max(limit, 0), 500), 0);
+    }
+
+    private Uni<SourceDeckSnapshot> readStable(UUID viewerProfileId, int limit, int attempt) {
+        String timestampKey = DeckRedisKeys.buildTimestamp(viewerProfileId);
+        return values.get(timestampKey)
+                .flatMap(before -> read(viewerProfileId, 0, limit)
+                        .flatMap(ids -> values.get(timestampKey)
+                                .flatMap(after -> {
+                                    if (before != null && Objects.equals(before, after)) {
+                                        return Uni.createFrom().item(new SourceDeckSnapshot(ids, after));
+                                    }
+                                    if (attempt >= 2) {
+                                        if (before == null || after == null) {
+                                            return Uni.createFrom().failure(new IllegalStateException(
+                                                    "Deck source has no stable build timestamp after three import attempts"));
+                                        }
+                                        return Uni.createFrom().failure(new IllegalStateException(
+                                                "Deck source changed during three import attempts"));
+                                    }
+                                    return readStable(viewerProfileId, limit, attempt + 1);
+                                })));
     }
 
     /** Parse a sorted-set member into its profileId. Returns null on unrecoverable garbage. */
@@ -74,7 +106,7 @@ public class DeckRedisReader {
         }
         try {
             DeckEntry entry = objectMapper.readValue(member, DeckEntry.class);
-            return entry.profileId();
+            return entry.isSwiped() ? null : entry.profileId();
         } catch (Exception jsonError) {
             UUID legacy = tryUuid(member);
             if (legacy == null) {

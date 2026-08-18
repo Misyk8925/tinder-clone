@@ -89,6 +89,71 @@ class DeckCacheReverseIndexIntegrationTest {
     }
 
     @Test
+    @DisplayName("Given a rewritten deck, when candidates change, then obsolete reverse memberships are removed")
+    void rewriteRemovesObsoleteReverseMemberships() {
+        UUID viewer = UUID.randomUUID();
+        UUID oldCandidate = UUID.randomUUID();
+        UUID newCandidate = UUID.randomUUID();
+
+        deckCache.writeDeck(viewer, List.of(Map.entry(oldCandidate, 10.0)), TTL).block();
+        deckCache.writeDeck(viewer, List.of(Map.entry(newCandidate, 20.0)), TTL).block();
+
+        assertThat(reverseIndex(oldCandidate)).doesNotContain(viewer.toString());
+        assertThat(reverseIndex(newCandidate)).containsExactly(viewer.toString());
+    }
+
+    @Test
+    @DisplayName("Given one affected deck, when a profile becomes stale, then unrelated decks are not touched")
+    void markAsStaleForAllDecksUsesAffectedReverseIndexOnly() {
+        UUID affectedViewer = UUID.randomUUID();
+        UUID unrelatedViewer = UUID.randomUUID();
+        UUID changedProfile = UUID.randomUUID();
+
+        deckCache.writeDeck(affectedViewer, List.of(Map.entry(changedProfile, 10.0)), TTL).block();
+        deckCache.writeDeck(unrelatedViewer, List.of(Map.entry(UUID.randomUUID(), 20.0)), TTL).block();
+
+        assertThat(deckCache.markAsStaleForAllDecks(changedProfile).block()).isEqualTo(1L);
+        assertThat(deckCache.isStale(affectedViewer, changedProfile).block()).isTrue();
+        assertThat(deckCache.isStale(unrelatedViewer, changedProfile).block()).isFalse();
+    }
+
+    @Test
+    @DisplayName("Given a swipe removal, when the card leaves the deck, then its reverse membership is removed")
+    void removeFromDeckCleansReverseMembership() {
+        UUID viewer = UUID.randomUUID();
+        UUID removedProfile = UUID.randomUUID();
+        UUID retainedProfile = UUID.randomUUID();
+        deckCache.writeDeck(viewer, List.of(
+                Map.entry(removedProfile, 10.0),
+                Map.entry(retainedProfile, 20.0)), TTL).block();
+
+        assertThat(deckCache.removeFromDeck(viewer, removedProfile).block()).isEqualTo(1L);
+
+        assertThat(reverseIndex(removedProfile)).doesNotContain(viewer.toString());
+        assertThat(reverseIndex(retainedProfile)).containsExactly(viewer.toString());
+    }
+
+    @Test
+    @DisplayName("Given batch removals, when cards leave the deck, then all affected reverse memberships are removed")
+    void removeMultipleFromDeckCleansReverseMemberships() {
+        UUID viewer = UUID.randomUUID();
+        UUID firstRemovedProfile = UUID.randomUUID();
+        UUID secondRemovedProfile = UUID.randomUUID();
+        UUID retainedProfile = UUID.randomUUID();
+        deckCache.writeDeck(viewer, List.of(
+                Map.entry(firstRemovedProfile, 10.0),
+                Map.entry(secondRemovedProfile, 20.0),
+                Map.entry(retainedProfile, 30.0)), TTL).block();
+
+        assertThat(deckCache.removeMultipleFromDeck(
+                viewer, Set.of(firstRemovedProfile, secondRemovedProfile)).block()).isEqualTo(2L);
+
+        assertThat(reverseIndex(firstRemovedProfile)).doesNotContain(viewer.toString());
+        assertThat(reverseIndex(secondRemovedProfile)).doesNotContain(viewer.toString());
+        assertThat(reverseIndex(retainedProfile)).containsExactly(viewer.toString());
+    }
+
+    @Test
     @DisplayName("removeFromAllDecks purges the profile from exactly the decks that contain it")
     void removeFromAllDecksPurgesAffectedDecksOnly() {
         UUID viewerA = UUID.randomUUID();

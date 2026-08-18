@@ -1,4 +1,5 @@
 import { Injectable, signal } from '@angular/core';
+import { environment } from '../../../environments/environment';
 
 @Injectable({ providedIn: 'root' })
 export class ThemeService {
@@ -7,6 +8,10 @@ export class ThemeService {
   isDark = signal(false);
 
   constructor() {
+    if (environment.designPreview) {
+      this.apply(false);
+      return;
+    }
     const saved = localStorage.getItem(this.STORAGE_KEY);
     const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
     const dark = saved ? saved === 'dark' : prefersDark;

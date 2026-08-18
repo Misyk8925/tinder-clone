@@ -43,7 +43,7 @@ You are working on a **Tinder-clone** microservices backend. This document descr
 - Truststore: JKS format (`truststore.jks`)
 - Password env vars: `MTLS_KEYSTORE_PASSWORD`, `MTLS_TRUSTSTORE_PASSWORD`
 - Services exposing internal mTLS ports: Profiles (8011), Consumer (8051)
-- Services acting as mTLS clients: Deck, Subscriptions (gRPC)
+- Services acting as mTLS clients: Deck, Deck-Read, Subscriptions (gRPC)
 
 ---
 
@@ -55,7 +55,6 @@ Core profile management. Handles CRUD for profiles, photo uploads to S3, geospat
 ### REST API (public, JWT required)
 - `GET /api/v1/profiles/me` — Authenticated user's profile
 - `GET /api/v1/profiles/{id}` — Profile by ID
-- `GET /api/v1/profiles/deck` — Paginated deck candidates (used by Deck service)
 - `POST /api/v1/profiles` — Create profile
 - `PUT /api/v1/profiles` — Full update
 - `PATCH /api/v1/profiles` — Partial update
@@ -243,6 +242,21 @@ Manages match records and real-time messaging between matched users. Handles Web
 - JWT OAuth2 Resource Server
 - Custom `JwtAuthConverter` extracts user info from Keycloak JWT claims
 - WebSocket connections authenticated via JWT
+
+---
+
+## SERVICE: DECK-READ (port 8040)
+
+### Purpose
+CQRS read side for discovery. Reads the ranked deck from Redis, synchronously asks Deck to
+build it on a cache miss, and batch-hydrates the client-facing cards from Profiles.
+
+### REST API (public, JWT required)
+- `GET /api/v1/deck?offset={offset}&limit={limit}` — Paginated deck candidates
+
+### Service-to-Service Communication
+- **→ Deck service**: `POST /api/v1/internal/deck/ensure`
+- **→ Profiles service** (mTLS): batch profile hydration and user-to-profile ID resolution
 
 ---
 

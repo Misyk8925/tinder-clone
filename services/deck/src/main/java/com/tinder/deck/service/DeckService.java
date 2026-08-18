@@ -3,9 +3,11 @@ package com.tinder.deck.service;
 import com.tinder.deck.adapters.ProfilesHttp;
 import com.tinder.contracts.dto.SharedProfileDto;
 import com.tinder.deck.service.pipeline.DeckPipeline;
+import com.tinder.deck.kafka.producer.DeckBuiltEventPublisher;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Mono;
 
@@ -23,14 +25,11 @@ public class DeckService {
     private final DeckCache deckCache;
     private final DeckPipeline pipeline;
 
+    @Autowired(required = false)
+    private DeckBuiltEventPublisher deckBuiltEvents;
+
     @Value("${deck.ttl-minutes:60}")
     private long ttlMinutes;
-
-    @Value("${deck.page-prebuild.enabled:true}")
-    private boolean pagePrebuildEnabled;
-
-    @Value("${deck.page-prebuild.limit:20}")
-    private int pagePrebuildLimit;
 
     public Mono<Void> rebuildOneDeck(SharedProfileDto viewer) {
         log.info("Rebuilding deck for viewer: {}", viewer.id());
@@ -38,7 +37,7 @@ public class DeckService {
         Instant start = Instant.now();
 
         return pipeline.buildDeck(viewer)
-                .then(prebuildFirstPage(viewer.id()))
+                .then(publishStableBuild(viewer.id()))
                 .doOnSuccess(v -> {
                     long duration = Duration.between(start, Instant.now()).toMillis();
                     log.info("Deck rebuild completed for viewer {} in {}ms",
@@ -51,24 +50,26 @@ public class DeckService {
                 });
     }
 
-    private Mono<Void> prebuildFirstPage(UUID viewerId) {
-        if (!pagePrebuildEnabled) {
+    private Mono<Void> publishStableBuild(UUID viewerId) {
+        if (deckBuiltEvents == null) {
             return Mono.empty();
         }
-
-        return profilesHttp.prebuildDeckPage(viewerId, 0, pagePrebuildLimit)
-                .doOnNext(prebuilt -> {
-                    if (!prebuilt) {
-                        log.debug("Profiles did not prebuild first deck page for viewer {}", viewerId);
-                    }
-                })
-                .then();
+        return Mono.zip(deckCache.getBuildInstant(viewerId), deckCache.size(viewerId).defaultIfEmpty(0L))
+                .flatMap(tuple -> tuple.getT1()
+                        .map(timestamp -> deckBuiltEvents.publish(
+                                viewerId,
+                                Long.toString(timestamp.toEpochMilli()),
+                                Math.toIntExact(tuple.getT2())))
+                        .orElseGet(Mono::empty))
+                // The event is a repairable trigger; a completed Redis build remains authoritative.
+                .onErrorResume(error -> Mono.empty());
     }
 
     public Mono<Boolean> ensureDeck(UUID viewerId) {
         Duration ttl = Duration.ofMinutes(ttlMinutes);
 
-        return hasFreshDeck(viewerId, ttl)
+        return deckCache.touchRecentViewer(viewerId)
+                .then(hasFreshDeck(viewerId, ttl))
                 .flatMap(isFresh -> {
                     if (isFresh) {
                         return Mono.just(true);
@@ -87,7 +88,9 @@ public class DeckService {
                     }
 
                     return profilesHttp.getProfile(viewerId)
-                            .flatMap(viewer -> rebuildOneDeck(viewer).then(deckCache.exists(viewerId)))
+                            .flatMap(viewer -> rebuildOneDeck(viewer)
+                                    .then(deckCache.getBuildInstant(viewerId))
+                                    .map(Optional::isPresent))
                             .defaultIfEmpty(false);
                 });
     }
@@ -95,15 +98,8 @@ public class DeckService {
     private Mono<Boolean> hasFreshDeck(UUID viewerId, Duration ttl) {
         Instant now = Instant.now();
 
-        return deckCache.size(viewerId)
-                .flatMap(size -> {
-                    if (size == null || size == 0) {
-                        return Mono.just(false);
-                    }
-
-                    return deckCache.getBuildInstant(viewerId)
-                            .map(buildInstant -> isFresh(buildInstant, now, ttl));
-                })
+        return deckCache.getBuildInstant(viewerId)
+                .map(buildInstant -> isFresh(buildInstant, now, ttl))
                 .defaultIfEmpty(false);
     }
 

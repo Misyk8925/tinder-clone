@@ -1,0 +1,24 @@
+name: Setup Java 21 and Maven cache
+description: Temurin 21, Maven cache, optional tinder-contracts install
+
+inputs:
+  install-contracts:
+    description: Install services/tinder-contracts into the local Maven repo
+    required: false
+    default: "false"
+
+runs:
+  using: composite
+  steps:
+    - uses: actions/setup-java@v4
+      with:
+        distribution: temurin
+        java-version: "21"
+        cache: maven
+        cache-dependency-path: |
+          services/**/pom.xml
+          platform/**/pom.xml
+    - name: Install tinder-contracts
+      if: inputs.install-contracts == 'true'
+      shell: bash
+      run: mvn -B -ntp -f services/tinder-contracts/pom.xml install -DskipTests

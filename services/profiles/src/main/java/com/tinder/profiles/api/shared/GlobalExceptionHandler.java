@@ -1,0 +1,41 @@
+package com.tinder.profiles.api.shared;
+
+import com.tinder.profiles.api.profile.dto.errors.*;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.web.bind.annotation.ExceptionHandler;
+import org.springframework.web.bind.annotation.RestControllerAdvice;
+
+import java.util.List;
+
+@RestControllerAdvice
+public class GlobalExceptionHandler {
+
+    @ExceptionHandler(MethodArgumentNotValidException.class)
+    public ResponseEntity<CustomErrorResponse> handleValidationException(MethodArgumentNotValidException ex) {
+
+       List<Violations> errors = ex.getBindingResult()
+                    .getFieldErrors()
+                    .stream()
+                    .map(fieldError -> new Violations(
+                        fieldError.getField(),
+                        fieldError.getDefaultMessage(),
+                        String.valueOf(fieldError.getRejectedValue())
+                    ))
+                    .toList();
+
+        ErrorDetails details = new ErrorDetails(errors.toArray(new Violations[0]));
+
+        ErrorSummary summary = ErrorSummary.builder()
+                .message("Request validation failed")
+                .code("VALIDATION_ERROR")
+                .build();
+
+        CustomErrorResponse errorResponse = new CustomErrorResponse(summary, details);
+
+        return ResponseEntity
+                .status(HttpStatus.BAD_REQUEST)
+                .body(errorResponse);
+    }
+}

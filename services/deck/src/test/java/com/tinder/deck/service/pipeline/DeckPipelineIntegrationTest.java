@@ -255,10 +255,12 @@ class DeckPipelineIntegrationTest {
                 .expectComplete()
                 .verify(VERIFICATION_TIMEOUT);
 
-        // Verify: deck cache has no entries (empty deck is NOT cached)
-        // Note: DeckCache.writeDeck with empty list should not create a key
+        // The ordered set stays empty, while the build timestamp makes the empty snapshot authoritative.
         StepVerifier.create(deckCache.size(testViewerId))
                 .expectNext(0L)
+                .verifyComplete();
+        StepVerifier.create(deckCache.getBuildInstant(testViewerId))
+                .assertNext(instant -> assertThat(instant).isPresent())
                 .verifyComplete();
     }
 
@@ -365,10 +367,12 @@ class DeckPipelineIntegrationTest {
         // When: executing pipeline
         deckPipeline.buildDeck(viewer).block();
 
-        // Then: deck should be empty (no entries in Redis)
-        // Note: DeckCache.writeDeck with empty list should not create entries
+        // Then: deck should be empty but still have an authoritative build timestamp.
         StepVerifier.create(deckCache.size(testViewerId))
                 .expectNext(0L)
+                .verifyComplete();
+        StepVerifier.create(deckCache.getBuildInstant(testViewerId))
+                .assertNext(instant -> assertThat(instant).isPresent())
                 .verifyComplete();
     }
 

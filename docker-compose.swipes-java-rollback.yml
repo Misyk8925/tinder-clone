@@ -1,0 +1,6 @@
+services:
+  swipes:
+    build:
+      context: ./services/swipes-demo
+    environment:
+      SPRING_PROFILES_ACTIVE: prod

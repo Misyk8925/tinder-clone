@@ -30,8 +30,8 @@ interface StompMessageEvent {
   template: `
     <div class="chat-page">
       <header class="chat-header">
-        <button class="back-btn" (click)="goBack()">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <button type="button" class="back-btn" (click)="goBack()" aria-label="Back to messages">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
             <polyline points="15 18 9 12 15 6"/>
           </svg>
         </button>
@@ -74,7 +74,7 @@ interface StompMessageEvent {
       <div class="input-area">
         <label class="photo-btn" title="Send photo">
           <input type="file" accept="image/*" (change)="sendPhoto($event)" hidden />
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
             <rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/>
             <polyline points="21 15 16 10 5 21"/>
           </svg>
@@ -126,12 +126,11 @@ interface StompMessageEvent {
     .chat-header {
       display: flex;
       align-items: center;
-      gap: 12px;
-      padding: 10px;
-      background: var(--surface-glass);
-      box-shadow: 0 8px 20px var(--shadow-sm);
+      gap: 8px;
+      min-height: var(--mobile-topbar-height);
+      padding: 0 10px;
+      background: var(--header-surface);
       z-index: 10;
-      border-bottom: 1px solid var(--border);
       backdrop-filter: blur(16px);
       -webkit-backdrop-filter: blur(16px);
     }
@@ -140,7 +139,9 @@ interface StompMessageEvent {
       background: none;
       border: none;
       cursor: pointer;
-      padding: 4px;
+      width: 40px;
+      height: 40px;
+      padding: 8px;
       color: var(--brand);
 
       svg { width: 24px; height: 24px; display: block; }
@@ -149,10 +150,10 @@ interface StompMessageEvent {
     .header-info {
       display: flex;
       align-items: center;
-      gap: 12px;
+      gap: 8px;
 
       .avatar {
-        width: 42px; height: 42px;
+        width: 36px; height: 36px;
         border-radius: 50%;
         background: var(--brand-gradient);
         color: #fff;
@@ -347,7 +348,7 @@ interface StompMessageEvent {
       color: var(--text-primary);
       transition: border-color 0.2s, box-shadow 0.2s;
 
-      &:focus { border-color: var(--brand); background: var(--surface); box-shadow: 0 0 0 3px rgba(255, 68, 88, 0.14); }
+      &:focus { border-color: var(--brand); background: var(--surface); box-shadow: 0 0 0 3px rgba(156, 206, 43, 0.16); }
     }
 
     .send-btn {

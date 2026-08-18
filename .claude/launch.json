@@ -1,0 +1,47 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "tinder-client",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["--prefix", "clients/tinder-client", "run", "start:local"],
+      "port": 4200
+    },
+    {
+      "name": "backend-stack",
+      "runtimeExecutable": "docker",
+      "runtimeArgs": ["compose", "-f", "docker-compose.yml", "-f", "docker-compose.local.yml", "up"],
+      "port": 8222
+    },
+    {
+      "name": "gateway",
+      "runtimeExecutable": "mvn",
+      "runtimeArgs": ["-f", "services/gateway/pom.xml", "spring-boot:run"],
+      "port": 8222
+    },
+    {
+      "name": "profiles",
+      "runtimeExecutable": "mvn",
+      "runtimeArgs": ["-f", "services/profiles/pom.xml", "spring-boot:run"],
+      "port": 8010
+    },
+    {
+      "name": "deck",
+      "runtimeExecutable": "mvn",
+      "runtimeArgs": ["-f", "services/deck/pom.xml", "spring-boot:run"],
+      "port": 8030
+    },
+    {
+      "name": "deck-read",
+      "runtimeExecutable": "mvn",
+      "runtimeArgs": ["-f", "services/deck-read/pom.xml", "quarkus:dev"],
+      "port": 8040
+    },
+    {
+      "name": "location-go",
+      "runtimeExecutable": "go",
+      "runtimeArgs": ["-C", "services/location-go", "run", "./cmd/location"],
+      "port": 8065
+    }
+  ]
+}

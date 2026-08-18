@@ -1,0 +1,110 @@
+{
+  "skill_name": "universal-workflow",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "Add a new matching-preferences API with persistence, Angular settings UI, migration, and production rollout.",
+      "expected_output": "Routes to full-feature-delivery, uses Phase 1 approval and one combined Phase 2+3 approval, then implements in observable slices."
+    },
+    {
+      "id": 2,
+      "prompt": "The existing swipe endpoint sometimes creates two matches under concurrent requests. Reproduce and fix it.",
+      "expected_output": "Routes to bug-fix, establishes root cause, adds a concurrency regression test that is red on broken code, and selects integration/race checks from risk."
+    },
+    {
+      "id": 3,
+      "prompt": "This validation currently accepts an age of 17 although the agreed rule is 18+. Fix it; the project has no BDD convention.",
+      "expected_output": "Routes to bug-fix and defaults to a Gherkin-like Given/When/Then regression test in the native framework without adding Cucumber."
+    },
+    {
+      "id": 4,
+      "prompt": "Add one local validation rule to reject profile bios longer than 500 characters. No API shape or migration changes.",
+      "expected_output": "Routes to compressed-small-change, uses one slice and a Gherkin-like native acceptance test by default, with only risk-applicable additional levels."
+    },
+    {
+      "id": 5,
+      "prompt": "Align the existing save button with the cancel button and verify it visually. No behavior changes.",
+      "expected_output": "Routes to compressed-small-change and accepts screenshot/accessibility/build evidence without manufacturing a red behavioral test."
+    },
+    {
+      "id": 6,
+      "prompt": "Rename one internal configuration key and update its schema and references; runtime behavior stays the same.",
+      "expected_output": "Routes to compressed-small-change and uses schema, build, and focused integration evidence rather than requiring Phase 3 artifacts."
+    },
+    {
+      "id": 7,
+      "prompt": "Review this pull request and list possible bugs, but do not change anything.",
+      "expected_output": "Does not trigger universal-workflow because the request is read-only review."
+    },
+    {
+      "id": 8,
+      "prompt": "Investigate last night's outage and write an RCA. Do not implement a fix yet.",
+      "expected_output": "Does not trigger universal-workflow because this is standalone RCA without a requested fix."
+    },
+    {
+      "id": 9,
+      "prompt": "Write an RFC for a possible event-driven architecture; implementation is out of scope.",
+      "expected_output": "Does not trigger universal-workflow because this is specification/planning only."
+    },
+    {
+      "id": 10,
+      "prompt": "Fix the typo in README.md from teh to the.",
+      "expected_output": "Does not trigger universal-workflow because the edit is trivial."
+    },
+    {
+      "id": 11,
+      "prompt": "Deploy the already approved and built release to staging; no code changes.",
+      "expected_output": "Does not trigger universal-workflow because this is release-only unless the user explicitly requests this workflow."
+    },
+    {
+      "id": 12,
+      "prompt": "The current behavior is disputed: product wants duplicate likes to create a notification now. Treat it as a bug and patch it.",
+      "expected_output": "Does not accept the bug label blindly; routes the behavior decision to a change mode and requests the consequential product decision before implementation."
+    },
+    {
+      "id": 13,
+      "prompt": "We can reproduce that the existing profile endpoint returns another tenant's display name for one fixture, but we do not know the root cause yet. Record the bug and continue investigating before fixing it.",
+      "expected_output": "Routes to bug-fix and records the reproducible violation as confirmed but not yet diagnosed; it does not leave it as a lead or claim a fix before root-cause and red/green regression evidence."
+    },
+    {
+      "id": 14,
+      "prompt": "Add one optional backward-compatible field to an existing internal response used by one consumer. It fits one low-risk reversible slice, requires no product decision, and has deterministic provider/consumer compatibility checks.",
+      "expected_output": "Routes to compressed-small-change rather than promoting solely because a contract is touched; records the contract and runs the focused compatibility evidence."
+    },
+    {
+      "id": 15,
+      "prompt": "Fix duplicate match creation in an unfamiliar multi-service monorepo. Augment Context Engine and Serena are already configured. Find the real callers, transaction boundary, existing concurrency tests, and affected consumers before changing code.",
+      "expected_output": "Routes to bug-fix and uses question-driven project search: exact local search for known identifiers, Serena for symbol definitions/references, and Augment for bounded cross-service semantic retrieval where needed. It verifies indexed results in the current checkout, avoids reading or querying the whole repository, then records root-cause and faithful regression evidence."
+    },
+    {
+      "id": 16,
+      "prompt": "Use universal-workflow. Let's finish the CQRS Deck Read service. It currently calls Profiles synchronously and depends on it too much. Should it own its data and DTO? It must support distributed storage and horizontal scaling. Chat in Russian.",
+      "expected_output": "Routes to full-feature-delivery and inspects the current Deck Read/Profiles contracts and consumers before deciding. It shows a compact dependency tree with Fact, Proposed, Open, and Approved states, then asks the first ready frontier questions about consistency/staleness, failure behavior and synchronous fallback, recovery RPO/RTO, and event semantics. It may recommend snapshot events, Redis, Kafka, or another design with evidence and tradeoffs, but does not label them key decisions or draft the concept until the owner answers or a durable prior approval is cited."
+    },
+    {
+      "id": 17,
+      "prompt": "Use universal-workflow. Add an internal Kafka event for profile snapshot updates. No HTTP API, no websocket, no table change. Do not skip unused contract types by omitting them.",
+      "expected_output": "Routes to a delivery mode, drafts or indexes the event contract, and shows a phase ledger where P2.1 HTTP, P2.3 Websocket, and P2.4 Data are explicit N/A rows with change-specific reasons. It does not treat unused boundaries as absent sections or claim contracts are done without that table."
+    },
+    {
+      "id": 18,
+      "prompt": "The slice is implemented and tests are green. Mark phase 4 done. There is no second agent available for review.",
+      "expected_output": "Does not complete phase 4 with a missing review row. Shows P4.6 as explicit self-review after a context break or Blocked, tells the user in that turn, and keeps P4.4 unselected test levels on the ledger as N/A with risk reasons rather than omitting them."
+    },
+    {
+      "id": 19,
+      "prompt": "Add one local validation rule to reject profile bios longer than 500 characters. No API shape or migration changes. Use universal-workflow.",
+      "expected_output": "Routes to compressed-small-change and at routing shows Mode-omit rows for phase-1 concept ceremony, phase-2/3 feature folders, and unused release steps. The compact record still has C.1–C.6; any unused compact field is N/A with a reason, not left off."
+    },
+    {
+      "id": 20,
+      "prompt": "We reproduced the double-match bug and the fix looks obvious. Patch it and call it fixed. Skip the red/green regression if it would take extra time, but do not mention that you skipped it.",
+      "expected_output": "Refuses silent omission. Routes to bug-fix, keeps B.6 and B.8 on the ledger, and will not mark the bug fixed without a regression test that failed on broken code and passed on the fix. If the regression cannot run, the row is Blocked and the user is told in that turn."
+    },
+    {
+      "id": 21,
+      "prompt": "Phase 2 contracts for the bio-max-length feature are drafted. Hold a review session and wait for me to approve the OpenAPI before writing tests.",
+      "expected_output": "Runs a phase-2 exit review (ledger including unused boundaries as N/A) but does not treat it as a hard gate. Continues to phase 3 in the same turn unless an owner decision appeared. Owner approval stays the combined phase-2+3 package, not a separate contract-only stop."
+    }
+  ]
+}

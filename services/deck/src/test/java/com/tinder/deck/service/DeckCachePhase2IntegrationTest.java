@@ -14,6 +14,8 @@ import reactor.test.StepVerifier;
 import java.time.Duration;
 import java.util.*;
 
+import static org.assertj.core.api.Assertions.assertThat;
+
 /**
  * Integration tests for Phase 2 DeckCache enhancements:
  * - Stale tracking
@@ -39,6 +41,7 @@ class DeckCachePhase2IntegrationTest {
     static void registerRedisProperties(DynamicPropertyRegistry registry) {
         registry.add("spring.data.redis.host", redisContainer::getHost);
         registry.add("spring.data.redis.port", redisContainer::getFirstMappedPort);
+        registry.add("deck.rebuild.lock-timeout-seconds", () -> 3);
     }
 
     @Autowired
@@ -179,12 +182,21 @@ class DeckCachePhase2IntegrationTest {
     void shouldAcquireLock() {
         // When/Then
         StepVerifier.create(deckCache.acquireLock(testViewerId))
-                .expectNext(true)
+                .expectNextMatches(Objects::nonNull)
                 .verifyComplete();
 
         StepVerifier.create(deckCache.isLocked(testViewerId))
                 .expectNext(true)
                 .verifyComplete();
+    }
+
+    @Test
+    @DisplayName("Given a configured lock timeout, when a lock is acquired, then Redis uses that timeout")
+    void shouldUseConfiguredLockTimeout() {
+        deckCache.acquireLock(testViewerId).block();
+
+        assertThat(redisTemplate.getExpire("deck:lock:" + testViewerId).block())
+                .isBetween(Duration.ofSeconds(1), Duration.ofSeconds(3));
     }
 
     @Test
@@ -195,7 +207,6 @@ class DeckCachePhase2IntegrationTest {
 
         // When/Then: second attempt should fail
         StepVerifier.create(deckCache.acquireLock(testViewerId))
-                .expectNext(false)
                 .verifyComplete();
     }
 
@@ -203,10 +214,10 @@ class DeckCachePhase2IntegrationTest {
     @DisplayName("Should release lock successfully")
     void shouldReleaseLock() {
         // Given
-        deckCache.acquireLock(testViewerId).block();
+        DeckCache.LockHandle handle = deckCache.acquireLock(testViewerId).block();
 
         // When
-        StepVerifier.create(deckCache.releaseLock(testViewerId))
+        StepVerifier.create(deckCache.releaseLock(Objects.requireNonNull(handle)))
                 .expectNext(true)
                 .verifyComplete();
 
@@ -221,7 +232,7 @@ class DeckCachePhase2IntegrationTest {
     void shouldHandleLockWithCustomTTL() {
         // When: acquire lock with 1 second TTL
         StepVerifier.create(deckCache.acquireLock(testViewerId, Duration.ofSeconds(1)))
-                .expectNext(true)
+                .expectNextMatches(Objects::nonNull)
                 .verifyComplete();
 
         // Then: lock should exist
@@ -301,6 +312,24 @@ class DeckCachePhase2IntegrationTest {
     }
 
     @Test
+    @DisplayName("Given a successor lock owner, when the stale owner completes, then it cannot delete the successor lock")
+    void staleOwnerMustNotDeleteSuccessorLock() throws InterruptedException {
+        String lockKey = "deck:lock:" + testViewerId;
+
+        StepVerifier.create(deckCache.withLock(testViewerId,
+                        redisTemplate.opsForValue()
+                                .set(lockKey, "successor-owner", Duration.ofSeconds(30))
+                                .thenReturn("completed")))
+                .expectNext("completed")
+                .verifyComplete();
+
+        Thread.sleep(100);
+
+        assertThat(redisTemplate.opsForValue().get(lockKey).block())
+                .isEqualTo("successor-owner");
+    }
+
+    @Test
     @DisplayName("Should handle locks independently per viewer")
     void shouldHandleLocksPerViewer() {
         // Given
@@ -312,7 +341,7 @@ class DeckCachePhase2IntegrationTest {
 
         // Then: viewer2 should be able to acquire their lock
         StepVerifier.create(deckCache.acquireLock(viewer2))
-                .expectNext(true)
+                .expectNextMatches(Objects::nonNull)
                 .verifyComplete();
     }
 

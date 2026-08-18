@@ -1,5 +1,6 @@
 export const environment = {
   production: false,
+  designPreview: false,
   apiGatewayUrl: 'http://localhost:8222',
   wsUrl: 'ws://localhost:8222/ws',
   keycloak: {
@@ -8,4 +9,3 @@ export const environment = {
     clientId: 'tinder-client'
   }
 };
-
