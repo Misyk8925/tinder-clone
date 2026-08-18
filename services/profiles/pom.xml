@@ -404,8 +404,8 @@
                             <skip>${skipTests}</skip>
                             <executable>bash</executable>
                             <arguments>
-                                <argument>${project.basedir}/../../certs/generate-test-certs.sh</argument>
-                                <argument>${project.build.directory}/test-mtls</argument>
+                                <argument>-c</argument>
+                                <argument>script="${project.basedir}/../../certs/generate-test-certs.sh"; test -f "$script" || exit 0; exec bash "$script" "${project.build.directory}/test-mtls"</argument>
                             </arguments>
                         </configuration>
                     </execution>

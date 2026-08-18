@@ -17,7 +17,7 @@ COPY deck/src deck/src
 RUN --mount=type=cache,id=m2-deck,sharing=locked,target=/root/.m2 \
     mvn -B -e -ntp -Dmaven.repo.local=/root/.m2/repository -f tinder-contracts/pom.xml install -DskipTests && \
     find /root/.m2/repository/com/tinder \( -name "*.lastUpdated" -o -name "resolver-status.properties" \) -delete && \
-    mvn -B -e -ntp -Dmaven.repo.local=/root/.m2/repository -f deck/pom.xml package -DskipTests && \
+    mvn -B -e -ntp -Dmaven.repo.local=/root/.m2/repository -f deck/pom.xml package -DskipTests -Dmaven.test.skip=true && \
     find deck/target -maxdepth 1 -name "*.jar" ! -name "*-plain.jar" -exec mv {} deck/target/app.jar \;
 
 FROM eclipse-temurin:21-jre-alpine

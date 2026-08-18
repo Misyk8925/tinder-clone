@@ -7,7 +7,7 @@ RUN --mount=type=cache,id=m2-consumer,sharing=locked,target=/root/.m2 \
 
 COPY src ./src
 RUN --mount=type=cache,id=m2-consumer,sharing=locked,target=/root/.m2 \
-    mvn -B -e -ntp -Dmaven.repo.local=/root/.m2/repository package -DskipTests && \
+    mvn -B -e -ntp -Dmaven.repo.local=/root/.m2/repository package -DskipTests -Dmaven.test.skip=true && \
     find target -maxdepth 1 -name "*.jar" ! -name "*-plain.jar" -exec mv {} target/app.jar \;
 
 FROM eclipse-temurin:21-jre-alpine
