@@ -1,44 +1,20 @@
-# Bug: <short title>
+# Bug: 500-character bio is rejected
 
-**Destination:** a bug item in the selected tracker. Repo fallback: `docs/features/<slug>/bugs/<bug-slug>.md`. See `references/targeted-defect-review.md`.
+Severity: minor · State: Confirmed · Scope: `POST /profiles/{id}`
 
-Labels: `bug`, severity — one of `severity-blocker` / `severity-major` / `severity-minor` / `severity-cosmetic`
-Found via: targeted review of `<slice/diff/PR link>`
+Repro: save bio of exactly 500 characters.
+Expected: save. Actual: `BIO_TOO_LONG`.
 
-If this can't yet be reduced to exact steps below, it isn't a `bug` yet — file it as `bug-suspected` instead (symptom, when observed, hypothesis) and promote it once repro is confirmed.
+Cause: `length >= 500` instead of `length > 500`. Diagnosis in progress is `unknown — diagnosis in progress`.
 
-## Repro steps
+## Phase ledger
 
-1. ...
-2. ...
-3. ...
+Sample rows. Copy B.1–B.8 plus applicable P4/P5 from `references/phase-ledger.md`.
 
-Expected: ...
-Actual: ...
+| Sub-step | Status | Evidence or reason |
+|---|---|---|
+| B.1 Repro | Done | 500-char fixture |
+| B.6 Regression red | Blocked | test not written yet |
+| P5.3 Deploy | Mode-omit | unreleased local fix |
 
-## Lifecycle state
-
-<Lead | Confirmed | Diagnosed | Fixed>
-
-## Root cause
-
-<the mechanism, not the symptom — what specifically causes this, not just what breaks; use `unknown — diagnosis in progress` until diagnosed>
-
-## Severity
-
-<Blocker | Major | Minor | Cosmetic> — <one line why this level and not the one above/below it>
-
-## Affected scope
-
-<services / modules / endpoints / events / tables — use the same names as `02-contracts/`, e.g. "HTTP POST /orders", "event order.created.v1", "table orders">
-
-## Regression test
-
-- [ ] Regression test written and linked; project tag/group used when available, otherwise a clear Gherkin-like native test name
-- [ ] Confirmed: fails on pre-fix code
-- [ ] Confirmed: passes on post-fix code
-- [ ] Concurrency/race bug only: test forces the actual interleaving (threads/goroutines + barrier, repeated iterations, race detector) — not a serial happy-path test
-
-Test: `<file path / test name>`
-
-**Do not move this issue to Done until every box above is checked.** If it's real but won't be fixed now, downgrade explicitly to a risk instead of leaving this open or closing it unfixed.
+Regression: `BioLengthTest.acceptsBioOf500` — must fail on broken code, pass on fix. Race: N/A.

@@ -1,6 +1,6 @@
 ---
 name: universal-workflow
-description: "Use this delivery workflow only when implementing one of three scopes: a full feature, a bug fix, or a small non-trivial change that still needs acceptance and verification. Route first to full-feature-delivery, bug-fix, or compressed-small-change. It provides gated design for full features, confirmation/diagnosis/regression proof for bugs, and a one-slice path for small changes, followed by risk-based tests at applicable levels, targeted review, and scoped release evidence. Follow the project's acceptance-test convention; when none exists, default to Gherkin-like Given/When/Then tests in the native test framework. Do not use for read-only review/audit, standalone RCA without a fix, explanation, research, pure planning/specification, trivial edits, or release-only operations unless explicitly requested."
+description: "Use this delivery workflow only when implementing one of three scopes: a full feature, a bug fix, or a small non-trivial change that still needs acceptance and verification. Route first to full-feature-delivery, bug-fix, or compressed-small-change. It provides gated design for full features, confirmation/diagnosis/regression proof for bugs, and a one-slice path for small changes, followed by risk-based tests at applicable levels, targeted review, and scoped release evidence. Show a visible phase ledger for every named sub-step; never silently omit one. After each run phase, do a short phase-exit review without adding extra approval gates. Follow the project's acceptance-test convention; when none exists, default to Gherkin-like Given/When/Then tests in the native test framework. Do not use for read-only review/audit, standalone RCA without a fix, explanation, research, pure planning/specification, trivial edits, or release-only operations unless explicitly requested."
 ---
 
 # Universal Workflow
@@ -17,7 +17,7 @@ Before creating artifacts, read `references/mode-router.md` and choose exactly o
 
 If the task is outside these three delivery modes, do not use this skill. A mode may be promoted when discovery reveals more risk or scope; never keep the compressed mode by silently dropping required decisions or evidence.
 
-The five-phase sequence below is the `full-feature-delivery` path. `bug-fix` and `compressed-small-change` follow their shorter routes in `references/mode-router.md` and reuse only the phase rules that apply to their risk.
+The five-phase sequence below is the `full-feature-delivery` path. `bug-fix` and `compressed-small-change` follow their shorter routes in `references/mode-router.md` and reuse only the phase rules that apply to their risk. After routing, show the phase ledger from `references/phase-ledger.md`: every named sub-step is `Done`, `N/A`, `Blocked`, `Deferred`, or `Mode-omit`. A missing row is a protocol failure.
 
 Resolve the project profile from repository instructions and established conventions. Read `references/project-profile.md`, then use `references/efficient-project-search.md` before material discovery, diagnosis, or planning. Use Augment Context Engine and Serena when they are already available and fit the search question; neither is a prerequisite. Use `references/linear-integration.md` only when Linear is the selected tracker.
 
@@ -35,6 +35,8 @@ Resolve the project profile from repository instructions and established convent
 10. **Agents establish facts efficiently; people own consequential choices.** Follow `references/efficient-project-search.md` to inspect the code, contracts, consumers, tracker, and external evidence before asking. Ask the user only about real product, scope, architecture, UX, cost, or risk choices, and record the decision instead of letting an implementation agent guess it later.
 11. **Expose decisions before declaring them.** In full feature delivery, before presenting "key decisions," a concept draft, or a chosen architecture, show the compact dependency tree and its current frontier. Mark agent-established facts with evidence, recommendations as `Proposed`, and owner choices as `Approved` only after an explicit answer or a cited durable prior decision. Run at least one frontier round whenever a consequential choice remains unresolved. If none remains, say so and cite the sources instead of asking ceremonial questions.
 12. **Keep agent work bounded by observable slices and durable artifacts.** A slice should normally fit in one fresh implementation context for code, tests, and its evidence report, followed by a separate fresh-context review. When a session or agent changes, hand off the ticket, approved artifacts, code, test evidence, and unresolved questions — not a transcript or an unverified summary. Re-slice work that cannot be reviewed as one coherent result.
+13. **Never silently skip a phase sub-step.** Conditional work still gets a ledger row. Read `references/phase-ledger.md` and show the table at routing, whenever a row is not `Done`, and at every phase/slice exit and gate. `N/A` needs a change-specific reason; `Blocked` is not passed; `Deferred` needs an owner agreement. Omitting the row is the same class of failure as skipping a hard gate.
+14. **Review the phase before leaving it, without adding extra gates.** After each run phase, follow `references/phase-exit-review.md`. Fold the review into the existing phase-1 and combined 2+3 gate requests. After phase 2, continue to phase 3 unless an owner decision appeared. Phase 4 already reviews each slice; the phase-exit session is the combined-diff review. Shorter modes get one exit review, not five.
 
 ## Where things live
 
@@ -49,6 +51,7 @@ Resolve the project profile from repository instructions and established convent
 | Decisions log | Tracker updates or decision records |
 | Incident tracking (live) | An issue labeled `incident`, linked to the postmortem file |
 | Bug found (targeted review) | Bug item with severity and the fixed evidence shape from `references/targeted-defect-review.md` |
+| Phase ledger (latest) | Gate/issue comment or compact issue body; repo copy in the feature index / plan / bug item |
 
 **In the repo.** Two different scopes — don't nest one inside the other:
 
@@ -85,19 +88,19 @@ Use the project's canonical contract locations. The feature folder indexes or li
 
 ## The phases
 
-Read the matching reference file when entering a phase; it contains artifacts, questions, checks, and exit criteria.
+Read the matching reference file when entering a phase; it contains artifacts, questions, checks, and exit criteria. Before leaving the phase, fill every ledger row for that phase from `references/phase-ledger.md` and run the phase-exit review from `references/phase-exit-review.md`.
 
 This table applies to `full-feature-delivery`:
 
-| # | Phase | Reference | Gate |
-|---|-------|-----------|------|
-| 1 | Concept | `references/phase-1-concept.md` | **Manual approve** |
-| 2 | API & event contracts | `references/phase-2-contracts.md` | Continue to phase 3 |
-| 3 | Executable behavioural contracts | `references/phase-3-behaviour.md` | **Manual approve phases 2 + 3** |
-| 4 | Implementation loop | `references/phase-4-implementation.md` | Loop until green |
-| 5 | Release | `references/phase-5-release.md` | Ship |
+| # | Phase | Reference | Gate | Exit review |
+|---|-------|-----------|------|-------------|
+| 1 | Concept | `references/phase-1-concept.md` | **Manual approve** | Folded into that gate |
+| 2 | API & event contracts | `references/phase-2-contracts.md` | Continue to phase 3 | Yes, no extra stop |
+| 3 | Executable behavioural contracts | `references/phase-3-behaviour.md` | **Manual approve phases 2 + 3** | Folded into that gate |
+| 4 | Implementation loop | `references/phase-4-implementation.md` | Loop until green | Per slice + combined diff |
+| 5 | Release | `references/phase-5-release.md` | Ship | Ship-evidence check |
 
-Templates are in `assets/templates/`; tracker and project conventions come from `references/project-profile.md` and its selected adapter.
+Templates in `assets/templates/` are short filled samples for `bio-max-length`. Copy the shape, replace the sample. Ledger tables show two or three rows only; the closed ID list stays in `references/phase-ledger.md`. Tracker and project conventions come from `references/project-profile.md`.
 
 ### Phase 1 — Concept (gate)
 
@@ -145,6 +148,6 @@ Build → security scan → deploy → smoke tests → monitoring → docs. Each
 ## Working with the user
 
 - Inspect before asking. Raise only consequential unresolved product, scope, architecture, UX, cost, or risk choices in the selected tracker.
-- Keep gate requests short: what was decided, what you need approved, what happens next.
+- Keep gate requests short: what was decided, what you need approved, what happens next. Put non-`Done` ledger rows first; do not ask for approval while a required row is missing. A phase-exit review is not a second “please approve this phase” message.
 - If the user says "just write the code" for a bounded non-trivial change, route to `compressed-small-change`; do not disguise a full feature or contract decision as compressed work.
-- If work resumes in a new session, open the selected tracker item and feature index before touching anything.
+- If work resumes in a new session, open the selected tracker item, feature index, and the latest phase ledger before touching anything. Re-show any still non-`Done` rows before continuing.

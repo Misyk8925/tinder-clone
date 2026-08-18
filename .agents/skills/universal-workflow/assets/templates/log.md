@@ -1,8 +1,6 @@
-# Iteration log: <feature-slug>
+# Log: bio-max-length
 
-Record every failed loop. Format:
-
-## <date> — slice <n> (<name>)
-Failed: <which step — test / review / e2e>
-Cause: <root cause, not the symptom>
-Change to plan: <what you did differently>
+## 2026-08-18 — slice 1
+Failed: unit, 500-char bio was accepted (off-by-one).
+Cause: `length <= 500` used as the reject path.
+Change: reject when `length > 500`; 500 still saves.

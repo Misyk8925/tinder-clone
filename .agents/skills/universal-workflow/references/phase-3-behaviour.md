@@ -2,6 +2,8 @@
 
 Goal: make the acceptance criteria executable. After this phase, "is the feature done?" is answered by a test run, not by an opinion.
 
+Show the phase-3 ledger from `references/phase-ledger.md` with the combined approval request. A missing FR, error-path check, or combined-check row is a protocol failure, not an implied skip.
+
 ## Choose the project's acceptance format
 
 BDD means specifying observable behaviour before implementation; it does not require Gherkin syntax.
@@ -87,7 +89,7 @@ Run one verification pass after phase 3, before asking for approval. This is the
 
 **Resolve findings at their source.** Fix malformed tests and contract/readable-view drift directly. Return to phase 1 for a requirement/design gap. Revise phase 2 for a contract gap. Record unresolved external or operational uncertainty in the selected tracker.
 
-Then show the user one compact package: material contract decisions and compatibility impact, the FR/error-to-acceptance traceability list, validation commands/results, and open risks. Ask for one explicit approval covering phases 2 and 3. Do not begin phase 4 before approval.
+Then show the user one compact package: material contract decisions and compatibility impact, the FR/error-to-acceptance traceability list, validation commands/results, open risks, the phase-2 plus phase-3 ledgers, and the combined phase-exit review. Ask for one explicit approval covering phases 2 and 3. Do not send a separate “review session” message after that package. Do not begin phase 4 before approval.
 
 ## Exit criteria
 
@@ -97,3 +99,5 @@ Then show the user one compact package: material contract decisions and compatib
 - At least the next slice's acceptance check fails for the expected missing behaviour. Pending Gherkin steps are acceptable only when the project uses that convention.
 - Behaviour that cannot be verified automatically is recorded as manual evidence or an owned risk, never represented by a fake automated test.
 - The user explicitly approved the combined phase-2 and phase-3 package; the shared gate item records the approval.
+- The phase-2 and phase-3 ledgers are complete; unused contract types and unautomatable behaviour are explicit `N/A` or owned-risk rows, not missing.
+- The combined phase-exit review is in the same gate request, not a later extra stop.

@@ -1,23 +1,12 @@
-# Contract index — <feature-slug>
+# Contract index — bio-max-length
 
-## Canonical artifacts
+Keep all four boundary rows. Unused = `N/A` with a reason.
 
-| Boundary | Canonical file / URL | Readable view | Validation command | Compatibility impact |
+| Boundary | Canonical | Readable view | Check | Compatibility |
 |---|---|---|---|---|
-| HTTP | | | | |
-| Events | | | | |
-| Websocket | | | | |
-| Data / migrations | | | | |
+| HTTP | `services/profiles/.../openapi.yaml` | `openapi.md` | `spectral lint` | additive `BIO_TOO_LONG` |
+| Events | N/A | — | — | no event |
+| Websocket | N/A | — | — | no socket |
+| Data | N/A | — | — | no schema change |
 
-Only include affected rows. Link canonical project artifacts; do not copy specs or migrations into this folder.
-
-## Cross-cutting decisions
-
-- Authentication / authorization:
-- Versioning / compatibility:
-- Rate limits / quotas:
-- Logging / tracing / sensitive-data rules:
-
-## Open risks
-
-- <tracker link or `none`>
+Authz: existing profile owner. Versioning: additive error code. Rate limits: unchanged. Logs: bio body not logged.

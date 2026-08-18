@@ -47,3 +47,4 @@ A confirmed bug that will not be fixed becomes an explicitly accepted risk with 
 - Every confirmed defect found in the changed scope is fixed with regression evidence or explicitly accepted as an owned risk.
 - No blocker remains open in the delivery scope.
 - The review result and exact validation commands are recorded in the selected tracker or repo fallback.
+- P4.6 and P4.7 are on the phase ledger. Self-review or "no confirmed defects in this pass" is an explicit row; a missing review row is a protocol failure.

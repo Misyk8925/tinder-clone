@@ -1,20 +1,10 @@
-# Behaviour traceability — <feature-slug>
+# Behaviour — bio-max-length
 
-Acceptance format: <project convention | Gherkin-like native default and runner>
+Format: native Given/When/Then · `mvn -pl services/profiles test -Dtest=BioLengthTest` · status: red for missing check
 
-Validation command: `<command>` · status: <red for expected missing behaviour | pass | blocked> · last checked <date>
-
-## FR / contract-error → executable acceptance check
-
-| FR or error | Test/scenario ID | File |
+| FR or error | Test | File |
 |---|---|---|
-| FR-1 | | |
-| FR-2 | | |
-| 400 INVALID_PAYLOAD | | |
-| 409 ... | | |
+| FR-1 | rejects bio longer than 500 | `BioLengthTest` |
+| 400 `BIO_TOO_LONG` | same test | `BioLengthTest` |
 
-A blank row is either a missed acceptance check or a requirement that turned out not to need one — resolve which before asking for the combined phase-2/3 approval.
-
-## Contract and acceptance validation notes
-
-<spec/mirror drift, lint/parse failures, undefined Gherkin steps, native test discovery failures, or blocked environments — one line each>
+A blank row is a miss. If a row is truly unused, keep it and mark the P3 ledger `N/A`.

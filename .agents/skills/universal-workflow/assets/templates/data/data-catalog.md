@@ -1,23 +1,5 @@
-# Data catalog — <feature-slug>
+# Data — bio-max-length
 
-Status: DRAFT | APPROVED <date>
-Migration(s): `<path to the real migration file(s) in the repo>` (source of truth — SQL runs, this doesn't)
+N/A for this sample: no migration. Canonical when used: the real migration file.
 
-## Table: <table_name>
-
-Purpose: <why this table exists>
-Owner: <team/service>
-Tenant boundary: <row-level (tenant_id column) | schema-per-tenant | database-per-tenant>
-
-| Column | Type | Meaning | PII? | Retention |
-|--------|------|---------|------|-----------|
-| id | uuid | | no | |
-| tenant_id | uuid | | no | |
-
-**Relationships worth knowing** (beyond the FK itself):
-- <e.g. "total is denormalized from line_items and must be recalculated on any line-item change">
-
-**Indexes**
-
-| Index | Columns | Query it serves |
-|-------|---------|------------------|
+If a column changes, one table row is enough: name, meaning, PII, retention, index + the query it serves.

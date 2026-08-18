@@ -1,21 +1,22 @@
-# <feature-slug>
+# bio-max-length
 
-Tracked in: **<tracker and link>**
+Tracked in: **<tracker link>**
 
-The tracker holds problem, requirements, decisions, approvals, risks, and questions. This folder indexes executable or code-adjacent artifacts. Read the tracker for *why* and the linked canonical files for *what to build against*.
+Indexes canonical artifacts. Does not copy specs or tests.
 
-(No suitable tracker: use `00-state.md`, the required concept document(s), and `bugs/` in this folder — see `references/project-profile.md`.)
+| Folder | What to open |
+|---|---|
+| `02-contracts/` | Links to the profile write spec |
+| `03-behaviour/` | FR-1 → `BioLengthTest` |
+| `04-implementation/` | One-slice plan |
+| `05-release/` | Affected build/validation only |
 
-## What's here
+## Phase ledger
 
-| Folder | What it is | Read it when |
+Two or three rows here; remaining active-phase IDs from `references/phase-ledger.md`. Non-`Done` first.
+
+| Sub-step | Status | Evidence or reason |
 |---|---|---|
-| `02-contracts/` | Links to canonical specs/migrations/readable views plus compatibility notes | Implementing a boundary or schema change |
-| `03-behaviour/` | Traceability and links to executable acceptance tests | Writing or running acceptance tests |
-| `04-implementation/` | Slice plan and iteration log | Picking up work mid-feature |
-| `05-release/` | Release checklist, incident postmortems | Shipping, or after something broke |
-| `bugs/` | Confirmed-bug write-ups for repo fallback; an external tracker links equivalent records | Fixing or checking a targeted-review bug |
-
-## Current phase
-
-**<Phase N — name>** — see the selected tracker for live status; this line is only a breadcrumb.
+| P2.1 HTTP | Done | `POST /profiles/{id}` length rule |
+| P2.2 Events | N/A | no event |
+| P4.6 Review | Blocked | no second agent; self-review next |

@@ -4,6 +4,8 @@ Goal: turn the prose from phase 1 into something a machine can validate against 
 
 Only start this after phase 1 is approved.
 
+Keep every P2 ledger row from `references/phase-ledger.md`. An unused connection type is `N/A` with a reason, not an omitted section. Show the ledger before continuing to phase 3.
+
 ## The rule: one canonical contract, one readable view
 
 First locate the project's canonical spec, migration, and schema-documentation locations. Update them in place and link them from the feature index; never copy them into a workflow folder. For every connection type the feature actually uses, make both machine validation and human review possible:
@@ -20,7 +22,7 @@ Neither capability is optional, but they need not be two copied files:
 - The **canonical spec or migration** is what tooling validates or executes. It remains the source of truth.
 - The **readable view** may be generated documentation, an existing portal, or a maintained mirror. If maintained separately, it must cover the full changed surface and be checked for drift.
 
-Do not create empty contract folders for unaffected connection types.
+Do not create empty contract folders for unaffected connection types. Keep the unused types on the ledger as `N/A` instead.
 
 ## One spec format per connection type, for the whole project
 
@@ -78,7 +80,7 @@ The **migration** is the canonical schema change — real SQL (or the project's 
 - Relationships that matter for reasoning about the data but aren't just a foreign key (e.g. "a quote's `total` is denormalized from its line items and must be recalculated on any line-item change").
 - Indexes added and the query they exist for — an index with no known query is a guess, not a decision.
 
-If the feature adds no new tables or columns, this pair doesn't exist — but check: adding a column to an existing table still needs a catalog update for that column.
+If the feature adds no new tables or columns, this pair doesn't exist and P2.4 is `N/A` with that reason — but check: adding a column to an existing table still needs a catalog update for that column.
 
 ## Cross-cutting (once in the canonical contract documentation or feature contract index)
 
@@ -99,4 +101,4 @@ Do not run or present these as a separate phase-2 review or gate. Carry them int
 - Breaking-change policy is stated.
 - Anything found while writing the contracts that is not resolved becomes an owned risk in the selected tracker, not an invented contract promise.
 
-Continue to phase 3 without requesting approval. Validate the requirements, technical contracts, and executable behavioural contracts as one package there. The single design approval happens after that combined check, because a contract is easier to judge when the user can see the behaviour that will verify it.
+Continue to phase 3 without requesting approval. Run the phase-2 exit review from `references/phase-exit-review.md` in that same turn: show the phase-2 ledger, including unused boundaries as `N/A`. Stop only if an owner decision appeared. Validate the requirements, technical contracts, and executable behavioural contracts as one package in phase 3. The single design approval happens after that combined check, because a contract is easier to judge when the user can see the behaviour that will verify it.

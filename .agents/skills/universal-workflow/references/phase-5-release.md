@@ -10,7 +10,7 @@ Scale this phase by router mode:
 - `bug-fix` runs the build, security, migration, smoke, rollback, and monitoring checks affected by the defect and fix. A hotfix does not waive a relevant check.
 - `compressed-small-change` runs the affected build/validation checks and records a rollback note when runtime behaviour changes. Do not manufacture deployment, monitoring, milestone, or documentation work for an unreleased local change.
 
-Deploy only when the user's request and project process authorize deployment. Otherwise hand off verified release evidence and state what remains unexecuted.
+Deploy only when the user's request and project process authorize deployment. Otherwise hand off verified release evidence and state what remains unexecuted. Keep every P5 ledger row from `references/phase-ledger.md`; unused full-release steps are `N/A` or `Mode-omit` with the mode reason, never dropped from the table.
 
 ## 1. Build
 
@@ -80,6 +80,8 @@ The QA metrics snapshot is complete for the release: pre-release evidence is lin
 
 **No open blocker-severity bug in this delivery scope.** Bugs found through targeted review gate the release like risks do — see `references/targeted-defect-review.md`.
 
+Show the completed P5 ledger with the release handoff. A step that was not run is `N/A`, `Blocked`, `Deferred`, or `Mode-omit` on that table. That handoff is the phase-5 exit review; do not add a second “please approve the release process” stop unless a deploy decision still needs the owner.
+
 ---
 
 # When the release fails
@@ -125,7 +127,7 @@ stabilise → communicate → diagnose → fix → verify → post-mortem
 - **Stabilise** — restore service (rollback, flag, scale, rate-limit, degrade gracefully). Use the project's live incident channel or selected tracker; the durable repo record comes after stability.
 - **Communicate** — one person keeps affected users and the team updated at a fixed interval, even when the update is "still working on it". Comments on the `incident` issue are the natural place for this.
 - **Diagnose** — logs, traces, metrics, the diff that shipped. The release version tag on your error tracker is what makes this a five-minute job instead of a two-hour one.
-- **Fix** — through the normal phase-4 loop. An incident does not license skipping tests.
+- **Fix** — through the normal phase-4 loop. An incident does not license skipping tests. If a test or release check cannot run, put it on the ledger as `Blocked`; do not omit it.
 - **Verify** — smoke tests plus the specific scenario that failed.
 - **Post-mortem** — see below.
 

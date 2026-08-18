@@ -2,6 +2,8 @@
 
 Goal: agree on *what problem we solve and roughly how*, before anyone argues about JSON field names.
 
+Show the phase-1 ledger from `references/phase-ledger.md` before asking for approval. Every P1 row is `Done`, `N/A`, `Blocked`, or `Deferred`; a missing row is a protocol failure.
+
 ## Steps
 
 1. **Set up the selected tracker.** Resolve `references/project-profile.md`. For full feature delivery, create its feature/project container and phase milestones; shorter modes do not enter phase 1. Use `references/linear-integration.md` only when Linear is the selected adapter.
@@ -20,7 +22,7 @@ Goal: agree on *what problem we solve and roughly how*, before anyone argues abo
    - **Integration** — existing systems it talks to, anything it replaces or has to run alongside.
    - **Failure** — what happens when it partially fails, not just when someone misuses it.
    - **Stakeholders** — who besides the user is affected and needs to know when this ships (support, ops, another team's service).
-   For a small, obvious feature most of these should already be inferable — the checklist is there so nothing gets silently skipped on a bigger one, not to turn every feature into an interrogation.
+   For a small, obvious feature most of these should already be inferable — say so per category on the ledger (`inferred: …`). The checklist exists so a category cannot disappear; do not skip a category by not mentioning it, and do not turn every feature into an interrogation.
 5. **Split discovery only when needed.** If several independent unknown branches cannot be resolved coherently in the current decision context, create Wayfinder-style research, prototype, or decision issues. Each issue answers one named question, records dependencies, produces one reviewable artifact, and stops without implementing production code. A prototype is disposable evidence for a decision, not an early implementation. Merge the resulting facts and owner decisions back into one concept; the split never bypasses the phase-1 approval gate.
 6. **Confirm shared understanding.** Summarize the problem, observable behaviour, boundaries, approved choices with their sources, proposed recommendations, rejected alternatives, and unresolved questions. Ask the owner to correct this summary before turning it into the concept draft. Do not relabel proposed recommendations as accepted choices. This confirmation is not the approval gate.
 7. **Draft the concept** in the language(s) selected by the project profile. Use the concept templates for section structure when useful. If several language versions are requested, keep their structure and requirement numbering aligned.
@@ -124,3 +126,5 @@ Rejected: serverless functions — cold starts break NFR-1.
 - Any split research or prototype issue answers one named question and has been folded back into the single concept.
 - The owner confirmed the shared-understanding summary before the approval request.
 - The user has written an explicit approval; the selected phase-1 gate item records it.
+- The phase-1 ledger is complete and was shown with the approval request; non-`Done` rows have reasons.
+- The phase-exit review from `references/phase-exit-review.md` is folded into that same gate request, not sent as a second stop.

@@ -1,86 +1,39 @@
-# Concept: <Feature name>
+# Concept: Bio max length
 
-**Optional English concept template. Destination:** the concept location selected by `references/project-profile.md`; when Linear is selected, use a Project Document.
-
-Status: DRAFT | APPROVED <date>
-Author: <name> · Slug: `<feature-slug>`
+Status: DRAFT · Slug: `bio-max-length`
 
 ## 1. Problem
 
-Who has the problem, when it happens, and what it costs them today.
-What people do now instead, and why that is not good enough.
+Profile owners can save a bio longer than 500 characters. Reviewers cannot scan it; storage and feed cards overflow.
 
 ## 2. Contracts and behaviour (plain text)
 
-What goes in:
-- ...
-
-What comes out:
-- ...
-
-What the system promises:
-- ...
-
-What the system does **not** do:
-- ...
+In: profile id, bio string. Out: saved bio, or a rejection. Promises: bios longer than 500 characters are rejected. Does not: truncate, translate, or moderate content.
 
 ## 3. Functional requirements
 
-| ID   | Requirement | How we test it |
-|------|-------------|----------------|
-| FR-1 |             |                |
-| FR-2 |             |                |
+| ID | Requirement | How we test it |
+|---|---|---|
+| FR-1 | Reject a bio longer than 500 characters | Native test: 501 chars → `BIO_TOO_LONG` |
 
 ## 4. Non-functional requirements
 
-| ID    | Requirement (with a number) | How we measure it |
-|-------|-----------------------------|-------------------|
-| NFR-1 |                             |                   |
-| NFR-2 |                             |                   |
+| ID | Requirement | How we measure it |
+|---|---|---|
+| NFR-1 | Validation p95 < 50 ms at 50 rps | Existing API bench on this endpoint |
 
 ## 5. Out of scope
 
-- ...
+- Content moderation, i18n, changing the 500 limit later
 
 ## 6. Suggested solution
 
-Everything in this section remains a proposal until the Phase-1 gate approves it. Cite any reused prior owner decision; do not present an agent recommendation as an already accepted decision.
+Proposal until the phase-1 gate. Baseline: one length check on the existing profile write path.
 
-### Diagram
-(only if there's enough to draw — see `references/phase-1-concept.md`; delete this subsection for a simple, single-flow design)
-
-### Components
-
-| Component | Responsibility |
-|-----------|----------------|
-
-### Main flow
-
-1. ...
-2. ...
-
-### Data and storage
-
-...
-
-### External systems
-
-...
-
-### Failure behaviour
-
-What happens when a dependency is slow or down.
-
-### Rejected alternatives
-
-Chosen baseline — the cheapest option that satisfies every FR/NFR: <one line>
-
-| Option | Why we did not take it | FR/NFR it fails, or the one that justifies the extra cost |
-|--------|------------------------|--------------------------------------------------------------|
+Rejected: extra bio service — no FR/NFR needs it.
 
 ## 7. Open questions
 
-Track questions in the selected tracker and link its view here. With repo fallback, use the table below.
-
 | # | Question | Owner |
-|---|----------|-------|
+|---|---|---|
+| Q1 | Should existing rows over 500 be migrated or left until next edit? | product |

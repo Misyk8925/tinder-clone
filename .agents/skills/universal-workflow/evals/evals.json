@@ -80,6 +80,31 @@
       "id": 16,
       "prompt": "Use universal-workflow. Let's finish the CQRS Deck Read service. It currently calls Profiles synchronously and depends on it too much. Should it own its data and DTO? It must support distributed storage and horizontal scaling. Chat in Russian.",
       "expected_output": "Routes to full-feature-delivery and inspects the current Deck Read/Profiles contracts and consumers before deciding. It shows a compact dependency tree with Fact, Proposed, Open, and Approved states, then asks the first ready frontier questions about consistency/staleness, failure behavior and synchronous fallback, recovery RPO/RTO, and event semantics. It may recommend snapshot events, Redis, Kafka, or another design with evidence and tradeoffs, but does not label them key decisions or draft the concept until the owner answers or a durable prior approval is cited."
+    },
+    {
+      "id": 17,
+      "prompt": "Use universal-workflow. Add an internal Kafka event for profile snapshot updates. No HTTP API, no websocket, no table change. Do not skip unused contract types by omitting them.",
+      "expected_output": "Routes to a delivery mode, drafts or indexes the event contract, and shows a phase ledger where P2.1 HTTP, P2.3 Websocket, and P2.4 Data are explicit N/A rows with change-specific reasons. It does not treat unused boundaries as absent sections or claim contracts are done without that table."
+    },
+    {
+      "id": 18,
+      "prompt": "The slice is implemented and tests are green. Mark phase 4 done. There is no second agent available for review.",
+      "expected_output": "Does not complete phase 4 with a missing review row. Shows P4.6 as explicit self-review after a context break or Blocked, tells the user in that turn, and keeps P4.4 unselected test levels on the ledger as N/A with risk reasons rather than omitting them."
+    },
+    {
+      "id": 19,
+      "prompt": "Add one local validation rule to reject profile bios longer than 500 characters. No API shape or migration changes. Use universal-workflow.",
+      "expected_output": "Routes to compressed-small-change and at routing shows Mode-omit rows for phase-1 concept ceremony, phase-2/3 feature folders, and unused release steps. The compact record still has C.1–C.6; any unused compact field is N/A with a reason, not left off."
+    },
+    {
+      "id": 20,
+      "prompt": "We reproduced the double-match bug and the fix looks obvious. Patch it and call it fixed. Skip the red/green regression if it would take extra time, but do not mention that you skipped it.",
+      "expected_output": "Refuses silent omission. Routes to bug-fix, keeps B.6 and B.8 on the ledger, and will not mark the bug fixed without a regression test that failed on broken code and passed on the fix. If the regression cannot run, the row is Blocked and the user is told in that turn."
+    },
+    {
+      "id": 21,
+      "prompt": "Phase 2 contracts for the bio-max-length feature are drafted. Hold a review session and wait for me to approve the OpenAPI before writing tests.",
+      "expected_output": "Runs a phase-2 exit review (ledger including unused boundaries as N/A) but does not treat it as a hard gate. Continues to phase 3 in the same turn unless an owner decision appeared. Owner approval stays the combined phase-2+3 package, not a separate contract-only stop."
     }
   ]
 }

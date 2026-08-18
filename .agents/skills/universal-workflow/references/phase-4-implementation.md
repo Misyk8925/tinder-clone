@@ -2,6 +2,8 @@
 
 Goal: prove the requested outcome in small slices, using test levels selected by changed risk rather than by ritual.
 
+Keep the P4 ledger from `references/phase-ledger.md` on every slice. Each test level and the review row is `Done` or `N/A`/`Blocked` with a reason. Omitting a level by not mentioning it is a protocol failure.
+
 The artifact names below describe `full-feature-delivery`. In `bug-fix` or `compressed-small-change`, keep the same implementation discipline but store the compact plan and evidence in the mode's single issue or existing project location. Do not create an otherwise empty feature tree or QA document for one small slice.
 
 ```
@@ -62,7 +64,7 @@ Choose the smallest set of test levels that can expose the changed risks and loc
 
 The phase-3 acceptance check may itself live at component, integration, contract, or system level. Do not duplicate it at every layer. Add a faster focused test first when it shortens the feedback loop for high-risk logic; no level is mandatory merely to demonstrate TDD or satisfy a pyramid. A confirmed bug still needs a regression test that fails on the broken version and passes on the fix, at the closest level that reproduces the defect faithfully.
 
-Test the affected error paths, not only the happy path. The plan and evidence must say why each selected level applies; omitted levels need no ceremonial test, but a release-relevant risk with no evidence must be marked Blocked or explicitly accepted.
+Test the affected error paths, not only the happy path. The plan, evidence, and P4.4 ledger rows must say why each selected level applies. Unselected levels stay on the ledger as `N/A` with the changed-risk reason; they need no ceremonial test. A release-relevant risk with no evidence must be marked `Blocked` or explicitly accepted.
 
 For full feature delivery, create `04-implementation/qa-metrics.md` from `assets/templates/qa-metrics.md` when the first slice starts. It is a compact evidence ledger, not a dashboard project: update the test-run, traceability, defect, and NFR rows as the relevant evidence exists. A bug fix or compressed change records the same applicable evidence in its issue unless the project already requires the shared QA document. Also update existing applicable rows in project-root `docs/quality/metrics.md`; create that rolling document only when the product stream genuinely needs it. Follow `references/qa-metrics.md`; an unavailable environment is **Blocked**, never silently counted as green.
 
@@ -74,7 +76,7 @@ For changed UI, data, or asynchronous flows, include the matching quality eviden
 
 ## 4. Review
 
-Use a reviewer with a fresh context that did not produce the implementation whenever the harness supports it. Give it only durable inputs: the tracker item/slice, applicable approved artifacts, observable evidence, relevant project guidance, diff, and test results. Do not give it the implementer's persuasive narrative. If no independent reviewer is available, perform the review after a deliberate context break and report that it was self-review.
+Use a reviewer with a fresh context that did not produce the implementation whenever the harness supports it. Give it only durable inputs: the tracker item/slice, applicable approved artifacts, observable evidence, relevant project guidance, diff, and test results. Do not give it the implementer's persuasive narrative. If no independent reviewer is available, perform the review after a deliberate context break, mark P4.6 `Blocked` or `Done` as explicit self-review, and say so in that turn. Never complete a slice with the review row missing.
 
 Review on two explicit axes:
 
@@ -144,7 +146,8 @@ For every mode:
 - The mode's evidence location distinguishes passed, failed, skipped, and blocked checks. Full features update `qa-metrics.md`; shorter modes use their compact tracker item unless the project profile requires more.
 - Every applicable blocking quality gate passed. An exception has an explicit reason, owner, review date, and approved risk item; advisory findings are triaged rather than silently ignored.
 - A changed schema has passed migration safety checks; a changed hot path has reproducible performance evidence against its baseline and NFR; a changed configuration or infrastructure manifest has passed its policy checks. Any unavailable gate is explicitly Blocked and decided as scope, risk, or work — never counted as green.
-- For full feature delivery, every phase-3 acceptance check passes and one final targeted review covers the combined diff.
+- For full feature delivery, every phase-3 acceptance check passes and one final targeted review covers the combined diff. That combined-diff pass is the phase-4 exit review in `references/phase-exit-review.md`; do not add another session after it.
 - For a bug fix, the regression check is proven red on broken code and green on the fix.
 - For a compressed change, the requested outcome has the declared observable evidence; a behavioural red/green cycle is required only when behaviour changed.
 - Full-feature repo artifacts, or the shorter mode's compact issue, reflect the final state before release handoff.
+- The P4 ledger is complete for every slice; unselected test levels, skipped e2e, and missing independent review are explicit rows, not absent.
