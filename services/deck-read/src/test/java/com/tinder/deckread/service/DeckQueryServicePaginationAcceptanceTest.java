@@ -19,12 +19,15 @@ import java.time.Instant;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
@@ -63,6 +66,11 @@ class DeckQueryServicePaginationAcceptanceTest {
         service.readiness = readiness;
         service.builder = builder;
         service.cursors = cursors;
+        service.materializedQuery = mock(MaterializedDeckQuery.class);
+        service.refreshes = mock(DeckRefreshTrigger.class);
+        when(service.materializedQuery.getV2(
+                eq(VIEWER_PROFILE_ID), anyLong(), anyInt(), anyInt()))
+                .thenReturn(Uni.createFrom().item(Optional.empty()));
 
         ordered = java.util.stream.IntStream.range(0, 250)
                 .mapToObj(index -> UUID.nameUUIDFromBytes(("candidate-" + index).getBytes()))

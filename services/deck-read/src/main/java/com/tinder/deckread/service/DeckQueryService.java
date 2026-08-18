@@ -6,7 +6,6 @@ import com.tinder.deckread.dto.DeckPage;
 import com.tinder.deckread.dto.DeckState;
 import com.tinder.deckread.readmodel.DeckSnapshot;
 import com.tinder.deckread.readmodel.DeckSnapshotStore;
-import com.tinder.deckread.readmodel.MaterializedDeckSlice;
 import com.tinder.deckread.readmodel.MaterializedDeckStore;
 import com.tinder.deckread.readmodel.ProfileProjectionStore;
 import com.tinder.deckread.readmodel.ReadModelReadiness;
@@ -16,7 +15,6 @@ import io.micrometer.core.instrument.MeterRegistry;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
-import com.tinder.deckread.messaging.DeckMaterializationRequester;
 import com.tinder.deckread.messaging.MaterializationReason;
 
 import java.time.Duration;
@@ -57,10 +55,10 @@ public class DeckQueryService {
     DeckCursorCodec cursors;
 
     @Inject
-    MaterializedDeckStore materialized;
+    MaterializedDeckQuery materializedQuery;
 
     @Inject
-    DeckMaterializationRequester materializationRequests;
+    DeckRefreshTrigger refreshes;
 
     @Inject
     MeterRegistry meters;
@@ -95,17 +93,13 @@ public class DeckQueryService {
                     DeckCursorCodec.Cursor decoded = cursor == null ? null : cursors.decode(cursor);
                     long requestedGeneration = decoded == null ? 0 : decoded.generation();
                     int requestedPosition = decoded == null ? 0 : decoded.position();
-                    Uni<DeckQueryResult> fastPath = materialized == null
-                            ? Uni.createFrom().nullItem()
-                            : materialized.readPage(
-                                            viewerProfileId, requestedGeneration, requestedPosition, limit)
-                                    .flatMap(slice -> slice == null
-                                            ? Uni.createFrom().nullItem()
-                                            : materializedPage(
-                                                    viewerProfileId, slice, requestedPosition, limit));
-                    return fastPath.flatMap(result -> {
-                        if (result != null) {
-                            return Uni.createFrom().item(result);
+                    return materializedQuery.getV2(
+                                    viewerProfileId, requestedGeneration, requestedPosition, limit)
+                            .flatMap(result -> {
+                        if (result.isPresent()) {
+                            DeckQueryResult hit = result.orElseThrow();
+                            recordPath(materializedPath(hit, requestedPosition));
+                            return Uni.createFrom().item(hit);
                         }
                         recordPath("miss");
                         requestMaterialization(viewerProfileId, MaterializationReason.API_MISS);
@@ -125,44 +119,18 @@ public class DeckQueryService {
                 .onFailure().recoverWithItem(failureNotReady());
     }
 
-    public Uni<List<DeckCardV1Dto>> getDeckV1(String viewerUserId, int offset, int limit) {
+    public Uni<List<DeckCardV1Dto>> getDeckV1(
+            String viewerUserId, int offset, int limit) {
         return profiles.viewerProfileId(viewerUserId)
                 .flatMap(viewerProfileId -> {
                     if (viewerProfileId == null) {
                         return Uni.createFrom().item(List.<DeckCardV1Dto>of());
                     }
-                    Uni<List<DeckCardV1Dto>> fastPath = materialized == null
-                            ? Uni.createFrom().nullItem()
-                            : materialized.readPage(viewerProfileId, 0, offset, limit)
-                                    .flatMap(slice -> {
-                                        if (slice == null) {
-                                            return Uni.createFrom().nullItem();
-                                        }
-                                        boolean stale = slice.builtAt() != null
-                                                && slice.builtAt().plus(Duration.ofMinutes(
-                                                        DeckSnapshotStore.SOFT_FRESHNESS_MINUTES))
-                                                .isBefore(Instant.now());
-                                        if (stale) {
-                                            requestMaterialization(viewerProfileId, MaterializationReason.API_STALE);
-                                        }
-                                        if (slice.cards().isEmpty()
-                                                && offset >= MaterializedDeckStore.READY_WINDOW
-                                                && offset < slice.totalCount()) {
-                                            requestMaterialization(
-                                                    viewerProfileId, MaterializationReason.API_STALE);
-                                            return deepMaterializedCards(viewerProfileId, slice, offset, limit)
-                                                    .map(cards -> cards.stream()
-                                                            .map(DeckCardV1Dto::from)
-                                                            .toList());
-                                        }
-                                        return Uni.createFrom().item(slice.cards().stream()
-                                                .map(DeckCardV1Dto::from)
-                                                .toList());
-                                    });
-                    return fastPath.flatMap(cards -> {
-                        if (cards != null) {
-                            recordPath(offset >= MaterializedDeckStore.READY_WINDOW ? "deep" : "fast");
-                            return Uni.createFrom().item(cards);
+                    return materializedQuery.getV1(viewerProfileId, offset, limit).flatMap(cards -> {
+                        if (cards.isPresent()) {
+                            recordPath(offset >= MaterializedDeckStore.READY_WINDOW
+                                    ? "deep" : "fast");
+                            return Uni.createFrom().item(cards.orElseThrow());
                         }
                         recordPath("miss");
                         requestMaterialization(viewerProfileId, MaterializationReason.API_MISS);
@@ -186,105 +154,26 @@ public class DeckQueryService {
                 });
     }
 
-    private Uni<DeckQueryResult> materializedPage(
-            UUID viewerProfileId,
-            MaterializedDeckSlice slice,
-            int requestedPosition,
-            int limit
-    ) {
-        if (slice.unavailable()) {
-            recordPath("miss");
-            requestMaterialization(viewerProfileId, MaterializationReason.API_STALE);
-            return Uni.createFrom().item(new DeckQueryResult.Failure(
-                    503, DECK_TEMPORARILY_UNAVAILABLE, "Deck temporarily unavailable",
-                    "No fresh or safely repeatable cards are available."));
-        }
-        int effectivePosition = slice.cursorReset() ? 0 : requestedPosition;
-        if (slice.cards().isEmpty()
-                && effectivePosition >= MaterializedDeckStore.READY_WINDOW
-                && effectivePosition < slice.totalCount()) {
-            return deepMaterializedPage(viewerProfileId, slice, effectivePosition, limit);
-        }
-        boolean stale = slice.builtAt() != null
-                && slice.builtAt().plus(Duration.ofMinutes(DeckSnapshotStore.SOFT_FRESHNESS_MINUTES))
-                .isBefore(Instant.now());
-        if (stale) {
-            requestMaterialization(viewerProfileId, MaterializationReason.API_STALE);
-        }
-        String next = slice.nextPosition() < slice.totalCount()
-                ? cursors.encode(slice.generation(), slice.nextPosition())
-                : null;
-        DeckState state = stale ? DeckState.REFRESHING : slice.state();
-        if (slice.cards().isEmpty() && effectivePosition == 0 && next == null && state != DeckState.DEGRADED) {
-            state = DeckState.EMPTY;
-        }
-        recordPath("fast");
-        return Uni.createFrom().item(new DeckQueryResult.Page(new DeckPage(
-                slice.cards(), next, slice.generation(), slice.cursorReset(), state)));
-    }
-
-    private Uni<DeckQueryResult> deepMaterializedPage(
-            UUID viewerProfileId,
-            MaterializedDeckSlice slice,
-            int position,
-            int limit
-    ) {
-        return deepMaterializedCards(viewerProfileId, slice, position, limit)
-                .map(cards -> {
-                    int tailOffset = Math.max(0, position - MaterializedDeckStore.READY_WINDOW);
-                    int fetched = Math.min(
-                            Math.min(100, Math.max(limit, 20)),
-                            Math.max(0, slice.totalCount() - MaterializedDeckStore.READY_WINDOW - tailOffset));
-                    int nextPosition = Math.min(slice.totalCount(), position + fetched);
-                    String next = nextPosition < slice.totalCount()
-                            ? cursors.encode(slice.generation(), nextPosition)
-                            : null;
-                    recordPath("deep");
-                    requestMaterialization(viewerProfileId, MaterializationReason.API_STALE);
-                    return (DeckQueryResult) new DeckQueryResult.Page(new DeckPage(
-                            cards, next, slice.generation(), slice.cursorReset(), slice.state()));
-                });
-    }
-
-    private Uni<List<DeckCardDto>> deepMaterializedCards(
-            UUID viewerProfileId,
-            MaterializedDeckSlice slice,
-            int position,
-            int limit
-    ) {
-        int tailOffset = Math.max(0, position - MaterializedDeckStore.READY_WINDOW);
-        int fetch = Math.min(100, Math.max(limit, 20));
-        return materialized.readTail(viewerProfileId, slice.generation(), tailOffset, fetch)
-                .flatMap(ids -> Uni.combine().all().unis(
-                                profiles.cards(ids),
-                                viewerMutations.swiped(viewerProfileId, ids),
-                                viewerMutations.matched(viewerProfileId, ids))
-                        .asTuple()
-                        .map(tuple -> ids.stream()
-                                    .filter(id -> tuple.getItem1().containsKey(id))
-                                    .filter(id -> !tuple.getItem2().contains(id))
-                                    .filter(id -> !tuple.getItem3().contains(id))
-                                    .limit(limit)
-                                    .map(tuple.getItem1()::get)
-                                    .toList()));
-    }
-
     private void requestMaterialization(UUID viewerProfileId, MaterializationReason reason) {
-        if (materializationRequests != null) {
-            try {
-                materializationRequests.request(viewerProfileId, reason).subscribe().with(
-                        ignored -> { }, ignored -> { });
-            } catch (RuntimeException ignored) {
-                // A background trigger must never turn a usable generation into an HTTP failure.
-                // Reconciliation and subsequent GETs provide the repair path.
-            }
-        }
+        refreshes.request(viewerProfileId, reason);
     }
 
     private void recordPath(String path) {
         if (meters != null) {
             meters.counter("deck_read_requests", "path", path).increment();
         }
+    }
+
+    private String materializedPath(DeckQueryResult result, int requestedPosition) {
+        if (result instanceof DeckQueryResult.Failure) {
+            return "miss";
+        }
+        if (result instanceof DeckQueryResult.Page page
+                && !page.value().cursorReset()
+                && requestedPosition >= MaterializedDeckStore.READY_WINDOW) {
+            return "deep";
+        }
+        return "fast";
     }
 
     private Uni<DeckQueryResult> requestAndBuild(UUID viewerProfileId) {

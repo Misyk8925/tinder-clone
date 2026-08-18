@@ -2,7 +2,6 @@ package com.tinder.deckread.service;
 
 import com.tinder.deckread.dto.DeckCardDto;
 import com.tinder.deckread.dto.DeckState;
-import com.tinder.deckread.messaging.DeckMaterializationRequester;
 import com.tinder.deckread.readmodel.DeckSnapshotStore;
 import com.tinder.deckread.readmodel.MaterializedDeckSlice;
 import com.tinder.deckread.readmodel.MaterializedDeckStore;
@@ -41,7 +40,7 @@ class DeckQueryServiceMaterializedAcceptanceTest {
         ReadModelReadiness readiness = mock(ReadModelReadiness.class);
         DeckSnapshotStore snapshots = mock(DeckSnapshotStore.class);
         ViewerMutationStore mutations = mock(ViewerMutationStore.class);
-        DeckMaterializationRequester requester = mock(DeckMaterializationRequester.class);
+        DeckRefreshTrigger refreshes = mock(DeckRefreshTrigger.class);
         when(readiness.isReady()).thenReturn(Uni.createFrom().item(true));
         when(profiles.viewerProfileId("viewer-user")).thenReturn(Uni.createFrom().item(viewer));
         when(materialized.readPage(viewer, 0, 0, 20)).thenReturn(Uni.createFrom().item(
@@ -51,11 +50,12 @@ class DeckQueryServiceMaterializedAcceptanceTest {
 
         DeckQueryService service = new DeckQueryService();
         service.profiles = profiles;
-        service.materialized = materialized;
+        service.materializedQuery = new MaterializedDeckQuery(
+                materialized, profiles, mutations, cursors(), refreshes);
         service.readiness = readiness;
         service.snapshots = snapshots;
         service.viewerMutations = mutations;
-        service.materializationRequests = requester;
+        service.refreshes = refreshes;
         service.materializedRequired = true;
         service.cursors = cursors();
 
@@ -65,7 +65,7 @@ class DeckQueryServiceMaterializedAcceptanceTest {
         assertThat(((DeckQueryResult.Page) result).value().items())
                 .extracting(DeckCardDto::profileId).containsExactly(candidate);
         verify(profiles, never()).cards(org.mockito.ArgumentMatchers.anyList());
-        verifyNoInteractions(snapshots, mutations, requester);
+        verifyNoInteractions(snapshots, mutations, refreshes);
         verify(materialized).readPage(viewer, 0, 0, 20);
     }
 
@@ -78,7 +78,7 @@ class DeckQueryServiceMaterializedAcceptanceTest {
         MaterializedDeckStore materialized = mock(MaterializedDeckStore.class);
         DeckSnapshotStore snapshots = mock(DeckSnapshotStore.class);
         ViewerMutationStore mutations = mock(ViewerMutationStore.class);
-        DeckMaterializationRequester requester = mock(DeckMaterializationRequester.class);
+        DeckRefreshTrigger refreshes = mock(DeckRefreshTrigger.class);
         when(profiles.viewerProfileId("viewer-user")).thenReturn(Uni.createFrom().item(viewer));
         when(materialized.readPage(viewer, 0, 100, 20)).thenReturn(Uni.createFrom().item(
                 new MaterializedDeckSlice(
@@ -95,10 +95,11 @@ class DeckQueryServiceMaterializedAcceptanceTest {
 
         DeckQueryService service = new DeckQueryService();
         service.profiles = profiles;
-        service.materialized = materialized;
+        service.materializedQuery = new MaterializedDeckQuery(
+                materialized, profiles, mutations, cursors(), refreshes);
         service.snapshots = snapshots;
         service.viewerMutations = mutations;
-        service.materializationRequests = requester;
+        service.refreshes = refreshes;
         service.materializedRequired = true;
 
         var cards = service.getDeckV1("viewer-user", 100, 20).await().indefinitely();
