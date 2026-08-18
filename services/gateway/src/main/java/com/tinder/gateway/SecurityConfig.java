@@ -62,6 +62,7 @@ public class SecurityConfig {
                         .pathMatchers("/api/v1/deck", "/api/v2/deck").permitAll()
                         // WebSocket upgrade — JWT auth handled inside the match service via STOMP channel interceptor
                         .pathMatchers("/ws", "/ws/**").permitAll()
+                        .pathMatchers("/actuator/health", "/actuator/health/**").permitAll()
                         // Match-service paths use no /api/v1 prefix but still require authentication
                         .pathMatchers("/match/**", "/rest/conversations/**").authenticated()
                         // All other /api/** paths require a valid JWT

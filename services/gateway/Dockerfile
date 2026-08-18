@@ -11,6 +11,7 @@ RUN --mount=type=cache,id=m2-gateway,sharing=locked,target=/root/.m2 \
     find target -maxdepth 1 -name "*.jar" ! -name "*-plain.jar" -exec mv {} target/app.jar \;
 
 FROM eclipse-temurin:21-jre-alpine
+RUN apk add --no-cache wget
 RUN addgroup -S appgroup && adduser -S appuser -G appgroup
 
 WORKDIR /app

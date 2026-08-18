@@ -695,7 +695,7 @@ services:
     mem_limit: 1g
     cpus: "4.00"
     healthcheck:
-      test: ["CMD-SHELL", "nc -z localhost 8222 || exit 1"]
+      test: ["CMD-SHELL", "(wget -q --server-response -O- http://localhost:8222/actuator/health 2>&1 || true) | grep -Eq 'HTTP/1.1 (200|401)' || exit 1"]
       interval: 15s
       timeout: 10s
       start_period: 300s
