@@ -55,19 +55,23 @@ The Go service should support the same effective configuration keys through envi
 | `SWIPES_PRODUCER_BATCH_SIZE` | `500` | Max events drained per batch. |
 | `SWIPES_PRODUCER_BUFFER_TIMEOUT` | `1ms` | Delay when the producer queue is empty. |
 | `SWIPES_PRODUCER_WARMUP_ENABLED` | `true` | Warm Kafka producer metadata on startup. |
+| `SWIPES_KAFKA_CONSUMER_MAX_RETRIES` | `5` | Profile event retries before DLT recovery. |
+| `SWIPES_KAFKA_CONSUMER_RETRY_BACKOFF` | `1s` | Delay between profile event and DLT publish retries. |
 
 Kafka producer defaults to preserve:
 
-1. `acks=1`
+1. `acks=all`
 2. `batch.size=131072`
 3. `linger.ms=20`
 4. `buffer.memory=67108864`
-5. string key serializer
-6. string value serializer
+5. `enable.idempotence=true`
+6. `max.in.flight.requests.per.connection=5`
+7. string key serializer
+8. string value serializer
 
 ## 4. HTTP API
 
-All successful swipe commands return `202 Accepted` with an empty body. The current service responds after enqueueing to the local producer queue, not after Kafka acknowledges the record.
+All successful swipe commands return `202 Accepted` with an empty body only after Kafka acknowledges the record. Enqueueing remains bounded and batched, but it is no longer treated as successful delivery.
 
 ### `POST /api/v1/swipes`
 
@@ -291,10 +295,10 @@ Swipe producer queue is full
 ```
 
 3. Background workers drain up to `SWIPES_PRODUCER_BATCH_SIZE` events per batch.
-4. Kafka send failures after enqueue are logged and swallowed. The current HTTP client is not notified.
+4. The request waits asynchronously for its record's broker result; Kafka send failures return `503` instead of a false `202`.
 5. On startup, warm producer metadata for `swipe-created` when warmup is enabled.
 
-The Go service should preserve this request/queue boundary if it is replacing the current service. A direct synchronous Kafka send on the request path changes latency and failure semantics.
+The Go service preserves the bounded queue and batch workers while returning each batch result to its waiting request. This retains backpressure and batching without claiming success before durable broker acknowledgement.
 
 ## 9. Profile Cache Event Contracts
 
@@ -372,11 +376,11 @@ Handling:
 
 Kafka consumer details to match:
 
-1. Listener group ID in annotations: `swipe-service`.
+1. Java listeners use group `swipe-service`; Go uses equivalent topic-suffixed groups under `swipes-profile-cache`.
 2. `auto.offset.reset=earliest`.
 3. `enable.auto.commit=false`.
 4. `isolation.level=read_committed`.
-5. Batch ack mode.
+5. Record-level commit only after successful handling, or after bounded retries and a durable `<topic>.dlt` publish.
 6. JSON payloads should not require type-info headers.
 
 ## 10. Error Mapping
@@ -422,7 +426,7 @@ Internal components:
 
 Concurrency rules:
 
-1. Keep HTTP handlers non-blocking with respect to Kafka broker acks; enqueue only.
+1. Keep Java HTTP handlers non-blocking at the thread level while asynchronously waiting for Kafka broker acknowledgement; Go may park the request goroutine while waiting.
 2. Use a bounded channel or lock-free ring queue for producer backpressure.
 3. Preserve `429` when enqueue fails.
 4. Drain batches in fixed worker goroutines.
@@ -614,7 +618,7 @@ These are historical direct-swipes k6 runs from `/opt/tinder-clone/k6/swipes-dem
 
 Interpretation:
 
-1. The Java service can show zero HTTP failures well beyond its sustainable throughput because accepted requests only enqueue locally.
+1. These historical runs predate broker-acknowledged `202` responses, so their HTTP success/RPS numbers measure enqueue throughput rather than durable-delivery throughput and must not be reused as current capacity evidence.
 2. The practical limit is visible through achieved `http_reqs/s`, dropped iterations, p95/p99 latency, CPU saturation, and Kafka/producer queue behavior.
 3. Historical "failures" at 12k/14k/16k were usually k6 threshold and dropped-iteration failures, not HTTP 5xx/4xx failures.
 4. A Go rewrite should be judged against the best clean-condition Java runs, not against a run made after the environment was left noisy or the topic was not reset.

@@ -35,6 +35,7 @@ public class KafkaProducerConfig {
         props.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers);
         props.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, StringSerializer.class);
         props.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, JsonSerializer.class);
+        addDurabilityProperties(props);
 
         return new DefaultKafkaProducerFactory<>(props);
     }
@@ -56,6 +57,7 @@ public class KafkaProducerConfig {
         props.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers);
         props.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, StringSerializer.class);
         props.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, JsonSerializer.class);
+        addDurabilityProperties(props);
 
         return new DefaultKafkaProducerFactory<>(props);
     }
@@ -74,8 +76,7 @@ public class KafkaProducerConfig {
         props.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers);
         props.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, StringSerializer.class);
         props.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, JsonSerializer.class);
-        props.put(ProducerConfig.ACKS_CONFIG, "all");
-        props.put(ProducerConfig.ENABLE_IDEMPOTENCE_CONFIG, true);
+        addDurabilityProperties(props);
         return new DefaultKafkaProducerFactory<>(props);
     }
 
@@ -93,6 +94,7 @@ public class KafkaProducerConfig {
         props.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers);
         props.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, StringSerializer.class);
         props.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, JsonSerializer.class);
+        addDurabilityProperties(props);
 
         return new DefaultKafkaProducerFactory<>(props);
     }
@@ -103,5 +105,12 @@ public class KafkaProducerConfig {
     @Bean
     public KafkaTemplate<Object, Object> deadLetterKafkaTemplate() {
         return new KafkaTemplate<>(deadLetterProducerFactory());
+    }
+
+    private void addDurabilityProperties(Map<String, Object> props) {
+        props.put(ProducerConfig.ACKS_CONFIG, "all");
+        props.put(ProducerConfig.ENABLE_IDEMPOTENCE_CONFIG, true);
+        props.put(ProducerConfig.MAX_IN_FLIGHT_REQUESTS_PER_CONNECTION, 5);
+        props.put(ProducerConfig.DELIVERY_TIMEOUT_MS_CONFIG, 30_000);
     }
 }

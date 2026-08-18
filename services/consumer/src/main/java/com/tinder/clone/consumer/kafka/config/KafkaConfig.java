@@ -5,6 +5,7 @@ import com.tinder.clone.consumer.kafka.event.ProfileDeleteEvent;
 import com.tinder.clone.consumer.kafka.event.SwipeCreatedEvent;
 import org.apache.kafka.clients.admin.NewTopic;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
+import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.common.serialization.StringDeserializer;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
@@ -14,10 +15,13 @@ import org.springframework.kafka.config.ConcurrentKafkaListenerContainerFactory;
 import org.springframework.kafka.config.TopicBuilder;
 import org.springframework.kafka.core.ConsumerFactory;
 import org.springframework.kafka.core.DefaultKafkaConsumerFactory;
+import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.kafka.listener.ContainerProperties;
+import org.springframework.kafka.listener.DeadLetterPublishingRecoverer;
 import org.springframework.kafka.listener.DefaultErrorHandler;
 import org.springframework.kafka.support.serializer.ErrorHandlingDeserializer;
 import org.springframework.kafka.support.serializer.JacksonJsonDeserializer;
+import org.springframework.util.backoff.FixedBackOff;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -49,6 +53,12 @@ public class KafkaConfig {
 
     @Value("${spring.kafka.listener.concurrency:1}")
     private int concurrency;
+
+    @Value("${app.kafka.error-handler.max-retries:5}")
+    private long maxRetries;
+
+    @Value("${app.kafka.error-handler.backoff-ms:1000}")
+    private long retryBackoffMs;
 
     @Bean
     public NewTopic swipeCreatedTopic() {
@@ -101,6 +111,36 @@ public class KafkaConfig {
     }
 
     @Bean
+    public NewTopic swipeCreatedDeadLetterTopic() {
+        return deadLetterTopic(swipeCreatedTopic + ".dlt");
+    }
+
+    @Bean
+    public NewTopic profileCreatedDeadLetterTopic() {
+        return deadLetterTopic(profileCreatedTopic + ".dlt");
+    }
+
+    @Bean
+    public NewTopic profileDeletedDeadLetterTopic() {
+        return deadLetterTopic(profileDeletedTopic + ".dlt");
+    }
+
+    @Bean
+    public DefaultErrorHandler kafkaErrorHandler(KafkaTemplate<Object, Object> kafkaTemplate) {
+        DeadLetterPublishingRecoverer recoverer = new DeadLetterPublishingRecoverer(
+                kafkaTemplate,
+                (record, exception) -> new TopicPartition(record.topic() + ".dlt", -1)
+        );
+        recoverer.setFailIfSendResultIsError(true);
+        DefaultErrorHandler errorHandler = new DefaultErrorHandler(
+                recoverer,
+                new FixedBackOff(Math.max(0, retryBackoffMs), Math.max(0, maxRetries))
+        );
+        errorHandler.setCommitRecovered(true);
+        return errorHandler;
+    }
+
+    @Bean
     public ConsumerFactory<String, SwipeCreatedEvent> swipeEventConsumerFactory() {
         Map<String, Object> props = baseConsumerProps(groupId, SwipeCreatedEvent.class);
         return new DefaultKafkaConsumerFactory<>(props);
@@ -119,35 +159,38 @@ public class KafkaConfig {
     }
 
     @Bean
-    public ConcurrentKafkaListenerContainerFactory<String, SwipeCreatedEvent> kafkaListenerContainerFactory() {
+    public ConcurrentKafkaListenerContainerFactory<String, SwipeCreatedEvent> kafkaListenerContainerFactory(
+            DefaultErrorHandler kafkaErrorHandler) {
         ConcurrentKafkaListenerContainerFactory<String, SwipeCreatedEvent> factory =
                 new ConcurrentKafkaListenerContainerFactory<>();
         factory.setConsumerFactory(swipeEventConsumerFactory());
         factory.setConcurrency(concurrency);
-        factory.getContainerProperties().setAckMode(ContainerProperties.AckMode.MANUAL);
-        factory.setCommonErrorHandler(new DefaultErrorHandler());
+        factory.getContainerProperties().setAckMode(ContainerProperties.AckMode.MANUAL_IMMEDIATE);
+        factory.setCommonErrorHandler(kafkaErrorHandler);
         return factory;
     }
 
     @Bean
-    public ConcurrentKafkaListenerContainerFactory<String, ProfileCreateEvent> profileKafkaListenerContainerFactory() {
+    public ConcurrentKafkaListenerContainerFactory<String, ProfileCreateEvent> profileKafkaListenerContainerFactory(
+            DefaultErrorHandler kafkaErrorHandler) {
         ConcurrentKafkaListenerContainerFactory<String, ProfileCreateEvent> factory =
                 new ConcurrentKafkaListenerContainerFactory<>();
         factory.setConsumerFactory(profileEventConsumerFactory());
         factory.setConcurrency(concurrency);
-        factory.getContainerProperties().setAckMode(ContainerProperties.AckMode.MANUAL);
-        factory.setCommonErrorHandler(new DefaultErrorHandler());
+        factory.getContainerProperties().setAckMode(ContainerProperties.AckMode.MANUAL_IMMEDIATE);
+        factory.setCommonErrorHandler(kafkaErrorHandler);
         return factory;
     }
 
     @Bean
-    public ConcurrentKafkaListenerContainerFactory<String, ProfileDeleteEvent> profileDeleteKafkaListenerContainerFactory() {
+    public ConcurrentKafkaListenerContainerFactory<String, ProfileDeleteEvent> profileDeleteKafkaListenerContainerFactory(
+            DefaultErrorHandler kafkaErrorHandler) {
         ConcurrentKafkaListenerContainerFactory<String, ProfileDeleteEvent> factory =
                 new ConcurrentKafkaListenerContainerFactory<>();
         factory.setConsumerFactory(profileDeleteEventConsumerFactory());
         factory.setConcurrency(concurrency);
-        factory.getContainerProperties().setAckMode(ContainerProperties.AckMode.MANUAL);
-        factory.setCommonErrorHandler(new DefaultErrorHandler());
+        factory.getContainerProperties().setAckMode(ContainerProperties.AckMode.MANUAL_IMMEDIATE);
+        factory.setCommonErrorHandler(kafkaErrorHandler);
         return factory;
     }
 
@@ -166,5 +209,14 @@ public class KafkaConfig {
         props.put(JacksonJsonDeserializer.VALUE_DEFAULT_TYPE, valueType.getName());
         props.put(JacksonJsonDeserializer.USE_TYPE_INFO_HEADERS, false);
         return props;
+    }
+
+    private NewTopic deadLetterTopic(String name) {
+        return TopicBuilder.name(name)
+                .partitions(10)
+                .replicas(1)
+                .config("retention.ms", "1209600000")
+                .config("cleanup.policy", "delete")
+                .build();
     }
 }

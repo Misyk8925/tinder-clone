@@ -11,6 +11,7 @@ import org.springframework.kafka.support.Acknowledgment;
 
 import java.util.UUID;
 
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.*;
 
 /**
@@ -60,12 +61,14 @@ class SwipesConsumerTest {
     }
 
     @Test
-    void handleSwipeCreatedEvent_doesNotAcknowledge_whenSwipeServiceThrows() {
+    void givenSwipePersistenceFails_whenHandlingEvent_thenFailureReachesKafkaErrorHandler() {
         SwipeCreatedEvent event = buildEvent(true);
         doThrow(new RuntimeException("DB error")).when(swipeService).save(event);
 
-        // Must not propagate exception — consumer silently logs and skips ack
-        swipesConsumer.handleSwipeCreatedEvent(event, 0, 0L, acknowledgment);
+        assertThatThrownBy(() ->
+                swipesConsumer.handleSwipeCreatedEvent(event, 0, 0L, acknowledgment))
+                .isInstanceOf(RuntimeException.class)
+                .hasMessage("DB error");
 
         verify(acknowledgment, never()).acknowledge();
     }
@@ -86,4 +89,3 @@ class SwipesConsumerTest {
         verifyNoMoreInteractions(swipeService);
     }
 }
-

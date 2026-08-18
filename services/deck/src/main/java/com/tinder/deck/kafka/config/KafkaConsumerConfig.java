@@ -4,13 +4,16 @@ import com.tinder.contracts.event.v1.ProfileDeletedEvent;
 import com.tinder.contracts.event.v1.ProfileUpdatedEvent;
 import com.tinder.deck.kafka.dto.SwipeSavedEvent;
 import java.time.Duration;
+import org.apache.kafka.clients.admin.NewTopic;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
+import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.common.serialization.StringDeserializer;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.kafka.annotation.EnableKafka;
 import org.springframework.kafka.config.ConcurrentKafkaListenerContainerFactory;
+import org.springframework.kafka.config.TopicBuilder;
 import org.springframework.kafka.core.ConsumerFactory;
 import org.springframework.kafka.core.DefaultKafkaConsumerFactory;
 import org.springframework.kafka.core.KafkaTemplate;
@@ -56,9 +59,37 @@ public class KafkaConsumerConfig {
     @Value("${deck.kafka.error-handler.jitter:0.5}")
     private double errorHandlerJitter;
 
+    @Value("${kafka.topics.profile-events}")
+    private String profileUpdatedTopic;
+
+    @Value("${kafka.topics.swipe-events}")
+    private String swipeSavedTopic;
+
+    @Value("${kafka.topics.delete-events}")
+    private String profileDeletedTopic;
+
+    @Bean
+    public NewTopic profileUpdatedDeadLetterTopic() {
+        return deadLetterTopic(profileUpdatedTopic + ".dlt");
+    }
+
+    @Bean
+    public NewTopic swipeSavedDeadLetterTopic() {
+        return deadLetterTopic(swipeSavedTopic + ".dlt");
+    }
+
+    @Bean
+    public NewTopic profileDeletedDeadLetterTopic() {
+        return deadLetterTopic(profileDeletedTopic + ".dlt");
+    }
+
     @Bean
     public DefaultErrorHandler kafkaErrorHandler(KafkaTemplate<Object, Object> deadLetterKafkaTemplate) {
-        DeadLetterPublishingRecoverer recoverer = new DeadLetterPublishingRecoverer(deadLetterKafkaTemplate);
+        DeadLetterPublishingRecoverer recoverer = new DeadLetterPublishingRecoverer(
+                deadLetterKafkaTemplate,
+                (record, exception) -> new TopicPartition(record.topic() + ".dlt", -1)
+        );
+        recoverer.setFailIfSendResultIsError(true);
         BackOff backOff = new ExponentialJitterBackOffWithMaxRetries(
                 errorHandlerMaxRetries,
                 errorHandlerInitialInterval.toMillis(),
@@ -69,6 +100,7 @@ public class KafkaConsumerConfig {
 
         DefaultErrorHandler errorHandler = new DefaultErrorHandler(recoverer, backOff);
         errorHandler.addNotRetryableExceptions(IllegalArgumentException.class);
+        errorHandler.setCommitRecovered(true);
         return errorHandler;
     }
 
@@ -82,6 +114,8 @@ public class KafkaConsumerConfig {
         props.put(ConsumerConfig.GROUP_ID_CONFIG, groupId);
         props.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class);
         props.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, JsonDeserializer.class);
+        props.put(ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG, false);
+        props.put(ConsumerConfig.ISOLATION_LEVEL_CONFIG, "read_committed");
         props.put(JsonDeserializer.TRUSTED_PACKAGES, "com.tinder.contracts.event.v1,com.tinder.deck.kafka.dto");
         props.put(JsonDeserializer.VALUE_DEFAULT_TYPE, ProfileUpdatedEvent.class.getName());
         props.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest");
@@ -104,6 +138,8 @@ public class KafkaConsumerConfig {
         props.put(ConsumerConfig.GROUP_ID_CONFIG, groupId + "-swipe");
         props.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class);
         props.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, JsonDeserializer.class);
+        props.put(ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG, false);
+        props.put(ConsumerConfig.ISOLATION_LEVEL_CONFIG, "read_committed");
         props.put(JsonDeserializer.TRUSTED_PACKAGES, "com.tinder.contracts.event.v1,com.tinder.deck.kafka.dto");
         props.put(JsonDeserializer.VALUE_DEFAULT_TYPE, SwipeSavedEvent.class.getName());
         props.put(JsonDeserializer.USE_TYPE_INFO_HEADERS, false);
@@ -127,6 +163,8 @@ public class KafkaConsumerConfig {
         props.put(ConsumerConfig.GROUP_ID_CONFIG, groupId + "-delete");
         props.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class);
         props.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, JsonDeserializer.class);
+        props.put(ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG, false);
+        props.put(ConsumerConfig.ISOLATION_LEVEL_CONFIG, "read_committed");
         props.put(JsonDeserializer.TRUSTED_PACKAGES, "com.tinder.contracts.event.v1,com.tinder.deck.kafka.dto");
         props.put(JsonDeserializer.VALUE_DEFAULT_TYPE, ProfileDeletedEvent.class.getName());
         props.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest");
@@ -246,5 +284,14 @@ public class KafkaConsumerConfig {
             long capped = maxIntervalMs > 0L ? Math.min((long) raw, maxIntervalMs) : (long) raw;
             return Math.max(0L, capped);
         }
+    }
+
+    private NewTopic deadLetterTopic(String name) {
+        return TopicBuilder.name(name)
+                .partitions(10)
+                .replicas(1)
+                .config("retention.ms", "1209600000")
+                .config("cleanup.policy", "delete")
+                .build();
     }
 }

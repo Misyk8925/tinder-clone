@@ -145,7 +145,7 @@ The HTTP path is reactive (WebFlux + Reactor), but JPA repository calls are bloc
 
 ## 5.5 Best-Effort Side Effects
 
-Redis mutations in profile event handlers are fire-and-forget (`subscribe()`), with errors logged and suppressed. This keeps the primary flow resilient but can temporarily diverge Redis from DB until next fallback/backfill.
+Profile lifecycle handlers wait for both the local database mutation and Redis membership update. A Redis failure is propagated to the Kafka error handler, so the source offset is retried and eventually recovered to DLT instead of committing a stale cache state.
 
 ## 5.6 Immutable Event Contracts
 

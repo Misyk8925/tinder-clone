@@ -33,8 +33,7 @@ public class ProfileCacheService {
     public void saveProfileCache(ProfileCreateEvent event) {
         UUID profileId = event.getProfileId();
         if (profileId == null) {
-            log.warn("Skipping ProfileCreateEvent with null profileId: {}", event);
-            return;
+            throw new IllegalArgumentException("ProfileCreateEvent profileId must not be null");
         }
 
         Instant createdAt = event.getTimestamp() != null ? event.getTimestamp() : Instant.now();
@@ -61,8 +60,7 @@ public class ProfileCacheService {
         reactiveStringRedisTemplate.opsForSet()
                 .add(PROFILE_EXISTS_SET_KEY, profileId.toString())
                 .doOnError(error -> log.warn("Failed to write profile id {} to Redis cache", profileId, error))
-                .onErrorResume(error -> Mono.empty())
-                .subscribe();
+                .block();
     }
 
     @Transactional
@@ -81,8 +79,7 @@ public class ProfileCacheService {
         reactiveStringRedisTemplate.opsForSet()
                 .remove(PROFILE_EXISTS_SET_KEY, profileId.toString())
                 .doOnError(error -> log.warn("Failed to evict profile id {} from Redis cache", profileId, error))
-                .onErrorResume(error -> Mono.empty())
-                .subscribe();
+                .block();
     }
 
     /**

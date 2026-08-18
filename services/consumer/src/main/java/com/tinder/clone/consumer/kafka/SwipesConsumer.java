@@ -43,7 +43,7 @@ public class SwipesConsumer {
             log.info("Acknowledged SwipeCreatedEvent: {}", event.getEventId());
         } catch (Exception e) {
             log.error("Error processing SwipeCreatedEvent: {}", event, e);
-            // Optionally, implement retry logic or dead-letter queue handling here
+            throw e;
         }
     }
 }

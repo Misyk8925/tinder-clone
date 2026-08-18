@@ -11,6 +11,11 @@ High-throughput candidate replacement for `swipes-demo`. The service uses direct
 Production startup fails unless JWT/JWKS, PostgreSQL, Redis, Kafka, and the
 central `profile_cache` migration are ready. The process never creates schema.
 
+The bounded producer still batches work across fixed workers, but `202 Accepted`
+is returned only after an `acks=all` Kafka write succeeds. Profile lifecycle
+consumers retry locally, publish exhausted records to `<topic>.dlt` with
+`acks=all`, and commit the source offset only after processing or DLT recovery.
+
 ## Validation
 
 ```shell

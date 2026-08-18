@@ -24,6 +24,16 @@ spring:
       group-id: consumer-service-group
       auto-offset-reset: earliest
       enable-auto-commit: false
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+      acks: all
+      retries: 5
+      properties:
+        spring.json.add.type.headers: false
+        enable.idempotence: true
+        max.in.flight.requests.per.connection: 5
+        delivery.timeout.ms: 30000
   security:
     oauth2:
       resourceserver:
@@ -32,6 +42,9 @@ spring:
 
 app:
   kafka:
+    error-handler:
+      max-retries: 5
+      backoff-ms: 1000
     topic:
       match-created: match.created
   s3:

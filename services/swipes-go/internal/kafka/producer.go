@@ -17,8 +17,8 @@ import (
 )
 
 type Producer struct {
-	writer  *kafkago.Writer
-	queue   chan model.SwipeCommand
+	writer  messageWriter
+	queue   chan pendingSwipe
 	metrics *metrics.Metrics
 	log     *log.Logger
 	wg      sync.WaitGroup
@@ -27,6 +27,16 @@ type Producer struct {
 	once    sync.Once
 	closing atomic.Bool
 	batch   int
+}
+
+type messageWriter interface {
+	WriteMessages(context.Context, ...kafkago.Message) error
+	Close() error
+}
+
+type pendingSwipe struct {
+	command model.SwipeCommand
+	result  chan error
 }
 
 func NewProducer(ctx context.Context, cfg config.Config, serviceMetrics *metrics.Metrics, logger *log.Logger) (*Producer, error) {
@@ -42,7 +52,7 @@ func NewProducer(ctx context.Context, cfg config.Config, serviceMetrics *metrics
 	writer := &kafkago.Writer{
 		Addr: kafkago.TCP(cfg.KafkaBrokers...), Topic: cfg.SwipeTopic, Balancer: &kafkago.Hash{},
 		BatchSize: cfg.ProducerBatchSize, BatchTimeout: cfg.ProducerBufferTimeout,
-		RequiredAcks: kafkago.RequireOne, MaxAttempts: 5, AllowAutoTopicCreation: false,
+		RequiredAcks: kafkago.RequireAll, MaxAttempts: 5, AllowAutoTopicCreation: false,
 		WriteTimeout: 10 * time.Second, ReadTimeout: 10 * time.Second,
 		Completion: func(messages []kafkago.Message, err error) {
 			if err != nil {
@@ -54,7 +64,7 @@ func NewProducer(ctx context.Context, cfg config.Config, serviceMetrics *metrics
 		},
 	}
 	producer := &Producer{
-		writer: writer, queue: make(chan model.SwipeCommand, cfg.ProducerQueueCapacity), metrics: serviceMetrics,
+		writer: writer, queue: make(chan pendingSwipe, cfg.ProducerQueueCapacity), metrics: serviceMetrics,
 		log: logger, closed: make(chan struct{}), batch: cfg.ProducerBatchSize,
 	}
 	for i := 0; i < cfg.ProducerConcurrency; i++ {
@@ -65,20 +75,31 @@ func NewProducer(ctx context.Context, cfg config.Config, serviceMetrics *metrics
 }
 
 func (producer *Producer) Send(ctx context.Context, command model.SwipeCommand) error {
+	pending := pendingSwipe{command: command, result: make(chan error, 1)}
 	producer.sendMu.RLock()
-	defer producer.sendMu.RUnlock()
 	if producer.closing.Load() {
+		producer.sendMu.RUnlock()
 		return errors.New("swipe producer is closed")
 	}
 	select {
 	case <-ctx.Done():
+		producer.sendMu.RUnlock()
 		return ctx.Err()
 	case <-producer.closed:
+		producer.sendMu.RUnlock()
 		return errors.New("swipe producer is closed")
-	case producer.queue <- command:
-		return nil
+	case producer.queue <- pending:
+		producer.sendMu.RUnlock()
 	default:
+		producer.sendMu.RUnlock()
 		return model.ErrQueueFull
+	}
+
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	case err := <-pending.result:
+		return err
 	}
 }
 
@@ -97,23 +118,23 @@ func (producer *Producer) Close() error {
 
 func (producer *Producer) worker() {
 	defer producer.wg.Done()
-	batch := make([]model.SwipeCommand, 0, producer.batch)
+	batch := make([]pendingSwipe, 0, producer.batch)
 	for {
-		var command model.SwipeCommand
+		var pending pendingSwipe
 		select {
-		case command = <-producer.queue:
+		case pending = <-producer.queue:
 		case <-producer.closed:
 			for {
 				select {
-				case command = <-producer.queue:
-					batch = append(batch[:0], command)
+				case pending = <-producer.queue:
+					batch = append(batch[:0], pending)
 					producer.publish(batch)
 				default:
 					return
 				}
 			}
 		}
-		batch = append(batch[:0], command)
+		batch = append(batch[:0], pending)
 		for len(batch) < cap(batch) {
 			select {
 			case next := <-producer.queue:
@@ -128,12 +149,20 @@ func (producer *Producer) worker() {
 	}
 }
 
-func (producer *Producer) publish(batch []model.SwipeCommand) {
-	messages := buildMessages(batch)
+func (producer *Producer) publish(batch []pendingSwipe) {
+	commands := make([]model.SwipeCommand, len(batch))
+	for i := range batch {
+		commands[i] = batch[i].command
+	}
+	messages := buildMessages(commands)
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
-	if err := producer.writer.WriteMessages(ctx, messages...); err != nil {
+	err := producer.writer.WriteMessages(ctx, messages...)
+	if err != nil {
 		producer.log.Printf("Kafka batch write failed count=%d: %v", len(messages), err)
+	}
+	for _, pending := range batch {
+		pending.result <- err
 	}
 }
 

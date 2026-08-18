@@ -11,6 +11,7 @@ import org.springframework.web.server.ResponseStatusException;
 import reactor.core.Disposable;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
+import reactor.core.publisher.Sinks;
 import reactor.kafka.sender.KafkaSender;
 import reactor.kafka.sender.SenderRecord;
 
@@ -18,6 +19,8 @@ import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Queue;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -28,7 +31,8 @@ public class SwipeProducer {
     private static final String TOPIC = "swipe-created";
 
     private final KafkaSender<String, String> kafkaSender;
-    private final Queue<SwipeCreatedEvent> queue;
+    private final Queue<PendingSwipe> queue;
+    private final Set<PendingSwipe> pendingRequests = ConcurrentHashMap.newKeySet();
     private final AtomicInteger queueSize = new AtomicInteger();
     private final int queueCapacity;
     private final int concurrency;
@@ -70,6 +74,8 @@ public class SwipeProducer {
         if (senderSubscription != null) {
             senderSubscription.dispose();
         }
+        IllegalStateException shutdown = new IllegalStateException("Swipe producer is shutting down");
+        pendingRequests.forEach(pending -> pending.acknowledgment().tryEmitError(shutdown));
     }
 
     private void warmProducer() {
@@ -89,9 +95,19 @@ public class SwipeProducer {
 
     public Mono<Void> send(SwipeCreatedEvent event) {
         return Mono.defer(() -> {
-            if (tryEnqueue(event)) {
-                return Mono.empty();
+            PendingSwipe pending = new PendingSwipe(event, Sinks.one());
+            pendingRequests.add(pending);
+            if (tryEnqueue(pending)) {
+                return pending.acknowledgment().asMono()
+                        .onErrorMap(error -> new ResponseStatusException(
+                                HttpStatus.SERVICE_UNAVAILABLE,
+                                "Swipe producer is unavailable",
+                                error
+                        ))
+                        .doFinally(ignored -> pendingRequests.remove(pending));
             }
+
+            pendingRequests.remove(pending);
 
             return Mono.error(new ResponseStatusException(
                     HttpStatus.TOO_MANY_REQUESTS,
@@ -100,27 +116,27 @@ public class SwipeProducer {
         });
     }
 
-    private List<SwipeCreatedEvent> drainBatch() {
-        List<SwipeCreatedEvent> batch = new ArrayList<>(batchSize);
+    private List<PendingSwipe> drainBatch() {
+        List<PendingSwipe> batch = new ArrayList<>(batchSize);
         for (int i = 0; i < batchSize; i++) {
-            SwipeCreatedEvent event = queue.poll();
-            if (event == null) {
+            PendingSwipe pending = queue.poll();
+            if (pending == null) {
                 break;
             }
             queueSize.decrementAndGet();
-            batch.add(event);
+            batch.add(pending);
         }
         return batch;
     }
 
-    private boolean tryEnqueue(SwipeCreatedEvent event) {
+    private boolean tryEnqueue(PendingSwipe pending) {
         while (true) {
             int currentSize = queueSize.get();
             if (currentSize >= queueCapacity) {
                 return false;
             }
             if (queueSize.compareAndSet(currentSize, currentSize + 1)) {
-                queue.offer(event);
+                queue.offer(pending);
                 return true;
             }
         }
@@ -128,7 +144,7 @@ public class SwipeProducer {
 
     private Mono<Void> drainOnce() {
         return Mono.defer(() -> {
-            List<SwipeCreatedEvent> batch = drainBatch();
+            List<PendingSwipe> batch = drainBatch();
             if (batch.isEmpty()) {
                 return Mono.delay(drainInterval).then();
             }
@@ -140,17 +156,27 @@ public class SwipeProducer {
         });
     }
 
-    private Mono<Void> publishBatch(List<SwipeCreatedEvent> batch) {
-        Flux<SenderRecord<String, String, Void>> records = Flux.fromIterable(batch)
-                .map(event -> SenderRecord.create(
-                        new ProducerRecord<>(TOPIC, event.getProfile1Id(), serialize(event)),
-                        null
+    private Mono<Void> publishBatch(List<PendingSwipe> batch) {
+        Flux<SenderRecord<String, String, PendingSwipe>> records = Flux.fromIterable(batch)
+                .map(pending -> SenderRecord.create(
+                        new ProducerRecord<>(TOPIC, pending.event().getProfile1Id(), serialize(pending.event())),
+                        pending
                 ));
 
         return kafkaSender.send(records)
-                .doOnError(error -> log.error("Failed to send swipe event batch", error))
-                .then()
-                .onErrorResume(error -> Mono.empty());
+                .doOnNext(result -> {
+                    PendingSwipe pending = result.correlationMetadata();
+                    if (result.exception() == null) {
+                        pending.acknowledgment().tryEmitEmpty();
+                    } else {
+                        pending.acknowledgment().tryEmitError(result.exception());
+                    }
+                })
+                .doOnError(error -> {
+                    batch.forEach(pending -> pending.acknowledgment().tryEmitError(error));
+                    log.error("Failed to send swipe event batch", error);
+                })
+                .then();
     }
 
     private String serialize(SwipeCreatedEvent event) {
@@ -161,5 +187,8 @@ public class SwipeProducer {
                 + ",\"isSuper\":" + event.isSuper()
                 + ",\"timestamp\":" + event.getTimestamp()
                 + "}";
+    }
+
+    private record PendingSwipe(SwipeCreatedEvent event, Sinks.One<Void> acknowledgment) {
     }
 }

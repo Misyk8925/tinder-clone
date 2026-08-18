@@ -19,6 +19,8 @@ type Config struct {
 	ProfileCreatedTopic     string
 	ProfileDeletedTopic     string
 	ProfileConsumerGroup    string
+	ConsumerMaxRetries      int
+	ConsumerRetryBackoff    time.Duration
 	ProducerQueueCapacity   int
 	ProducerConcurrency     int
 	ProducerBatchSize       int
@@ -44,6 +46,8 @@ func Load() (Config, error) {
 		ProfileCreatedTopic:     stringEnv("profile.created", "KAFKA_TOPICS_PROFILE_CREATED", "KAFKA_TOPIC_PROFILE_CREATED"),
 		ProfileDeletedTopic:     stringEnv("profile.deleted", "KAFKA_TOPICS_PROFILE_DELETED", "KAFKA_TOPIC_PROFILE_DELETED"),
 		ProfileConsumerGroup:    stringEnv("swipes-profile-cache", "SWIPES_PROFILE_CONSUMER_GROUP"),
+		ConsumerMaxRetries:      intEnv(5, "SWIPES_KAFKA_CONSUMER_MAX_RETRIES"),
+		ConsumerRetryBackoff:    durationEnv(time.Second, "SWIPES_KAFKA_CONSUMER_RETRY_BACKOFF"),
 		ProducerQueueCapacity:   intEnv(200000, "SWIPES_PRODUCER_QUEUE_CAPACITY"),
 		ProducerConcurrency:     intEnv(4, "SWIPES_PRODUCER_CONCURRENCY", "SWIPES_PRODUCER_WORKER_COUNT"),
 		ProducerBatchSize:       intEnv(500, "SWIPES_PRODUCER_BATCH_SIZE"),
@@ -75,6 +79,9 @@ func (cfg Config) Validate() error {
 	}
 	if cfg.ProducerBufferTimeout <= 0 {
 		return fmt.Errorf("producer buffer timeout must be positive")
+	}
+	if cfg.ConsumerMaxRetries < 0 || cfg.ConsumerRetryBackoff < 0 {
+		return fmt.Errorf("consumer retries and retry backoff must not be negative")
 	}
 	if cfg.JWKSetURL == "" || cfg.JWTIssuer == "" || cfg.JWTAudience == "" {
 		return fmt.Errorf("JWT JWK URL, issuer, and audience are required")
