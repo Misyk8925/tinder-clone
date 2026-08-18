@@ -10,6 +10,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.redis.core.ReactiveStringRedisTemplate;
 import org.springframework.data.redis.core.ReactiveZSetOperations;
 import org.springframework.data.redis.core.ZSetOperations;
+import org.springframework.data.redis.core.script.DefaultRedisScript;
 import org.springframework.data.redis.core.ScanOptions;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Flux;
@@ -35,8 +36,11 @@ public class DeckCache {
     // (i.e. avoids a full "KEYS deck:*" keyspace scan). Over-inclusion is tolerated (a stale
     // viewer entry just makes the corresponding ZREM a no-op); TTL bounds growth.
     // Lock configuration
-    private static final Duration DEFAULT_LOCK_TTL = Duration.ofSeconds(30);
-    private static final String LOCK_VALUE = "locked";
+    private static final DefaultRedisScript<Long> RELEASE_LOCK_SCRIPT = new DefaultRedisScript<>(
+            "if redis.call('GET', KEYS[1]) == ARGV[1] then " +
+                    "return redis.call('DEL', KEYS[1]) else return 0 end",
+            Long.class
+    );
 
     // Stale tracking configuration
     private static final Duration DEFAULT_STALE_TTL = Duration.ofHours(24);
@@ -48,10 +52,14 @@ public class DeckCache {
     @Value("${deck.rebuild.stale.ttl-hours:24}")
     private long invalidationTtlHours;
 
+    @Value("${deck.rebuild.lock-timeout-seconds:30}")
+    private long lockTimeoutSeconds;
+
 
     public Mono<Void> writeDeck(UUID viewerId, List<Entry<UUID, Double>> deck, Duration ttl) {
         String key   = DeckRedisKeys.deck(viewerId);
         String tsKey = DeckRedisKeys.buildTimestamp(viewerId);
+        Set<UUID> newProfileIds = deck.stream().map(Entry::getKey).collect(Collectors.toSet());
 
         ReactiveZSetOperations<String, String> z = redis.opsForZSet();
 
@@ -72,12 +80,18 @@ public class DeckCache {
                 })
                 .then();
 
-        return redis.delete(key, tsKey)
-                .then(addAll)
-                .then(deck.isEmpty() ? Mono.just(false) : redis.expire(key, ttl))
-                .then(redis.opsForValue().set(tsKey, String.valueOf(System.currentTimeMillis()), ttl))
-                .then(indexAll)
-                .then();
+        return profileIdsInDeck(key)
+                .flatMap(previousProfileIds -> {
+                    Set<UUID> obsoleteProfileIds = new HashSet<>(previousProfileIds);
+                    obsoleteProfileIds.removeAll(newProfileIds);
+
+                    return redis.delete(key, tsKey)
+                            .then(addAll)
+                            .then(deck.isEmpty() ? Mono.just(false) : redis.expire(key, ttl))
+                            .then(redis.opsForValue().set(tsKey, String.valueOf(System.currentTimeMillis()), ttl))
+                            .then(indexAll)
+                            .then(removeViewerFromReverseIndexes(viewerId, obsoleteProfileIds));
+                });
     }
 
     public Flux<UUID> readDeck(UUID viewerId, int offset, int limit) {
@@ -99,7 +113,11 @@ public class DeckCache {
     }
 
     public Mono<Long> invalidate(UUID viewerId) {
-        return redis.delete(DeckRedisKeys.deck(viewerId), DeckRedisKeys.buildTimestamp(viewerId));
+        String deckKey = DeckRedisKeys.deck(viewerId);
+        return profileIdsInDeck(deckKey)
+                .flatMap(profileIds -> redis.delete(deckKey, DeckRedisKeys.buildTimestamp(viewerId))
+                        .flatMap(deleted -> removeViewerFromReverseIndexes(viewerId, profileIds)
+                                .thenReturn(deleted)));
     }
 
     public Mono<Boolean> markProfileInvalidated(UUID profileId) {
@@ -124,9 +142,13 @@ public class DeckCache {
 
     public Flux<UUID> getRecentViewerIds(Duration window, int limit) {
         double cutoff = System.currentTimeMillis() - window.toMillis();
-        return redis.opsForZSet()
-                .reverseRangeByScore(DeckRedisKeys.RECENT_VIEWERS,
-                        org.springframework.data.domain.Range.closed(cutoff, Double.MAX_VALUE))
+        ReactiveZSetOperations<String, String> zset = redis.opsForZSet();
+        org.springframework.data.domain.Range<Double> expired = org.springframework.data.domain.Range.leftUnbounded(
+                org.springframework.data.domain.Range.Bound.exclusive(cutoff));
+        return zset.removeRangeByScore(DeckRedisKeys.RECENT_VIEWERS, expired)
+                .thenMany(zset.reverseRangeByScore(
+                        DeckRedisKeys.RECENT_VIEWERS,
+                        org.springframework.data.domain.Range.closed(cutoff, Double.MAX_VALUE)))
                 .take(limit)
                 .map(UUID::fromString);
     }
@@ -168,14 +190,14 @@ public class DeckCache {
      * @return Mono<Long> number of decks marked as stale
      */
     public Mono<Long> markAsStaleForAllDecks(UUID profileId) {
-        return redis.keys(DeckRedisKeys.PRIMARY_DECK_SCAN_PATTERN)
-                .filter(key -> DeckRedisKeys.PRIMARY_DECK_KEY.matcher(key).matches())
-                .flatMap(key -> {
-                    String idPart = key.substring(DeckRedisKeys.PRIMARY_DECK_PREFIX.length());
+        return redis.opsForSet()
+                .members(DeckRedisKeys.contains(profileId))
+                .flatMap(viewerId -> {
                     try {
-                        return Mono.just(UUID.fromString(idPart));
+                        return Mono.just(UUID.fromString(viewerId));
                     } catch (IllegalArgumentException e) {
-                        log.warn("Skipping malformed deck key when marking stale: {}", key, e);
+                        log.warn("Skipping malformed viewer id in reverse index for profile {}: {}",
+                                profileId, viewerId, e);
                         return Mono.empty();
                     }
                 })
@@ -239,10 +261,13 @@ public class DeckCache {
      * Uses Redis SET NX (set if not exists) pattern
      *
      * @param viewerId The viewer ID to lock
-     * @return Mono<Boolean> true if lock acquired, false if already locked
+     * @return acquired lock handle, or an empty Mono if the lock is already held
      */
-    public Mono<Boolean> acquireLock(UUID viewerId) {
-        return acquireLock(viewerId, DEFAULT_LOCK_TTL);
+    Mono<LockHandle> acquireLock(UUID viewerId) {
+        if (lockTimeoutSeconds <= 0) {
+            return Mono.error(new IllegalStateException("deck.rebuild.lock-timeout-seconds must be positive"));
+        }
+        return acquireLock(viewerId, Duration.ofSeconds(lockTimeoutSeconds));
     }
 
     /**
@@ -250,40 +275,42 @@ public class DeckCache {
      *
      * @param viewerId The viewer ID to lock
      * @param ttl Lock expiration time (auto-release if process dies)
-     * @return Mono<Boolean> true if lock acquired
+     * @return acquired lock handle, or an empty Mono if the lock is already held
      */
-    public Mono<Boolean> acquireLock(UUID viewerId, Duration ttl) {
+    Mono<LockHandle> acquireLock(UUID viewerId, Duration ttl) {
         String key = DeckRedisKeys.lock(viewerId);
+        LockHandle handle = new LockHandle(key, UUID.randomUUID().toString());
         log.debug("Attempting to acquire lock for viewer {}", viewerId);
 
         return redis.opsForValue()
-                .setIfAbsent(key, LOCK_VALUE, ttl)
-                .doOnNext(acquired -> {
-                    if (acquired) {
-                        log.debug("Lock acquired for viewer {}", viewerId);
-                    } else {
-                        log.debug("Lock already held for viewer {}", viewerId);
-                    }
-                });
+                .setIfAbsent(key, handle.ownerToken(), ttl)
+                .filter(Boolean.TRUE::equals)
+                .map(ignored -> handle)
+                .doOnNext(ignored -> log.debug("Lock acquired for viewer {}", viewerId))
+                .switchIfEmpty(Mono.defer(() -> {
+                    log.debug("Lock already held for viewer {}", viewerId);
+                    return Mono.empty();
+                }));
     }
 
     /**
      * Release distributed lock
      *
-     * @param viewerId The viewer ID to unlock
+     * @param handle owner token returned by {@link #acquireLock(UUID)}
      * @return Mono<Boolean> true if lock was released
      */
-    public Mono<Boolean> releaseLock(UUID viewerId) {
-        String key = DeckRedisKeys.lock(viewerId);
-        log.debug("Releasing lock for viewer {}", viewerId);
+    Mono<Boolean> releaseLock(LockHandle handle) {
+        log.debug("Releasing lock {}", handle.key());
 
-        return redis.delete(key)
-                .map(count -> count > 0)
+        return redis.execute(RELEASE_LOCK_SCRIPT, List.of(handle.key()), List.of(handle.ownerToken()))
+                .next()
+                .defaultIfEmpty(0L)
+                .map(count -> count > 0L)
                 .doOnNext(released -> {
                     if (released) {
-                        log.debug("Lock released for viewer {}", viewerId);
+                        log.debug("Lock released: {}", handle.key());
                     } else {
-                        log.warn("No lock found to release for viewer {}", viewerId);
+                        log.debug("Lock was already expired or belongs to another owner: {}", handle.key());
                     }
                 });
     }
@@ -308,16 +335,13 @@ public class DeckCache {
      * @return Mono<T> result of operation, or empty if lock could not be acquired
      */
     public <T> Mono<T> withLock(UUID viewerId, Mono<T> operation) {
-        return acquireLock(viewerId)
-                .flatMap(acquired -> {
-                    if (!acquired) {
-                        log.warn("Could not acquire lock for viewer {}, skipping operation", viewerId);
-                        return Mono.empty();
-                    }
-
-                    return operation
-                            .doFinally(signal -> releaseLock(viewerId).subscribe());
-                });
+        return Mono.usingWhen(
+                acquireLock(viewerId),
+                ignored -> operation,
+                handle -> releaseLock(handle).then(),
+                (handle, error) -> releaseLock(handle).then(),
+                handle -> releaseLock(handle).then()
+        );
     }
 
     // ==================== Phase 2: Filtered Read Methods ====================
@@ -377,7 +401,9 @@ public class DeckCache {
 
         return findMemberByProfileId(key, profileId)
                 .flatMap(member -> redis.opsForZSet().remove(key, member))
-                .defaultIfEmpty(0L);
+                .defaultIfEmpty(0L)
+                .flatMap(removed -> removeViewerFromReverseIndexes(viewerId, Set.of(profileId))
+                        .thenReturn(removed));
     }
 
     /**
@@ -461,7 +487,9 @@ public class DeckCache {
                 .flatMap(members -> {
                     if (members.isEmpty()) return Mono.just(0L);
                     return redis.opsForZSet().remove(key, members.toArray(new Object[0]));
-                });
+                })
+                .flatMap(removed -> removeViewerFromReverseIndexes(viewerId, profileIds)
+                        .thenReturn(removed));
     }
 
     /**
@@ -600,5 +628,26 @@ public class DeckCache {
                 .map(ZSetOperations.TypedTuple::getValue)
                 .filter(Objects::nonNull)
                 .next();
+    }
+
+    private Mono<Set<UUID>> profileIdsInDeck(String deckKey) {
+        return redis.opsForZSet()
+                .range(deckKey, org.springframework.data.domain.Range.unbounded())
+                .map(this::deserializeEntry)
+                .map(DeckEntry::profileId)
+                .collect(Collectors.toSet());
+    }
+
+    private Mono<Void> removeViewerFromReverseIndexes(UUID viewerId, Collection<UUID> profileIds) {
+        if (profileIds.isEmpty()) {
+            return Mono.empty();
+        }
+        return Flux.fromIterable(profileIds)
+                .flatMap(profileId -> redis.opsForSet()
+                        .remove(DeckRedisKeys.contains(profileId), viewerId.toString()))
+                .then();
+    }
+
+    record LockHandle(String key, String ownerToken) {
     }
 }

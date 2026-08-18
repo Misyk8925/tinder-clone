@@ -160,7 +160,11 @@ services:
     <<: *prod-mid-defaults
     ports:
       - "127.0.0.1:6379:6379"
-    command: redis-server --maxmemory 2gb --maxmemory-policy allkeys-lru
+    command: >-
+      redis-server --appendonly yes --appendfsync everysec
+      --maxmemory 2gb --maxmemory-policy noeviction
+    volumes:
+      - redis-data:/data
     networks:
       - app
     mem_limit: 4g
@@ -173,8 +177,8 @@ services:
       retries: 5
 
   # Deck Read-owned production cluster: three masters plus three replicas.
-  # The legacy single-node `redis` service above remains unchanged for Deck and
-  # local development; only dr:* data belongs here.
+  # The single-node `redis` service above remains Deck's source cache and
+  # coordination store; only dr:* data belongs here.
   deck-read-redis-1:
     image: redis:8.2.1-alpine
     <<: *prod-mid-defaults
@@ -551,7 +555,8 @@ services:
       DECK_KEYSTORE_PASSWORD: ${MTLS_KEYSTORE_PASSWORD:?MTLS_KEYSTORE_PASSWORD is required}
       DECK_TRUSTSTORE_PATH: file:/certs/truststore.jks
       DECK_TRUSTSTORE_PASSWORD: ${MTLS_TRUSTSTORE_PASSWORD:?MTLS_TRUSTSTORE_PASSWORD is required}
-      SPRING_REDIS_TIMEOUT: 30000
+      SPRING_DATA_REDIS_TIMEOUT: ${DECK_REDIS_TIMEOUT:-2s}
+      SPRING_DATA_REDIS_CONNECT_TIMEOUT: ${DECK_REDIS_CONNECT_TIMEOUT:-2s}
       JAVA_TOOL_OPTIONS: "-XX:+UseContainerSupport -XX:+UseG1GC -XX:InitialRAMPercentage=40.0 -XX:MaxRAMPercentage=75.0 -Dfile.encoding=UTF-8 -Dsun.net.inetaddr.ttl=60 -Djava.io.tmpdir=/tmp"
     volumes:
       - /etc/dokploy/certs/tinderclone/deck-service.p12:/certs/deck-service.p12:ro
@@ -794,24 +799,22 @@ services:
 
       postgres:
         condition: service_healthy
-      kafka:
-        condition: service_healthy
     environment:
       SPRING_PROFILES_ACTIVE: prod
       STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY:?STRIPE_SECRET_KEY is required}
       STRIPE_WEBHOOK_SECRET: ${STRIPE_WEBHOOK_SECRET:?STRIPE_WEBHOOK_SECRET is required}
       STRIPE_PRICE_ID: ${STRIPE_PRICE_ID:?STRIPE_PRICE_ID is required}
       SUBSCRIPTIONS_DB_URL: jdbc:postgresql://postgres:5432/subscriptions_db
-      SPRING_DATASOURCE_USERNAME: ${SUBSCRIPTIONS_DB_USER:?SUBSCRIPTIONS_DB_USER is required}
-      SPRING_DATASOURCE_PASSWORD: ${SUBSCRIPTIONS_DB_PASSWORD:?SUBSCRIPTIONS_DB_PASSWORD is required}
+      SUBSCRIPTIONS_DB_USER: ${SUBSCRIPTIONS_DB_USER:?SUBSCRIPTIONS_DB_USER is required}
+      SUBSCRIPTIONS_DB_PASSWORD: ${SUBSCRIPTIONS_DB_PASSWORD:?SUBSCRIPTIONS_DB_PASSWORD is required}
       SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE: 4
       SPRING_DATASOURCE_HIKARI_MINIMUM_IDLE: 2
-      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:29092
       PROFILES_GRPC_ADDRESS: static://profiles:9010
       PROFILES_BASE_URL: http://profiles:8010/api/profiles
       KEYCLOAK_JWK_SET_URI: ${KEYCLOAK_JWK_SET_URI:-http://keycloak:9080/realms/spring/protocol/openid-connect/certs}
       STRIPE_SUCCESS_URL: ${STRIPE_SUCCESS_URL:?STRIPE_SUCCESS_URL is required}
       STRIPE_CANCEL_URL: ${STRIPE_CANCEL_URL:?STRIPE_CANCEL_URL is required}
+      STRIPE_RETURN_URL: ${STRIPE_RETURN_URL:?STRIPE_RETURN_URL is required}
       SUBSCRIPTIONS_GRPC_KEYSTORE_PATH: file:/certs/subscriptions-service.p12
       SUBSCRIPTIONS_GRPC_KEYSTORE_PASSWORD: ${MTLS_KEYSTORE_PASSWORD:?MTLS_KEYSTORE_PASSWORD is required}
       SUBSCRIPTIONS_GRPC_TRUSTSTORE_PATH: file:/certs/truststore.jks
@@ -918,6 +921,7 @@ networks:
     driver: bridge
 
 volumes:
+  redis-data:
   profiles-pgdata:
   elasticsearch-data:
     driver: local

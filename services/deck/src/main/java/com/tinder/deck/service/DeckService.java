@@ -68,7 +68,8 @@ public class DeckService {
     public Mono<Boolean> ensureDeck(UUID viewerId) {
         Duration ttl = Duration.ofMinutes(ttlMinutes);
 
-        return hasFreshDeck(viewerId, ttl)
+        return deckCache.touchRecentViewer(viewerId)
+                .then(hasFreshDeck(viewerId, ttl))
                 .flatMap(isFresh -> {
                     if (isFresh) {
                         return Mono.just(true);

@@ -89,6 +89,7 @@ class DeckServiceTest {
 
         deckService = new DeckService(profilesHttp, deckCache, pipeline);
         ReflectionTestUtils.setField(deckService, "ttlMinutes", 60L);
+        lenient().when(deckCache.touchRecentViewer(any())).thenReturn(Mono.empty());
     }
 
     @Test
@@ -313,6 +314,18 @@ class DeckServiceTest {
 
         verify(deckCache, never()).withLock(any(), any());
         verify(profilesHttp, never()).getProfile(any());
+    }
+
+    @Test
+    @DisplayName("Given a deck request, when ensure runs, then the viewer is recorded for scheduled rebuilds")
+    void testEnsureDeckRecordsRecentViewer() {
+        when(deckCache.getBuildInstant(viewerId)).thenReturn(Mono.just(Optional.of(Instant.now())));
+
+        StepVerifier.create(deckService.ensureDeck(viewerId))
+                .expectNext(true)
+                .verifyComplete();
+
+        verify(deckCache).touchRecentViewer(viewerId);
     }
 
     @Test

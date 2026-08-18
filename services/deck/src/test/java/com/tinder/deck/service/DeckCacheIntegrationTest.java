@@ -221,6 +221,22 @@ class DeckCacheIntegrationTest {
     }
 
     @Test
+    @DisplayName("Given expired recent viewers, when the scheduler index is read, then stale members are pruned")
+    void getRecentViewerIdsPrunesExpiredMembers() {
+        UUID expiredViewer = UUID.randomUUID();
+        UUID recentViewer = UUID.randomUUID();
+        double now = System.currentTimeMillis();
+
+        redisTemplate.opsForZSet().add("deck:recent:viewers", expiredViewer.toString(), now - 120_000).block();
+        redisTemplate.opsForZSet().add("deck:recent:viewers", recentViewer.toString(), now).block();
+
+        assertThat(deckCache.getRecentViewerIds(Duration.ofMinutes(1), 10).collectList().block())
+                .containsExactly(recentViewer);
+        assertThat(redisTemplate.opsForZSet().size("deck:recent:viewers").block())
+                .isEqualTo(1L);
+    }
+
+    @Test
     @DisplayName("Should invalidate deck and timestamp")
     void testInvalidate() {
         // Given: A deck with data

@@ -55,10 +55,12 @@ The service combines:
 ### Data stores and key spaces
 Redis keys used by `DeckCache`:
 
-- `deck:{viewerId}` -> ZSET of candidate UUID strings scored by rank value
+- `deck:{viewerId}` -> ZSET of serialized `DeckEntry` values scored by rank value
 - `deck:build:ts:{viewerId}` -> last build timestamp (epoch millis)
 - `deck:stale:{viewerId}` -> SET of stale candidate UUIDs
-- `deck:lock:{viewerId}` -> rebuild lock key
+- `deck:lock:{viewerId}` -> rebuild lock owner token with a bounded lease
+- `deck:contains:{profileId}` -> SET of viewers whose current deck contains the profile
+- `deck:recent:viewers` -> ZSET of viewers recently requesting a deck
 - `prefs:{minAge}:{maxAge}:{gender}` -> SET of candidate UUIDs for shared preferences cache
 
 ---
@@ -130,12 +132,14 @@ If final list is empty, cache write is skipped.
 - `ZADD` all candidates with scores
 - set deck TTL
 - persist build timestamp key
+- add reverse-index memberships for current candidates
+- remove reverse-index memberships for candidates no longer in the rewritten deck
 
 ### 3.6 Scheduler Flow
 
 `DeckScheduler.rebuildAllDecks()`:
 
-- fetch active users from Profiles (`/active`)
+- read the bounded recent-viewer window from Redis
 - for each user call `rebuildDeckForUser`
 - each user rebuild runs reactive flow with timeout and own subscription
 
@@ -291,7 +295,10 @@ Kafka consumers mutate cache on profile/swipe events, reducing stale data window
 Deck is materialized in Redis ZSET for low-latency reads and sorted retrieval.
 
 ### 5.6 Distributed lock pattern
-`DeckCache.acquireLock` uses Redis `SETNX + TTL` to avoid duplicate concurrent rebuild work per viewer.
+`DeckCache.acquireLock` uses Redis `SET NX` with a unique owner token and the configured
+`deck.rebuild.lock-timeout-seconds` lease. Release is an atomic Lua compare-and-delete, so an
+expired owner cannot delete a successor's lock. `withLock` awaits release on completion, error,
+and cancellation.
 
 ### 5.7 Stale-marker pattern
 Instead of immediate expensive full-deck rewrites for all viewers, profile changes can mark entries stale and filter them at read time.
@@ -323,7 +330,6 @@ Some components intentionally block/subscribe:
 
 - Kafka consumers use `.block()` to finish processing before listener returns
 - scheduler uses `.subscribe()` to kick off background processing
-- lock cleanup in `withLock` uses `doFinally(...subscribe())`
 
 This creates a hybrid reactive/imperative runtime model.
 
