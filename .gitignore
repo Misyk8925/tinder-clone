@@ -27,3 +27,4 @@ target/
 /services/deck-read/target
 /docker/certs/
 /certs/
+/platform/generated/
