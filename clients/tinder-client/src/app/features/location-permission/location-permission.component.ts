@@ -1,155 +1,210 @@
 import { Component, inject, signal, OnInit } from '@angular/core';
 import { Router } from '@angular/router';
+import { LucideAngularModule } from 'lucide-angular';
 import { GeoLocationService } from '../../core/services/geo-location.service';
 
 @Component({
   selector: 'app-location-permission',
-  imports: [],
+  imports: [LucideAngularModule],
   template: `
     <div class="page">
-      <div class="card">
-        <div class="icon-wrap">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
-            <circle cx="12" cy="12" r="3"/>
-            <path d="M12 1v4M12 19v4M1 12h4M19 12h4"/>
-            <path d="M4.22 4.22l2.83 2.83M16.95 16.95l2.83 2.83M4.22 19.78l2.83-2.83M16.95 7.05l2.83-2.83"/>
-          </svg>
-        </div>
+      <section class="permission-shell" aria-labelledby="location-title">
+        <div class="intro">
+          <span class="eyebrow">Location</span>
 
-        @if (status() !== 'denied') {
-          <h1>Find people near you</h1>
-          <p>Allow location access so we can show you matches in your area. Your exact location is never shown to others.</p>
-        } @else {
-          <h1>Location access denied</h1>
-          <p>To use GPS location, enable it in your device settings:</p>
-          <ol class="steps">
-            <li>Open <strong>Settings → Privacy → Location Services</strong></li>
-            <li>Find your browser and set it to <strong>While Using</strong></li>
-            <li>Come back and tap <strong>Try again</strong></li>
-          </ol>
-          <p class="hint">Or skip to enter your city manually.</p>
-        }
+          @if (status() !== 'denied') {
+            <h1 id="location-title">Meet people nearby.</h1>
+            <p class="lead">Use your location to see relevant profiles around you.</p>
+            <div class="privacy-note">
+              <lucide-icon name="shield-check" [size]="16" strokeWidth="2.2" aria-hidden="true" />
+              <span>Your exact location stays private.</span>
+            </div>
+          } @else {
+            <h1 id="location-title">Location is turned off.</h1>
+            <p class="lead">Enable access in your device settings, then try again.</p>
+            <ol class="steps">
+              <li>Open <strong>Settings → Privacy → Location Services</strong></li>
+              <li>Allow location while using this browser</li>
+            </ol>
+          }
+        </div>
 
         <div class="actions">
-          <button class="btn-allow" [disabled]="status() === 'requesting'" (click)="allow()">
+          <button type="button" class="btn-allow" [disabled]="status() === 'requesting'" (click)="allow()">
             {{ status() === 'requesting' ? 'Requesting…' : status() === 'denied' ? 'Try again' : 'Allow location access' }}
           </button>
-          <button class="btn-skip" (click)="skip()">Skip for now</button>
+          <button type="button" class="btn-skip" (click)="skip()">Continue without location</button>
+          <p class="action-note">You can change this later in your profile.</p>
         </div>
-      </div>
+      </section>
     </div>
   `,
   styles: [`
     .page {
-      min-height: 100vh;
-      display: flex;
-      align-items: center;
-      justify-content: center;
+      min-height: 100dvh;
       background: transparent;
-      padding: 24px;
+      display: grid;
+      place-items: center;
+      padding: 28px 22px;
     }
 
-    .card {
-      max-width: 380px;
+    .permission-shell {
       width: 100%;
-      background: var(--surface);
-      border-radius: 24px;
-      padding: 40px 32px;
-      text-align: center;
-      box-shadow: 0 20px 50px var(--shadow-md);
+      max-width: 390px;
+      min-height: min(620px, calc(100dvh - 56px));
       display: flex;
       flex-direction: column;
-      align-items: center;
-      gap: 16px;
-      border: 1px solid var(--border-light);
+      justify-content: center;
+      gap: 42px;
     }
 
-    .icon-wrap {
-      width: 80px;
-      height: 80px;
-      border-radius: 50%;
-      background: var(--brand-soft);
+    .intro {
       display: flex;
-      align-items: center;
-      justify-content: center;
-      margin-bottom: 8px;
+      flex-direction: column;
+      align-items: flex-start;
+    }
 
-      svg {
-        width: 40px;
-        height: 40px;
-        color: var(--brand);
-      }
+    .eyebrow {
+      margin-bottom: 18px;
+      color: var(--text-muted);
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
     }
 
     h1 {
-      margin: 0;
-      font-size: 24px;
+      margin: 0 0 12px;
+      max-width: 340px;
+      font-size: clamp(28px, 8vw, 34px);
       font-weight: 700;
+      line-height: 1.08;
+      letter-spacing: -0.04em;
       color: var(--text-primary);
     }
 
-    p {
+    .lead {
       margin: 0;
+      max-width: 340px;
       font-size: 15px;
       color: var(--text-secondary);
-      line-height: 1.5;
+      line-height: 1.55;
+    }
+
+    .privacy-note {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      margin-top: 20px;
+      color: var(--text-muted);
+      font-size: 12px;
+      font-weight: 600;
+
+      lucide-icon {
+        flex: 0 0 auto;
+        color: var(--brand-strong);
+        line-height: 0;
+      }
     }
 
     .steps {
-      margin: 0;
-      padding: 0 0 0 20px;
-      text-align: left;
-      font-size: 14px;
-      color: var(--text-secondary);
-      line-height: 1.8;
       width: 100%;
-
-      li { padding-left: 4px; }
-      strong { color: var(--text-primary); }
-    }
-
-    .hint {
+      margin: 22px 0 0;
+      padding: 0;
+      list-style: none;
+      counter-reset: location-step;
+      color: var(--text-secondary);
       font-size: 13px;
-      color: var(--text-muted);
+      line-height: 1.45;
+
+      li {
+        counter-increment: location-step;
+        display: grid;
+        grid-template-columns: 26px 1fr;
+        gap: 10px;
+        align-items: start;
+        padding: 10px 0;
+        border-top: 1px solid var(--border-light);
+      }
+
+      li::before {
+        content: counter(location-step);
+        width: 24px;
+        height: 24px;
+        display: grid;
+        place-items: center;
+        border-radius: 50%;
+        background: var(--surface-2);
+        color: var(--text-muted);
+        font-size: 11px;
+        font-weight: 700;
+      }
+
+      strong { color: var(--text-primary); }
     }
 
     .actions {
       display: flex;
       flex-direction: column;
-      gap: 12px;
+      align-items: center;
+      gap: 6px;
       width: 100%;
-      margin-top: 8px;
     }
 
     .btn-allow {
       width: 100%;
-      padding: 16px;
-      border-radius: 16px;
+      min-height: 50px;
+      padding: 12px 18px;
+      border-radius: 14px;
       border: none;
-      background: var(--brand-gradient);
-      color: #fff;
-      font-size: 16px;
+      background: var(--brand);
+      color: #182000;
+      font-size: 14px;
       font-weight: 700;
       cursor: pointer;
-      box-shadow: 0 10px 24px rgba(109, 144, 55, 0.24);
-      transition: opacity 0.2s;
+      box-shadow: none;
+      transition: background-color 160ms ease, opacity 160ms ease;
 
       &:disabled { opacity: 0.6; cursor: not-allowed; }
+      &:hover:not(:disabled) { background: var(--brand-2); }
+      &:focus-visible { outline: 2px solid var(--text-primary); outline-offset: 2px; }
     }
 
     .btn-skip {
-      width: 100%;
-      padding: 14px;
-      border-radius: 16px;
-      border: 1.5px solid var(--border);
-      background: rgba(255,255,255,0.6);
-      color: var(--text-secondary);
-      font-size: 15px;
+      min-height: 42px;
+      padding: 8px 12px;
+      border-radius: 12px;
+      border: 0;
+      background: transparent;
+      color: var(--text-muted);
+      font-size: 13px;
       font-weight: 600;
       cursor: pointer;
-      transition: border-color 0.2s, color 0.2s;
+      transition: color 160ms ease, background-color 160ms ease;
 
-      &:hover { border-color: var(--text-secondary); color: var(--text-primary); }
+      &:hover { background: var(--surface-2); color: var(--text-primary); }
+      &:focus-visible { outline: 2px solid var(--brand); outline-offset: 1px; }
+    }
+
+    .action-note {
+      margin: 0;
+      color: var(--text-muted);
+      font-size: 11px;
+      line-height: 1.4;
+      text-align: center;
+    }
+
+    @media (max-height: 620px) {
+      .page { padding-block: 18px; }
+      .permission-shell { min-height: auto; gap: 26px; }
+      .eyebrow { margin-bottom: 14px; }
+      .privacy-note { margin-top: 14px; }
+    }
+
+    @media (min-width: 768px) {
+      .permission-shell {
+        min-height: min(680px, calc(100dvh - 56px));
+      }
     }
   `]
 })

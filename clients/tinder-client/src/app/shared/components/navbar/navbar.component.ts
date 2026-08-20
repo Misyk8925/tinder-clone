@@ -1,4 +1,4 @@
-import { Component, inject } from '@angular/core';
+import { Component, HostBinding, inject } from '@angular/core';
 import { NavigationEnd, Router, RouterLink, RouterLinkActive } from '@angular/router';
 import { LucideAngularModule } from 'lucide-angular';
 import { filter } from 'rxjs/operators';
@@ -10,7 +10,7 @@ import { ThemeService } from '../../../core/services/theme.service';
   imports: [RouterLink, RouterLinkActive, LucideAngularModule],
   template: `
     @if (isAuthenticated) {
-      <nav class="navbar" [class.chat-hidden]="hidden" aria-label="Primary navigation">
+      <nav class="navbar" [class.route-hidden]="hidden" aria-label="Primary navigation">
         <a routerLink="/discover" class="brand-lockup" aria-label="Connect home">
           <span class="brand-icon"><lucide-icon name="heart-handshake" [size]="22" strokeWidth="1.8" /></span>
           <span class="brand-text">
@@ -61,7 +61,7 @@ import { ThemeService } from '../../../core/services/theme.service';
     .nav-actions,
     .nav-label { display: none; }
 
-    .navbar.chat-hidden { display: none; }
+    .navbar.route-hidden { display: none; }
 
     .navbar {
       position: fixed;
@@ -155,7 +155,7 @@ import { ThemeService } from '../../../core/services/theme.service';
         background: var(--bg);
       }
 
-      .navbar.chat-hidden { display: flex; }
+      .navbar.route-hidden { display: none; }
 
       .navbar {
         top: 14px;
@@ -344,6 +344,13 @@ import { ThemeService } from '../../../core/services/theme.service';
         }
       }
     }
+
+    :host.route-hidden-host {
+      display: contents;
+      width: auto;
+      flex-shrink: 1;
+      background: transparent;
+    }
   `]
 })
 export class NavbarComponent {
@@ -353,11 +360,16 @@ export class NavbarComponent {
 
   hidden = false;
 
+  @HostBinding('class.route-hidden-host')
+  get routeHiddenHost(): boolean {
+    return this.hidden;
+  }
+
   constructor() {
     this.router.events.pipe(
       filter(event => event instanceof NavigationEnd)
     ).subscribe((event: NavigationEnd) => {
-      this.hidden = event.urlAfterRedirects.includes('/chat/');
+      this.hidden = event.urlAfterRedirects.includes('/chat/') || event.urlAfterRedirects.includes('/location-permission');
     });
   }
 
