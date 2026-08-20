@@ -389,12 +389,13 @@ const ALL_HOBBIES: Hobby[] = [
       transition: color 0.15s, border-color 0.15s, background 0.15s;
 
       &.selected {
-        background: var(--brand-soft);
-        border-color: rgba(156, 206, 43, 0.45);
-        color: var(--brand-strong);
+        background: var(--brand);
+        border-color: var(--brand);
+        color: #182000;
+        font-weight: 700;
       }
 
-      &:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; }
+      &:focus-visible { outline: 1px solid var(--text-secondary); outline-offset: 2px; }
     }
 
     .form-actions {

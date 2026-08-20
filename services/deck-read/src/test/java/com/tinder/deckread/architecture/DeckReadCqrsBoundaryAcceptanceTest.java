@@ -65,6 +65,18 @@ class DeckReadCqrsBoundaryAcceptanceTest {
     }
 
     @Test
+    @DisplayName("Scenario: Given production Deck Read roles, when Redis Cluster seed hosts are configured, then every URI is a contiguous comma-separated value")
+    void productionRedisClusterSeedHostsDoNotContainYamlFoldedWhitespace() throws IOException {
+        // Given
+        String compose = Files.readString(REPOSITORY.resolve("docker-compose.yml"));
+
+        // When / Then
+        assertThat(compose)
+                .contains("DECK_READ_REDIS_HOSTS: redis://deck-read-redis-1:6379,redis://deck-read-redis-2:6379,redis://deck-read-redis-3:6379,redis://deck-read-redis-4:6379,redis://deck-read-redis-5:6379,redis://deck-read-redis-6:6379")
+                .doesNotContain("DECK_READ_REDIS_HOSTS: >-");
+    }
+
+    @Test
     @DisplayName("Scenario: Given JWT user identity, when Deck Read resolves a viewer, then Deck access uses the locally mapped profile identity")
     void jwtUserIdentityIsMappedLocallyBeforeProfileKeyedDeckAccess() throws IOException {
         // Given
