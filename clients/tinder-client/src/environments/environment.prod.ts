@@ -4,7 +4,7 @@ export const environment = {
   apiGatewayUrl: 'https://matchapp-api.misyk.tech',
   wsUrl: 'wss://matchapp-api.misyk.tech/ws',
   keycloak: {
-    url: 'https://auth-app.misyk.tech',
+    url: 'https://auth.misyk.tech',
     realm: 'spring',
     clientId: 'tinder-client'
   }
