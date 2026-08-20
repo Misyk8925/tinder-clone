@@ -11,6 +11,7 @@ x-prod-mid-defaults: &prod-mid-defaults
 
 x-deck-read-environment: &deck-read-environment
   KEYCLOAK_REALM_URL: ${KEYCLOAK_REALM_URL:-http://keycloak:9080/realms/spring}
+  QUARKUS_OIDC_TOKEN_ISSUER: ${KEYCLOAK_TOKEN_ISSUER:-https://auth.misyk.tech/realms/spring}
   DECK_SOURCE_REDIS_HOST: redis
   DECK_SOURCE_REDIS_PORT: 6379
   DECK_READ_REDIS_HOSTS: redis://deck-read-redis-1:6379,redis://deck-read-redis-2:6379,redis://deck-read-redis-3:6379,redis://deck-read-redis-4:6379,redis://deck-read-redis-5:6379,redis://deck-read-redis-6:6379

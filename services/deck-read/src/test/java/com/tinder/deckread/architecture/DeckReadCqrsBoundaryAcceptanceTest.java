@@ -77,6 +77,22 @@ class DeckReadCqrsBoundaryAcceptanceTest {
     }
 
     @Test
+    @DisplayName("Scenario: Given public Keycloak tokens and internal discovery, when Deck Read validates JWTs, then it pins the public issuer")
+    void publicTokenIssuerIsExplicitWhenOidcDiscoveryUsesTheInternalRealmUrl() throws IOException {
+        // Given
+        String config = Files.readString(SERVICE.resolve("src/main/resources/application.properties"));
+        String compose = Files.readString(REPOSITORY.resolve("docker-compose.yml"));
+
+        // When / Then
+        assertThat(config)
+                .contains("quarkus.oidc.auth-server-url=${KEYCLOAK_REALM_URL:http://localhost:8080/realms/tinder}")
+                .contains("quarkus.oidc.token.issuer=${KEYCLOAK_TOKEN_ISSUER:https://auth.misyk.tech/realms/spring}");
+        assertThat(compose)
+                .contains("KEYCLOAK_REALM_URL: ${KEYCLOAK_REALM_URL:-http://keycloak:9080/realms/spring}")
+                .contains("QUARKUS_OIDC_TOKEN_ISSUER: ${KEYCLOAK_TOKEN_ISSUER:-https://auth.misyk.tech/realms/spring}");
+    }
+
+    @Test
     @DisplayName("Scenario: Given JWT user identity, when Deck Read resolves a viewer, then Deck access uses the locally mapped profile identity")
     void jwtUserIdentityIsMappedLocallyBeforeProfileKeyedDeckAccess() throws IOException {
         // Given
