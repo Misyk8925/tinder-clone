@@ -6,12 +6,23 @@ export interface GeoCoords {
   longitude: number;
 }
 
+export type GeoLocationRequestError =
+  | 'unsupported'
+  | 'permission-denied'
+  | 'position-unavailable'
+  | 'timeout';
+
+export interface GeoLocationRequestResult {
+  coords: GeoCoords | null;
+  error: GeoLocationRequestError | null;
+}
+
 @Injectable({ providedIn: 'root' })
 export class GeoLocationService {
   private readonly SKIPPED_KEY = 'locationPermissionSkipped';
   private readonly COORDS_KEY = 'locationCoords';
 
-  /** User explicitly chose to proceed without location (from idle state, never denied). */
+  /** User explicitly chose to proceed without location from any permission state. */
   hasSkipped(): boolean {
     return localStorage.getItem(this.SKIPPED_KEY) === 'true';
   }
@@ -84,30 +95,40 @@ export class GeoLocationService {
 
   /**
    * Requests GPS permission.
-   * On success: stores coords and resolves with coords.
-   * On browser/OS denial: resolves with null so the user can retry after enabling in device settings.
+   * On success: stores and returns coords.
+   * On failure: returns the browser error category so the UI can distinguish
+   * a permission denial from a temporary unavailable/timeout result.
    */
-  requestPermission(): Promise<GeoCoords | null> {
+  requestPermission(): Promise<GeoLocationRequestResult> {
     return new Promise((resolve) => {
       if (!navigator.geolocation) {
-        resolve(null);
+        resolve({ coords: null, error: 'unsupported' });
         return;
       }
-      navigator.geolocation.getCurrentPosition(
-        (pos) => {
-          const coords: GeoCoords = {
-            latitude: pos.coords.latitude,
-            longitude: pos.coords.longitude,
-          };
-          this.setCoords(coords);
-          resolve(coords);
-        },
-        () => {
-          // Do NOT mark as asked — user can retry after enabling in device settings
-          resolve(null);
-        },
-        { timeout: 10000 }
-      );
+
+      try {
+        navigator.geolocation.getCurrentPosition(
+          (pos) => {
+            const coords: GeoCoords = {
+              latitude: pos.coords.latitude,
+              longitude: pos.coords.longitude,
+            };
+            this.setCoords(coords);
+            resolve({ coords, error: null });
+          },
+          (error) => {
+            const requestError: GeoLocationRequestError = error.code === 1
+              ? 'permission-denied'
+              : error.code === 3
+                ? 'timeout'
+                : 'position-unavailable';
+            resolve({ coords: null, error: requestError });
+          },
+          { timeout: 10000 }
+        );
+      } catch {
+        resolve({ coords: null, error: 'position-unavailable' });
+      }
     });
   }
 }

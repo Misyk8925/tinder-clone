@@ -175,4 +175,50 @@ describe('GeoLocationService', () => {
       expect(completed).toBe(true);
     });
   });
+
+  describe('requestPermission', () => {
+    function mockCurrentPosition(
+      implementation: (success: PositionCallback, error: PositionErrorCallback) => void,
+    ) {
+      Object.defineProperty(navigator, 'geolocation', {
+        value: {
+          getCurrentPosition: vi.fn(implementation),
+          watchPosition: vi.fn(),
+          clearWatch: vi.fn(),
+        },
+        configurable: true,
+        writable: true,
+      });
+    }
+
+    it('stores and returns coordinates when the browser resolves a position', async () => {
+      mockCurrentPosition(success => success(fakePos(48.2, 16.37)));
+
+      const result = await service.requestPermission();
+
+      expect(result).toEqual({
+        coords: { latitude: 48.2, longitude: 16.37 },
+        error: null,
+      });
+      expect(service.getCoords()).toEqual(result.coords);
+    });
+
+    it('distinguishes a browser permission denial from temporary location failures', async () => {
+      mockCurrentPosition((_success, error) => error({ code: 1 } as GeolocationPositionError));
+
+      await expect(service.requestPermission()).resolves.toEqual({
+        coords: null,
+        error: 'permission-denied',
+      });
+    });
+
+    it('reports a timeout without claiming location permission is denied', async () => {
+      mockCurrentPosition((_success, error) => error({ code: 3 } as GeolocationPositionError));
+
+      await expect(service.requestPermission()).resolves.toEqual({
+        coords: null,
+        error: 'timeout',
+      });
+    });
+  });
 });

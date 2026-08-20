@@ -12,26 +12,29 @@ import { GeoLocationService } from '../../core/services/geo-location.service';
         <div class="intro">
           <span class="eyebrow">Location</span>
 
-          @if (status() !== 'denied') {
+          @if (status() !== 'denied' && status() !== 'unavailable') {
             <h1 id="location-title">Meet people nearby.</h1>
             <p class="lead">Use your location to see relevant profiles around you.</p>
             <div class="privacy-note">
               <lucide-icon name="shield-check" [size]="16" strokeWidth="2.2" aria-hidden="true" />
               <span>Your exact location stays private.</span>
             </div>
-          } @else {
+          } @else if (status() === 'denied') {
             <h1 id="location-title">Location is turned off.</h1>
             <p class="lead">Enable access in your device settings, then try again.</p>
             <ol class="steps">
               <li>Open <strong>Settings → Privacy → Location Services</strong></li>
               <li>Allow location while using this browser</li>
             </ol>
+          } @else {
+            <h1 id="location-title">We couldn't get your location.</h1>
+            <p class="lead">Access may already be allowed. Check that Location Services are on, then try again.</p>
           }
         </div>
 
         <div class="actions">
           <button type="button" class="btn-allow" [disabled]="status() === 'requesting'" (click)="allow()">
-            {{ status() === 'requesting' ? 'Requesting…' : status() === 'denied' ? 'Try again' : 'Allow location access' }}
+            {{ status() === 'requesting' ? 'Requesting…' : status() === 'idle' ? 'Allow location access' : 'Try again' }}
           </button>
           <button type="button" class="btn-skip" (click)="skip()">Continue without location</button>
           <p class="action-note">You can change this later in your profile.</p>
@@ -212,7 +215,7 @@ export class LocationPermissionComponent implements OnInit {
   private router = inject(Router);
   private geo = inject(GeoLocationService);
 
-  status = signal<'idle' | 'requesting' | 'denied'>('idle');
+  status = signal<'idle' | 'requesting' | 'denied' | 'unavailable'>('idle');
 
   ngOnInit(): void {
     // If the user already has coords or explicitly skipped, no need to be here
@@ -223,21 +226,16 @@ export class LocationPermissionComponent implements OnInit {
 
   async allow(): Promise<void> {
     this.status.set('requesting');
-    const coords = await this.geo.requestPermission();
-    if (coords) {
+    const result = await this.geo.requestPermission();
+    if (result.coords) {
       this.router.navigate(['/discover']);
     } else {
-      this.status.set('denied');
+      this.status.set(result.error === 'permission-denied' ? 'denied' : 'unavailable');
     }
   }
 
   skip(): void {
-    // Only permanently skip when the user chooses to proceed without ever trying.
-    // If the browser denied permission, do NOT mark as skipped — the user will be
-    // re-prompted on next login so they're reminded to enable location in settings.
-    if (this.status() !== 'denied') {
-      this.geo.markSkipped();
-    }
+    this.geo.markSkipped();
     this.router.navigate(['/discover']);
   }
 }
