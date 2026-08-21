@@ -4,14 +4,14 @@ Env: local Cloud agent · Evidence: pytest and Maven in this run
 
 | Requirement | Check | Status | Evidence |
 |---|---|---|---|
-| FR-1–FR-8 | `python3 -m pytest` | Pass | `services/photos` — 34 passed |
+| FR-1–FR-8 | `python3 -m pytest` | Pass | `services/photos` — 38 passed |
 | FR-9 | `UploadPhotoServiceTest` + photo policy/keys + props + ArchUnit | Pass | Profiles — 37 passed |
 | FR-10 | `ConversationPhotoStorageServiceTest` | Pass | Match — 3 passed |
 | NFR-2 | `/health` and `/actuator/health` | Pass | `tests/test_api.py` |
 
 | Suite | Passed | Failed | Skipped | Blocked |
 |---|---:|---:|---:|---:|
-| Photos pytest | 34 | 0 | 0 | 0 |
+| Photos pytest | 38 | 0 | 0 | 0 |
 | Profiles unit (photos + props + ArchUnit) | 37 | 0 | 0 | 0 |
 | Match unit (photo mapping) | 3 | 0 | 0 | 0 |
 | Full compose e2e | 0 | 0 | 0 | 1 |

@@ -16,3 +16,4 @@ Format: native Given/When/Then · `python -m pytest` in `services/photos` · `./
 | FR-10 Match mapping | `ConversationPhotoStorageServiceTest` | Match |
 | 400 `INVALID_IMAGE` unknown size | download-url gigantic | `tests/test_api.py` |
 | 400 empty file | Photo file is required | `tests/test_api.py` |
+| Root `.env` / `.env.local` | cwd is the service dir, bucket comes from repo root | `tests/test_config.py` |

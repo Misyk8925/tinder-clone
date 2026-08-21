@@ -18,7 +18,7 @@ Fallback tracker. Linear MCP is unauthorized. Current phase: **4 — implementat
 | 2026-08-21 | Catalogue, slots, JWT and deck events stay in Profiles | existing `PhotoCatalogPort` / `UploadPhotoService` |
 | 2026-08-21 | Internal HTTP, no gateway, no JWT (same pattern as location-go) | cheapest analogue |
 | 2026-08-21 | No local S3 fallback in Profiles/Match | extraction would be pointless if both copies remain |
-| 2026-08-21 | Match uses the same image policy (300–4096 px, stored as JPEG variants) | "fully repeat Profiles photos" |
+| 2026-08-21 | Photos loads repo-root `.env` / `.env.local`, not cwd `.env` | user request |
 
 ## Risks
 

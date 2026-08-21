@@ -1,10 +1,28 @@
 from functools import lru_cache
+from pathlib import Path
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+_ROOT_MARKERS = ("docker-compose.yml", ".env.prod.example")
+
+
+def find_repo_root(start: Path | None = None) -> Path:
+    current = start if start is not None else Path(__file__).resolve()
+    if current.is_file():
+        current = current.parent
+    for candidate in (current, *current.parents):
+        if any((candidate / marker).is_file() for marker in _ROOT_MARKERS):
+            return candidate
+    return Path.cwd()
+
+
+def env_files(root: Path | None = None) -> tuple[Path, ...]:
+    repo = root if root is not None else find_repo_root()
+    return (repo / ".env", repo / ".env.local")
+
 
 class Settings(BaseSettings):
-    model_config = SettingsConfigDict(env_file=".env", extra="ignore")
+    model_config = SettingsConfigDict(extra="ignore")
 
     port: int = 8070
     aws_s3_bucket: str = ""
@@ -47,4 +65,4 @@ class Settings(BaseSettings):
 
 @lru_cache
 def get_settings() -> Settings:
-    return Settings()
+    return Settings(_env_file=env_files())

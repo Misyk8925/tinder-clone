@@ -12,3 +12,7 @@ Match conversation photos now follow Profiles processing: JPEG variants and 300�
 - Profiles: `./mvnw -B -ntp test -Dtest=UploadPhotoServiceTest,ConfigurationPropertiesBindingTest,CleanArchitectureTest,PhotoPolicyTest,PhotoKeysTest` — 37 passed.
 - Match: `./mvnw -B -ntp test -Dtest=ConversationPhotoStorageServiceTest` — 3 passed.
 - Full compose e2e not run.
+
+## 2026-08-21 — root env
+
+Photos `get_settings()` loads repo-root `.env` then `.env.local`. Regression: `tests/test_config.py` failed on cwd-only `.env` (`aws_s3_bucket == ''`) and passed after the fix.
