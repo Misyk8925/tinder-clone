@@ -42,7 +42,7 @@ public class PhotosServiceAdapter implements PhotoMediaPort {
         builder.part("owner_id", ownerId.toString());
         builder.part("namespace", NAMESPACE);
 
-        PhotosUploadResponse response =         photosWebClient.post()
+        PhotosUploadResponse response = photosWebClient.post()
                 .uri("/api/v1/photos")
                 .body(BodyInserters.fromMultipartData(builder.build()))
                 .retrieve()

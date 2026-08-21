@@ -23,6 +23,6 @@ Biggest risk: Match dimension policy tightens from 50–6000 to 300–4096 becau
 | P4.5 Error paths | Done | type/size/corrupt/dimensions/unknown size/empty file |
 | P4.6 Review | Done | self-review after writing tests and Java clients |
 | P4.7 Targeted defects | Done | no confirmed defect left; Match policy change recorded as RISK-1 |
-| P4.8 Quality gates | Blocked | CI on the PR; local pytest/Maven in this run |
+| P4.8 Quality gates | Done | local pytest 34 / Profiles 37 / Match 3; compose e2e not started |
 | P4.9 Handoff | N/A | same context |
 | P4.10 Combined-diff review | Done | self-review of FastAPI + two Java consumers |
