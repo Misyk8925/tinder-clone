@@ -38,7 +38,8 @@ This project explores how a dating product can keep the matching journey respons
 | Area | Responsibility |
 |------|----------------|
 | **Gateway** | One client entry point; authenticates requests and applies role-aware rate limits. |
-| **Profiles + Location** | Owns profile data, photos, preferences, and location resolution. |
+| **Profiles + Location + Photos** | Owns profile data, preferences, and location resolution. Photo bytes, variants and S3 storage live in the Photos service. |
+| **Photos** | Validates uploads, renders JPEG variants, stores objects in S3, and issues download URLs. Used by Profiles and Match. |
 | **Deck + Deck-Read** | Builds a ranked discovery deck asynchronously and serves its read model to the client. |
 | **Swipes + Consumer** | Records decisions, detects reciprocal likes, and publishes durable swipe/match events. |
 | **Match** | Owns conversations created from confirmed matches. |
@@ -79,6 +80,7 @@ docker compose -f docker-compose.yml -f docker-compose.local.yml up -d postgres 
 (cd services/config-server2  && mvn spring-boot:run) &   # optional, local-only
 (cd services/discovery       && mvn spring-boot:run) &   # optional, local-only
 (cd services/location-go     && go run ./cmd/location) &
+(cd services/photos          && uvicorn app.main:app --host 0.0.0.0 --port 8070) &
 (cd services/profiles        && mvn spring-boot:run) &
 (cd services/deck            && mvn spring-boot:run) &
 (cd services/deck-read       && mvn quarkus:dev) &
@@ -164,6 +166,16 @@ GET  /health                            - Health check
 # Geocoding + PostGIS-backed location resolution for profiles
 ```
 
+### Photos Service `:8070` (internal)
+```
+POST /api/v1/photos                     - Store an image and its JPEG variants
+DELETE /api/v1/photos/{storageId}       - Delete all variants
+GET  /api/v1/photos/{storageId}/download-url
+POST /api/v1/photos/cleanup-orphaned
+GET  /health
+```
+Profiles and Match call this service. Clients keep using the existing Profiles and Match photo endpoints.
+
 ### Deck-Read Service `:8040` (client-facing deck reads, Quarkus)
 ```
 GET  /api/v1/deck                       - Get viewer's deck (viewer id from JWT sub)
@@ -214,6 +226,10 @@ mvn test jacoco:report    # with coverage
 
 cd services/location-go   # or swipes-go
 go test ./...
+
+cd services/photos
+python -m pip install -r requirements-dev.txt
+python -m pytest
 ```
 
 Testcontainers (PostgreSQL, Redis, Kafka), EmbeddedKafka, Quarkus Dev Services (deck-read), reactor-test (`StepVerifier`).

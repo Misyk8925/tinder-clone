@@ -2,13 +2,11 @@ package com.tinder.profiles.application.photos.usecase;
 
 import com.tinder.profiles.application.photos.command.UploadPhotoCommand;
 import com.tinder.profiles.application.photos.exception.PhotoValidationException;
-import com.tinder.profiles.application.photos.model.ImageDimensions;
 import com.tinder.profiles.application.photos.model.PhotoDraft;
-import com.tinder.profiles.application.photos.model.PhotoVariants;
 import com.tinder.profiles.application.photos.model.StoredPhoto;
-import com.tinder.profiles.application.photos.port.out.ImageVariantsPort;
+import com.tinder.profiles.application.photos.model.StoredPhotoMedia;
 import com.tinder.profiles.application.photos.port.out.PhotoCatalogPort;
-import com.tinder.profiles.application.photos.port.out.PhotoStoragePort;
+import com.tinder.profiles.application.photos.port.out.PhotoMediaPort;
 import com.tinder.profiles.application.photos.support.PhotoKeys;
 import com.tinder.profiles.application.photos.support.PhotoPolicy;
 import com.tinder.profiles.application.photos.support.ProfilePhotoOwner;
@@ -21,25 +19,21 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
-import static org.mockito.Mockito.times;
-
 import java.time.LocalDateTime;
 import java.util.List;
-import java.util.Optional;
 import java.util.UUID;
 
 import static org.assertj.core.api.BDDAssertions.then;
 import static org.assertj.core.api.BDDAssertions.thenThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 
 /**
  * Covers the upload orchestration that used to be entangled with the S3 client:
- * slot rules, variant fan-out and replacement of an occupied slot.
+ * slot rules, media-service store and replacement of an occupied slot.
  */
 @ExtendWith(MockitoExtension.class)
 @DisplayName("UploadPhotoService")
@@ -48,11 +42,11 @@ class UploadPhotoServiceTest {
     private static final String USER_ID = "user-1";
     private static final UUID PROFILE_ID = UUID.randomUUID();
     private static final byte[] IMAGE = "image-bytes".getBytes();
+    private static final String STORAGE_ID = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee";
 
     @Mock private ProfilePhotoOwner owner;
     @Mock private PhotoCatalogPort catalog;
-    @Mock private PhotoStoragePort storage;
-    @Mock private ImageVariantsPort images;
+    @Mock private PhotoMediaPort media;
     @Mock private CleanupOrphanedPhotosService cleanupOrphaned;
     @Mock private DomainEventPublisherPort events;
 
@@ -62,48 +56,46 @@ class UploadPhotoServiceTest {
     void setUp() {
         PhotoPolicy policy = new PhotoPolicy(
                 5, 5L * 1024 * 1024, List.of("image/jpeg", "image/png"), 300, 4096);
-        service = new UploadPhotoService(owner, catalog, storage, images, cleanupOrphaned, policy, events);
+        service = new UploadPhotoService(owner, catalog, media, cleanupOrphaned, policy, events);
     }
 
     @Test
-    @DisplayName("stores four variants and catalogues the original")
-    void storesVariantsAndCataloguesOriginal() {
+    @DisplayName("Given a free slot, when a photo is uploaded, then it is stored and catalogued")
+    void storesAndCataloguesOriginal() {
         givenProfileWithPhotos();
-        givenRenderableImage();
-        given(storage.publicUrl(anyString())).willAnswer(call -> "https://cdn/" + call.getArgument(0));
+        givenStoredMedia();
 
         var uploaded = service.handle(command(0));
 
-        verify(storage, times(4)).put(anyString(), any(), eq("image/jpeg"));
         ArgumentCaptor<PhotoDraft> draft = ArgumentCaptor.forClass(PhotoDraft.class);
         verify(catalog).save(draft.capture());
         then(draft.getValue().profileId()).isEqualTo(PROFILE_ID);
         then(draft.getValue().position()).isZero();
         then(draft.getValue().primary()).isTrue();
         then(draft.getValue().s3Key())
-                .isEqualTo(PhotoKeys.variantKey(PROFILE_ID, uploaded.photoId(), "original"));
+                .isEqualTo(PhotoKeys.variantKey(PROFILE_ID, STORAGE_ID, "original"));
+        then(uploaded.photoId()).isEqualTo(STORAGE_ID);
         then(uploaded.smallUrl()).contains("/small.jpg");
         verify(events).publishCardChanged(PROFILE_ID);
+        verify(media).store(PROFILE_ID, IMAGE, "image/png");
     }
 
     @Test
-    @DisplayName("replacing an occupied slot deletes the previous objects and row")
+    @DisplayName("Given an occupied slot, when a photo is uploaded, then the previous objects and row are deleted")
     void replacesOccupiedSlot() {
         String previousStorageId = UUID.randomUUID().toString();
         StoredPhoto occupant = storedPhoto(previousStorageId, 0);
         givenProfileWithPhotos(occupant);
-        givenRenderableImage();
-        given(storage.publicUrl(anyString())).willReturn("https://cdn/photo.jpg");
+        givenStoredMedia();
 
         service.handle(command(0));
 
-        PhotoKeys.allVariantKeys(PROFILE_ID, previousStorageId)
-                .forEach(key -> verify(storage).delete(key));
+        verify(media).delete(PROFILE_ID, previousStorageId);
         verify(catalog).deleteById(occupant.photoId());
     }
 
     @Test
-    @DisplayName("rejects a first upload into a slot other than zero")
+    @DisplayName("Given an empty album, when the first upload is not slot zero, then it is rejected")
     void rejectsFirstUploadIntoNonZeroSlot() {
         givenProfileWithPhotos();
 
@@ -111,38 +103,25 @@ class UploadPhotoServiceTest {
                 .isInstanceOf(PhotoValidationException.class)
                 .hasMessageContaining("Invalid position: 2");
 
-        verify(storage, never()).put(anyString(), any(), anyString());
+        verify(media, never()).store(any(), any(), anyString());
     }
 
     @Test
-    @DisplayName("rejects an unreadable image before touching storage")
+    @DisplayName("Given an unreadable image, when the photos service rejects it, then storage is not catalogued")
     void rejectsUnreadableImage() {
         givenProfileWithPhotos();
-        given(images.probe(IMAGE)).willReturn(Optional.empty());
+        given(media.store(PROFILE_ID, IMAGE, "image/png"))
+                .willThrow(new PhotoValidationException("Corrupted image"));
 
         thenThrownBy(() -> service.handle(command(0)))
                 .isInstanceOf(PhotoValidationException.class)
                 .hasMessage("Corrupted image");
 
-        verify(storage, never()).put(anyString(), any(), anyString());
         verify(catalog, never()).save(any());
     }
 
     @Test
-    @DisplayName("rejects an image smaller than the policy minimum")
-    void rejectsTooSmallImage() {
-        givenProfileWithPhotos();
-        given(images.probe(IMAGE)).willReturn(Optional.of(new ImageDimensions(100, 100)));
-
-        thenThrownBy(() -> service.handle(command(0)))
-                .isInstanceOf(PhotoValidationException.class)
-                .hasMessage("Image too small");
-
-        verify(images, never()).render(any());
-    }
-
-    @Test
-    @DisplayName("rejects an unsupported content type")
+    @DisplayName("Given an unsupported content type, when uploaded, then the photos service is not called")
     void rejectsUnsupportedContentType() {
         given(owner.profileIdOf(USER_ID)).willReturn(PROFILE_ID);
 
@@ -150,6 +129,8 @@ class UploadPhotoServiceTest {
                 USER_ID, IMAGE, "application/pdf", IMAGE.length, 0)))
                 .isInstanceOf(PhotoValidationException.class)
                 .hasMessageContaining("Invalid image type");
+
+        verify(media, never()).store(any(), any(), anyString());
     }
 
     private UploadPhotoCommand command(int position) {
@@ -161,10 +142,16 @@ class UploadPhotoServiceTest {
         given(catalog.findForProfile(PROFILE_ID)).willReturn(List.of(photos));
     }
 
-    private void givenRenderableImage() {
-        given(images.probe(IMAGE)).willReturn(Optional.of(new ImageDimensions(1024, 768)));
-        given(images.render(IMAGE)).willReturn(new PhotoVariants(
-                "original".getBytes(), "large".getBytes(), "medium".getBytes(), "small".getBytes()));
+    private void givenStoredMedia() {
+        given(media.store(PROFILE_ID, IMAGE, "image/png")).willReturn(new StoredPhotoMedia(
+                STORAGE_ID,
+                PhotoKeys.variantKey(PROFILE_ID, STORAGE_ID, "original"),
+                "https://cdn/photos/" + PROFILE_ID + "/" + STORAGE_ID + "/original.jpg",
+                "https://cdn/photos/" + PROFILE_ID + "/" + STORAGE_ID + "/large.jpg",
+                "https://cdn/photos/" + PROFILE_ID + "/" + STORAGE_ID + "/medium.jpg",
+                "https://cdn/photos/" + PROFILE_ID + "/" + STORAGE_ID + "/small.jpg",
+                "image/jpeg",
+                1234L));
     }
 
     private StoredPhoto storedPhoto(String storageId, int position) {

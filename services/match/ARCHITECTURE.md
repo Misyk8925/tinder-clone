@@ -13,7 +13,7 @@ It uses:
 - PostgreSQL via Spring Data JPA
 - Kafka for inbound match creation events
 - STOMP/WebSocket for real-time message fan-out
-- AWS S3 (and optional CloudFront URL rewrite) for photo message storage
+- Photos service (FastAPI) for conversation photo validation, JPEG variants and S3 storage
 
 At runtime, it acts as both:
 
@@ -99,13 +99,11 @@ Notes:
 
 1. `POST /rest/conversations/{conversationId}/messages/photos` with multipart file.
 2. `ConversationServiceImpl#sendPhotoMessage` validates sender and conversation access.
-3. `ConversationPhotoStorageService`:
-   - Validates type (`jpeg`, `png`, `webp`), size (<= 5MB), dimensions.
-   - Optionally ensures bucket exists for local/custom endpoint setups.
-   - Uploads object to S3 key:
-     `chat/photos/{conversationId}/{senderId}/{clientMessageId}/{uuid}.{ext}`
-4. Service creates `Message` with type `IMAGE` and attachment metadata.
-5. Message is persisted and event is published/broadcast after commit.
+3. `ConversationPhotoStorageService` fail-fasts on empty/unsupported/oversized files, then calls the Photos service.
+4. Photos service validates the image (type, size, 300–4096 px), renders four JPEG variants, and stores them under
+   `chat/photos/{conversationId}/{storageId}/{variant}.jpg`.
+5. Service creates `Message` with type `IMAGE` and attachment metadata from the Photos response (original URL/key, JPEG type, size, dimensions, sha256).
+6. Message is persisted and event is published/broadcast after commit.
 
 ## 4) Package and folder structure
 
@@ -135,7 +133,7 @@ services/match
 │       ├── controller/{ConversationRestController, ConversationWsController}.java
 │       ├── dto/{ConversationDto, CreateConversationRequest, MessageDto, MessageAttachmentDto}.java
 │       ├── event/MessageCreatedEvent.java
-│       ├── implementations/{ConversationServiceImpl, ConversationPhotoStorageService, WebsocketConfig}.java
+│       ├── implementations/{ConversationServiceImpl, ConversationPhotoStorageService, PhotosServiceClient, WebsocketConfig}.java
 │       ├── listener/EventListener.java
 │       ├── model/{Conversation, ConversationStatus, Message, MessageAttachment, MessageType}.java
 │       └── repository/{ConversationRepository, MessageRepository}.java

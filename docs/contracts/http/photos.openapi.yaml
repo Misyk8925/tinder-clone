@@ -1,0 +1,226 @@
+openapi: 3.1.0
+info:
+  title: Photos Service API
+  version: 1.0.0
+  description: >-
+    Internal media service used by Profiles and Match. It validates an upload,
+    renders four JPEG variants, stores them in S3, and issues public or
+    presigned URLs. It does not authenticate callers, own photo catalogues,
+    or publish domain events.
+servers:
+  - url: /
+tags:
+  - name: Photos
+paths:
+  /health:
+    get:
+      tags: [Photos]
+      operationId: health
+      x-requirements: [NFR-2]
+      responses:
+        '200':
+          description: Process is up.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Health'
+  /actuator/health:
+    get:
+      tags: [Photos]
+      operationId: actuatorHealth
+      x-requirements: [NFR-2]
+      responses:
+        '200':
+          description: Process is up.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Health'
+  /api/v1/photos:
+    post:
+      tags: [Photos]
+      operationId: uploadPhoto
+      x-requirements: [FR-1, FR-2, FR-3, FR-4, FR-5]
+      summary: Store an image and its JPEG variants
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [file, owner_id]
+              properties:
+                file:
+                  type: string
+                  format: binary
+                owner_id:
+                  type: string
+                  format: uuid
+                namespace:
+                  type: string
+                  enum: [photos, chat/photos]
+                  default: photos
+      responses:
+        '201':
+          description: Variants stored.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UploadedPhoto'
+              example:
+                storageId: 99999999-8888-7777-6666-555555555555
+                originalUrl: https://cdn.example.test/photos/11111111-2222-3333-4444-555555555555/99999999-8888-7777-6666-555555555555/original.jpg
+                largeUrl: https://cdn.example.test/photos/11111111-2222-3333-4444-555555555555/99999999-8888-7777-6666-555555555555/large.jpg
+                mediumUrl: https://cdn.example.test/photos/11111111-2222-3333-4444-555555555555/99999999-8888-7777-6666-555555555555/medium.jpg
+                smallUrl: https://cdn.example.test/photos/11111111-2222-3333-4444-555555555555/99999999-8888-7777-6666-555555555555/small.jpg
+                originalKey: photos/11111111-2222-3333-4444-555555555555/99999999-8888-7777-6666-555555555555/original.jpg
+                contentType: image/jpeg
+                size: 184320
+                width: 1024
+                height: 768
+                sha256: 2c624232cdd221771294dfbb310aca000a0df6ac8b66b696d90ef06fdefb64a3
+        '400':
+          $ref: '#/components/responses/InvalidImage'
+        '503':
+          $ref: '#/components/responses/StorageError'
+  /api/v1/photos/{storageId}:
+    delete:
+      tags: [Photos]
+      operationId: deletePhoto
+      x-requirements: [FR-6]
+      parameters:
+        - $ref: '#/components/parameters/StorageId'
+        - $ref: '#/components/parameters/OwnerId'
+        - $ref: '#/components/parameters/Namespace'
+      responses:
+        '204':
+          description: Best-effort delete of all four variants.
+        '400':
+          $ref: '#/components/responses/InvalidImage'
+        '503':
+          $ref: '#/components/responses/StorageError'
+  /api/v1/photos/{storageId}/download-url:
+    get:
+      tags: [Photos]
+      operationId: getDownloadUrl
+      x-requirements: [FR-7]
+      parameters:
+        - $ref: '#/components/parameters/StorageId'
+        - $ref: '#/components/parameters/OwnerId'
+        - $ref: '#/components/parameters/Namespace'
+        - name: size
+          in: query
+          schema:
+            type: string
+            enum: [original, large, medium, small]
+            default: medium
+      responses:
+        '200':
+          description: Time-limited GET URL.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [url]
+                properties:
+                  url: { type: string, format: uri }
+        '400':
+          $ref: '#/components/responses/InvalidImage'
+        '503':
+          $ref: '#/components/responses/StorageError'
+  /api/v1/photos/cleanup-orphaned:
+    post:
+      tags: [Photos]
+      operationId: cleanupOrphaned
+      x-requirements: [FR-8]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CleanupRequest'
+      responses:
+        '200':
+          description: Number of orphaned storage ids deleted. Failures are swallowed.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [deleted]
+                properties:
+                  deleted: { type: integer, minimum: 0 }
+        '400':
+          $ref: '#/components/responses/InvalidImage'
+components:
+  parameters:
+    StorageId:
+      name: storageId
+      in: path
+      required: true
+      schema: { type: string }
+    OwnerId:
+      name: owner_id
+      in: query
+      required: true
+      schema: { type: string, format: uuid }
+    Namespace:
+      name: namespace
+      in: query
+      schema:
+        type: string
+        enum: [photos, chat/photos]
+        default: photos
+  responses:
+    InvalidImage:
+      description: The upload or key arguments violate photo policy.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorBody'
+    StorageError:
+      description: Object storage failed on a write the caller depends on.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorBody'
+  schemas:
+    Health:
+      type: object
+      required: [status]
+      properties:
+        status: { type: string, const: UP }
+    UploadedPhoto:
+      type: object
+      required: [storageId, originalUrl, largeUrl, mediumUrl, smallUrl, originalKey, contentType, size, width, height, sha256]
+      properties:
+        storageId: { type: string }
+        originalUrl: { type: string, format: uri }
+        largeUrl: { type: string, format: uri }
+        mediumUrl: { type: string, format: uri }
+        smallUrl: { type: string, format: uri }
+        originalKey: { type: string }
+        contentType: { type: string, const: image/jpeg }
+        size: { type: integer, minimum: 1 }
+        width: { type: integer, minimum: 1 }
+        height: { type: integer, minimum: 1 }
+        sha256: { type: string, minLength: 64, maxLength: 64 }
+    CleanupRequest:
+      type: object
+      required: [ownerId]
+      properties:
+        ownerId: { type: string, format: uuid }
+        cataloguedStorageIds:
+          type: array
+          items: { type: string }
+        namespace:
+          type: string
+          enum: [photos, chat/photos]
+          default: photos
+    ErrorBody:
+      type: object
+      required: [code, message]
+      properties:
+        code:
+          type: string
+          enum: [INVALID_IMAGE, PHOTO_STORAGE_ERROR]
+        message: { type: string }

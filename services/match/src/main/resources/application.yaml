@@ -54,6 +54,10 @@ app:
     domain: ${CLOUDFRONT_DOMAIN:d123example.cloudfront.net}
     enabled: ${CDN_ENABLED:false}
 
+photos:
+  service:
+    url: ${PHOTOS_SERVICE_URL:http://localhost:8070}
+
 cloud:
   aws:
     region: ${AWS_REGION:${AWS_DEFAULT_REGION:eu-north-1}}

@@ -103,6 +103,10 @@ app:
     bucket: "test-bucket"
     presign-exp-seconds: 300
 
+photos:
+  service:
+    url: http://localhost:8070
+
 cloud:
   aws:
     region: eu-north-1

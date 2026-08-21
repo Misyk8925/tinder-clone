@@ -44,6 +44,7 @@ jobs:
       java: ${{ steps.filter.outputs.java }}
       js: ${{ steps.filter.outputs.js }}
       go: ${{ steps.filter.outputs.go }}
+      python: ${{ steps.filter.outputs.python }}
       image-matrix: ${{ steps.images.outputs.matrix }}
     steps:
       - uses: actions/checkout@v5
@@ -62,6 +63,9 @@ jobs:
               - '**/*.go'
               - '**/go.mod'
               - '**/go.sum'
+            python:
+              - '**/*.py'
+              - '**/requirements*.txt'
             profiles:
               - 'services/profiles/**'
               - 'services/tinder-contracts/**'
@@ -85,6 +89,8 @@ jobs:
               - 'services/location-go/**'
             swipes-go:
               - 'services/swipes-go/**'
+            photos:
+              - 'services/photos/**'
             client:
               - 'clients/tinder-client/**'
       - id: images
@@ -100,6 +106,7 @@ jobs:
           SWIPES_DEMO: ${{ steps.filter.outputs.swipes-demo }}
           LOCATION_GO: ${{ steps.filter.outputs.location-go }}
           SWIPES_GO: ${{ steps.filter.outputs.swipes-go }}
+          PHOTOS: ${{ steps.filter.outputs.photos }}
           CLIENT: ${{ steps.filter.outputs.client }}
         run: |
           python3 - <<'PY'
@@ -116,6 +123,7 @@ jobs:
             ("SWIPES_DEMO", {"service": "swipes-demo", "context": "services/swipes-demo", "file": "services/swipes-demo/Dockerfile"}),
             ("LOCATION_GO", {"service": "location-go", "context": "services/location-go", "file": "services/location-go/Dockerfile"}),
             ("SWIPES_GO", {"service": "swipes-go", "context": "services/swipes-go", "file": "services/swipes-go/Dockerfile"}),
+            ("PHOTOS", {"service": "photos", "context": "services/photos", "file": "services/photos/Dockerfile"}),
             ("CLIENT", {"service": "tinder-client", "context": "clients/tinder-client", "file": "clients/tinder-client/Dockerfile"}),
           ]
           matrix = [spec for env_name, spec in specs if all_run or os.environ.get(env_name) == "true"]
@@ -178,7 +186,8 @@ jobs:
           && (github.event_name != 'pull_request'
               || (matrix.language == 'java-kotlin' && needs.detect.outputs.java == 'true')
               || (matrix.language == 'javascript-typescript' && needs.detect.outputs.js == 'true')
-              || (matrix.language == 'go' && needs.detect.outputs.go == 'true')) }}
+              || (matrix.language == 'go' && needs.detect.outputs.go == 'true')
+              || (matrix.language == 'python' && needs.detect.outputs.python == 'true')) }}
     runs-on: ubuntu-latest
     timeout-minutes: 45
     permissions:
@@ -195,6 +204,8 @@ jobs:
             build-mode: none
           - language: go
             build-mode: autobuild
+          - language: python
+            build-mode: none
     steps:
       - uses: actions/checkout@v5
       - uses: github/codeql-action/init@v4
