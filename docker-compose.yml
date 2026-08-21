@@ -473,6 +473,8 @@ services:
         condition: service_healthy
       location:
         condition: service_healthy
+      photos:
+        condition: service_healthy
     environment:
       SPRING_PROFILES_ACTIVE: prod
       AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID:?AWS_ACCESS_KEY_ID is required}
@@ -504,6 +506,7 @@ services:
       LOGSTASH_PORT: 5000
       MANAGEMENT_TRACING_ENABLED: "false"
       LOCATION_SERVICE_URL: http://location:8065
+      PHOTOS_SERVICE_URL: http://photos:8070
 
       PROFILES_KEYSTORE_PATH: file:/certs/profiles-service.p12
       PROFILES_KEYSTORE_PASSWORD: ${MTLS_KEYSTORE_PASSWORD:?MTLS_KEYSTORE_PASSWORD is required}
@@ -657,6 +660,32 @@ services:
       start_period: 30s
       retries: 5
 
+  photos:
+    build:
+      context: ./services/photos
+    container_name: photos
+    <<: *prod-mid-defaults
+    ports: []
+    environment:
+      PORT: "8070"
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID:?AWS_ACCESS_KEY_ID is required}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY:?AWS_SECRET_ACCESS_KEY is required}
+      AWS_S3_BUCKET: ${AWS_S3_BUCKET:?AWS_S3_BUCKET is required}
+      AWS_REGION: ${AWS_REGION:-eu-north-1}
+      AWS_S3_ENDPOINT: ${AWS_S3_ENDPOINT:-}
+      CLOUDFRONT_DOMAIN: ${CLOUDFRONT_DOMAIN:?CLOUDFRONT_DOMAIN is required}
+      CDN_ENABLED: ${CDN_ENABLED:-true}
+    networks:
+      - app
+    mem_limit: 256m
+    cpus: "0.50"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8070/health | grep -q UP || exit 1"]
+      interval: 15s
+      timeout: 5s
+      start_period: 30s
+      retries: 5
+
   gateway:
     build:
       context: ./services/gateway
@@ -707,10 +736,11 @@ services:
     <<: *prod-mid-defaults
     ports: []
     depends_on:
-
       postgres:
         condition: service_healthy
       kafka:
+        condition: service_healthy
+      photos:
         condition: service_healthy
     environment:
       SPRING_PROFILES_ACTIVE: prod
@@ -720,6 +750,7 @@ services:
       AWS_REGION: ${AWS_REGION:-eu-north-1}
       CLOUDFRONT_DOMAIN: ${CLOUDFRONT_DOMAIN:?CLOUDFRONT_DOMAIN is required}
       CDN_ENABLED: ${CDN_ENABLED:-true}
+      PHOTOS_SERVICE_URL: http://photos:8070
       SPRING_DATASOURCE_URL: ${MATCH_DB_URL:?MATCH_DB_URL is required}
       SPRING_DATASOURCE_USERNAME: ${MATCH_DB_USER:?MATCH_DB_USER is required}
       SPRING_DATASOURCE_PASSWORD: ${MATCH_DB_PASSWORD:?MATCH_DB_PASSWORD is required}

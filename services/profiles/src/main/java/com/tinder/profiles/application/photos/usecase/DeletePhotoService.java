@@ -5,7 +5,7 @@ import com.tinder.profiles.application.photos.exception.PhotoAccessDeniedExcepti
 import com.tinder.profiles.application.photos.exception.PhotoNotFoundException;
 import com.tinder.profiles.application.photos.model.StoredPhoto;
 import com.tinder.profiles.application.photos.port.out.PhotoCatalogPort;
-import com.tinder.profiles.application.photos.port.out.PhotoStoragePort;
+import com.tinder.profiles.application.photos.port.out.PhotoMediaPort;
 import com.tinder.profiles.application.photos.support.PhotoKeys;
 import com.tinder.profiles.application.photos.support.ProfilePhotoOwner;
 import com.tinder.profiles.application.profile.port.out.DomainEventPublisherPort;
@@ -24,7 +24,7 @@ public class DeletePhotoService {
 
     private final ProfilePhotoOwner owner;
     private final PhotoCatalogPort catalog;
-    private final PhotoStoragePort storage;
+    private final PhotoMediaPort media;
     private final DomainEventPublisherPort events;
 
     @Transactional
@@ -38,7 +38,7 @@ public class DeletePhotoService {
         }
 
         String storageId = PhotoKeys.storageIdOf(photo.s3Key());
-        PhotoKeys.allVariantKeys(profileId, storageId).forEach(storage::delete);
+        media.delete(profileId, storageId);
         catalog.deleteById(photo.photoId());
         events.publishCardChanged(profileId);
 

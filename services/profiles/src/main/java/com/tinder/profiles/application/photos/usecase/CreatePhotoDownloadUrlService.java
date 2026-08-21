@@ -1,7 +1,6 @@
 package com.tinder.profiles.application.photos.usecase;
 
-import com.tinder.profiles.application.photos.port.out.PhotoStoragePort;
-import com.tinder.profiles.application.photos.support.PhotoKeys;
+import com.tinder.profiles.application.photos.port.out.PhotoMediaPort;
 import com.tinder.profiles.application.photos.support.ProfilePhotoOwner;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -14,10 +13,10 @@ import java.util.UUID;
 public class CreatePhotoDownloadUrlService {
 
     private final ProfilePhotoOwner owner;
-    private final PhotoStoragePort storage;
+    private final PhotoMediaPort media;
 
     public String handle(String userId, String storageId, String variant) {
         UUID profileId = owner.profileIdOf(userId);
-        return storage.presignedDownloadUrl(PhotoKeys.variantKey(profileId, storageId, variant));
+        return media.presignedDownloadUrl(profileId, storageId, variant);
     }
 }

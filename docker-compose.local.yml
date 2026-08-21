@@ -27,6 +27,10 @@ services:
       # coordinates so profiles' 3s location-client timeout is never exceeded.
       GEOCODING_TIMEOUT_MS: "400"
 
+  photos:
+    ports:
+      - "127.0.0.1:8070:8070"
+
   profiles:
     volumes:
       - ./docker/certs/profiles-service.p12:/certs/profiles-service.p12:ro

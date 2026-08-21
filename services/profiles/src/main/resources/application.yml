@@ -11,6 +11,10 @@ location:
     # How far a profile must move before coordinates are re-resolved (GPS jitter guard)
     threshold-km: ${LOCATION_CHANGE_THRESHOLD_KM:1.0}
 
+photos:
+  service:
+    url: ${PHOTOS_SERVICE_URL:http://localhost:8070}
+
 server:
   port: 8010
   servlet:

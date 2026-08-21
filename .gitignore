@@ -29,3 +29,8 @@ target/
 /certs/*
 !/certs/*.sh
 /platform/generated/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.venv/
+services/photos/.venv/
