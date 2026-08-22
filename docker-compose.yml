@@ -317,8 +317,18 @@ services:
       PROFILES_GRPC_TRUSTSTORE_PASSWORD: ${MTLS_TRUSTSTORE_PASSWORD:?MTLS_TRUSTSTORE_PASSWORD is required}
       JAVA_TOOL_OPTIONS: "-XX:+UseContainerSupport -XX:+UseG1GC -XX:InitialRAMPercentage=40.0 -XX:MaxRAMPercentage=75.0 -Dfile.encoding=UTF-8 -Dsun.net.inetaddr.ttl=60 -Djava.io.tmpdir=/tmp"
     volumes:
-      - /etc/dokploy/certs/tinderclone/profiles-service.p12:/certs/profiles-service.p12:ro
-      - /etc/dokploy/certs/tinderclone/truststore.jks:/certs/truststore.jks:ro
+      - type: bind
+        source: /etc/dokploy/certs/tinderclone/profiles-service.p12
+        target: /certs/profiles-service.p12
+        read_only: true
+        bind:
+          create_host_path: false
+      - type: bind
+        source: /etc/dokploy/certs/tinderclone/truststore.jks
+        target: /certs/truststore.jks
+        read_only: true
+        bind:
+          create_host_path: false
     networks:
       - app
     mem_limit: 3g
@@ -354,8 +364,18 @@ services:
       SPRING_DATA_REDIS_CONNECT_TIMEOUT: ${DECK_REDIS_CONNECT_TIMEOUT:-2s}
       JAVA_TOOL_OPTIONS: "-XX:+UseContainerSupport -XX:+UseG1GC -XX:InitialRAMPercentage=40.0 -XX:MaxRAMPercentage=75.0 -Dfile.encoding=UTF-8 -Dsun.net.inetaddr.ttl=60 -Djava.io.tmpdir=/tmp"
     volumes:
-      - /etc/dokploy/certs/tinderclone/deck-service.p12:/certs/deck-service.p12:ro
-      - /etc/dokploy/certs/tinderclone/truststore.jks:/certs/truststore.jks:ro
+      - type: bind
+        source: /etc/dokploy/certs/tinderclone/deck-service.p12
+        target: /certs/deck-service.p12
+        read_only: true
+        bind:
+          create_host_path: false
+      - type: bind
+        source: /etc/dokploy/certs/tinderclone/truststore.jks
+        target: /certs/truststore.jks
+        read_only: true
+        bind:
+          create_host_path: false
     networks:
       - app
     mem_limit: 384m
@@ -393,8 +413,18 @@ services:
       <<: *deck-read-environment
       QUARKUS_PROFILE: prod,api
     volumes:
-      - /etc/dokploy/certs/tinderclone/deck-read-service.p12:/certs/deck-read-service.p12:ro
-      - /etc/dokploy/certs/tinderclone/truststore.jks:/certs/truststore.jks:ro
+      - type: bind
+        source: /etc/dokploy/certs/tinderclone/deck-read-service.p12
+        target: /certs/deck-read-service.p12
+        read_only: true
+        bind:
+          create_host_path: false
+      - type: bind
+        source: /etc/dokploy/certs/tinderclone/truststore.jks
+        target: /certs/truststore.jks
+        read_only: true
+        bind:
+          create_host_path: false
     networks:
       - app
     mem_limit: 512m
@@ -429,8 +459,18 @@ services:
       <<: *deck-read-environment
       QUARKUS_PROFILE: prod,worker
     volumes:
-      - /etc/dokploy/certs/tinderclone/deck-read-service.p12:/certs/deck-read-service.p12:ro
-      - /etc/dokploy/certs/tinderclone/truststore.jks:/certs/truststore.jks:ro
+      - type: bind
+        source: /etc/dokploy/certs/tinderclone/deck-read-service.p12
+        target: /certs/deck-read-service.p12
+        read_only: true
+        bind:
+          create_host_path: false
+      - type: bind
+        source: /etc/dokploy/certs/tinderclone/truststore.jks
+        target: /certs/truststore.jks
+        read_only: true
+        bind:
+          create_host_path: false
     networks:
       - app
     mem_limit: 768m
@@ -597,7 +637,10 @@ services:
     environment:
       SPRING_PROFILES_ACTIVE: prod
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/consumer_db
-      SPRING_DATASOURCE_USERNAME: ${CONSUMER_DB_USER:?CONSUMER_DB_USER is required}
+      # The persisted cluster is provisioned with this least-privilege role.
+      # Keep the non-secret username coupled to init-databases.sh so stale
+      # deployment variables cannot select a role that does not exist.
+      SPRING_DATASOURCE_USERNAME: consumer_app
       SPRING_DATASOURCE_PASSWORD: ${CONSUMER_DB_PASSWORD:?CONSUMER_DB_PASSWORD is required}
       SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE: 4
       SPRING_DATASOURCE_HIKARI_MINIMUM_IDLE: 2
@@ -610,8 +653,18 @@ services:
       CONSUMER_TRUSTSTORE_PASSWORD: ${MTLS_TRUSTSTORE_PASSWORD:?MTLS_TRUSTSTORE_PASSWORD is required}
       JAVA_TOOL_OPTIONS: "-XX:+UseContainerSupport -XX:+UseG1GC -XX:InitialRAMPercentage=40.0 -XX:MaxRAMPercentage=75.0 -Dfile.encoding=UTF-8 -Dsun.net.inetaddr.ttl=60 -Djava.io.tmpdir=/tmp"
     volumes:
-      - /etc/dokploy/certs/tinderclone/consumer-service.p12:/certs/consumer-service.p12:ro
-      - /etc/dokploy/certs/tinderclone/truststore.jks:/certs/truststore.jks:ro
+      - type: bind
+        source: /etc/dokploy/certs/tinderclone/consumer-service.p12
+        target: /certs/consumer-service.p12
+        read_only: true
+        bind:
+          create_host_path: false
+      - type: bind
+        source: /etc/dokploy/certs/tinderclone/truststore.jks
+        target: /certs/truststore.jks
+        read_only: true
+        bind:
+          create_host_path: false
     networks:
       - app
     mem_limit: 512m
@@ -639,7 +692,7 @@ services:
       STRIPE_WEBHOOK_SECRET: ${STRIPE_WEBHOOK_SECRET:?STRIPE_WEBHOOK_SECRET is required}
       STRIPE_PRICE_ID: ${STRIPE_PRICE_ID:?STRIPE_PRICE_ID is required}
       SUBSCRIPTIONS_DB_URL: jdbc:postgresql://postgres:5432/subscriptions_db
-      SUBSCRIPTIONS_DB_USER: ${SUBSCRIPTIONS_DB_USER:?SUBSCRIPTIONS_DB_USER is required}
+      SUBSCRIPTIONS_DB_USER: subscriptions_app
       SUBSCRIPTIONS_DB_PASSWORD: ${SUBSCRIPTIONS_DB_PASSWORD:?SUBSCRIPTIONS_DB_PASSWORD is required}
       SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE: 4
       SPRING_DATASOURCE_HIKARI_MINIMUM_IDLE: 2
@@ -655,8 +708,18 @@ services:
       SUBSCRIPTIONS_GRPC_TRUSTSTORE_PASSWORD: ${MTLS_TRUSTSTORE_PASSWORD:?MTLS_TRUSTSTORE_PASSWORD is required}
       JAVA_TOOL_OPTIONS: "-XX:+UseContainerSupport -XX:+UseG1GC -XX:InitialRAMPercentage=40.0 -XX:MaxRAMPercentage=75.0 -Dfile.encoding=UTF-8 -Dsun.net.inetaddr.ttl=60 -Djava.io.tmpdir=/tmp -Dio.grpc.netty.shaded.io.netty.handler.ssl.noOpenSsl=true"
     volumes:
-      - /etc/dokploy/certs/tinderclone/subscriptions-service.p12:/certs/subscriptions-service.p12:ro
-      - /etc/dokploy/certs/tinderclone/truststore.jks:/certs/truststore.jks:ro
+      - type: bind
+        source: /etc/dokploy/certs/tinderclone/subscriptions-service.p12
+        target: /certs/subscriptions-service.p12
+        read_only: true
+        bind:
+          create_host_path: false
+      - type: bind
+        source: /etc/dokploy/certs/tinderclone/truststore.jks
+        target: /certs/truststore.jks
+        read_only: true
+        bind:
+          create_host_path: false
     networks:
       - app
     mem_limit: 384m
@@ -691,7 +754,7 @@ services:
       APP_ENV: production
       PORT: "8040"
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/swipes_db
-      SPRING_DATASOURCE_USERNAME: ${SWIPES_DB_USER:?SWIPES_DB_USER is required}
+      SPRING_DATASOURCE_USERNAME: swipes_app
       SPRING_DATASOURCE_PASSWORD: ${SWIPES_DB_PASSWORD:?SWIPES_DB_PASSWORD is required}
       SPRING_DATA_REDIS_HOST: redis
       SPRING_DATA_REDIS_PORT: 6379
