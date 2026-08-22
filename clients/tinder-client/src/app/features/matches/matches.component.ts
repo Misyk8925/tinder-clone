@@ -152,7 +152,7 @@ export function markConversationRead(conversationId: string): void {
       flex-direction: column;
       height: 100dvh;
       background: transparent;
-      padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 64px);
+      padding-bottom: calc(env(safe-area-inset-bottom, 0px) + var(--mobile-bottombar-height));
       overflow: hidden;
     }
 
@@ -213,7 +213,7 @@ export function markConversationRead(conversationId: string): void {
       gap: 5px;
 
       .logo-text {
-        font-size: 20px;
+        font-size: 19px;
         font-weight: 800;
         color: var(--brand);
         letter-spacing: -0.5px;

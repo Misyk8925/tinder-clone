@@ -118,7 +118,7 @@ import { SwipeCardComponent } from '../../shared/components/swipe-card/swipe-car
       height: 100dvh;
       display: flex;
       flex-direction: column;
-      padding-bottom: calc(56px + env(safe-area-inset-bottom, 0px));
+      padding-bottom: calc(var(--mobile-bottombar-height) + env(safe-area-inset-bottom, 0px));
       background: var(--bg);
       overflow: hidden;
     }
@@ -128,7 +128,7 @@ import { SwipeCardComponent } from '../../shared/components/swipe-card/swipe-car
       display: flex;
       align-items: center;
       justify-content: space-between;
-      padding: 6px 16px;
+      padding: 4px 12px;
       flex: 0 0 auto;
       background: var(--header-surface);
     }
@@ -136,17 +136,17 @@ import { SwipeCardComponent } from '../../shared/components/swipe-card/swipe-car
     h1 {
       margin: 0;
       color: var(--text-primary);
-      font-size: 28px;
+      font-size: 26px;
       line-height: 1;
       letter-spacing: -0.055em;
       font-weight: 700;
     }
 
-    .header-actions { display: flex; align-items: center; gap: 10px; }
+    .header-actions { display: flex; align-items: center; gap: 8px; }
 
     .icon-button {
-      width: 40px;
-      height: 40px;
+      width: 36px;
+      height: 36px;
       display: grid;
       place-items: center;
       border: 0;
@@ -359,7 +359,7 @@ import { SwipeCardComponent } from '../../shared/components/swipe-card/swipe-car
       position: fixed;
       z-index: 2000;
       left: 50%;
-      bottom: 96px;
+      bottom: calc(env(safe-area-inset-bottom, 0px) + var(--mobile-bottombar-height) + 16px);
       transform: translateX(-50%);
       max-width: min(88vw, 420px);
       padding: 12px 18px;
@@ -378,12 +378,13 @@ import { SwipeCardComponent } from '../../shared/components/swipe-card/swipe-car
       .deck-area { padding-bottom: 18px; }
       .cards-stack { width: min(100%, 420px); max-height: 720px; }
       .action-buttons { min-height: 96px; }
+      .toast { bottom: 24px; }
     }
 
     @media (max-height: 740px) {
       .discover-header { min-height: var(--mobile-topbar-height); }
-      h1 { font-size: 28px; }
-      .icon-button { width: 40px; height: 40px; }
+      h1 { font-size: 26px; }
+      .icon-button { width: 36px; height: 36px; }
       .deck-area { padding-top: 4px; gap: 5px; }
       .action-buttons { min-height: 66px; }
       .action-button { width: 52px; height: 52px; }

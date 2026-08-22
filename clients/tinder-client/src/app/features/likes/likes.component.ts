@@ -132,7 +132,7 @@ interface LikerCard {
       flex-direction: column;
       height: 100dvh;
       background: transparent;
-      padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 64px);
+      padding-bottom: calc(env(safe-area-inset-bottom, 0px) + var(--mobile-bottombar-height));
       overflow-y: auto;
     }
 
@@ -187,7 +187,7 @@ interface LikerCard {
 
       h1 {
         margin: 0;
-        font-size: 20px;
+        font-size: 19px;
         font-weight: 700;
         color: var(--text-primary);
         letter-spacing: -0.3px;
@@ -457,7 +457,7 @@ interface LikerCard {
 
     .toast-msg {
       position: fixed;
-      bottom: 100px;
+      bottom: calc(env(safe-area-inset-bottom, 0px) + var(--mobile-bottombar-height) + 16px);
       left: 50%;
       transform: translateX(-50%);
       background: rgba(30, 30, 30, 0.92);
@@ -478,6 +478,10 @@ interface LikerCard {
     @keyframes fadeIn {
       from { opacity: 0; transform: translateX(-50%) translateY(6px); }
       to { opacity: 1; transform: translateX(-50%) translateY(0); }
+    }
+
+    @media (min-width: 768px) {
+      .toast-msg { bottom: 24px; }
     }
   `]
 })

@@ -164,12 +164,12 @@ interface StompMessageEvent {
       background: none;
       border: none;
       cursor: pointer;
-      width: 40px;
-      height: 40px;
-      padding: 8px;
+      width: 36px;
+      height: 36px;
+      padding: 7px;
       color: var(--brand);
 
-      svg { width: 24px; height: 24px; display: block; }
+      svg { width: 22px; height: 22px; display: block; }
     }
 
     .header-info {
@@ -178,7 +178,7 @@ interface StompMessageEvent {
       gap: 8px;
 
       .avatar {
-        width: 36px; height: 36px;
+        width: 32px; height: 32px;
         border-radius: 50%;
         background: var(--brand-gradient);
         color: #fff;
@@ -189,7 +189,7 @@ interface StompMessageEvent {
         font-size: 14px;
       }
 
-      h2 { margin: 0; font-size: 16px; color: var(--text-primary); }
+      h2 { margin: 0; font-size: 15px; color: var(--text-primary); }
     }
 
     .online {

@@ -63,8 +63,21 @@ describe('ProfileComponent photo loading placeholders', () => {
   it('Given a profile photo has not loaded, when Profile renders, then a placeholder is shown', () => {
     fixture.detectChanges();
 
+    const overview = fixture.nativeElement.querySelector('.profile-overview');
+    expect(overview.querySelector('.profile-visual .photo-hero')).toBeTruthy();
+    expect(overview.querySelector('.info-section')).toBeTruthy();
     expect(fixture.nativeElement.querySelector('.photo-hero .photo-skeleton')).toBeTruthy();
     expect(fixture.nativeElement.querySelector('.photo-hero img')).toBeTruthy();
+  });
+
+  it('Given Premium is active, when Profile renders, then the product plan state is shown', () => {
+    fixture.detectChanges();
+    component.isPremium.set(true);
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.querySelector('.premium-banner-title').textContent).toContain('Connect Premium');
+    expect(fixture.nativeElement.querySelector('.premium-banner-sub').textContent).toContain('€10/month · Active membership');
+    expect(fixture.nativeElement.querySelector('.premium-banner-btn').textContent).toContain('Manage plan');
   });
 
   it('Given a profile photo placeholder, when the image loads, then the photo is shown without the skeleton', () => {
