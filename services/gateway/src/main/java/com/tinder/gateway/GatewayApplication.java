@@ -23,7 +23,7 @@ public class GatewayApplication {
 							.getRemoteAddress())
 					.getHostName();
 
-			return RoleBasedRateLimitFilter.resolveRole(securityService)
+			return RoleBasedRateLimitFilter.resolveRole(securityService, true)
 					.map(roleKey -> hostName + "-" + roleKey);
 		};
 	}

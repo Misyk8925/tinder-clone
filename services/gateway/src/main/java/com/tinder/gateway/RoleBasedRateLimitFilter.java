@@ -10,6 +10,8 @@ import io.lettuce.core.RedisClient;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.cloud.gateway.filter.GatewayFilter;
 import org.springframework.cloud.gateway.filter.factory.AbstractGatewayFilterFactory;
+import org.springframework.cloud.gateway.route.Route;
+import org.springframework.cloud.gateway.support.ServerWebExchangeUtils;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken;
@@ -43,29 +45,31 @@ public class RoleBasedRateLimitFilter extends AbstractGatewayFilterFactory<RoleB
 
     @Override
     public GatewayFilter apply(Config config) {
-        return (exchange, chain) -> {
-            return resolveRateLimitKey(exchange)
-                    .flatMap(userId -> resolveRole(securityService)
-                            .flatMap(role -> {
-                        // Create unique key with role
-                        String key = userId + "-" + role;
+        return (exchange, chain) -> resolveRateLimitKey(exchange)
+                .flatMap(userId -> resolveRole(securityService, userId.startsWith("user:"))
+                        .flatMap(role -> {
+                            // Route-scoped keys so Discover deck/profile GETs cannot empty the swipe bucket.
+                            String key = routeId(exchange) + ":" + userId + "-" + role;
+                            RoleLimit roleLimit = config.getLimitForRole(role);
 
-                        // Get appropriate limits based on role
-                        RoleLimit roleLimit = config.getLimitForRole(role);
+                            Bucket bucket = proxyManager.builder()
+                                    .build(key.getBytes(), () -> getBucketConfiguration(roleLimit));
 
-                        Bucket bucket = proxyManager.builder()
-                                .build(key.getBytes(), () -> getBucketConfiguration(roleLimit));
-
-                        if (bucket.tryConsume(1)) {
-                            return chain.filter(exchange);
-                        } else {
+                            if (bucket.tryConsume(1)) {
+                                return chain.filter(exchange);
+                            }
                             exchange.getResponse().setStatusCode(HttpStatus.TOO_MANY_REQUESTS);
                             exchange.getResponse().getHeaders().add("X-RateLimit-Retry-After-Seconds",
-                                String.valueOf(roleLimit.getPeriodInSeconds()));
+                                    String.valueOf(roleLimit.getPeriodInSeconds()));
                             return exchange.getResponse().setComplete();
-                        }
-                    }));
-        };
+                        }));
+    }
+
+    private static String routeId(ServerWebExchange exchange) {
+        Route route = exchange.getAttribute(ServerWebExchangeUtils.GATEWAY_ROUTE_ATTR);
+        return route != null && route.getId() != null && !route.getId().isBlank()
+                ? route.getId()
+                : "unknown";
     }
 
     private Mono<String> resolveRateLimitKey(ServerWebExchange exchange) {
@@ -109,21 +113,28 @@ public class RoleBasedRateLimitFilter extends AbstractGatewayFilterFactory<RoleB
         return "unknown";
     }
 
-    public static Mono<String> resolveRole(SecurityService securityService) {
+    /**
+     * Authenticated callers without premium/admin use basic limits. {@code anon} is only for
+     * unauthenticated/IP-keyed traffic. Keycloak tokens often omit {@code USER_BASIC}.
+     */
+    public static Mono<String> resolveRole(SecurityService securityService, boolean authenticated) {
+        if (!authenticated) {
+            return Mono.just("anon");
+        }
         return securityService.isAdmin()
                 .flatMap(isAdmin -> {
                     if (isAdmin) {
                         return Mono.just("admin");
                     }
                     return securityService.isPremiumUser()
-                            .flatMap(isPremium -> {
-                                if (isPremium) {
-                                    return Mono.just("premium");
-                                }
-                                return securityService.isBasicUser()
-                                        .map(isBasic -> isBasic ? "basic" : "anon");
-                            });
+                            .map(isPremium -> isPremium ? "premium" : "basic");
                 });
+    }
+
+    /** @deprecated use {@link #resolveRole(SecurityService, boolean)} */
+    @Deprecated
+    public static Mono<String> resolveRole(SecurityService securityService) {
+        return resolveRole(securityService, true);
     }
 
     private BucketConfiguration getBucketConfiguration(RoleLimit roleLimit) {
@@ -136,19 +147,12 @@ public class RoleBasedRateLimitFilter extends AbstractGatewayFilterFactory<RoleB
     }
 
     public static class Config {
-        // Admin limits
         private int adminCapacity = 1000;
         private int adminPeriodInSeconds = 3600;
-
-        // Premium limits
         private int premiumCapacity = 500;
         private int premiumPeriodInSeconds = 3600;
-
-        // Basic limits
         private int basicCapacity = 100;
         private int basicPeriodInSeconds = 3600;
-
-        // Anonymous limits
         private int anonCapacity = 50;
         private int anonPeriodInSeconds = 3600;
 
@@ -161,28 +165,20 @@ public class RoleBasedRateLimitFilter extends AbstractGatewayFilterFactory<RoleB
             };
         }
 
-        // Getters and setters for configuration via YAML
         public int getAdminCapacity() { return adminCapacity; }
         public void setAdminCapacity(int adminCapacity) { this.adminCapacity = adminCapacity; }
-
         public int getAdminPeriodInSeconds() { return adminPeriodInSeconds; }
         public void setAdminPeriodInSeconds(int adminPeriodInSeconds) { this.adminPeriodInSeconds = adminPeriodInSeconds; }
-
         public int getPremiumCapacity() { return premiumCapacity; }
         public void setPremiumCapacity(int premiumCapacity) { this.premiumCapacity = premiumCapacity; }
-
         public int getPremiumPeriodInSeconds() { return premiumPeriodInSeconds; }
         public void setPremiumPeriodInSeconds(int premiumPeriodInSeconds) { this.premiumPeriodInSeconds = premiumPeriodInSeconds; }
-
         public int getBasicCapacity() { return basicCapacity; }
         public void setBasicCapacity(int basicCapacity) { this.basicCapacity = basicCapacity; }
-
         public int getBasicPeriodInSeconds() { return basicPeriodInSeconds; }
         public void setBasicPeriodInSeconds(int basicPeriodInSeconds) { this.basicPeriodInSeconds = basicPeriodInSeconds; }
-
         public int getAnonCapacity() { return anonCapacity; }
         public void setAnonCapacity(int anonCapacity) { this.anonCapacity = anonCapacity; }
-
         public int getAnonPeriodInSeconds() { return anonPeriodInSeconds; }
         public void setAnonPeriodInSeconds(int anonPeriodInSeconds) { this.anonPeriodInSeconds = anonPeriodInSeconds; }
     }
