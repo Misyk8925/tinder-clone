@@ -1,6 +1,8 @@
+// @vitest-environment jsdom
 import { TestBed } from '@angular/core/testing';
+import { BrowserTestingModule, platformBrowserTesting } from '@angular/platform-browser/testing';
 import { of } from 'rxjs';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { DeckCard, DeckPage } from '../../core/models/deck.model';
 import { ProfileService } from '../../core/services/profile.service';
 import { SwipeService } from '../../core/services/swipe.service';
@@ -14,9 +16,18 @@ describe('Feature: Discover consumes a changing Deck generation (FR-9)', () => {
     getMyDeck: vi.fn(),
   };
 
+  beforeAll(() => {
+    try {
+      TestBed.initTestEnvironment(BrowserTestingModule, platformBrowserTesting());
+    } catch {
+      // ng test already initialized the environment
+    }
+  });
+
   beforeEach(() => {
     profileService.getMe.mockReset();
     profileService.getMyDeck.mockReset();
+    TestBed.resetTestingModule();
     TestBed.configureTestingModule({
       providers: [
         { provide: ProfileService, useValue: profileService },
@@ -75,6 +86,80 @@ describe('Feature: Discover consumes a changing Deck generation (FR-9)', () => {
     expect(profileService.getMyDeck).toHaveBeenCalledTimes(1);
     vi.advanceTimersByTime(1);
     expect(profileService.getMyDeck).toHaveBeenCalledTimes(2);
+    expect(profileService.getMyDeck).toHaveBeenCalledWith(undefined, 20, false);
+  });
+
+  it('Scenario: Given an exhausted deck, when Refresh is clicked, then the client requests a rebuild', () => {
+    profileService.getMyDeck.mockReturnValue(of({ state: 'BUILDING', retryAfterSeconds: 2 }));
+
+    component.refresh();
+
+    expect(profileService.getMyDeck).toHaveBeenCalledWith(undefined, 20, true);
+  });
+
+  it('Scenario: Given a swipe starts, when the outgoing card commits, then the next card is current and the outgoing card only leaves on its own layer', () => {
+    const first = card('00000000-0000-0000-0000-000000000001', 'Ada');
+    const second = card('00000000-0000-0000-0000-000000000002', 'Erin');
+    const third = card('00000000-0000-0000-0000-000000000003', 'Mia');
+    component.profiles.set([first, second, third]);
+    component.currentIndex.set(0);
+
+    component.onSwipeCommitted(first);
+
+    expect(component.leavingId()).toBe(first.profileId);
+    expect(component.currentIndex()).toBe(1);
+    expect(component.visibleProfiles().map(item => item.profileId))
+      .toEqual([first.profileId, second.profileId, third.profileId]);
+    expect(component.wrapperClass(first, 0)).toBe('leaving');
+    expect(component.wrapperClass(second, 1)).toBe('z3');
+    expect(component.isFrontCard(first, 0)).toBe(true);
+    expect(component.isFrontCard(second, 1)).toBe(true);
+    expect(component.isFrontCard(third, 2)).toBe(false);
+    expect(component.frontCards().map(item => item.profileId)).toEqual([first.profileId, second.profileId]);
+  });
+
+  it('Scenario: Given a stacked deck, when the current card is shown, then the next card is only a blank plate', () => {
+    const first = card('00000000-0000-0000-0000-000000000001', 'Ada');
+    const second = card('00000000-0000-0000-0000-000000000002', 'Erin');
+    const third = card('00000000-0000-0000-0000-000000000003', 'Mia');
+    component.profiles.set([first, second, third]);
+    component.currentIndex.set(0);
+
+    expect(component.wrapperClass(first, 0)).toBe('z3');
+    expect(component.isFrontCard(first, 0)).toBe(true);
+    expect(component.wrapperClass(second, 1)).toBe('z2');
+    expect(component.isFrontCard(second, 1)).toBe(false);
+    expect(component.isFrontCard(third, 2)).toBe(false);
+    expect(component.frontCards().map(item => item.profileId)).toEqual([first.profileId]);
+  });
+
+  it('Scenario: Given a leaving card, when the swipe is accepted, then the outgoing card is gone and the next card stays current', () => {
+    const first = card('00000000-0000-0000-0000-000000000001', 'Ada');
+    const second = card('00000000-0000-0000-0000-000000000002', 'Erin');
+    component.profiles.set([first, second]);
+    component.currentIndex.set(0);
+
+    component.onSwipeCommitted(first);
+    (component as any).finishDeparture(first);
+
+    expect(component.leavingId()).toBeNull();
+    expect(component.currentIndex()).toBe(1);
+    expect(component.visibleProfiles().map(item => item.profileId)).toEqual([second.profileId]);
+  });
+
+  it('Scenario: Given a leaving card, when the swipe is rejected, then the outgoing card is restored as current', () => {
+    const first = card('00000000-0000-0000-0000-000000000001', 'Ada');
+    const second = card('00000000-0000-0000-0000-000000000002', 'Erin');
+    component.profiles.set([first, second]);
+    component.currentIndex.set(0);
+
+    component.onSwipeCommitted(first);
+    (component as any).restoreRejectedSwipe(first);
+
+    expect(component.leavingId()).toBeNull();
+    expect(component.currentIndex()).toBe(0);
+    expect(component.visibleProfiles()[0].profileId).toBe(first.profileId);
+    expect(component.wrapperClass(first, 0)).toBe('z3');
   });
 });
 
