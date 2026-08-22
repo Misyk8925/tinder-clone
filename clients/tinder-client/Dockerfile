@@ -5,7 +5,8 @@ COPY package*.json ./
 RUN npm ci --no-audit --no-fund
 
 COPY . .
-RUN npm run build -- --configuration production
+ARG NG_CONFIGURATION=production
+RUN npm run build -- --configuration ${NG_CONFIGURATION}
 
 FROM nginx:1.27-alpine-slim
 COPY --from=build /app/dist/tinder-client/browser /usr/share/nginx/html

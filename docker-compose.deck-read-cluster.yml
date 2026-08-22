@@ -4,6 +4,9 @@ services:
     command: >-
       redis-server --port 6379 --cluster-enabled yes
       --cluster-config-file nodes.conf --cluster-node-timeout 5000
+      --cluster-announce-hostname deck-read-redis-1
+      --cluster-announce-port 6379 --cluster-announce-bus-port 16379
+      --cluster-preferred-endpoint-type hostname
       --appendonly yes --appendfsync everysec --maxmemory-policy noeviction
     networks: [deck-read-cluster-test]
     healthcheck:
@@ -17,6 +20,9 @@ services:
     command: >-
       redis-server --port 6379 --cluster-enabled yes
       --cluster-config-file nodes.conf --cluster-node-timeout 5000
+      --cluster-announce-hostname deck-read-redis-2
+      --cluster-announce-port 6379 --cluster-announce-bus-port 16379
+      --cluster-preferred-endpoint-type hostname
       --appendonly yes --appendfsync everysec --maxmemory-policy noeviction
     networks: [deck-read-cluster-test]
     healthcheck:
@@ -30,6 +36,9 @@ services:
     command: >-
       redis-server --port 6379 --cluster-enabled yes
       --cluster-config-file nodes.conf --cluster-node-timeout 5000
+      --cluster-announce-hostname deck-read-redis-3
+      --cluster-announce-port 6379 --cluster-announce-bus-port 16379
+      --cluster-preferred-endpoint-type hostname
       --appendonly yes --appendfsync everysec --maxmemory-policy noeviction
     networks: [deck-read-cluster-test]
     healthcheck:
