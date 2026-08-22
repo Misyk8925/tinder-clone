@@ -135,7 +135,7 @@ services:
     ports:
       - "127.0.0.1:9080:9080"
     volumes:
-      - ./docker/keycloak/themes:/opt/keycloak/themes
+      - ./docker/keycloak/themes:/opt/keycloak/themes:ro
     environment:
       KC_BOOTSTRAP_ADMIN_USERNAME: ${KEYCLOAK_ADMIN:?KEYCLOAK_ADMIN is required}
       KC_BOOTSTRAP_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:?KEYCLOAK_ADMIN_PASSWORD is required}
