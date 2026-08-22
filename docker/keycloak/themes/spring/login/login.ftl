@@ -6,8 +6,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="color-scheme" content="light dark">
   <title>Connect — Sign in</title>
-  <link rel="stylesheet" href="${url.resourcesPath}/css/login.css">
-  <script src="${url.resourcesPath}/js/login.js" defer></script>
+  <link rel="stylesheet" href="${url.resourcesPath}/css/login.css?v=${connect.cssFingerprint}">
+  <script src="${url.resourcesPath}/js/login.js?v=${connect.jsFingerprint}" defer></script>
 </head>
 <body>
   <main class="auth-page">

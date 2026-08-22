@@ -254,5 +254,32 @@ JS_FILE="${TEMP_DIR}/login.js"
 curl --fail --silent --show-error "${JS_URL}" -o "${JS_FILE}"
 grep -Fq 'data-password-toggle' "${JS_FILE}"
 
+verify_asset_fingerprint() {
+  local asset_file="$1"
+  local asset_url="$2"
+  local asset_kind="$3"
+  python3 - "${asset_file}" "${asset_url}" "${asset_kind}" <<'PY'
+from hashlib import sha256
+from pathlib import Path
+from urllib.parse import parse_qs, urlsplit
+import re
+import sys
+
+asset_path, asset_url, asset_kind = sys.argv[1:]
+versions = parse_qs(urlsplit(asset_url).query).get("v", [])
+if len(versions) != 1 or not re.fullmatch(r"[0-9a-f]{12}", versions[0]):
+    raise SystemExit(f"Rendered {asset_kind} URL must contain one 12-character hex v fingerprint")
+
+expected = sha256(Path(asset_path).read_bytes()).hexdigest()[:12]
+if versions[0] != expected:
+    raise SystemExit(
+        f"Rendered {asset_kind} fingerprint is stale: URL has {versions[0]}, content requires {expected}"
+    )
+PY
+}
+
+verify_asset_fingerprint "${CSS_FILE}" "${CSS_URL}" css
+verify_asset_fingerprint "${JS_FILE}" "${JS_URL}" javascript
+
 echo "PASS: Live container exposes the repository theme through a read-only mount"
-echo "PASS: Keycloak renders Connect login and registration pages with their CSS and JavaScript"
+echo "PASS: Keycloak renders Connect login and registration pages with fingerprinted CSS and JavaScript"
