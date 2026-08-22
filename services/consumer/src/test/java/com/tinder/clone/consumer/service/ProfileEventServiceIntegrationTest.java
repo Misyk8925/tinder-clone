@@ -42,7 +42,7 @@ class ProfileEventServiceIntegrationTest extends AbstractIntegrationTest {
     @Test
     void saveProfileCache_persistsProfileCacheModel_withCorrectTimestamp() {
         UUID profileId = UUID.randomUUID();
-        Instant timestamp = Instant.now();
+        Instant timestamp = Instant.now().truncatedTo(ChronoUnit.MICROS);
 
         profileEventService.saveProfileCache(ProfileCreateEvent.builder()
                 .eventId(UUID.randomUUID())
@@ -53,7 +53,7 @@ class ProfileEventServiceIntegrationTest extends AbstractIntegrationTest {
         Optional<ProfileCacheModel> saved = profileCacheRepository.findById(profileId);
         assertThat(saved).isPresent();
         assertThat(saved.get().getProfileId()).isEqualTo(profileId);
-        assertThat(saved.get().getCreatedAt()).isEqualTo(timestamp.truncatedTo(ChronoUnit.MICROS));
+        assertThat(saved.get().getCreatedAt()).isEqualTo(timestamp);
     }
 
     @Test
@@ -122,4 +122,3 @@ class ProfileEventServiceIntegrationTest extends AbstractIntegrationTest {
         assertThat(profileCacheRepository.count()).isEqualTo(1);
     }
 }
-
