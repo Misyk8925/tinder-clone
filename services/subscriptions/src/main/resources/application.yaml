@@ -1,9 +1,9 @@
 stripe:
   secret-key: ${STRIPE_SECRET_KEY:placeholder}
   webhook-secret: ${STRIPE_WEBHOOK_SECRET:placeholder}
-  success-url: ${STRIPE_SUCCESS_URL:http://localhost:8095/success}
-  cancel-url: ${STRIPE_CANCEL_URL:http://localhost:8095/cancel}
-  return-url: ${STRIPE_RETURN_URL:http://localhost:8095/return}
+  success-url: ${STRIPE_SUCCESS_URL:http://localhost:4200/profile}
+  cancel-url: ${STRIPE_CANCEL_URL:http://localhost:4200/profile}
+  return-url: ${STRIPE_RETURN_URL:http://localhost:4200/profile}
   price-id: ${STRIPE_PRICE_ID:placeholder}
 
 grpc:
