@@ -142,7 +142,7 @@ import { ThemeService } from '../../../core/services/theme.service';
       }
 
       &:focus-visible {
-        outline: 2px solid var(--brand);
+        outline: 1px solid var(--text-secondary);
         outline-offset: 2px;
       }
     }
@@ -263,22 +263,10 @@ import { ThemeService } from '../../../core/services/theme.service';
         }
 
         &.active {
-          color: var(--text-primary);
+          color: var(--brand);
           background: transparent;
           box-shadow: none;
           font-weight: 700;
-
-          &::before {
-            content: '';
-            position: absolute;
-            left: 0;
-            top: 50%;
-            width: 3px;
-            height: 20px;
-            border-radius: 999px;
-            background: var(--brand);
-            transform: translateY(-50%);
-          }
 
           .nav-item-icon {
             color: var(--brand);
@@ -294,16 +282,17 @@ import { ThemeService } from '../../../core/services/theme.service';
       .nav-actions {
         display: flex;
         flex-direction: column;
-        gap: 5px;
+        gap: 2px;
         margin-top: auto;
-        padding: 8px;
-        border: 1px solid var(--border-light);
-        border-radius: 18px;
-        background: var(--surface-2);
+        padding: 12px 0 0;
+        border: 0;
+        border-top: 1px solid var(--border-light);
+        border-radius: 0;
+        background: transparent;
       }
 
       .account-label {
-        margin: 2px 4px 4px;
+        margin: 0 12px 5px;
       }
 
       .utility-action {
@@ -311,7 +300,7 @@ import { ThemeService } from '../../../core/services/theme.service';
         display: flex;
         align-items: center;
         gap: 10px;
-        padding: 0 10px;
+        padding: 0 12px;
         border: 0;
         border-radius: 12px;
         background: transparent;
@@ -334,13 +323,14 @@ import { ThemeService } from '../../../core/services/theme.service';
       }
 
       .edit-action {
-        color: var(--text-primary);
-        background: var(--brand);
-        box-shadow: 0 8px 18px rgba(109, 144, 55, 0.18);
+        color: var(--brand);
+        background: transparent;
+        box-shadow: none;
 
         &:hover {
-          background: var(--brand-2);
-          transform: translateY(-1px);
+          color: var(--brand);
+          background: var(--brand-soft);
+          transform: none;
         }
       }
     }

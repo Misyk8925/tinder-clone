@@ -1,4 +1,15 @@
-import { Component, ElementRef, inject, OnInit, signal, ViewChild } from '@angular/core';
+import {
+  AfterViewChecked,
+  Component,
+  ElementRef,
+  inject,
+  OnDestroy,
+  OnInit,
+  QueryList,
+  signal,
+  ViewChild,
+  ViewChildren
+} from '@angular/core';
 import { Router } from '@angular/router';
 import { HttpErrorResponse } from '@angular/common/http';
 import { LucideAngularModule } from 'lucide-angular';
@@ -6,7 +17,16 @@ import { ProfileService } from '../../core/services/profile.service';
 import { KeycloakService } from '../../core/services/keycloak.service';
 import { SubscriptionService } from '../../core/services/subscription.service';
 import { ThemeService } from '../../core/services/theme.service';
-import { Photo, Profile } from '../../core/models/profile.model';
+import { Photo, Profile, profilePhotoId } from '../../core/models/profile.model';
+import { environment } from '../../../environments/environment';
+import { mergeProfilePhotos } from '../../core/utils/profile-photo-merge';
+import {
+  PHOTO_UPLOAD_MAX_BYTES,
+  PHOTO_UPLOAD_MAX_EDGE_PX,
+  isHeicPhoto,
+  photoUploadFailureMessage,
+  preparePhotoForUpload
+} from '../../core/utils/photo-upload';
 
 @Component({
   selector: 'app-profile',
@@ -35,8 +55,21 @@ import { Photo, Profile } from '../../core/models/profile.model';
 
           <!-- Photo Hero + Manager -->
           <div class="photo-hero">
-            @if (profile()!.photos.length) {
-              <img [src]="profile()!.photos[0].url" alt="Profile photo" />
+            @if (profile()!.photos[0]; as hero) {
+              <div class="photo-frame" [class.ready]="isPhotoReady(photoKey(hero))">
+                @if (!isPhotoReady(photoKey(hero))) {
+                  <div class="photo-skeleton" role="status" aria-label="Loading photo"></div>
+                }
+                <img
+                  #photoImg
+                  [attr.data-photo-id]="photoKey(hero)"
+                  [src]="hero.url"
+                  [class.ready]="isPhotoReady(photoKey(hero))"
+                  alt="Profile photo"
+                  (load)="markPhotoReady(photoKey(hero))"
+                  (error)="markPhotoReady(photoKey(hero))"
+                />
+              </div>
             } @else {
               <div class="photo-placeholder">
                 <span>{{ profile()!.name.charAt(0) || '?' }}</span>
@@ -73,7 +106,18 @@ import { Photo, Profile } from '../../core/models/profile.model';
                        [class.uploading]="uploadingSlot() === $index">
                     <div class="manager-thumb">
                       @if (slot) {
-                        <img [src]="slot.url" [alt]="'Photo ' + ($index + 1)" />
+                        @if (!isPhotoReady(photoKey(slot))) {
+                          <div class="photo-skeleton" role="status" aria-label="Loading photo"></div>
+                        }
+                        <img
+                          #photoImg
+                          [attr.data-photo-id]="photoKey(slot)"
+                          [src]="slot.url"
+                          [class.ready]="isPhotoReady(photoKey(slot))"
+                          [alt]="'Photo ' + ($index + 1)"
+                          (load)="markPhotoReady(photoKey(slot))"
+                          (error)="markPhotoReady(photoKey(slot))"
+                        />
                       } @else {
                         <div class="thumb-empty">{{ $index + 1 }}</div>
                       }
@@ -88,7 +132,7 @@ import { Photo, Profile } from '../../core/models/profile.model';
                           <lucide-icon name="refresh-cw" [size]="14" strokeWidth="2.2" />
                           Replace
                         </button>
-                        <button type="button" class="btn-danger" [attr.aria-label]="'Remove photo ' + ($index + 1)" (click)="deletePhoto(slot.photoID)">
+                        <button type="button" class="btn-danger" [attr.aria-label]="'Remove photo ' + ($index + 1)" (click)="deletePhoto(photoKey(slot))">
                           <lucide-icon name="trash-2" [size]="14" strokeWidth="2.2" />
                           Remove
                         </button>
@@ -105,7 +149,7 @@ import { Photo, Profile } from '../../core/models/profile.model';
                       }
                     </div>
 
-                    @if (uploadingSlot() === $index) {
+                    @if (uploadingSlot() === $index && !(slot && isPhotoReady(photoKey(slot)))) {
                       <div class="upload-overlay">
                         <div class="upload-spinner"></div>
                       </div>
@@ -122,7 +166,7 @@ import { Photo, Profile } from '../../core/models/profile.model';
             <div class="name-row">
               <h2>{{ profile()!.name }}, {{ profile()!.age }}</h2>
               @if (profile()!.isActive) {
-                <span class="badge active"><lucide-icon name="activity" [size]="12" strokeWidth="2" /> Active now</span>
+                <span class="badge active"><lucide-icon name="circle" [size]="7" fill="currentColor" strokeWidth="0" /> Active</span>
               }
             </div>
             @if (profile()!.city && profile()!.city !== 'Unknown') {
@@ -200,9 +244,14 @@ import { Photo, Profile } from '../../core/models/profile.model';
               </button>
               <div class="account-divider"></div>
               @if (!isPremium()) {
-                <button type="button" class="account-row" (click)="subscribe()" [disabled]="subLoading()">
+                <button
+                  type="button"
+                  class="account-row"
+                  (click)="subscribe()"
+                  [disabled]="subLoading()"
+                  [attr.aria-label]="subLoading() ? 'Loading premium checkout' : 'Upgrade to premium, €10 per month'">
                   <span class="account-row-icon premium-icon">
-                    <lucide-icon name="crown" [size]="16" strokeWidth="2.2" />
+                    <lucide-icon name="crown" [size]="16" [strokeWidth]="2.2" />
                   </span>
                   <span class="account-row-label">{{ subLoading() ? 'Loading…' : 'Upgrade to premium' }}</span>
                   <span class="account-row-badge">€10/month</span>
@@ -388,10 +437,10 @@ import { Photo, Profile } from '../../core/models/profile.model';
     /* ── Info Section ── */
     .info-section {
       background: var(--card-surface);
-      border-radius: 20px;
-      padding: 20px 18px 18px;
-      box-shadow: 0 10px 32px var(--shadow-sm);
-      border: 1px solid var(--card-border);
+      border-radius: 16px;
+      padding: 18px 16px;
+      box-shadow: none;
+      border: 1px solid var(--border-light);
     }
 
     .name-row {
@@ -412,17 +461,16 @@ import { Photo, Profile } from '../../core/models/profile.model';
     .badge {
       display: inline-flex;
       align-items: center;
-      gap: 4px;
-      padding: 3px 10px;
-      border-radius: 12px;
+      gap: 6px;
+      padding: 0;
       font-size: 12px;
       font-weight: 600;
       flex-shrink: 0;
 
       &.active {
-        background: rgba(0, 168, 79, 0.12);
         color: #00a84f;
-        border: 1px solid rgba(0, 168, 79, 0.2);
+        background: transparent;
+        border: 0;
       }
     }
 
@@ -439,17 +487,17 @@ import { Photo, Profile } from '../../core/models/profile.model';
     }
 
     .section {
-      margin: 0;
-      padding: 16px 0;
-      border-top: 1px solid var(--border-light);
+      margin: 18px 0 0;
+      padding: 0;
+      border-top: 0;
 
       &.no-margin { padding-bottom: 0; }
 
       h4 {
-        margin: 0 0 12px;
-        font-size: 11px;
-        letter-spacing: 0.06em;
-        text-transform: uppercase;
+        margin: 0 0 10px;
+        font-size: 12px;
+        letter-spacing: 0;
+        text-transform: none;
         font-weight: 600;
         color: var(--text-muted);
       }
@@ -465,30 +513,26 @@ import { Photo, Profile } from '../../core/models/profile.model';
     .pref-grid {
       display: grid;
       grid-template-columns: repeat(3, 1fr);
-      gap: 0;
+      gap: 22px;
       padding: 2px 0;
     }
 
     .pref-item {
       min-width: 0;
-      padding: 2px 12px;
-      border-left: 1px solid var(--border-light);
+      padding: 0;
+      border-left: 0;
 
-      &:first-child {
-        padding-left: 0;
-        border-left: 0;
-      }
-
+      &:first-child { padding-left: 0; }
       &:last-child { padding-right: 0; }
 
       .pref-label {
         display: block;
-        font-size: 9px;
+        font-size: 11px;
         color: var(--text-muted);
         margin-bottom: 4px;
-        text-transform: uppercase;
-        font-weight: 600;
-        letter-spacing: 0.05em;
+        text-transform: none;
+        font-weight: 500;
+        letter-spacing: 0;
         white-space: nowrap;
       }
 
@@ -508,9 +552,9 @@ import { Photo, Profile } from '../../core/models/profile.model';
     }
 
     .hobby-tag {
-      background: transparent;
+      background: var(--surface-2);
       color: var(--text-secondary);
-      border: 1px solid var(--border);
+      border: 1px solid transparent;
       padding: 5px 12px;
       border-radius: 20px;
       font-size: 12px;
@@ -746,8 +790,9 @@ import { Photo, Profile } from '../../core/models/profile.model';
     }
   `]
 })
-export class ProfileComponent implements OnInit {
+export class ProfileComponent implements OnInit, AfterViewChecked, OnDestroy {
   @ViewChild('fileInput') private fileInputRef!: ElementRef<HTMLInputElement>;
+  @ViewChildren('photoImg') photoImgs!: QueryList<ElementRef<HTMLImageElement>>;
 
   private profileService = inject(ProfileService);
   private keycloak = inject(KeycloakService);
@@ -762,8 +807,9 @@ export class ProfileComponent implements OnInit {
   uploadingSlot = signal<number | null>(null);
   toast = signal<string | null>(null);
   managePhotos = signal(false);
+  private loadedPhotoIds = signal(new Set<string>());
   private toastTimer: ReturnType<typeof setTimeout> | null = null;
-
+  private blobUrls = new Set<string>();
   private uploadPosition = 0;
 
   toggleManagePhotos(): void {
@@ -784,11 +830,25 @@ export class ProfileComponent implements OnInit {
   }
 
   ngOnInit(): void {
-    this.isPremium.set(this.keycloak.hasRole('premium'));
+    this.isPremium.set(this.keycloak.hasPremium());
     this.profileService.getMe().subscribe({
-      next: (p) => { this.profile.set(p); this.loading.set(false); },
+      next: (p) => this.applyServerProfile(p),
       error: () => { this.profile.set(null); this.loading.set(false); }
     });
+    this.syncPremiumFromStripe();
+  }
+
+  private syncPremiumFromStripe(): void {
+    if (environment.designPreview) return;
+    this.subscriptionService.syncEntitlement().subscribe({
+      next: () => void this.applyPremiumRole(),
+      error: () => void this.applyPremiumRole()
+    });
+  }
+
+  private async applyPremiumRole(): Promise<void> {
+    await this.keycloak.refreshRoles();
+    this.isPremium.set(this.keycloak.hasPremium());
   }
 
   subscribe(): void {
@@ -853,27 +913,45 @@ export class ProfileComponent implements OnInit {
     let file = (e.target as HTMLInputElement).files?.[0];
     if (!file) return;
 
-    this.uploadingSlot.set(this.uploadPosition);
+    const position = this.uploadPosition;
+    this.uploadingSlot.set(position);
 
-    if (file.type === 'image/heic' || file.type === 'image/heif' || /\.(heic|heif)$/i.test(file.name)) {
-      const heic2any = (await import('heic2any')).default;
-      const converted = await heic2any({ blob: file, toType: 'image/jpeg', quality: 0.9 });
-      const blob = Array.isArray(converted) ? converted[0] : converted;
-      file = new File([blob], file.name.replace(/\.(heic|heif)$/i, '.jpg'), { type: 'image/jpeg' });
+    let previewUrl = '';
+    if (!isHeicPhoto(file)) {
+      previewUrl = URL.createObjectURL(file);
+      this.blobUrls.add(previewUrl);
+      this.putOptimisticPhoto(position, previewUrl);
     }
 
-    this.profileService.uploadPhoto(file, this.uploadPosition).subscribe({
+    try {
+      file = await preparePhotoForUpload(file, {
+        maxSizeBytes: PHOTO_UPLOAD_MAX_BYTES,
+        maxEdgePx: PHOTO_UPLOAD_MAX_EDGE_PX
+      });
+    } catch (err) {
+      this.removeOptimisticPreview(previewUrl);
+      this.uploadingSlot.set(null);
+      this.showToast(photoUploadFailureMessage(err));
+      this.reloadProfile();
+      return;
+    }
+
+    if (!previewUrl) {
+      previewUrl = URL.createObjectURL(file);
+      this.blobUrls.add(previewUrl);
+      this.putOptimisticPhoto(position, previewUrl);
+    }
+
+    this.profileService.uploadPhoto(file, position).subscribe({
       next: () => {
         this.uploadingSlot.set(null);
-        this.ngOnInit();
+        this.reloadProfile();
       },
       error: (err: HttpErrorResponse) => {
+        this.removeOptimisticPreview(previewUrl);
         this.uploadingSlot.set(null);
-        if (err.status === 429) {
-          this.showToast('Too many uploads. Please wait before uploading again.');
-        } else {
-          this.showToast('Photo upload failed. Please try again.');
-        }
+        this.showToast(photoUploadFailureMessage(err));
+        this.reloadProfile();
       }
     });
   }
@@ -881,7 +959,7 @@ export class ProfileComponent implements OnInit {
   deletePhoto(photoId: string): void {
     if (!confirm('Remove this photo?')) return;
     this.profileService.deletePhoto(photoId).subscribe({
-      next: () => this.ngOnInit(),
+      next: () => this.reloadProfile(),
       error: (err: HttpErrorResponse) => {
         if (err.status === 429) {
           this.showToast('Too many requests. Please wait before trying again.');
@@ -899,5 +977,103 @@ export class ProfileComponent implements OnInit {
 
   formatHobby(hobby: string): string {
     return hobby.charAt(0) + hobby.slice(1).toLowerCase().replace(/_/g, ' ');
+  }
+
+  ngAfterViewChecked(): void {
+    this.captureCompletePhotos();
+  }
+
+  ngOnDestroy(): void {
+    if (this.toastTimer) clearTimeout(this.toastTimer);
+    this.blobUrls.forEach(url => URL.revokeObjectURL(url));
+    this.blobUrls.clear();
+  }
+
+  photoKey(photo: Photo): string {
+    return profilePhotoId(photo);
+  }
+
+  isPhotoReady(id: string | undefined): boolean {
+    return !!id && this.loadedPhotoIds().has(id);
+  }
+
+  markPhotoReady(id: string): void {
+    if (!id || this.loadedPhotoIds().has(id)) {
+      return;
+    }
+    this.loadedPhotoIds.update(ids => {
+      const next = new Set(ids);
+      next.add(id);
+      return next;
+    });
+  }
+
+  private captureCompletePhotos(): void {
+    this.photoImgs?.forEach(ref => {
+      const img = ref.nativeElement;
+      const id = img.getAttribute('data-photo-id');
+      if (!id || this.loadedPhotoIds().has(id)) {
+        return;
+      }
+      if (img.complete && img.naturalWidth > 0) {
+        this.markPhotoReady(id);
+      }
+    });
+  }
+
+  private applyServerProfile(incoming: Profile): void {
+    const current = this.profile();
+    if (!current) {
+      this.profile.set(incoming);
+      this.loading.set(false);
+      return;
+    }
+    const { photos, readyIds } = mergeProfilePhotos(current.photos, incoming.photos, this.loadedPhotoIds());
+    this.loadedPhotoIds.set(readyIds);
+    this.profile.set({ ...incoming, photos });
+    this.loading.set(false);
+  }
+
+  private reloadProfile(): void {
+    this.profileService.getMe().subscribe({
+      next: (p) => this.applyServerProfile(p),
+      error: () => { this.profile.set(null); this.loading.set(false); }
+    });
+  }
+
+  private putOptimisticPhoto(position: number, url: string): void {
+    const current = this.profile();
+    if (!current) {
+      return;
+    }
+    const photos = [...current.photos];
+    const existing = photos.findIndex(photo => photo.position === position);
+    const previousId = existing >= 0 ? profilePhotoId(photos[existing]) : undefined;
+    const optimistic: Photo = {
+      photoId: previousId ?? `pending-${position}`,
+      photoID: previousId ?? `pending-${position}`,
+      url,
+      position
+    };
+    if (previousId) {
+      this.loadedPhotoIds.update(ids => {
+        const next = new Set(ids);
+        next.delete(previousId);
+        return next;
+      });
+      photos[existing] = optimistic;
+    } else {
+      photos.push(optimistic);
+      photos.sort((a, b) => a.position - b.position);
+    }
+    this.profile.set({ ...current, photos });
+  }
+
+  private removeOptimisticPreview(url: string): void {
+    if (!url || !this.blobUrls.has(url)) {
+      return;
+    }
+    URL.revokeObjectURL(url);
+    this.blobUrls.delete(url);
   }
 }

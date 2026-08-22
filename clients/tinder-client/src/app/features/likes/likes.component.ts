@@ -122,6 +122,11 @@ interface LikerCard {
     }
   `,
   styles: [`
+    :host {
+      display: block;
+      height: 100%;
+    }
+
     .likes-page {
       display: flex;
       flex-direction: column;
@@ -227,6 +232,7 @@ interface LikerCard {
     .forbidden-container {
       position: relative;
       flex: 1;
+      min-height: 60vh;
     }
 
     .blur-grid {
@@ -275,9 +281,11 @@ interface LikerCard {
     .upgrade-overlay {
       position: absolute;
       inset: 0;
+      z-index: 3;
       display: flex;
       align-items: center;
       justify-content: center;
+      pointer-events: auto;
       background: linear-gradient(to bottom, transparent 0%, rgba(0,0,0,0.45) 40%, rgba(0,0,0,0.85) 100%);
       padding: 24px;
     }
@@ -506,6 +514,12 @@ export class LikesComponent implements OnInit {
     this.loading.set(true);
     this.forbidden.set(false);
 
+    if (!this.keycloak.hasPremium()) {
+      this.forbidden.set(true);
+      this.loading.set(false);
+      return;
+    }
+
     this.likesService.getLikedMe().subscribe({
       next: (items) => {
         if (items.length === 0) {
@@ -527,7 +541,7 @@ export class LikesComponent implements OnInit {
         });
       },
       error: (err: HttpErrorResponse) => {
-        if (err.status === 403) {
+        if (err.status === 403 || err.status === 401) {
           this.forbidden.set(true);
         } else if (err.status === 429) {
           this.showToast('Too many requests. Please wait before refreshing.');
@@ -541,26 +555,30 @@ export class LikesComponent implements OnInit {
     if (!this.myProfileId) return;
     this.swipeService.swipe({ profile1Id: this.myProfileId, profile2Id: card.likerProfileId, decision: true })
       .subscribe({
+        next: () => this.removeCard(card.likerProfileId),
         error: (err: HttpErrorResponse) => {
           if (err.status === 429) {
-            this.showToast("You're acting too fast! Please slow down.");
+            this.showToast("You're moving fast. Take a moment before the next profile.");
+            return;
           }
+          this.removeCard(card.likerProfileId);
         }
       });
-    this.removeCard(card.likerProfileId);
   }
 
   pass(card: LikerCard): void {
     if (!this.myProfileId) return;
     this.swipeService.swipe({ profile1Id: this.myProfileId, profile2Id: card.likerProfileId, decision: false })
       .subscribe({
+        next: () => this.removeCard(card.likerProfileId),
         error: (err: HttpErrorResponse) => {
           if (err.status === 429) {
-            this.showToast("You're acting too fast! Please slow down.");
+            this.showToast("You're moving fast. Take a moment before the next profile.");
+            return;
           }
+          this.removeCard(card.likerProfileId);
         }
       });
-    this.removeCard(card.likerProfileId);
   }
 
   goUpgrade(): void {
