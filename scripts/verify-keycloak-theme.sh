@@ -50,6 +50,7 @@ COMPOSE_RESULT="${TEMP_DIR}/compose-result.txt"
 python3 - "${COMPOSE_JSON}" "${REPO_ROOT}/docker/keycloak/themes" "${THEME_TARGET}" >"${COMPOSE_RESULT}" <<'PY'
 import json
 import os
+import re
 import sys
 
 config_path, expected_source, expected_target = sys.argv[1:]
@@ -80,13 +81,21 @@ if os.path.realpath(mount.get("source", "")) != expected_source:
     raise SystemExit(f"Keycloak theme mount source must be {expected_source}")
 if mount.get("read_only") is not True:
     raise SystemExit("Keycloak theme mount must be read-only")
+if mount.get("bind", {}).get("create_host_path") is not False:
+    raise SystemExit("Keycloak theme mount must set bind.create_host_path=false")
+
+revision = keycloak.get("labels", {}).get("com.connect.keycloak-theme-revision")
+if not revision or not re.fullmatch(r"[0-9a-f]{12}", revision):
+    raise SystemExit("Keycloak service must declare a 12-character theme revision label")
 
 print(image)
 print(expected_source)
+print(revision)
 PY
 
 KEYCLOAK_IMAGE="$(sed -n '1p' "${COMPOSE_RESULT}")"
 THEMES_SOURCE="$(sed -n '2p' "${COMPOSE_RESULT}")"
+DECLARED_THEME_REVISION="$(sed -n '3p' "${COMPOSE_RESULT}")"
 
 required_files=(
   "login/theme.properties"
@@ -104,7 +113,30 @@ for relative_path in "${required_files[@]}"; do
   fi
 done
 
-echo "PASS: Compose config mounts ${THEME} from the repository as read-only"
+EXPECTED_THEME_REVISION="$(python3 - "${THEMES_SOURCE}/${THEME}" <<'PY'
+from hashlib import sha256
+from pathlib import Path
+import sys
+
+root = Path(sys.argv[1])
+digest = sha256()
+for path in sorted(candidate for candidate in root.rglob("*") if candidate.is_file()):
+    digest.update(path.relative_to(root).as_posix().encode())
+    digest.update(b"\0")
+    digest.update(path.read_bytes())
+    digest.update(b"\0")
+print(digest.hexdigest()[:12])
+PY
+)"
+if [[ "${DECLARED_THEME_REVISION}" != "${EXPECTED_THEME_REVISION}" ]]; then
+  echo "Keycloak theme revision label is stale" >&2
+  echo "Expected: ${EXPECTED_THEME_REVISION}" >&2
+  echo "Actual:   ${DECLARED_THEME_REVISION}" >&2
+  exit 1
+fi
+
+echo "PASS: Compose config mounts ${THEME} read-only without creating a missing host path"
+echo "PASS: Compose theme revision matches the repository and forces recreation on changes"
 
 docker run -d --rm \
   --name "${CONTAINER_NAME}" \
