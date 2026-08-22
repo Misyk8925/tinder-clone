@@ -4,7 +4,7 @@ import { mergeProfilePhotos } from './profile-photo-merge';
 
 describe('profilePhotoId', () => {
   it('Given Profiles JSON with photoId, when the client reads the photo, then that id is used', () => {
-    expect(profilePhotoId({ photoId: 'api-1', position: 0, url: 'https://cdn.example/a.jpg' })).toBe('api-1');
+    expect(profilePhotoId({ photoId: 'api-1', position: 0 })).toBe('api-1');
   });
 });
 
