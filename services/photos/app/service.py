@@ -74,6 +74,20 @@ class PhotoService:
             keys.variant_key(namespace, owner_id, storage_id, variant)
         )
 
+    def download_urls(
+        self,
+        items: list[tuple[UUID, str, str, str]],
+    ) -> list[dict]:
+        return [
+            {
+                "ownerId": owner_id,
+                "storageId": storage_id,
+                "size": variant,
+                "url": self.download_url(owner_id, storage_id, variant, namespace),
+            }
+            for owner_id, storage_id, variant, namespace in items
+        ]
+
     def cleanup_orphaned(
         self,
         owner_id: UUID,

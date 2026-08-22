@@ -19,6 +19,28 @@ class DownloadUrlResponse(BaseModel):
     url: str
 
 
+class DownloadUrlRequestItem(BaseModel):
+    ownerId: UUID
+    storageId: str
+    size: str = "original"
+    namespace: str = "photos"
+
+
+class DownloadUrlsRequest(BaseModel):
+    items: list[DownloadUrlRequestItem] = Field(default_factory=list)
+
+
+class DownloadUrlResult(BaseModel):
+    ownerId: UUID
+    storageId: str
+    size: str
+    url: str
+
+
+class DownloadUrlsResponse(BaseModel):
+    items: list[DownloadUrlResult]
+
+
 class CleanupResponse(BaseModel):
     deleted: int
 
@@ -59,6 +81,20 @@ def download_url(
     service: PhotoService = Depends(get_photo_service),
 ) -> DownloadUrlResponse:
     return DownloadUrlResponse(url=service.download_url(owner_id, storage_id, size, namespace))
+
+
+@router.post("/api/v1/photos/download-urls", response_model=DownloadUrlsResponse)
+def download_urls(
+    request: DownloadUrlsRequest,
+    service: PhotoService = Depends(get_photo_service),
+) -> DownloadUrlsResponse:
+    signed = service.download_urls(
+        [
+            (item.ownerId, item.storageId, item.size, item.namespace)
+            for item in request.items
+        ]
+    )
+    return DownloadUrlsResponse(items=[DownloadUrlResult(**item) for item in signed])
 
 
 @router.post("/api/v1/photos/cleanup-orphaned", response_model=CleanupResponse)

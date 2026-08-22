@@ -7,6 +7,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.mock.web.MockMultipartFile;
 
+import java.util.List;
 import java.util.UUID;
 
 import static org.assertj.core.api.BDDAssertions.then;
@@ -46,12 +47,14 @@ class ConversationPhotoStorageServiceTest {
                         768,
                         "abc123"
                 ));
+        given(photosServiceClient.presignedDownloadUrl(eq(conversationId), eq("storage-1"), eq("original"), eq("chat/photos")))
+                .willReturn("https://cdn/original.jpg?X-Amz-Signature=abc");
 
         ConversationPhotoStorageService.UploadedPhoto uploaded = service.uploadPhoto(
                 file, conversationId, UUID.randomUUID(), UUID.randomUUID());
 
         then(uploaded.storageKey()).endsWith("/original.jpg");
-        then(uploaded.url()).isEqualTo("https://cdn/original.jpg");
+        then(uploaded.url()).isEqualTo("https://cdn/original.jpg?X-Amz-Signature=abc");
         then(uploaded.mimeType()).isEqualTo("image/jpeg");
         then(uploaded.sizeBytes()).isEqualTo(1234L);
         then(uploaded.originalName()).isEqualTo("shot.png");
@@ -71,6 +74,43 @@ class ConversationPhotoStorageServiceTest {
                 .hasMessage("Photo file is required");
 
         verify(photosServiceClient, never()).upload(any(), any(), anyString(), anyString());
+    }
+
+    @Test
+    @DisplayName("Given a stored chat photo key, when a download url is requested, then the photos service presign is returned")
+    void hydratesPresignedDownloadUrl() {
+        ConversationPhotoStorageService service = new ConversationPhotoStorageService(photosServiceClient);
+        UUID conversationId = UUID.randomUUID();
+        given(photosServiceClient.presignedDownloadUrl(eq(conversationId), eq("storage-1"), eq("original"), eq("chat/photos")))
+                .willReturn("https://signed.example/photo");
+
+        String url = service.downloadUrl(
+                conversationId,
+                "chat/photos/" + conversationId + "/storage-1/original.jpg",
+                "https://cdn/original.jpg");
+
+        then(url).isEqualTo("https://signed.example/photo");
+    }
+
+    @Test
+    @DisplayName("Given several stored keys, when download URLs are requested, then each key is presigned")
+    void hydratesPresignedDownloadUrlsInBatch() {
+        ConversationPhotoStorageService service = new ConversationPhotoStorageService(photosServiceClient);
+        UUID conversationId = UUID.randomUUID();
+        String firstKey = "chat/photos/" + conversationId + "/storage-1/original.jpg";
+        String secondKey = "chat/photos/" + conversationId + "/storage-2/original.jpg";
+        given(photosServiceClient.presignedDownloadUrl(eq(conversationId), eq("storage-1"), eq("original"), eq("chat/photos")))
+                .willReturn("https://signed.example/one");
+        given(photosServiceClient.presignedDownloadUrl(eq(conversationId), eq("storage-2"), eq("original"), eq("chat/photos")))
+                .willReturn("https://signed.example/two");
+
+        var urls = service.downloadUrls(conversationId, List.of(
+                new ConversationPhotoStorageService.PhotoRef(firstKey, "https://cdn/one.jpg"),
+                new ConversationPhotoStorageService.PhotoRef(secondKey, "https://cdn/two.jpg")
+        ));
+
+        then(urls).containsEntry(firstKey, "https://signed.example/one");
+        then(urls).containsEntry(secondKey, "https://signed.example/two");
     }
 
     @Test

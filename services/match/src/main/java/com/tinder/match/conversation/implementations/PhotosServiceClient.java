@@ -49,6 +49,28 @@ public class PhotosServiceClient {
         }
     }
 
+    public String presignedDownloadUrl(UUID ownerId, String storageId, String variant, String namespace) {
+        try {
+            DownloadUrlResponse response = photosRestClient.get()
+                    .uri(uriBuilder -> uriBuilder.path("/api/v1/photos/{storageId}/download-url")
+                            .queryParam("owner_id", ownerId)
+                            .queryParam("size", variant)
+                            .queryParam("namespace", namespace)
+                            .build(storageId))
+                    .retrieve()
+                    .onStatus(HttpStatusCode::isError, (request, httpResponse) -> {
+                        throw mapStatus(httpResponse.getStatusCode(), readBody(httpResponse));
+                    })
+                    .body(DownloadUrlResponse.class);
+            if (response == null || response.url() == null || response.url().isBlank()) {
+                throw new IllegalStateException("Photos service returned an empty download URL");
+            }
+            return response.url();
+        } catch (RestClientResponseException exception) {
+            throw mapStatus(exception.getStatusCode(), exception.getResponseBodyAsString());
+        }
+    }
+
     private RuntimeException mapStatus(HttpStatusCode status, String body) {
         String message = extractMessage(body);
         if (status.is4xxClientError()) {
@@ -109,5 +131,8 @@ public class PhotosServiceClient {
             Integer height,
             String sha256
     ) {
+    }
+
+    public record DownloadUrlResponse(String url) {
     }
 }

@@ -6,6 +6,7 @@ import com.tinder.profiles.application.profile.query.ProfileView;
 import com.tinder.profiles.application.profile.exception.ProfileNotFoundException;
 import com.tinder.profiles.infrastructure.cache.ProfileIdentityCacheService;
 import com.tinder.profiles.infrastructure.cache.ResilientCacheManager;
+import com.tinder.profiles.infrastructure.photos.PhotoDownloadUrlSigner;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.cache.Cache;
@@ -31,6 +32,7 @@ public class JpaProfileQueryAdapter implements ProfileQuery {
     private final ProfileRepository profileRepository;
     private final ResilientCacheManager resilientCacheManager;
     private final ProfileIdentityCacheService profileIdentityCacheService;
+    private final PhotoDownloadUrlSigner photoUrls;
 
     private static final String PROFILE_CACHE_NAME = "PROFILE_ENTITY_CACHE";
 
@@ -92,7 +94,7 @@ public class JpaProfileQueryAdapter implements ProfileQuery {
                                 photo.getS3Key(),
                                 photo.isPrimary(),
                                 photo.getPosition(),
-                                photo.getUrl(),
+                                photoUrls.forClient(profile.getProfileId(), photo.getS3Key(), photo.getUrl()),
                                 photo.getContentType(),
                                 photo.getSize(),
                                 photo.getCreatedAt()))

@@ -53,17 +53,38 @@ public final class PhotoKeys {
      * CloudFront/S3 URL forms written by earlier versions of the service.
      */
     public static String storageIdOf(String keyOrUrl) {
+        return layoutOf(keyOrUrl)[2];
+    }
+
+    /**
+     * Recovers the variant name ({@code original}, {@code large}, {@code medium},
+     * {@code small}) from a stored key or URL. Unknown filenames fall back to
+     * {@code original}, which is the catalogued object.
+     */
+    public static String variantOf(String keyOrUrl) {
+        String[] parts = layoutOf(keyOrUrl);
+        String filename = parts[3];
+        String name = filename.endsWith(EXTENSION)
+                ? filename.substring(0, filename.length() - EXTENSION.length())
+                : filename;
+        return VARIANTS.contains(name) ? name : "original";
+    }
+
+    private static String[] layoutOf(String keyOrUrl) {
         if (keyOrUrl == null || keyOrUrl.isEmpty()) {
             throw new PhotoValidationException("S3 key or URL cannot be null or empty");
         }
 
         String path = keyOrUrl.startsWith("http") ? pathOf(keyOrUrl) : keyOrUrl;
+        if (path.contains("?")) {
+            path = path.substring(0, path.indexOf('?'));
+        }
         String[] parts = path.split("/");
         if (parts.length < 4 || !parts[0].equals("photos")) {
             throw new PhotoValidationException(
                     "Invalid S3 key format: " + path + ". Expected photos/{profileId}/{storageId}/{variant}.jpg");
         }
-        return parts[2];
+        return parts;
     }
 
     private static String pathOf(String url) {

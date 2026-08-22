@@ -71,6 +71,37 @@ def test_given_a_stored_photo_when_a_download_url_is_requested_then_a_signed_url
     assert "small.jpg" in response.json()["url"]
 
 
+def test_given_stored_photos_when_batch_download_urls_are_posted_then_signed_urls_are_returned():
+    api, _ = client()
+    first = api.post(
+        "/api/v1/photos",
+        data={"owner_id": str(OWNER)},
+        files={"file": ("a.png", png_bytes(), "image/png")},
+    ).json()
+    second = api.post(
+        "/api/v1/photos",
+        data={"owner_id": str(OWNER)},
+        files={"file": ("b.png", png_bytes(400, 400), "image/png")},
+    ).json()
+
+    response = api.post(
+        "/api/v1/photos/download-urls",
+        json={
+            "items": [
+                {"ownerId": str(OWNER), "storageId": first["storageId"], "size": "original"},
+                {"ownerId": str(OWNER), "storageId": second["storageId"], "size": "medium"},
+            ]
+        },
+    )
+    assert response.status_code == 200
+    items = response.json()["items"]
+    assert items[0]["storageId"] == first["storageId"]
+    assert "original.jpg" in items[0]["url"]
+    assert items[1]["storageId"] == second["storageId"]
+    assert "medium.jpg" in items[1]["url"]
+    assert "X-Amz-Expires=300" in items[0]["url"]
+
+
 def test_given_an_unknown_size_when_a_download_url_is_requested_then_it_is_rejected():
     api, _ = client()
     uploaded = api.post(
