@@ -26,6 +26,10 @@ jobs:
       - uses: actions/checkout@v5
       - name: Validate Redis Compose policy
         run: ruby scripts/validate-redis-config.rb
+      - name: Validate Compose database roles
+        run: ruby scripts/validate-compose-database-roles.rb
+      - name: Validate Compose mTLS mounts
+        run: ruby scripts/validate-compose-mtls-mounts.rb
 
   deck-read-contracts:
     name: deck-read-contracts
