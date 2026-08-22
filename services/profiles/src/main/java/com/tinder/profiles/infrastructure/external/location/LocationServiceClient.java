@@ -45,24 +45,25 @@ public class LocationServiceClient {
     }
 
     public Location resolve(String city) {
+        RemoteLocationResponse resp = null;
         try {
             Map<String, Object> body = new HashMap<>();
             body.put("city", city);
 
-            RemoteLocationResponse resp = locationWebClient.post()
+            resp = locationWebClient.post()
                     .uri("/api/v1/locations/resolve")
                     .bodyValue(body)
                     .retrieve()
                     .bodyToMono(RemoteLocationResponse.class)
                     .timeout(TIMEOUT)
                     .block();
-
-            if (resp != null) {
-                log.debug("Location service resolved city '{}' → id={}", city, resp.id());
-                return findOrSaveLocally(resp);
-            }
         } catch (Exception e) {
             log.warn("Location service unavailable for city '{}', falling back to local: {}", city, e.getMessage());
+        }
+
+        if (resp != null) {
+            log.debug("Location service resolved city '{}' → id={}", city, resp.id());
+            return findOrSaveLocally(resp);
         }
 
         // Degraded city-only fallback: we hold no coordinates and must not geocode here
@@ -72,27 +73,28 @@ public class LocationServiceClient {
     }
 
     public Location resolveFromCoordinates(double latitude, double longitude, String city) {
+        RemoteLocationResponse resp = null;
         try {
             Map<String, Object> body = new HashMap<>();
             body.put("city", city);
             body.put("latitude", latitude);
             body.put("longitude", longitude);
 
-            RemoteLocationResponse resp = locationWebClient.post()
+            resp = locationWebClient.post()
                     .uri("/api/v1/locations/resolve")
                     .bodyValue(body)
                     .retrieve()
                     .bodyToMono(RemoteLocationResponse.class)
                     .timeout(TIMEOUT)
                     .block();
-
-            if (resp != null) {
-                log.debug("Location service resolved coords ({},{}) → id={}", latitude, longitude, resp.id());
-                return findOrSaveLocally(resp);
-            }
         } catch (Exception e) {
             log.warn("Location service unavailable for coords ({},{}), falling back to local: {}",
                     latitude, longitude, e.getMessage());
+        }
+
+        if (resp != null) {
+            log.debug("Location service resolved coords ({},{}) → id={}", latitude, longitude, resp.id());
+            return findOrSaveLocally(resp);
         }
 
         return locationService.createFromCoordinates(latitude, longitude, city);
@@ -100,16 +102,20 @@ public class LocationServiceClient {
 
     private Location findOrSaveLocally(RemoteLocationResponse resp) {
         String city = resp.city() != null ? resp.city() : "Unknown";
+        if (!"Unknown".equals(city)) {
+            Location existing = locationRepository.findByCity(city).orElse(null);
+            if (existing != null) {
+                return existing;
+            }
+        }
 
-        return locationRepository.findByCity(city).orElseGet(() -> {
-            Point point = GEO_FACTORY.createPoint(new Coordinate(resp.longitude(), resp.latitude()));
-            point.setSRID(4326);
+        Point point = GEO_FACTORY.createPoint(new Coordinate(resp.longitude(), resp.latitude()));
+        point.setSRID(4326);
 
-            Location loc = new Location();
-            loc.setCity(city);
-            loc.setGeo(point);
-            return locationRepository.save(loc);
-        });
+        Location loc = new Location();
+        loc.setCity(city);
+        loc.setGeo(point);
+        return locationRepository.save(loc);
     }
 
     record RemoteLocationResponse(java.util.UUID id, String city, Double latitude, Double longitude) {}

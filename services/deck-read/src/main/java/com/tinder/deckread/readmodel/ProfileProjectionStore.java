@@ -87,6 +87,25 @@ public class ProfileProjectionStore {
                 .map(value -> value == null ? null : UUID.fromString(value));
     }
 
+    public Uni<Boolean> hasAnyCard() {
+        return scanForCard("0");
+    }
+
+    private Uni<Boolean> scanForCard(String cursor) {
+        return redis.execute("SCAN", cursor, "MATCH", "dr:profile:*:card", "COUNT", "100")
+                .flatMap(response -> {
+                    if (response != null && response.size() > 1
+                            && response.get(1) != null && response.get(1).size() > 0) {
+                        return Uni.createFrom().item(true);
+                    }
+                    String next = response == null || response.size() == 0 ? "0" : response.get(0).toString();
+                    if ("0".equals(next)) {
+                        return Uni.createFrom().item(false);
+                    }
+                    return scanForCard(next);
+                });
+    }
+
     public Uni<Optional<DeckCardDto>> card(UUID profileId) {
         return hashes.hgetall(ReadModelKeys.profile(profileId))
                 .map(fields -> {

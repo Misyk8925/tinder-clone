@@ -6,7 +6,7 @@ All deliveries are at-least-once. Deck Read commits Kafka offsets only after the
 
 Kafka is not the authoritative archive. Profiles PostgreSQL plus restartable paged outbox backfill rebuilds card/user projections. Existing Deck Redis rebuilds fresh ordering. `swipe-saved` and `match.created` retain at least seven days for repeat/exclusion recovery.
 
-Backfill is not automatic on every Profiles startup. An operator explicitly starts the internal maintenance-job only for initial population or recovery of the Deck Read cluster.
+Backfill is not automatic on every Profiles startup. Deck Read starts the same maintenance job when its card catalog is empty; operators may still start or resume it with a chosen runId. The production `dr:read-model:ready` marker remains operator-owned.
 
 ## Topic matrix
 
@@ -31,7 +31,7 @@ Create, update, patch, photo upload, photo delete and profile delete all enqueue
 
 ## Exact backfill behaviour
 
-1. An operator explicitly starts a Profiles maintenance run with a new `backfillRunId`; it is not run on every service start.
+1. Deck Read, or an operator, starts a Profiles maintenance run with a stable `backfillRunId`; Profiles never starts a run on its own startup.
 2. Profiles queries complete profile cards in stable profileId order, at most 500 rows per page.
 3. For every row it builds the same projection event with the current aggregate version, `source=BACKFILL` and the run ID.
 4. In one Profiles PostgreSQL transaction it inserts all page events into the existing `profile_event_outbox` and advances the durable `lastProfileId`/processed count checkpoint.

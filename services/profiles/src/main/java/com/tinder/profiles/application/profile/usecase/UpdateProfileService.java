@@ -75,7 +75,7 @@ public class UpdateProfileService {
                 || locationChangePolicy.movedSignificantly(existing, new GeoPoint(lat, lon));
         if (cityChanged || moved) {
             ResolvedLocation resolved = location.resolve(lat, lon, effectiveCity);
-            existing.relocate(resolved.position(), resolved.city());
+            existing.relocate(resolved.position(), resolved.city(), resolved.locationId());
             changes.add("city");
         }
     }

@@ -75,7 +75,7 @@ class DeckSnapshotBuilderAcceptanceTest {
     }
 
     @Test
-    @DisplayName("Scenario: Given a successful fresh build, when source ordering is imported, then fresh cards are installed and repeat is not consulted")
+    @DisplayName("Scenario: Given a successful fresh build with no eligible repeats, when source ordering is imported, then only unseen cards are installed")
     void successfulBuildInstallsFreshCardsBeforeAnyRepeatFallback() {
         // Given
         givenRefreshStartedNow();
@@ -88,6 +88,9 @@ class DeckSnapshotBuilderAcceptanceTest {
                 .thenReturn(Uni.createFrom().item(Set.of()));
         when(viewerMutations.matched(VIEWER, List.of(CANDIDATE)))
                 .thenReturn(Uni.createFrom().item(Set.of()));
+        when(viewerMutations.repeatCandidates(
+                eq(VIEWER), eq(DeckSnapshotBuilder.MAX_REPEAT), any(Instant.class)))
+                .thenReturn(Uni.createFrom().item(List.of()));
         when(snapshots.install(
                 eq(VIEWER), eq(0L), anyString(), eq(List.of(CANDIDATE)), eq(List.of()),
                 eq(DeckState.READY), eq("42"), any(Instant.class)))
@@ -100,7 +103,77 @@ class DeckSnapshotBuilderAcceptanceTest {
         verify(snapshots).install(
                 eq(VIEWER), eq(0L), anyString(), eq(List.of(CANDIDATE)), eq(List.of()),
                 eq(DeckState.READY), eq("42"), any(Instant.class));
-        verify(viewerMutations, never()).repeatCandidates(any(), anyInt(), any());
+        verify(viewerMutations).repeatCandidates(
+                eq(VIEWER), eq(DeckSnapshotBuilder.MAX_REPEAT), any(Instant.class));
+    }
+
+    @Test
+    @DisplayName("Scenario: Given unseen and eligible repeats, when a successful rebuild installs, then unseen cards precede repeats")
+    void successfulBuildAppendsRepeatsAfterUnseen() {
+        // Given
+        givenRefreshStartedNow();
+        when(deckEnsure.ensure(VIEWER)).thenReturn(Uni.createFrom().item(true));
+        when(sourceRedis.readStable(VIEWER, DeckSnapshotBuilder.MAX_FRESH))
+                .thenReturn(Uni.createFrom().item(new SourceDeckSnapshot(List.of(CANDIDATE), "42")));
+        when(profiles.cards(List.of(CANDIDATE)))
+                .thenReturn(Uni.createFrom().item(Map.of(CANDIDATE, card(CANDIDATE))));
+        when(viewerMutations.swiped(VIEWER, List.of(CANDIDATE)))
+                .thenReturn(Uni.createFrom().item(Set.of()));
+        when(viewerMutations.matched(VIEWER, List.of(CANDIDATE)))
+                .thenReturn(Uni.createFrom().item(Set.of()));
+        when(viewerMutations.repeatCandidates(
+                eq(VIEWER), eq(DeckSnapshotBuilder.MAX_REPEAT), any(Instant.class)))
+                .thenReturn(Uni.createFrom().item(List.of(REPEAT_CANDIDATE)));
+        when(profiles.cards(List.of(REPEAT_CANDIDATE)))
+                .thenReturn(Uni.createFrom().item(Map.of(REPEAT_CANDIDATE, card(REPEAT_CANDIDATE))));
+        when(viewerMutations.matched(VIEWER, List.of(REPEAT_CANDIDATE)))
+                .thenReturn(Uni.createFrom().item(Set.of()));
+        when(snapshots.install(
+                eq(VIEWER), eq(0L), anyString(), eq(List.of(CANDIDATE)), eq(List.of(REPEAT_CANDIDATE)),
+                eq(DeckState.READY), eq("42"), any(Instant.class)))
+                .thenReturn(Uni.createFrom().item(1L));
+
+        // When
+        builder.build(VIEWER).await().indefinitely();
+
+        // Then
+        verify(snapshots).install(
+                eq(VIEWER), eq(0L), anyString(), eq(List.of(CANDIDATE)), eq(List.of(REPEAT_CANDIDATE)),
+                eq(DeckState.READY), eq("42"), any(Instant.class));
+    }
+
+    @Test
+    @DisplayName("Scenario: Given no unseen cards and eligible repeats, when a successful rebuild installs, then the deck is DEGRADED with repeats only")
+    void successfulEmptyUnseenInstallsRepeatsAsDegraded() {
+        // Given
+        givenRefreshStartedNow();
+        when(deckEnsure.ensure(VIEWER)).thenReturn(Uni.createFrom().item(true));
+        when(sourceRedis.readStable(VIEWER, DeckSnapshotBuilder.MAX_FRESH))
+                .thenReturn(Uni.createFrom().item(new SourceDeckSnapshot(List.of(), "42")));
+        when(profiles.cards(List.of())).thenReturn(Uni.createFrom().item(Map.of()));
+        when(viewerMutations.swiped(VIEWER, List.of()))
+                .thenReturn(Uni.createFrom().item(Set.of()));
+        when(viewerMutations.matched(VIEWER, List.of()))
+                .thenReturn(Uni.createFrom().item(Set.of()));
+        when(viewerMutations.repeatCandidates(
+                eq(VIEWER), eq(DeckSnapshotBuilder.MAX_REPEAT), any(Instant.class)))
+                .thenReturn(Uni.createFrom().item(List.of(REPEAT_CANDIDATE)));
+        when(profiles.cards(List.of(REPEAT_CANDIDATE)))
+                .thenReturn(Uni.createFrom().item(Map.of(REPEAT_CANDIDATE, card(REPEAT_CANDIDATE))));
+        when(viewerMutations.matched(VIEWER, List.of(REPEAT_CANDIDATE)))
+                .thenReturn(Uni.createFrom().item(Set.of()));
+        when(snapshots.install(
+                eq(VIEWER), eq(0L), anyString(), eq(List.of()), eq(List.of(REPEAT_CANDIDATE)),
+                eq(DeckState.DEGRADED), eq("42"), any(Instant.class)))
+                .thenReturn(Uni.createFrom().item(1L));
+
+        // When
+        builder.build(VIEWER).await().indefinitely();
+
+        // Then
+        verify(snapshots).install(
+                eq(VIEWER), eq(0L), anyString(), eq(List.of()), eq(List.of(REPEAT_CANDIDATE)),
+                eq(DeckState.DEGRADED), eq("42"), any(Instant.class));
     }
 
     @Test
@@ -118,6 +191,9 @@ class DeckSnapshotBuilderAcceptanceTest {
                 .thenReturn(Uni.createFrom().item(Set.of()));
         when(viewerMutations.matched(VIEWER, List.of()))
                 .thenReturn(Uni.createFrom().item(Set.of()));
+        when(viewerMutations.repeatCandidates(
+                eq(VIEWER), eq(DeckSnapshotBuilder.MAX_REPEAT), any(Instant.class)))
+                .thenReturn(Uni.createFrom().item(List.of()));
         when(snapshots.install(
                 eq(VIEWER), eq(0L), anyString(), eq(List.of()), eq(List.of()),
                 eq(DeckState.EMPTY), eq(sourceTimestamp), any(Instant.class)))
@@ -169,6 +245,9 @@ class DeckSnapshotBuilderAcceptanceTest {
                 .thenReturn(Uni.createFrom().item(Set.of()));
         when(viewerMutations.matched(VIEWER, List.of(CANDIDATE)))
                 .thenReturn(Uni.createFrom().item(Set.of()));
+        when(viewerMutations.repeatCandidates(
+                eq(VIEWER), eq(DeckSnapshotBuilder.MAX_REPEAT), any(Instant.class)))
+                .thenReturn(Uni.createFrom().item(List.of()));
         when(snapshots.install(
                 eq(VIEWER), eq(0L), anyString(), eq(List.of(CANDIDATE)), eq(List.of()),
                 eq(DeckState.READY), eq(sourceTimestamp), any(Instant.class)))

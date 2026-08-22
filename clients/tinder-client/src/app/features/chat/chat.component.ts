@@ -1,18 +1,26 @@
 import {
   Component, inject, OnInit, OnDestroy, signal,
-  ViewChild, ElementRef, AfterViewChecked, HostListener
+  ViewChild, ViewChildren, QueryList, ElementRef, AfterViewChecked, HostListener
 } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { NgClass } from '@angular/common';
-import { HttpClient, HttpErrorResponse } from '@angular/common/http';
+import { HttpClient } from '@angular/common/http';
 import { firstValueFrom } from 'rxjs';
 import { MatchService, Message } from '../../core/services/match.service';
+import { ChatHistoryCache } from '../../core/services/chat-history.cache';
 import { markConversationRead } from '../matches/matches.component';
 import { KeycloakService } from '../../core/services/keycloak.service';
 import { ProfileService } from '../../core/services/profile.service';
 import { MinimalStompClient } from '../../core/stomp-client';
 import { environment } from '../../../environments/environment';
+import { mergeServerChatMessages } from '../../core/utils/chat-history-merge';
+import {
+  PHOTO_UPLOAD_MAX_BYTES,
+  isHeicPhoto,
+  photoUploadFailureMessage,
+  preparePhotoForUpload
+} from '../../core/utils/photo-upload';
 
 interface StompMessageEvent {
   occurredAt?: string;
@@ -60,7 +68,24 @@ interface StompMessageEvent {
             <div class="message" [ngClass]="{ 'mine': msg.senderId === myId() }">
               <div class="bubble">
                 @if (msg.type === 'photo') {
-                  <img [src]="msg.content" class="msg-photo" alt="Photo" (click)="openPreview(msg.content)" />
+                  <div class="photo-frame" [class.ready]="isPhotoReady(msg.id)">
+                    @if (!isPhotoReady(msg.id)) {
+                      <div class="photo-skeleton" role="status" aria-label="Loading photo"></div>
+                    }
+                    @if (msg.content) {
+                      <img
+                        #photoImg
+                        [attr.data-photo-id]="msg.id"
+                        [src]="msg.content"
+                        class="msg-photo"
+                        [class.ready]="isPhotoReady(msg.id)"
+                        alt="Photo"
+                        (load)="markPhotoReady(msg.id)"
+                        (error)="markPhotoReady(msg.id)"
+                        (click)="isPhotoReady(msg.id) && openPreview(msg.content)"
+                      />
+                    }
+                  </div>
                 } @else {
                   {{ msg.content }}
                 }
@@ -139,12 +164,12 @@ interface StompMessageEvent {
       background: none;
       border: none;
       cursor: pointer;
-      width: 40px;
-      height: 40px;
-      padding: 8px;
+      width: 36px;
+      height: 36px;
+      padding: 7px;
       color: var(--brand);
 
-      svg { width: 24px; height: 24px; display: block; }
+      svg { width: 22px; height: 22px; display: block; }
     }
 
     .header-info {
@@ -153,7 +178,7 @@ interface StompMessageEvent {
       gap: 8px;
 
       .avatar {
-        width: 36px; height: 36px;
+        width: 32px; height: 32px;
         border-radius: 50%;
         background: var(--brand-gradient);
         color: #fff;
@@ -164,7 +189,7 @@ interface StompMessageEvent {
         font-size: 14px;
       }
 
-      h2 { margin: 0; font-size: 16px; color: var(--text-primary); }
+      h2 { margin: 0; font-size: 15px; color: var(--text-primary); }
     }
 
     .online {
@@ -223,6 +248,12 @@ interface StompMessageEvent {
           background: var(--brand-gradient);
           color: #fff;
           border-radius: 18px 18px 4px 18px;
+
+          &:has(.photo-frame) {
+            background: transparent;
+            border: none;
+            box-shadow: none;
+          }
         }
       }
     }
@@ -237,6 +268,13 @@ interface StompMessageEvent {
       box-shadow: 0 8px 20px var(--shadow-sm);
       border: 1px solid var(--border-light);
       word-break: break-word;
+
+      &:has(.photo-frame) {
+        padding: 4px;
+        background: transparent;
+        border: none;
+        box-shadow: none;
+      }
     }
 
     [data-theme="dark"] .bubble {
@@ -244,13 +282,49 @@ interface StompMessageEvent {
       border-color: rgba(255,255,255,0.08);
     }
 
+    .photo-frame {
+      position: relative;
+      width: 200px;
+      min-height: 168px;
+      border-radius: 14px;
+      overflow: hidden;
+      background: var(--surface-3);
+
+      &.ready { min-height: 0; }
+    }
+
+    .message.mine .photo-frame {
+      background: rgba(156, 206, 43, 0.22);
+    }
+
+    .photo-skeleton {
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(
+        90deg,
+        transparent 0%,
+        rgba(255, 255, 255, 0.28) 45%,
+        transparent 100%
+      );
+      background-size: 220% 100%;
+      animation: photo-shimmer 1.15s ease-in-out infinite;
+    }
+
+    @keyframes photo-shimmer {
+      from { background-position: 100% 0; }
+      to { background-position: -100% 0; }
+    }
+
     .msg-photo {
+      width: 100%;
       max-width: 200px;
       border-radius: 12px;
       display: block;
       cursor: zoom-in;
-      transition: opacity 0.15s;
+      opacity: 0;
+      transition: opacity 0.2s;
 
+      &.ready { opacity: 1; }
       &:active { opacity: 0.85; }
     }
 
@@ -370,10 +444,8 @@ interface StompMessageEvent {
   `]
 })
 export class ChatComponent implements OnInit, OnDestroy, AfterViewChecked {
-  private static readonly MAX_CHAT_PHOTO_SIZE_BYTES = 5 * 1024 * 1024;
-  private static readonly JPEG_QUALITY_STEPS = [0.9, 0.8, 0.7, 0.6, 0.5, 0.4];
-
   @ViewChild('messagesArea') messagesArea!: ElementRef;
+  @ViewChildren('photoImg') photoImgs!: QueryList<ElementRef<HTMLImageElement>>;
 
   private route = inject(ActivatedRoute);
   private router = inject(Router);
@@ -381,6 +453,7 @@ export class ChatComponent implements OnInit, OnDestroy, AfterViewChecked {
   private keycloak = inject(KeycloakService);
   private profileService = inject(ProfileService);
   private http = inject(HttpClient);
+  private chatCache = inject(ChatHistoryCache);
 
   conversationId = signal('');
   messages = signal<Message[]>([]);
@@ -389,9 +462,11 @@ export class ChatComponent implements OnInit, OnDestroy, AfterViewChecked {
   previewUrl = signal<string | null>(null);
   messageText = '';
   myId = signal('');  // profile UUID — used to distinguish own vs other messages
+  private loadedPhotoIds = signal(new Set<string>());
 
   private stomp: MinimalStompClient | null = null;
   private seenIds = new Set<string>();
+  private blobUrls = new Set<string>();
   private shouldScroll = false;
 
   ngOnInit(): void {
@@ -415,34 +490,87 @@ export class ChatComponent implements OnInit, OnDestroy, AfterViewChecked {
 
   private loadHistory(id: string, profileId: string | undefined): void {
     markConversationRead(id);
+    const cacheOwner = profileId ?? '';
+    const cached = this.chatCache.read(cacheOwner, id);
+    if (cached.length > 0) {
+      this.replaceMessages(cached);
+      this.loading.set(false);
+      this.shouldScroll = true;
+    }
+
     // Passing callerProfileId registers the JWT sub → profileId mapping on the backend,
     // which the WS controller uses to validate STOMP send access.
     this.matchService.getConversation(id, profileId).subscribe({
       next: (conv) => {
-        const msgs = conv.messages ?? [];
-        msgs.forEach(m => this.seenIds.add(m.id));
-        this.messages.set(msgs);
+        this.applyServerMessages(conv.messages ?? []);
+        this.persistHistory();
         this.loading.set(false);
         this.shouldScroll = true;
-        this.connectStomp(id);
+        this.ensureStomp(id);
       },
       error: () => {
         this.loading.set(false);
-        this.router.navigate(['/matches']);
+        if (this.messages().length === 0) {
+          this.router.navigate(['/matches']);
+          return;
+        }
+        this.ensureStomp(id);
       }
     });
+  }
+
+  private replaceMessages(msgs: Message[]): void {
+    this.seenIds = new Set(msgs.map(m => m.id));
+    this.messages.set(msgs);
+  }
+
+  private applyServerMessages(serverMsgs: Message[]): void {
+    serverMsgs.forEach(m => this.seenIds.add(m.id));
+    this.messages.set(mergeServerChatMessages(this.messages(), serverMsgs, this.loadedPhotoIds()));
+  }
+
+  private persistHistory(): void {
+    const conversationId = this.conversationId();
+    const profileId = this.myId();
+    if (!conversationId || !profileId) {
+      return;
+    }
+    this.chatCache.write(profileId, conversationId, this.messages());
+  }
+
+  private ensureStomp(conversationId: string): void {
+    if (this.wsState() !== 'disconnected') {
+      return;
+    }
+    void this.connectStomp(conversationId);
   }
 
   ngOnDestroy(): void {
     this.stomp?.disconnect();
     this.stomp = null;
+    this.blobUrls.forEach(url => URL.revokeObjectURL(url));
+    this.blobUrls.clear();
   }
 
   ngAfterViewChecked(): void {
+    this.captureCompletePhotos();
     if (this.shouldScroll) {
       this.scrollToBottom();
       this.shouldScroll = false;
     }
+  }
+
+  private captureCompletePhotos(): void {
+    this.photoImgs?.forEach(ref => {
+      const img = ref.nativeElement;
+      const id = img.getAttribute('data-photo-id');
+      if (!id || this.loadedPhotoIds().has(id)) {
+        return;
+      }
+      if (img.complete && img.naturalWidth > 0) {
+        this.markPhotoReady(id);
+      }
+    });
   }
 
   private async connectStomp(conversationId: string): Promise<void> {
@@ -484,7 +612,9 @@ export class ChatComponent implements OnInit, OnDestroy, AfterViewChecked {
         this.messages.update(msgs =>
           msgs.map(m => m.id === event.clientMessageId ? { ...m, id } : m)
         );
+        this.transferPhotoReady(event.clientMessageId, id);
         this.seenIds.add(id);
+        this.persistHistory();
         return;
       }
 
@@ -505,6 +635,7 @@ export class ChatComponent implements OnInit, OnDestroy, AfterViewChecked {
 
       this.messages.update(msgs => [...msgs, msg]);
       this.shouldScroll = true;
+      this.persistHistory();
     } catch {
       // ignore malformed frames
     }
@@ -527,6 +658,7 @@ export class ChatComponent implements OnInit, OnDestroy, AfterViewChecked {
     this.seenIds.add(clientMessageId);
     this.messages.update(msgs => [...msgs, optimisticMsg]);
     this.shouldScroll = true;
+    this.persistHistory();
 
     this.stomp.send('/app/chat.send', {
       conversationId: this.conversationId(),
@@ -541,23 +673,45 @@ export class ChatComponent implements OnInit, OnDestroy, AfterViewChecked {
 
   async sendPhoto(e: Event): Promise<void> {
      let file = (e.target as HTMLInputElement).files?.[0];
+     (e.target as HTMLInputElement).value = '';
      if (!file) return;
 
-     try {
-       file = await this.preparePhotoForUpload(file);
+     const clientMessageId = crypto.randomUUID();
+     let previewUrl = '';
+     if (!isHeicPhoto(file)) {
+       previewUrl = URL.createObjectURL(file);
+       this.blobUrls.add(previewUrl);
+     }
+     const pending: Message = {
+       id: clientMessageId,
+       senderId: this.myId(),
+       content: previewUrl,
+       type: 'photo',
+       sentAt: new Date().toISOString()
+     };
+     this.seenIds.add(clientMessageId);
+     this.messages.update(msgs => [...msgs, pending]);
+     this.shouldScroll = true;
+     this.persistHistory();
 
-       if (file.size > ChatComponent.MAX_CHAT_PHOTO_SIZE_BYTES) {
-         this.showToast('Photo is too large. Please choose a smaller image.');
-         return;
+     try {
+       file = await preparePhotoForUpload(file, { maxSizeBytes: PHOTO_UPLOAD_MAX_BYTES });
+
+       if (!previewUrl) {
+         previewUrl = URL.createObjectURL(file);
+         this.blobUrls.add(previewUrl);
+         this.messages.update(msgs =>
+           msgs.map(m => m.id === clientMessageId ? { ...m, content: previewUrl } : m)
+         );
        }
 
        const token = await this.keycloak.getToken();
        if (!token) {
+         this.removePendingPhoto(clientMessageId, previewUrl);
          this.showToast('Failed to get authentication token');
          return;
        }
 
-       const clientMessageId = crypto.randomUUID();
        const params = new URLSearchParams({
          senderId: this.myId(),
          clientMessageId
@@ -573,115 +727,52 @@ export class ChatComponent implements OnInit, OnDestroy, AfterViewChecked {
            { headers: { Authorization: `Bearer ${token}` } }
          )
        );
-       // Photo arrives via STOMP broadcast — no local push needed
      } catch (err: unknown) {
-       const error = err as any;
-       if (error?.status === 429) {
-         this.showToast('Too many uploads. Please wait before uploading again.');
-       } else if (error?.status === 413) {
-         this.showToast('Photo is too large. Please choose a smaller image.');
-       } else if (error?.message === 'HEIC conversion failed') {
-         this.showToast('HEIC conversion failed. Please choose another photo.');
-       } else if (error?.status === 400 && this.extractBackendErrorMessage(error)?.includes('Invalid image type')) {
-         this.showToast('Unsupported image type. Please upload JPEG, PNG, or WEBP.');
-       } else {
-         this.showToast('Photo upload failed. Please try again.');
-       }
+       const pendingMsg = this.messages().find(m => m.id === clientMessageId);
+       this.removePendingPhoto(clientMessageId, pendingMsg?.content);
+       this.showToast(photoUploadFailureMessage(err));
      }
    }
 
-  private async preparePhotoForUpload(file: File): Promise<File> {
-    let prepared = file;
-
-    if (file.type === 'image/heic' || file.type === 'image/heif' || /\.(heic|heif)$/i.test(file.name)) {
-      try {
-        const heic2any = (await import('heic2any')).default;
-        const converted = await heic2any({ blob: file, toType: 'image/jpeg', quality: 0.9 });
-        const blob = Array.isArray(converted) ? converted[0] : converted;
-        prepared = new File([blob], file.name.replace(/\.(heic|heif)$/i, '.jpg'), { type: 'image/jpeg' });
-      } catch {
-        throw new Error('HEIC conversion failed');
-      }
-    }
-
-    if (prepared.size <= ChatComponent.MAX_CHAT_PHOTO_SIZE_BYTES) {
-      return prepared;
-    }
-
-    const compressed = await this.compressToJpegUnderLimit(prepared, ChatComponent.MAX_CHAT_PHOTO_SIZE_BYTES);
-    return compressed ?? prepared;
+  isPhotoReady(id: string): boolean {
+    return this.loadedPhotoIds().has(id);
   }
 
-  private async compressToJpegUnderLimit(file: File, maxSizeBytes: number): Promise<File | null> {
-    if (!file.type.startsWith('image/')) {
-      return null;
+  markPhotoReady(id: string): void {
+    if (this.loadedPhotoIds().has(id)) {
+      return;
     }
-
-    const image = await this.loadImage(file);
-    const canvas = document.createElement('canvas');
-    canvas.width = image.naturalWidth || image.width;
-    canvas.height = image.naturalHeight || image.height;
-
-    const context = canvas.getContext('2d');
-    if (!context) {
-      return null;
-    }
-
-    context.drawImage(image, 0, 0, canvas.width, canvas.height);
-
-    let smallestBlob: Blob | null = null;
-    for (const quality of ChatComponent.JPEG_QUALITY_STEPS) {
-      const blob = await this.canvasToJpegBlob(canvas, quality);
-      if (!blob) {
-        continue;
-      }
-
-      if (!smallestBlob || blob.size < smallestBlob.size) {
-        smallestBlob = blob;
-      }
-
-      if (blob.size <= maxSizeBytes) {
-        return new File([blob], file.name.replace(/\.[^.]+$/, '.jpg'), { type: 'image/jpeg' });
-      }
-    }
-
-    if (!smallestBlob) {
-      return null;
-    }
-
-    return new File([smallestBlob], file.name.replace(/\.[^.]+$/, '.jpg'), { type: 'image/jpeg' });
-  }
-
-  private async loadImage(file: File): Promise<HTMLImageElement> {
-    const dataUrl = await new Promise<string>((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = () => resolve(String(reader.result));
-      reader.onerror = () => reject(new Error('Failed to read image'));
-      reader.readAsDataURL(file);
-    });
-
-    return new Promise<HTMLImageElement>((resolve, reject) => {
-      const img = new Image();
-      img.onload = () => resolve(img);
-      img.onerror = () => reject(new Error('Failed to decode image'));
-      img.src = dataUrl;
+    this.loadedPhotoIds.update(ids => {
+      const next = new Set(ids);
+      next.add(id);
+      return next;
     });
   }
 
-  private async canvasToJpegBlob(canvas: HTMLCanvasElement, quality: number): Promise<Blob | null> {
-    return new Promise(resolve => {
-      canvas.toBlob(blob => resolve(blob), 'image/jpeg', quality);
+  private transferPhotoReady(fromId: string, toId: string): void {
+    this.loadedPhotoIds.update(ids => {
+      if (!ids.has(fromId)) {
+        return ids;
+      }
+      const next = new Set(ids);
+      next.delete(fromId);
+      next.add(toId);
+      return next;
     });
   }
 
-  private extractBackendErrorMessage(error: HttpErrorResponse): string | null {
-    if (typeof error?.error === 'string') {
-      return error.error;
+  private removePendingPhoto(id: string, blobUrl?: string): void {
+    this.seenIds.delete(id);
+    this.messages.update(msgs => msgs.filter(m => m.id !== id));
+    this.revokeBlob(blobUrl);
+  }
+
+  private revokeBlob(url?: string): void {
+    if (!url || !this.blobUrls.has(url)) {
+      return;
     }
-    if (typeof error?.error?.message === 'string') {
-      return error.error.message;
-    }
-    return null;
+    URL.revokeObjectURL(url);
+    this.blobUrls.delete(url);
   }
 
   private showToast(message: string): void {
@@ -689,6 +780,7 @@ export class ChatComponent implements OnInit, OnDestroy, AfterViewChecked {
   }
 
   openPreview(url: string): void {
+    if (!url) return;
     this.previewUrl.set(url);
   }
 

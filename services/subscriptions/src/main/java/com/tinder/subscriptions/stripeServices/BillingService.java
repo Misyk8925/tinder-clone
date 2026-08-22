@@ -5,6 +5,7 @@ import com.stripe.model.Customer;
 import com.stripe.model.checkout.Session;
 import com.stripe.param.CustomerCreateParams;
 import com.stripe.param.checkout.SessionCreateParams;
+import com.tinder.subscriptions.events.StripeWebhookProcessService;
 import com.tinder.subscriptions.stripeCustomer.StripeCustomer;
 import com.tinder.subscriptions.stripeCustomer.StripeCustomerRepository;
 import lombok.RequiredArgsConstructor;
@@ -19,6 +20,7 @@ public class BillingService {
 
     private final StripeCustomerRepository stripeCustomerRepository;
     private final StripeConfig stripeConfig;
+    private final StripeWebhookProcessService stripeWebhookProcessService;
 
     @Value("${stripe.success-url}")
     private String successUrl;
@@ -60,6 +62,11 @@ public class BillingService {
                 .setReturnUrl(returnUrl)
                 .build();
         return com.stripe.model.billingportal.Session.create(param).getUrl();
+    }
+
+    public boolean syncEntitlement(String userId) {
+        ensureStripeApiKeyConfigured();
+        return stripeWebhookProcessService.reconcileUser(userId);
     }
 
     public StripeCustomer getOrCreateCustomer(String userId) {

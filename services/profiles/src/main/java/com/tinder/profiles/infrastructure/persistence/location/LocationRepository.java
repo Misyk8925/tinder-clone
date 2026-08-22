@@ -8,9 +8,13 @@ import java.util.UUID;
 public interface LocationRepository extends org.springframework.data.jpa.repository.JpaRepository<Location, UUID> {
 
     /**
-     * Find location by city name
-     * @param city the city name
-     * @return Optional containing the location if found
+     * Named cities are intended to share one row. {@code Unknown} is not unique
+     * (one row per GPS-only fix), so this must not use Hibernate's unique-result
+     * query — it returns the oldest matching row when duplicates exist.
      */
-    Optional<Location> findByCity(String city);
+    Optional<Location> findFirstByCityOrderByIdAsc(String city);
+
+    default Optional<Location> findByCity(String city) {
+        return findFirstByCityOrderByIdAsc(city);
+    }
 }

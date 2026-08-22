@@ -25,8 +25,9 @@ import java.util.UUID;
  * {@link #save} path uses <em>load-and-reconcile</em>: it preserves
  * persistence-only state (version, photos, createdAt) and resolves the non-null
  * {@code location_id}/{@code preferences_id} FKs that the aggregate does not
- * carry — Location by city (the row is created earlier as a side effect of the
- * location resolution port) and Preferences via the atomic find-or-create.
+ * own as entities — Location by the id returned from {@code LocationPort}
+ * (falling back to city for writes that never resolved), and Preferences via
+ * the atomic find-or-create.
  */
 @Component
 @RequiredArgsConstructor
@@ -82,13 +83,18 @@ public class JpaProfileRepositoryAdapter implements ProfileRepositoryPort {
     }
 
     /**
-     * Resolves the {@link Location} FK row for the aggregate's current city. The
-     * row is expected to already exist because the use case resolves the
-     * location through {@code LocationPort} (which persists it) before saving.
-     * Falls back to the entity's existing location when the aggregate has no
-     * city (e.g. premium-only updates that never touch location).
+     * Resolves the {@link Location} FK row. Prefer the id returned by
+     * {@code LocationPort} for this write — city {@code Unknown} is not unique.
+     * Named-city writes still fall back to lookup by city. Premium-only updates
+     * that never touch location keep the entity's existing row.
      */
     private Location resolveLocation(Profile profile, com.tinder.profiles.infrastructure.persistence.profile.ProfileJpaEntity entity) {
+        if (profile.getLocationId() != null) {
+            return locationRepository.findById(profile.getLocationId())
+                    .orElseThrow(() -> new IllegalStateException(
+                            "No persisted Location for id '" + profile.getLocationId()
+                                    + "'. Resolve the location via LocationPort before saving the profile."));
+        }
         String city = profile.getCity();
         if (city == null || city.isBlank()) {
             return entity.getLocation();

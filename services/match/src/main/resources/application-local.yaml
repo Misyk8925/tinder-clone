@@ -1,5 +1,10 @@
 spring:
+  config:
+    activate:
+      on-profile: local
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
   datasource:
-    url: jdbc:postgresql://127.0.0.1:54322/postgres?sslmode=disable
-    username: postgres
-    password: postgres
+    url: ${MATCH_DB_URL:jdbc:postgresql://127.0.0.1:5435/match_db}
+    username: ${MATCH_DB_USER:match_app}
+    password: ${MATCH_DB_PASSWORD:change_me_match_db_password}

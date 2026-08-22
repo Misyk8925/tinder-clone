@@ -7,6 +7,7 @@ import com.stripe.model.checkout.Session;
 import com.tinder.subscriptions.grpc.SubscriptionGrpcClient;
 import com.tinder.subscriptions.stripeCustomer.StripeCustomer;
 import com.tinder.subscriptions.stripeCustomer.StripeCustomerRepository;
+import com.tinder.subscriptions.stripeServices.StripeSubscriptionGateway;
 import com.tinder.subscriptions.subscription.BillingSubscription;
 import com.tinder.subscriptions.subscription.SubscriptionRepository;
 import lombok.RequiredArgsConstructor;
@@ -14,8 +15,10 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionTemplate;
+import org.springframework.util.StringUtils;
 
 import java.time.Instant;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Set;
 
@@ -34,6 +37,7 @@ public class StripeWebhookProcessService {
     private final StripeCustomerRepository stripeCustomerRepository;
     private final SubscriptionRepository subscriptionRepository;
     private final SubscriptionGrpcClient subscriptionGrpcClient;
+    private final StripeSubscriptionGateway stripeSubscriptionGateway;
     private final TransactionTemplate transactionTemplate;
 
     @Scheduled(fixedDelay = 5000)
@@ -139,6 +143,42 @@ public class StripeWebhookProcessService {
         Subscription subscription = (Subscription) event.getDataObjectDeserializer().getObject().orElseThrow();
 
         synchronizeSubscription(subscription, event.getCreated());
+    }
+
+    /**
+     * Pulls the user's Stripe subscriptions and applies entitlement. Used when
+     * the browser returns from Checkout before (or without) a webhook.
+     */
+    public boolean reconcileUser(String userId) {
+        StripeCustomer stripeCustomer = stripeCustomerRepository.findByUserId(userId).orElse(null);
+        if (stripeCustomer == null || !StringUtils.hasText(stripeCustomer.getStripeCustomerId())) {
+            log.info("No Stripe customer mapped for userId={}", userId);
+            return false;
+        }
+
+        List<Subscription> subscriptions;
+        try {
+            subscriptions = stripeSubscriptionGateway.listByCustomer(stripeCustomer.getStripeCustomerId());
+        } catch (Exception e) {
+            throw new IllegalStateException("Failed to list Stripe subscriptions for user " + userId, e);
+        }
+        if (subscriptions.isEmpty()) {
+            log.info("No Stripe subscriptions for userId={}", userId);
+            return false;
+        }
+
+        Subscription chosen = chooseSubscription(subscriptions);
+        long created = chosen.getCreated() == null ? Instant.now().getEpochSecond() : chosen.getCreated();
+        synchronizeSubscription(chosen, created);
+        return Set.of("active", "trialing").contains(chosen.getStatus());
+    }
+
+    private static Subscription chooseSubscription(List<Subscription> subscriptions) {
+        return subscriptions.stream()
+                .filter(subscription -> Set.of("active", "trialing").contains(subscription.getStatus()))
+                .max(Comparator.comparingLong(subscription ->
+                        subscription.getCreated() == null ? 0L : subscription.getCreated()))
+                .orElse(subscriptions.getFirst());
     }
 
     void synchronizeSubscription(Subscription subscription, long stripeEventCreated) {

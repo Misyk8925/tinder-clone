@@ -174,7 +174,7 @@ const ALL_HOBBIES: Hobby[] = [
       height: 100dvh;
       background: transparent;
       overflow-y: auto;
-      padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 64px);
+      padding-bottom: calc(env(safe-area-inset-bottom, 0px) + var(--mobile-bottombar-height));
     }
 
     @media (min-width: 768px) {
@@ -202,20 +202,20 @@ const ALL_HOBBIES: Hobby[] = [
       backdrop-filter: blur(16px);
       -webkit-backdrop-filter: blur(16px);
 
-      h1 { margin: 0; font-size: 20px; font-weight: 700; color: var(--text-primary); }
+      h1 { margin: 0; font-size: 19px; font-weight: 700; color: var(--text-primary); }
     }
 
     .back-btn {
       background: none;
       border: none;
       cursor: pointer;
-      width: 40px;
-      height: 40px;
-      padding: 8px;
+      width: 36px;
+      height: 36px;
+      padding: 7px;
       color: var(--text-primary);
       border-radius: 50%;
 
-      svg { width: 24px; height: 24px; display: block; }
+      svg { width: 22px; height: 22px; display: block; }
 
       &:hover { background: var(--surface-2); }
       &:focus-visible { outline: 2px solid var(--brand); outline-offset: 1px; }

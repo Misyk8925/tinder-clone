@@ -29,7 +29,7 @@ import { SwipeCardComponent } from '../../shared/components/swipe-card/swipe-car
             <div class="spinner"></div>
             <p>Finding thoughtful matches nearby…</p>
           </div>
-        } @else if (retrying() && currentIndex() >= profiles().length) {
+        } @else if (retrying() && currentIndex() >= profiles().length && !leavingId()) {
           <div class="state-panel" aria-live="polite">
             <span class="state-icon"><lucide-icon name="refresh-cw" [size]="36" strokeWidth="1.6" /></span>
             <h2>Still preparing your deck</h2>
@@ -38,7 +38,7 @@ import { SwipeCardComponent } from '../../shared/components/swipe-card/swipe-car
               <lucide-icon name="refresh-cw" [size]="18" strokeWidth="2" /> Try again
             </button>
           </div>
-        } @else if (currentIndex() >= profiles().length) {
+        } @else if (currentIndex() >= profiles().length && !leavingId()) {
           <div class="state-panel">
             <span class="state-icon"><lucide-icon name="user-round-search" [size]="36" strokeWidth="1.6" /></span>
             <h2>You’re all caught up</h2>
@@ -48,10 +48,16 @@ import { SwipeCardComponent } from '../../shared/components/swipe-card/swipe-car
             </button>
           </div>
         } @else {
-          <div class="cards-stack">
-            @for (profile of visibleProfiles(); track profile.profileId; let index = $index) {
-              <div class="card-wrapper" [ngClass]="'z' + (3 - index)">
-                <app-swipe-card [profile]="profile" (swiped)="onSwipe($event, profile)" />
+          <div class="cards-stack" [class.departing]="!!leavingId()">
+            <div class="stack-plate plate-back" aria-hidden="true"></div>
+            <div class="stack-plate plate-mid" aria-hidden="true"></div>
+            @for (profile of frontCards(); track profile.profileId; let index = $index) {
+              <div class="card-wrapper" [ngClass]="wrapperClass(profile, index)">
+                <app-swipe-card
+                  [profile]="profile"
+                  (swipeCommitted)="onSwipeCommitted(profile)"
+                  (swiped)="onSwipe($event, profile)"
+                />
               </div>
             }
           </div>
@@ -112,7 +118,7 @@ import { SwipeCardComponent } from '../../shared/components/swipe-card/swipe-car
       height: 100dvh;
       display: flex;
       flex-direction: column;
-      padding-bottom: calc(56px + env(safe-area-inset-bottom, 0px));
+      padding-bottom: calc(var(--mobile-bottombar-height) + env(safe-area-inset-bottom, 0px));
       background: var(--bg);
       overflow: hidden;
     }
@@ -122,7 +128,7 @@ import { SwipeCardComponent } from '../../shared/components/swipe-card/swipe-car
       display: flex;
       align-items: center;
       justify-content: space-between;
-      padding: 6px 16px;
+      padding: 4px 12px;
       flex: 0 0 auto;
       background: var(--header-surface);
     }
@@ -130,17 +136,17 @@ import { SwipeCardComponent } from '../../shared/components/swipe-card/swipe-car
     h1 {
       margin: 0;
       color: var(--text-primary);
-      font-size: 28px;
+      font-size: 26px;
       line-height: 1;
       letter-spacing: -0.055em;
       font-weight: 700;
     }
 
-    .header-actions { display: flex; align-items: center; gap: 10px; }
+    .header-actions { display: flex; align-items: center; gap: 8px; }
 
     .icon-button {
-      width: 40px;
-      height: 40px;
+      width: 36px;
+      height: 36px;
       display: grid;
       place-items: center;
       border: 0;
@@ -179,12 +185,34 @@ import { SwipeCardComponent } from '../../shared/components/swipe-card/swipe-car
       width: 100%;
       flex: 1;
       min-height: 0;
+      overflow: hidden;
+      isolation: isolate;
     }
 
-    .card-wrapper { position: absolute; inset: 0; }
-    .card-wrapper.z1 { z-index: 1; transform: scale(0.965) translateY(8px); opacity: 0.3; }
-    .card-wrapper.z2 { z-index: 2; transform: scale(0.985) translateY(4px); opacity: 0.58; }
+    .stack-plate {
+      position: absolute;
+      inset: 0;
+      border-radius: 20px;
+      border: 1px solid var(--card-border);
+      background: var(--surface);
+      pointer-events: none;
+    }
+    .stack-plate.plate-back { z-index: 1; transform: scale(0.96) translateY(12px); }
+    .stack-plate.plate-mid { z-index: 2; transform: scale(0.98) translateY(6px); }
+    .card-wrapper {
+      position: absolute;
+      inset: 0;
+      overflow: hidden;
+      border-radius: 20px;
+      background: transparent;
+    }
     .card-wrapper.z3 { z-index: 3; }
+    .cards-stack.departing .card-wrapper.z3 { pointer-events: none; }
+    .card-wrapper.leaving {
+      z-index: 10;
+      overflow: visible;
+      pointer-events: none;
+    }
 
     .action-buttons {
       min-height: 96px;
@@ -331,7 +359,7 @@ import { SwipeCardComponent } from '../../shared/components/swipe-card/swipe-car
       position: fixed;
       z-index: 2000;
       left: 50%;
-      bottom: 96px;
+      bottom: calc(env(safe-area-inset-bottom, 0px) + var(--mobile-bottombar-height) + 16px);
       transform: translateX(-50%);
       max-width: min(88vw, 420px);
       padding: 12px 18px;
@@ -350,12 +378,13 @@ import { SwipeCardComponent } from '../../shared/components/swipe-card/swipe-car
       .deck-area { padding-bottom: 18px; }
       .cards-stack { width: min(100%, 420px); max-height: 720px; }
       .action-buttons { min-height: 96px; }
+      .toast { bottom: 24px; }
     }
 
     @media (max-height: 740px) {
       .discover-header { min-height: var(--mobile-topbar-height); }
-      h1 { font-size: 28px; }
-      .icon-button { width: 40px; height: 40px; }
+      h1 { font-size: 26px; }
+      .icon-button { width: 36px; height: 36px; }
       .deck-area { padding-top: 4px; gap: 5px; }
       .action-buttons { min-height: 66px; }
       .action-button { width: 52px; height: 52px; }
@@ -372,6 +401,7 @@ export class DiscoverComponent implements OnInit, OnDestroy {
 
   profiles = signal<DeckCard[]>([]);
   currentIndex = signal(0);
+  leavingId = signal<string | null>(null);
   loading = signal(true);
   matchedProfile = signal<DeckCard | null>(null);
   retrying = signal(false);
@@ -386,7 +416,29 @@ export class DiscoverComponent implements OnInit, OnDestroy {
   private pollTimer: ReturnType<typeof setTimeout> | null = null;
   private requestInFlight = false;
 
-  visibleProfiles = () => this.profiles().slice(this.currentIndex(), this.currentIndex() + 3);
+  visibleProfiles(): DeckCard[] {
+    const upcoming = this.profiles().slice(this.currentIndex(), this.currentIndex() + 3);
+    const leavingId = this.leavingId();
+    if (!leavingId) return upcoming;
+    const leaving = this.profiles().find(profile => profile.profileId === leavingId);
+    if (!leaving || upcoming.some(profile => profile.profileId === leavingId)) return upcoming;
+    return [leaving, ...upcoming];
+  }
+
+  wrapperClass(profile: DeckCard, index: number): string {
+    if (this.leavingId() === profile.profileId) return 'leaving';
+    const stackIndex = this.leavingId() ? index - 1 : index;
+    return 'z' + (3 - stackIndex);
+  }
+
+  isFrontCard(profile: DeckCard, index: number): boolean {
+    const role = this.wrapperClass(profile, index);
+    return role === 'z3' || role === 'leaving';
+  }
+
+  frontCards(): DeckCard[] {
+    return this.visibleProfiles().filter((profile, index) => this.isFrontCard(profile, index));
+  }
 
   ngOnInit(): void {
     this.profileService.getMe().subscribe({
@@ -404,17 +456,28 @@ export class DiscoverComponent implements OnInit, OnDestroy {
     if (this.toastTimer) clearTimeout(this.toastTimer);
   }
 
-  loadDeck(): void {
+  loadDeck(refresh = false): void {
     this.pollStartedAt = Date.now();
     this.retrying.set(false);
     this.loading.set(this.profiles().length === 0);
-    this.requestPage(undefined, true);
+    this.requestPage(undefined, true, refresh);
+  }
+
+  onSwipeCommitted(profile: DeckCard): void {
+    if (this.leavingId() || this.profiles()[this.currentIndex()]?.profileId !== profile.profileId) {
+      return;
+    }
+    this.leavingId.set(profile.profileId);
+    this.currentIndex.update(index => index + 1);
   }
 
   onSwipe(direction: 'left' | 'right', profile: DeckCard): void {
     const isSuper = this.nextSuperLike;
     this.nextSuperLike = false;
-    if (!this.myProfileId) return;
+    if (!this.myProfileId) {
+      this.finishDeparture(profile);
+      return;
+    }
 
     this.swipeService.swipe({
       profile1Id: this.myProfileId,
@@ -422,27 +485,58 @@ export class DiscoverComponent implements OnInit, OnDestroy {
       decision: direction === 'right',
       isSuper
     }).subscribe({
-      next: () => this.advanceCard(),
+      next: () => this.finishDeparture(profile),
       error: (error: HttpErrorResponse) => {
-        if (isSuper && error.status === 403) this.showPremiumModal.set(true);
-        else if (error.status === 429) this.showToast('You’re moving fast. Take a moment before the next profile.');
-        else this.advanceCard();
+        if (isSuper && error.status === 403) {
+          this.restoreRejectedSwipe(profile);
+          this.showPremiumModal.set(true);
+          return;
+        }
+        if (error.status === 429) {
+          this.restoreRejectedSwipe(profile);
+          const retryAfter = Number(error.headers?.get('X-RateLimit-Retry-After-Seconds') || 0);
+          this.showToast(retryAfter > 0
+            ? `You’re moving fast. Try again in about ${Math.ceil(retryAfter / 60)} min.`
+            : 'You’re moving fast. Take a moment before the next profile.');
+          return;
+        }
+        this.finishDeparture(profile);
       }
     });
   }
 
-  swipeLeft(): void { this.swipeCards?.first?.triggerSwipe('left'); }
-  swipeRight(): void { this.swipeCards?.first?.triggerSwipe('right'); }
+  swipeLeft(): void {
+    if (this.leavingId()) return;
+    this.topCard()?.triggerSwipe('left');
+  }
+  swipeRight(): void {
+    if (this.leavingId()) return;
+    this.topCard()?.triggerSwipe('right');
+  }
+
+  private topCard(): SwipeCardComponent | undefined {
+    const leaving = this.leavingId();
+    return this.swipeCards?.find(card => card.profile.profileId !== leaving)
+      ?? this.swipeCards?.first;
+  }
+
+  private cardFor(profileId: string): SwipeCardComponent | undefined {
+    return this.swipeCards?.find(card => card.profile.profileId === profileId);
+  }
+
+  private resetCurrentCard(): void {
+    this.topCard()?.resetSwipe();
+  }
 
   superLike(): void {
-    if (!this.profiles()[this.currentIndex()]) return;
+    if (this.leavingId() || !this.profiles()[this.currentIndex()]) return;
     this.nextSuperLike = true;
-    const card = this.swipeCards?.first;
+    const card = this.topCard();
     if (card) card.triggerSwipe('up');
     else this.nextSuperLike = false;
   }
 
-  refresh(): void { this.loadDeck(); }
+  refresh(): void { this.loadDeck(true); }
   retryNow(): void {
     this.pollStartedAt = Date.now();
     this.retrying.set(false);
@@ -460,10 +554,10 @@ export class DiscoverComponent implements OnInit, OnDestroy {
     this.toastTimer = setTimeout(() => this.toast.set(null), 4000);
   }
 
-  private requestPage(cursor?: string, reset = false): void {
+  private requestPage(cursor?: string, reset = false, refresh = false): void {
     if (this.requestInFlight) return;
     this.requestInFlight = true;
-    this.profileService.getMyDeck(cursor).subscribe({
+    this.profileService.getMyDeck(cursor, 20, refresh).subscribe({
       next: response => {
         this.requestInFlight = false;
         if (isBuildingDeck(response)) {
@@ -491,14 +585,21 @@ export class DiscoverComponent implements OnInit, OnDestroy {
 
   private applyPage(page: DeckPage, reset: boolean): void {
     const existing = this.profiles();
+    const leaving = this.leavingId()
+      ? existing.find(profile => profile.profileId === this.leavingId()) ?? null
+      : null;
     const current = existing[this.currentIndex()] ?? null;
     const generationChanged = this.generation !== null && this.generation !== page.generation;
     const shouldReset = reset || generationChanged || page.cursorReset;
 
     if (shouldReset) {
-      const head = current ? [current] : [];
-      this.profiles.set(this.uniqueByProfileId([...head, ...page.items]));
-      this.currentIndex.set(0);
+      const head = [leaving, current].filter((profile): profile is DeckCard => profile != null);
+      const next = this.uniqueByProfileId([...head, ...page.items]);
+      this.profiles.set(next);
+      const currentId = current?.profileId;
+      this.currentIndex.set(currentId
+        ? Math.max(0, next.findIndex(profile => profile.profileId === currentId))
+        : 0);
     } else {
       this.profiles.set(this.uniqueByProfileId([...existing, ...page.items]));
     }
@@ -526,13 +627,27 @@ export class DiscoverComponent implements OnInit, OnDestroy {
   }
 
   private advanceCard(): void {
-    this.currentIndex.update(value => value + 1);
     const remaining = this.profiles().length - this.currentIndex();
     if (remaining <= 3 && this.nextCursor) {
       const cursor = this.nextCursor;
       this.nextCursor = null;
       this.requestPage(cursor, false);
     }
+  }
+
+  private finishDeparture(profile: DeckCard): void {
+    if (this.leavingId() === profile.profileId) {
+      this.leavingId.set(null);
+    }
+    this.advanceCard();
+  }
+
+  private restoreRejectedSwipe(profile: DeckCard): void {
+    if (this.leavingId() === profile.profileId) {
+      this.currentIndex.update(index => Math.max(0, index - 1));
+      this.leavingId.set(null);
+    }
+    this.cardFor(profile.profileId)?.resetSwipe();
   }
 
   private uniqueByProfileId(cards: DeckCard[]): DeckCard[] {

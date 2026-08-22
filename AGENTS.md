@@ -13,6 +13,7 @@
 - Java services live in `services/*`; run the Maven wrapper from the affected service when it exists.
 - `services/tinder-contracts` is a local Maven dependency. Install it with `mvn -B -DskipTests install` before resolving dependencies or building Deck, Deck Read, or Profiles.
 - Go services are `services/location-go` and `services/swipes-go`; validate with `go test ./...` from the affected service.
+- The photos service is `services/photos`; validate with `python -m pytest` after `pip install -r requirements-dev.txt`.
 - The Angular client is `clients/tinder-client`; use `npm ci` for dependency installation and `npm run build` for a production build check.
 - Some tests use Testcontainers, Kafka, Redis, PostgreSQL, or Quarkus Dev Services. Do not report those as passed when their required runtime was unavailable.
 - Before changing a cross-service DTO or endpoint, inspect its actual consumers and preserve shared contracts unless the task explicitly changes the boundary.

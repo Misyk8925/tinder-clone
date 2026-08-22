@@ -9,7 +9,8 @@ RUN CGO_ENABLED=0 GOOS=linux go build -trimpath -ldflags="-s -w" -o /out/locatio
 
 FROM alpine:3.21
 
-RUN addgroup -S app && adduser -S app -G app
+RUN apk add --no-cache wget \
+    && addgroup -S app && adduser -S app -G app
 USER app
 
 COPY --from=build /out/location /usr/local/bin/location

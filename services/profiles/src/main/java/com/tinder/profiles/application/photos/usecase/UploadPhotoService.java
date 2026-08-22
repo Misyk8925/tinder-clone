@@ -2,14 +2,12 @@ package com.tinder.profiles.application.photos.usecase;
 
 import com.tinder.profiles.application.photos.command.UploadPhotoCommand;
 import com.tinder.profiles.application.photos.exception.PhotoValidationException;
-import com.tinder.profiles.application.photos.model.ImageDimensions;
 import com.tinder.profiles.application.photos.model.PhotoDraft;
-import com.tinder.profiles.application.photos.model.PhotoVariants;
 import com.tinder.profiles.application.photos.model.StoredPhoto;
+import com.tinder.profiles.application.photos.model.StoredPhotoMedia;
 import com.tinder.profiles.application.photos.model.UploadedPhoto;
-import com.tinder.profiles.application.photos.port.out.ImageVariantsPort;
 import com.tinder.profiles.application.photos.port.out.PhotoCatalogPort;
-import com.tinder.profiles.application.photos.port.out.PhotoStoragePort;
+import com.tinder.profiles.application.photos.port.out.PhotoMediaPort;
 import com.tinder.profiles.application.photos.support.PhotoKeys;
 import com.tinder.profiles.application.photos.support.PhotoPolicy;
 import com.tinder.profiles.application.photos.support.ProfilePhotoOwner;
@@ -23,9 +21,9 @@ import java.util.List;
 import java.util.UUID;
 
 /**
- * Puts an image into one of a profile's photo slots: validates it against the
- * {@link PhotoPolicy}, renders the variants, stores them and catalogues the
- * original. Uploading onto an occupied slot replaces what was there.
+ * Puts an image into one of a profile's photo slots. Slot rules stay here;
+ * image validation, variants and object storage are delegated to the photos
+ * service via {@link PhotoMediaPort}.
  */
 @Service
 @RequiredArgsConstructor
@@ -34,8 +32,7 @@ public class UploadPhotoService {
 
     private final ProfilePhotoOwner owner;
     private final PhotoCatalogPort catalog;
-    private final PhotoStoragePort storage;
-    private final ImageVariantsPort images;
+    private final PhotoMediaPort media;
     private final CleanupOrphanedPhotosService cleanupOrphaned;
     private final PhotoPolicy policy;
     private final DomainEventPublisherPort events;
@@ -61,45 +58,33 @@ public class UploadPhotoService {
 
         cleanupOrphaned.forProfile(profileId);
 
-        ImageDimensions dimensions = images.probe(cmd.image())
-                .orElseThrow(() -> new PhotoValidationException("Corrupted image"));
-        policy.requireWithinDimensionLimits(dimensions);
+        StoredPhotoMedia stored = media.store(profileId, cmd.image(), cmd.contentType());
+        log.info("Stored photo {} for profile {}", stored.storageId(), profileId);
 
-        PhotoVariants variants = images.render(cmd.image());
-        String storageId = UUID.randomUUID().toString();
-        PhotoKeys.VARIANTS.forEach(variant -> storage.put(
-                PhotoKeys.variantKey(profileId, storageId, variant),
-                variants.of(variant),
-                "image/jpeg"));
-        log.info("Stored {} variants of photo {} for profile {}",
-                PhotoKeys.VARIANTS.size(), storageId, profileId);
-
-        String originalKey = PhotoKeys.variantKey(profileId, storageId, "original");
         catalog.save(new PhotoDraft(
                 profileId,
-                originalKey,
+                stored.originalKey(),
                 cmd.position() == 0,
                 cmd.position(),
-                storage.publicUrl(originalKey),
-                "image/jpeg",
-                variants.original().length));
+                stored.originalUrl(),
+                stored.contentType(),
+                stored.size()));
 
         events.publishCardChanged(profileId);
 
         return new UploadedPhoto(
-                storageId,
-                storage.publicUrl(originalKey),
-                storage.publicUrl(PhotoKeys.variantKey(profileId, storageId, "large")),
-                storage.publicUrl(PhotoKeys.variantKey(profileId, storageId, "medium")),
-                storage.publicUrl(PhotoKeys.variantKey(profileId, storageId, "small")));
+                stored.storageId(),
+                stored.originalUrl(),
+                stored.largeUrl(),
+                stored.mediumUrl(),
+                stored.smallUrl());
     }
 
     private void replaceSlot(UUID profileId, StoredPhoto occupant) {
         log.debug("Replacing photo at position {} (photoId {}, key {})",
                 occupant.position(), occupant.photoId(), occupant.s3Key());
 
-        String storageId = PhotoKeys.storageIdOf(occupant.s3Key());
-        PhotoKeys.allVariantKeys(profileId, storageId).forEach(storage::delete);
+        media.delete(profileId, PhotoKeys.storageIdOf(occupant.s3Key()));
         catalog.deleteById(occupant.photoId());
     }
 }

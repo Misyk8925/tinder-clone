@@ -1,14 +1,25 @@
+// @vitest-environment jsdom
 import { TestBed } from '@angular/core/testing';
+import { BrowserTestingModule, platformBrowserTesting } from '@angular/platform-browser/testing';
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { ProfileService } from './profile.service';
 
 describe('Feature: The client requests generation-aware Deck pages (FR-9)', () => {
   let service: ProfileService;
   let http: HttpTestingController;
 
+  beforeAll(() => {
+    try {
+      TestBed.initTestEnvironment(BrowserTestingModule, platformBrowserTesting());
+    } catch {
+      // ng test already initialized the environment
+    }
+  });
+
   beforeEach(() => {
+    TestBed.resetTestingModule();
     TestBed.configureTestingModule({
       providers: [provideHttpClient(), provideHttpClientTesting()],
     });
@@ -47,12 +58,27 @@ describe('Feature: The client requests generation-aware Deck pages (FR-9)', () =
     expect(request.request.params.get('cursor')).toBe('opaque-cursor');
     expect(request.request.params.get('limit')).toBe('50');
     expect(request.request.params.has('offset')).toBe(false);
+    expect(request.request.params.has('refresh')).toBe(false);
     request.flush({
       items: [],
       nextCursor: null,
       generation: 2,
       cursorReset: false,
       state: 'READY',
+    });
+  });
+
+  it('Scenario: Given Discover Refresh, when the deck is reloaded, then refresh=true is sent and pagination omits it', () => {
+    service.getMyDeck(undefined, 20, true).subscribe();
+
+    const refresh = http.expectOne(req => req.url.endsWith('/api/v2/deck'));
+    expect(refresh.request.params.get('refresh')).toBe('true');
+    refresh.flush({
+      items: [],
+      nextCursor: null,
+      generation: 3,
+      cursorReset: false,
+      state: 'EMPTY',
     });
   });
 });

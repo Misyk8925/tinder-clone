@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.databind.SerializationFeature
 
 private const val GIB = 1024L * 1024 * 1024
+private const val MIB = 1024L * 1024
 
 object TinderRedisPolicies {
     val catalog: RedisPolicyCatalog = redisPolicies {
@@ -104,6 +105,91 @@ object TinderRedisPolicies {
             runtimeSource("services/deck-read/src/main/resources/application.properties")
         }
 
+        store("deck-read-redis") {
+            owner = "deck-read"
+            role = StoreRole.REBUILDABLE_CACHE_AND_COORDINATION
+            topology = RedisTopology.SINGLE_NODE
+
+            persistence {
+                mode = PersistenceMode.AOF
+                appendFsync = AppendFsync.EVERY_SECOND
+                dataVolume = "deck-read-redis-data:/data"
+            }
+            memory {
+                maxMemoryBytes = 512 * MIB
+                evictionPolicy = EvictionPolicy.NO_EVICTION
+            }
+            security {
+                tls = false
+                authentication = false
+            }
+            client("deck-read") {
+                commandTimeoutMs = 2_000
+                connectTimeoutMs = 2_000
+            }
+
+            namespace("dr-viewer") {
+                owner = "deck-read"
+                pattern = "dr:viewer:{viewerProfileId}"
+                kind = NamespaceKind.MATERIALIZED_VIEW
+            }
+            namespace("dr-profile-card") {
+                owner = "deck-read"
+                pattern = "dr:profile:{profileId}:card"
+                kind = NamespaceKind.MATERIALIZED_VIEW
+            }
+            namespace("dr-user-profile") {
+                owner = "deck-read"
+                pattern = "dr:user:{viewerUserId}:profile"
+                kind = NamespaceKind.MATERIALIZED_VIEW
+            }
+            namespace("dr-hot-viewers") {
+                owner = "deck-read"
+                pattern = "dr:profile:{profileId}:hot-viewers"
+                kind = NamespaceKind.ACTIVITY_INDEX
+            }
+            namespace("dr-readiness") {
+                owner = "deck-read"
+                pattern = "dr:read-model:ready"
+                kind = NamespaceKind.BUILD_METADATA
+            }
+            namespace("dr-repeat-readiness") {
+                owner = "deck-read"
+                pattern = "dr:read-model:repeat-ready"
+                kind = NamespaceKind.BUILD_METADATA
+            }
+            namespace("dr-auto-backfill-run") {
+                owner = "deck-read"
+                pattern = "dr:read-model:auto-backfill-run"
+                kind = NamespaceKind.BUILD_METADATA
+            }
+            lock("dr-build") {
+                owner = "deck-read"
+                pattern = "dr:viewer:{viewerProfileId}:build-lock"
+                leaseMs = 60_000
+                maxOperationMs = 30_000
+                uniqueOwnerToken = true
+                compareAndDeleteRelease = true
+            }
+            lock("dr-reconciliation") {
+                owner = "deck-read"
+                pattern = "dr:reconciliation:lease"
+                leaseMs = 60_000
+                maxOperationMs = 55_000
+                uniqueOwnerToken = true
+                compareAndDeleteRelease = true
+            }
+
+            risk(OperationalRisk.SINGLE_NODE_NO_FAILOVER)
+            risk(OperationalRisk.NO_TRANSPORT_OR_CLIENT_AUTH)
+            risk(OperationalRisk.MULTI_COMMAND_WRITES_NOT_CRASH_ATOMIC)
+            risk(OperationalRisk.NO_EVICTION_REQUIRES_CAPACITY_ALERTS)
+
+            runtimeSource("docker-compose.yml")
+            runtimeSource("services/deck-read/src/main/resources/application.properties")
+            runtimeSource("services/deck-read/src/main/java/com/tinder/deckread/readmodel/ReadModelKeys.java")
+        }
+
         store("deck-read-cluster") {
             owner = "deck-read"
             role = StoreRole.REBUILDABLE_CACHE_AND_COORDINATION
@@ -173,7 +259,7 @@ object TinderRedisPolicies {
             risk(OperationalRisk.MULTI_COMMAND_WRITES_NOT_CRASH_ATOMIC)
             risk(OperationalRisk.NO_EVICTION_REQUIRES_CAPACITY_ALERTS)
 
-            runtimeSource("docker-compose.yml")
+            runtimeSource("docker-compose.deck-read-cluster.yml")
             runtimeSource("services/deck-read/src/main/resources/application.properties")
             runtimeSource("services/deck-read/src/main/java/com/tinder/deckread/readmodel/ReadModelKeys.java")
         }

@@ -46,12 +46,12 @@ class DeckQueryServiceMaterializedAcceptanceTest {
         when(materialized.readPage(viewer, 0, 0, 20)).thenReturn(Uni.createFrom().item(
                 new MaterializedDeckSlice(
                         List.of(card(candidate)), 7, false, 1, 1,
-                        DeckState.READY, Instant.now(), "100", false)));
+                        DeckState.READY, Instant.now(), "100", false, 1)));
 
         DeckQueryService service = new DeckQueryService();
         service.profiles = profiles;
         service.materializedQuery = new MaterializedDeckQuery(
-                materialized, profiles, mutations, cursors(), refreshes);
+                materialized, profiles, mutations, cursors(), refreshes, null);
         service.readiness = readiness;
         service.snapshots = snapshots;
         service.viewerMutations = mutations;
@@ -83,7 +83,7 @@ class DeckQueryServiceMaterializedAcceptanceTest {
         when(materialized.readPage(viewer, 0, 100, 20)).thenReturn(Uni.createFrom().item(
                 new MaterializedDeckSlice(
                         List.of(), 9, false, 100, 120,
-                        DeckState.READY, Instant.now(), "100", false)));
+                        DeckState.READY, Instant.now(), "100", false, 120)));
         when(materialized.readTail(viewer, 9, 0, 20))
                 .thenReturn(Uni.createFrom().item(List.of(candidate)));
         when(profiles.cards(List.of(candidate)))
@@ -96,7 +96,7 @@ class DeckQueryServiceMaterializedAcceptanceTest {
         DeckQueryService service = new DeckQueryService();
         service.profiles = profiles;
         service.materializedQuery = new MaterializedDeckQuery(
-                materialized, profiles, mutations, cursors(), refreshes);
+                materialized, profiles, mutations, cursors(), refreshes, null);
         service.snapshots = snapshots;
         service.viewerMutations = mutations;
         service.refreshes = refreshes;
@@ -106,6 +106,42 @@ class DeckQueryServiceMaterializedAcceptanceTest {
 
         assertThat(cards).extracting(card -> card.profileId()).containsExactly(candidate);
         verifyNoInteractions(snapshots);
+    }
+
+    @Test
+    @DisplayName("Scenario: Given an authoritative empty page, when v2 is requested with refresh, then BUILDING is returned and rematerialization is requested")
+    void refreshOnEmptyPageReturnsBuilding() {
+        UUID viewer = UUID.randomUUID();
+        ProfileProjectionStore profiles = mock(ProfileProjectionStore.class);
+        MaterializedDeckStore materialized = mock(MaterializedDeckStore.class);
+        ReadModelReadiness readiness = mock(ReadModelReadiness.class);
+        DeckSnapshotStore snapshots = mock(DeckSnapshotStore.class);
+        ViewerMutationStore mutations = mock(ViewerMutationStore.class);
+        DeckRefreshTrigger refreshes = mock(DeckRefreshTrigger.class);
+        when(readiness.isReady()).thenReturn(Uni.createFrom().item(true));
+        when(profiles.viewerProfileId("viewer-user")).thenReturn(Uni.createFrom().item(viewer));
+        when(refreshes.requestAsync(viewer, com.tinder.deckread.messaging.MaterializationReason.API_STALE))
+                .thenReturn(Uni.createFrom().voidItem());
+        when(materialized.readPage(viewer, 0, 0, 20)).thenReturn(Uni.createFrom().item(
+                new MaterializedDeckSlice(
+                        List.of(), 4, false, 0, 0,
+                        DeckState.EMPTY, Instant.now(), "100", false, 0)));
+
+        DeckQueryService service = new DeckQueryService();
+        service.profiles = profiles;
+        service.materializedQuery = new MaterializedDeckQuery(
+                materialized, profiles, mutations, cursors(), refreshes, null);
+        service.readiness = readiness;
+        service.snapshots = snapshots;
+        service.viewerMutations = mutations;
+        service.refreshes = refreshes;
+        service.materializedRequired = true;
+        service.cursors = cursors();
+
+        DeckQueryResult result = service.getDeckV2("viewer-user", null, 20, true).await().indefinitely();
+
+        assertThat(result).isInstanceOf(DeckQueryResult.Building.class);
+        verify(refreshes).requestAsync(viewer, com.tinder.deckread.messaging.MaterializationReason.API_STALE);
     }
 
     private DeckCursorCodec cursors() {

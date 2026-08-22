@@ -2,14 +2,13 @@ package com.tinder.profiles.application.photos.usecase;
 
 import com.tinder.profiles.application.photos.model.StoredPhoto;
 import com.tinder.profiles.application.photos.port.out.PhotoCatalogPort;
-import com.tinder.profiles.application.photos.port.out.PhotoStoragePort;
+import com.tinder.profiles.application.photos.port.out.PhotoMediaPort;
 import com.tinder.profiles.application.photos.support.PhotoKeys;
 import com.tinder.profiles.application.photos.support.ProfilePhotoOwner;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
-import java.util.HashSet;
 import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
@@ -28,7 +27,7 @@ public class CleanupOrphanedPhotosService {
 
     private final ProfilePhotoOwner owner;
     private final PhotoCatalogPort catalog;
-    private final PhotoStoragePort storage;
+    private final PhotoMediaPort media;
 
     public void handle(String userId) {
         forProfile(owner.profileIdOf(userId));
@@ -40,19 +39,9 @@ public class CleanupOrphanedPhotosService {
                     .map(StoredPhoto::s3Key)
                     .map(PhotoKeys::storageIdOf)
                     .collect(Collectors.toSet());
-
-            Set<String> deleted = new HashSet<>();
-            for (String key : storage.listKeys(PhotoKeys.profilePrefix(profileId))) {
-                String storageId = PhotoKeys.storageIdOf(key);
-                if (catalogued.contains(storageId) || !deleted.add(storageId)) {
-                    continue;
-                }
-                log.info("Deleting orphaned photo {} of profile {}", storageId, profileId);
-                PhotoKeys.allVariantKeys(profileId, storageId).forEach(storage::delete);
-            }
-
+            int deleted = media.cleanupOrphans(profileId, catalogued);
             log.info("Cleanup completed for profile {}: deleted {} orphaned photo(s)",
-                    profileId, deleted.size());
+                    profileId, deleted);
         } catch (Exception e) {
             log.error("Failed to clean up orphaned photos for profile {}", profileId, e);
         }

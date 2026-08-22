@@ -44,22 +44,27 @@ public class LocationService {
         Point point = geometryFactory.createPoint(new Coordinate(longitude, latitude));
         point.setSRID(4326);
 
-        Location loc = new Location();
-        loc.setCity(resolvedCity);
-        loc.setGeo(point);
+        if (!"Unknown".equals(resolvedCity)) {
+            return repo.findByCity(resolvedCity).orElseGet(() -> persist(resolvedCity, point, latitude, longitude));
+        }
+        return persist(resolvedCity, point, latitude, longitude);
+    }
 
+    private Location persist(String city, Point point, double latitude, double longitude) {
+        Location loc = new Location();
+        loc.setCity(city);
+        loc.setGeo(point);
         try {
             Location saved = repo.save(loc);
-            log.info("Saved GPS-derived location for city '{}': lat={}, lon={}", resolvedCity, latitude, longitude);
+            log.info("Saved GPS-derived location for city '{}': lat={}, lon={}", city, latitude, longitude);
             return saved;
         } catch (DataIntegrityViolationException e) {
-            // Another node/transaction inserted the row concurrently; fetch it
-            log.warn("Concurrent insert detected for city '{}', fetching from DB", resolvedCity);
-            return repo.findByCity(resolvedCity)
-                    .orElseThrow(() -> new RuntimeException("Location not found after concurrent insert for city: " + resolvedCity, e));
+            log.warn("Concurrent insert detected for city '{}', fetching from DB", city);
+            return repo.findByCity(city)
+                    .orElseThrow(() -> new RuntimeException("Location not found after concurrent insert for city: " + city, e));
         } catch (Exception e) {
-            log.error("Error saving GPS location for city '{}': {}", resolvedCity, e.getMessage(), e);
-            throw new RuntimeException("Failed to save GPS location for city: " + resolvedCity, e);
+            log.error("Error saving GPS location for city '{}': {}", city, e.getMessage(), e);
+            throw new RuntimeException("Failed to save GPS location for city: " + city, e);
         }
     }
 }

@@ -16,7 +16,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import java.util.UUID;
 
-/** mTLS-only maintenance entry point; it is never invoked on application startup. */
+/** mTLS-only maintenance entry point. Deck Read may POST when its catalog is empty; Profiles does not start a run on its own startup. */
 @RestController
 @RequestMapping("/api/v1/profiles/internal/deck-card-projection/backfills")
 @RequiredArgsConstructor

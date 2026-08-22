@@ -26,6 +26,7 @@ import org.springframework.web.multipart.MultipartFile;
 import java.net.URI;
 import java.time.Instant;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -86,10 +87,21 @@ public class ConversationServiceImpl implements ConversationService {
         Conversation conversation = conversationRepository.findById(conversationId)
                 .orElseThrow(() -> new MessagingException("Conversation not found"));
 
-        List<MessageHistoryDto> messages = messageRepository
-                .findByConversationConversationIdOrderByCreatedAtAsc(conversationId)
-                .stream()
-                .map(this::toHistoryDto)
+        List<Message> stored = messageRepository
+                .findByConversationConversationIdOrderByCreatedAtAsc(conversationId);
+        stored.forEach(this::touchAttachments);
+
+        Map<String, String> signedUrls = conversationPhotoStorageService.downloadUrls(
+                conversationId,
+                stored.stream()
+                        .flatMap(message -> Optional.ofNullable(message.getAttachments()).orElse(List.of()).stream())
+                        .map(attachment -> new ConversationPhotoStorageService.PhotoRef(
+                                attachment.getStorageKey(),
+                                attachment.getUrl()))
+                        .toList());
+
+        List<MessageHistoryDto> messages = stored.stream()
+                .map(message -> toHistoryDto(message, signedUrls))
                 .toList();
 
         log.info("Get conversation found {} messages for conversationId={}", messages.size(), conversationId);
@@ -332,13 +344,19 @@ public class ConversationServiceImpl implements ConversationService {
         );
     }
 
-    private MessageHistoryDto toHistoryDto(Message message) {
+    private void touchAttachments(Message message) {
+        if (message.getAttachments() != null) {
+            message.getAttachments().size();
+        }
+    }
+
+    private MessageHistoryDto toHistoryDto(Message message, Map<String, String> signedUrls) {
         List<MessageAttachmentDto> attachments = message.getAttachments() == null
                 ? List.of()
                 : message.getAttachments().stream()
                 .map(attachment -> new MessageAttachmentDto(
                         attachment.getStorageKey(),
-                        attachment.getUrl(),
+                        signedUrlFor(message, attachment, signedUrls),
                         attachment.getMimeType(),
                         attachment.getSizeBytes(),
                         attachment.getOriginalName(),
@@ -358,13 +376,31 @@ public class ConversationServiceImpl implements ConversationService {
         );
     }
 
+    private String signedUrlFor(
+            Message message,
+            MessageAttachment attachment,
+            Map<String, String> signedUrls
+    ) {
+        String storageKey = attachment.getStorageKey();
+        if (storageKey != null && signedUrls.containsKey(storageKey)) {
+            return signedUrls.get(storageKey);
+        }
+        return conversationPhotoStorageService.downloadUrl(
+                message.getConversation().getConversationId(),
+                storageKey,
+                attachment.getUrl());
+    }
+
     private MessageDto toDto(Message message) {
         List<MessageAttachmentDto> attachments = message.getAttachments() == null
                 ? List.of()
                 : message.getAttachments().stream()
                 .map(attachment -> new MessageAttachmentDto(
                         attachment.getStorageKey(),
-                        attachment.getUrl(),
+                        conversationPhotoStorageService.downloadUrl(
+                                message.getConversation().getConversationId(),
+                                attachment.getStorageKey(),
+                                attachment.getUrl()),
                         attachment.getMimeType(),
                         attachment.getSizeBytes(),
                         attachment.getOriginalName(),

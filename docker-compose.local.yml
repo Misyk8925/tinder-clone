@@ -27,6 +27,10 @@ services:
       # coordinates so profiles' 3s location-client timeout is never exceeded.
       GEOCODING_TIMEOUT_MS: "400"
 
+  photos:
+    ports:
+      - "127.0.0.1:8070:8070"
+
   profiles:
     volumes:
       - ./docker/certs/profiles-service.p12:/certs/profiles-service.p12:ro
@@ -45,7 +49,12 @@ services:
       DECK_KEYSTORE_PASSWORD: changeit
       DECK_TRUSTSTORE_PASSWORD: changeit
 
-  deck-read:
+  # Host inspect of Deck Read projections. Shared redis stays on 6379.
+  deck-read-redis:
+    ports:
+      - "127.0.0.1:6380:6379"
+
+  deck-read-api:
     volumes:
       - ./docker/certs/deck-read-service.p12:/certs/deck-read-service.p12:ro
       - ./docker/certs/truststore.jks:/certs/truststore.jks:ro
@@ -55,6 +64,19 @@ services:
       # Local-only: tokens minted via localhost:9080 carry a different iss than
       # the in-network discovery URL (keycloak:9080). Prod uses one public URL.
       QUARKUS_OIDC_TOKEN_ISSUER: any
+      # Production recovery never auto-writes dr:read-model:ready. Local Discover
+      # would stay 503 forever if the marker stayed required.
+      DECK_READ_REQUIRE_READY_MARKER: "false"
+
+  deck-read-worker:
+    volumes:
+      - ./docker/certs/deck-read-service.p12:/certs/deck-read-service.p12:ro
+      - ./docker/certs/truststore.jks:/certs/truststore.jks:ro
+    environment:
+      DECK_READ_KEYSTORE_PASSWORD: changeit
+      DECK_READ_TRUSTSTORE_PASSWORD: changeit
+      QUARKUS_OIDC_TOKEN_ISSUER: any
+      DECK_READ_REQUIRE_READY_MARKER: "false"
 
   consumer:
     volumes:
@@ -71,3 +93,22 @@ services:
     environment:
       SUBSCRIPTIONS_GRPC_KEYSTORE_PASSWORD: changeit
       SUBSCRIPTIONS_GRPC_TRUSTSTORE_PASSWORD: changeit
+      STRIPE_SUCCESS_URL: http://localhost:4200/profile
+      STRIPE_CANCEL_URL: http://localhost:4200/profile
+      STRIPE_RETURN_URL: http://localhost:4200/profile
+
+  keycloak:
+    environment:
+      KC_HOSTNAME_URL: http://localhost:9080
+
+  tinder-client:
+    ports:
+      - "127.0.0.1:4200:80"
+    build:
+      args:
+        NG_CONFIGURATION: local
+
+  swipes:
+    environment:
+      # Browser tokens are issued at localhost:9080; in-network JWKS uses keycloak:9080.
+      SWIPES_JWT_ISSUER: http://localhost:9080/realms/spring

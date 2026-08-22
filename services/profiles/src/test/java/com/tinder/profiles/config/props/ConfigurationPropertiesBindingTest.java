@@ -51,6 +51,9 @@ class ConfigurationPropertiesBindingTest {
             then(location.service().url()).startsWith("http");
             then(location.change().thresholdKm()).isEqualTo(1.0);
 
+            PhotosServiceProperties photosService = context.getBean(PhotosServiceProperties.class);
+            then(photosService.service().url()).isEqualTo("http://localhost:8070");
+
             OutboxPublisherProperties outbox = context.getBean(OutboxPublisherProperties.class);
             then(outbox.enabled()).isTrue();
             then(outbox.batchSize()).isEqualTo(100);
@@ -84,6 +87,7 @@ class ConfigurationPropertiesBindingTest {
             LocationProperties.class,
             OutboxPublisherProperties.class,
             PhotoProperties.class,
+            PhotosServiceProperties.class,
             ProfileCacheProperties.class,
             ProfileCleanupProperties.class
     })

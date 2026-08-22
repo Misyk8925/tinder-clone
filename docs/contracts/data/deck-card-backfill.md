@@ -35,7 +35,7 @@ The existing unique `event_id`, retry, published and dead-letter fields remain a
 
 ## Invocation and restart semantics
 
-- The operator generates one UUID and calls `POST /api/v1/profiles/internal/deck-card-projection/backfills/{runId}` over Profiles mTLS port `8011`.
+- Deck Read stores one Redis runId (`dr:read-model:auto-backfill-run`) and POSTs `/api/v1/profiles/internal/deck-card-projection/backfills/{runId}` over Profiles mTLS port `8011` when it finds no `dr:profile:*:card` keys. Operators may still start the same URI with their own runId.
 - A timeout or Profiles restart is retried with the same runId. `startOrResume` locks and returns the existing checkpoint, then continues strictly after its `last_profile_id`.
-- `GET` on the same URI reports the durable status. The job is not automatically started by Profiles or Deck Read.
+- `GET` on the same URI reports the durable status. Profiles never starts a run on its own startup. Deck Read does not write `dr:read-model:ready`.
 - Only an explicitly verified recovery procedure may write `dr:read-model:ready=READY` after this run is `COMPLETED`, consumer lag is zero and projection counts match. The independent `dr:read-model:repeat-ready=READY` marker additionally requires complete seven-day swipe/match history; profile readiness alone never enables repeat fallback.

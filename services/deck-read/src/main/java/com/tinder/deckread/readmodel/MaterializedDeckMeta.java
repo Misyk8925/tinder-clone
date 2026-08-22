@@ -13,6 +13,7 @@ public record MaterializedDeckMeta(
         String sourceBuildTimestamp,
         int readyCount,
         int totalCount,
-        boolean unavailable
+        boolean unavailable,
+        int freshCount
 ) {
 }

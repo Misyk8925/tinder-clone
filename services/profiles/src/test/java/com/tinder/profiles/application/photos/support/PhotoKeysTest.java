@@ -59,6 +59,20 @@ class PhotoKeysTest {
     }
 
     @Test
+    @DisplayName("recovers the variant from keys and URLs")
+    void recoversVariant() {
+        then(PhotoKeys.variantOf(PhotoKeys.variantKey(PROFILE_ID, STORAGE_ID, "medium")))
+                .isEqualTo("medium");
+        then(PhotoKeys.variantOf(
+                "https://d123.cloudfront.net/photos/%s/%s/small.jpg".formatted(PROFILE_ID, STORAGE_ID)))
+                .isEqualTo("small");
+        then(PhotoKeys.variantOf(
+                "https://bucket.s3.eu-north-1.amazonaws.com/photos/%s/%s/original.jpg?X-Amz-Signature=abc"
+                        .formatted(PROFILE_ID, STORAGE_ID)))
+                .isEqualTo("original");
+    }
+
+    @Test
     @DisplayName("rejects keys that do not follow the layout")
     void rejectsForeignKeys() {
         thenThrownBy(() -> PhotoKeys.storageIdOf("avatars/whatever.jpg"))

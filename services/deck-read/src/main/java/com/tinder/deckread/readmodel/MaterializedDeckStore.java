@@ -45,6 +45,7 @@ public class MaterializedDeckStore {
               'sourceBuildTimestamp', ARGV[5],
               'readyCount', ARGV[6],
               'totalCount', ARGV[7],
+              'freshCount', ARGV[11],
               'unavailable', 'false')
             redis.call('HDEL', KEYS[1], 'refreshStartedAt', 'lastFailureAt')
             redis.call('EXPIRE', KEYS[1], ARGV[8])
@@ -80,21 +81,28 @@ public class MaterializedDeckStore {
             local suppressedKey = viewerPrefix .. ':suppressed'
             local readyCount = tonumber(redis.call('HGET', meta, 'readyCount') or '0')
             local totalCount = tonumber(redis.call('HGET', meta, 'totalCount') or '0')
+            local freshCount = tonumber(redis.call('HGET', meta, 'freshCount') or '')
+            if not freshCount then
+              freshCount = totalCount
+            end
             local result = {
               tostring(generation), tostring(cursorReset),
               redis.call('HGET', meta, 'state') or 'READY',
               redis.call('HGET', meta, 'builtAt') or '',
               redis.call('HGET', meta, 'sourceBuildTimestamp') or '',
               tostring(readyCount), tostring(totalCount), tostring(position),
-              redis.call('HGET', meta, 'unavailable') or 'false'
+              redis.call('HGET', meta, 'unavailable') or 'false',
+              tostring(freshCount)
             }
             if position >= readyCount then return result end
             local ids = redis.call('ZRANGE', orderKey, position, readyCount - 1)
             local nextPosition = position
             local emitted = 0
             for _, id in ipairs(ids) do
+              local orderIndex = nextPosition
               nextPosition = nextPosition + 1
-              if not redis.call('HGET', swipesKey, id)
+              local skipSwipe = orderIndex >= freshCount
+              if (skipSwipe or not redis.call('HGET', swipesKey, id))
                   and redis.call('SISMEMBER', matchedKey, id) == 0
                   and redis.call('SISMEMBER', suppressedKey, id) == 0 then
                 local card = redis.call('HGET', cardsKey, id)
@@ -151,6 +159,8 @@ public class MaterializedDeckStore {
                     if (generation == 0) {
                         return Optional.empty();
                     }
+                    int totalCount = (int) parseLong(fields.get("totalCount"), 0);
+                    int storedFreshCount = (int) parseLong(fields.get("freshCount"), -1);
                     return Optional.of(new MaterializedDeckMeta(
                             generation,
                             parseLong(fields.get("requestedRevision"), 0),
@@ -159,8 +169,9 @@ public class MaterializedDeckStore {
                             parseState(fields.get("state")),
                             fields.getOrDefault("sourceBuildTimestamp", ""),
                             (int) parseLong(fields.get("readyCount"), 0),
-                            (int) parseLong(fields.get("totalCount"), 0),
-                            Boolean.parseBoolean(fields.getOrDefault("unavailable", "false"))));
+                            totalCount,
+                            Boolean.parseBoolean(fields.getOrDefault("unavailable", "false")),
+                            storedFreshCount < 0 ? totalCount : storedFreshCount));
                 });
     }
 
@@ -210,6 +221,22 @@ public class MaterializedDeckStore {
             Instant now
     ) {
         List<DeckCardDto> bounded = orderedCards.stream().limit(TOTAL_WINDOW).toList();
+        return install(
+                viewerProfileId, requestedRevision, bounded, bounded.size(), state,
+                sourceBuildTimestamp, now);
+    }
+
+    public Uni<Long> install(
+            UUID viewerProfileId,
+            long requestedRevision,
+            List<DeckCardDto> orderedCards,
+            int freshCount,
+            DeckState state,
+            String sourceBuildTimestamp,
+            Instant now
+    ) {
+        List<DeckCardDto> bounded = orderedCards.stream().limit(TOTAL_WINDOW).toList();
+        int boundedFreshCount = Math.min(Math.max(0, freshCount), bounded.size());
         List<DeckCardDto> ready = bounded.stream().limit(READY_WINDOW).toList();
         List<UUID> tail = bounded.stream().skip(READY_WINDOW).map(DeckCardDto::profileId).toList();
         return meta(viewerProfileId)
@@ -223,8 +250,8 @@ public class MaterializedDeckStore {
                                         ready.stream().map(DeckCardDto::profileId).toList()))
                                 .flatMap(ignored -> commit(
                                         viewerProfileId, previous.map(MaterializedDeckMeta::generation).orElse(0L),
-                                        generation, requestedRevision, ready.size(), bounded.size(), state,
-                                        sourceBuildTimestamp, now))
+                                        generation, requestedRevision, ready.size(), bounded.size(),
+                                        boundedFreshCount, state, sourceBuildTimestamp, now))
                                 .flatMap(result -> result < 0
                                         ? discard(viewerProfileId, generation).replaceWith(result)
                                         : Uni.createFrom().item(result))));
@@ -272,6 +299,7 @@ public class MaterializedDeckStore {
             long requestedRevision,
             int readyCount,
             int totalCount,
+            int freshCount,
             DeckState state,
             String sourceBuildTimestamp,
             Instant now
@@ -289,7 +317,7 @@ public class MaterializedDeckStore {
                         sourceBuildTimestamp == null ? "" : sourceBuildTimestamp,
                         Integer.toString(readyCount), Integer.toString(totalCount),
                         Long.toString(RETENTION_SECONDS), Long.toString(oldGeneration),
-                        Long.toString(OLD_GENERATION_SECONDS))
+                        Long.toString(OLD_GENERATION_SECONDS), Integer.toString(freshCount))
                 .map(Response::toLong);
     }
 
@@ -307,19 +335,22 @@ public class MaterializedDeckStore {
             return null;
         }
         List<DeckCardDto> cards = new ArrayList<>();
-        for (int index = 9; index < response.size(); index++) {
+        for (int index = 10; index < response.size(); index++) {
             cards.add(readCard(response.get(index).toString()));
         }
+        int totalCount = response.get(6).toInteger();
+        int freshCount = response.size() > 9 ? response.get(9).toInteger() : totalCount;
         return new MaterializedDeckSlice(
                 cards,
                 response.get(0).toLong(),
                 response.get(1).toInteger() == 1,
                 response.get(7).toInteger(),
-                response.get(6).toInteger(),
+                totalCount,
                 parseState(response.get(2).toString()),
                 parseInstant(response.get(3).toString()),
                 response.get(4).toString(),
-                Boolean.parseBoolean(response.get(8).toString()));
+                Boolean.parseBoolean(response.get(8).toString()),
+                freshCount);
     }
 
     private String[] zaddArgs(String key, List<DeckCardDto> cards) {

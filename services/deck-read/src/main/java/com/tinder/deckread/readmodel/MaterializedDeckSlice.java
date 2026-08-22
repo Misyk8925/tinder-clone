@@ -15,7 +15,8 @@ public record MaterializedDeckSlice(
         DeckState state,
         Instant builtAt,
         String sourceBuildTimestamp,
-        boolean unavailable
+        boolean unavailable,
+        int freshCount
 ) {
     public MaterializedDeckSlice {
         cards = List.copyOf(cards);

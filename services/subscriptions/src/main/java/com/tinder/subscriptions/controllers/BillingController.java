@@ -36,6 +36,17 @@ public class BillingController {
         String userId = jwt.getSubject();
         return billingService.createPortalSession(userId);
     }
+
+    /**
+     * Reconciles Stripe subscription state for the authenticated user.
+     * Recovers entitlement when Checkout returned before the webhook arrived.
+     */
+    @PostMapping("/sync")
+    public java.util.Map<String, Boolean> syncEntitlement(@AuthenticationPrincipal Jwt jwt) {
+        String userId = jwt.getSubject();
+        log.info("Syncing billing entitlement for user {}", userId);
+        return java.util.Map.of("premium", billingService.syncEntitlement(userId));
+    }
 }
 
 

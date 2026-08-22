@@ -1,6 +1,8 @@
 package com.tinder.profiles.infrastructure.persistence.photos;
 
 import com.tinder.contracts.dto.SharedPhotoDto;
+import com.tinder.profiles.infrastructure.photos.PhotoDownloadUrlSigner;
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
 import java.util.ArrayList;
@@ -20,7 +22,10 @@ import java.util.UUID;
  * and so fetches photos separately and groups them here.
  */
 @Component
+@RequiredArgsConstructor
 public class SharedPhotoMapper {
+
+    private final PhotoDownloadUrlSigner photoUrls;
 
     /** Photos of a single profile, ordered by position. */
     public List<SharedPhotoDto> toDtos(UUID profileId, Collection<Photo> photos) {
@@ -64,7 +69,7 @@ public class SharedPhotoMapper {
                 photo.getS3Key(),
                 photo.isPrimary(),
                 photo.getPosition(),
-                photo.getUrl(),
+                photoUrls.forClient(profileId, photo.getS3Key(), photo.getUrl()),
                 photo.getContentType(),
                 photo.getSize(),
                 photo.getCreatedAt());

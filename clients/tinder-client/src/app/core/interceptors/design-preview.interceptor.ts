@@ -1,7 +1,7 @@
 import { HttpInterceptorFn, HttpResponse } from '@angular/common/http';
 import { of } from 'rxjs';
 import { environment } from '../../../environments/environment';
-import { Profile } from '../models/profile.model';
+import { Profile, profilePhotoId } from '../models/profile.model';
 import { DeckCard } from '../models/deck.model';
 
 const myProfile: Profile = {
@@ -49,7 +49,7 @@ const milaDeckCard: DeckCard = {
     maxDistanceKm: milaProfile.preferences.maxRange
   },
   photos: milaProfile.photos.map(photo => ({
-    photoId: photo.photoID,
+    photoId: profilePhotoId(photo),
     url: photo.url,
     order: photo.position
   })),

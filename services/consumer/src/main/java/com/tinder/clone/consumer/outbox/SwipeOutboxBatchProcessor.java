@@ -42,7 +42,7 @@ public class SwipeOutboxBatchProcessor {
                 outboxRow.markPublished(Instant.now());
                 published++;
             } catch (Exception ex) {
-                String errorMessage = truncateError(ex.getMessage());
+                String errorMessage = OutboxPublishErrors.summarize(ex, properties.getMaxErrorLength());
                 int nextFailedAttemptCount = outboxRow.getRetryCount() + 1;
                 failed++;
 
@@ -55,7 +55,7 @@ public class SwipeOutboxBatchProcessor {
                             "Swipe outbox event quarantined after max retries: rowId={}, eventId={}, swiperId={}, swipedId={}, retryCount={}, cause={}",
                             outboxRow.getId(), outboxRow.getEventId(),
                             outboxRow.getSwiperId(), outboxRow.getSwipedId(),
-                            outboxRow.getRetryCount(), ex.getMessage()
+                            outboxRow.getRetryCount(), errorMessage, ex
                     );
                 } else {
                     Instant nextAttemptAt = Instant.now().plus(retryBackoffPolicy.nextDelay(outboxRow.getRetryCount()));
@@ -64,7 +64,7 @@ public class SwipeOutboxBatchProcessor {
                     log.warn(
                             "Swipe outbox publish failed: rowId={}, eventId={}, retryCount={}, nextAttemptAt={}, cause={}",
                             outboxRow.getId(), outboxRow.getEventId(),
-                            outboxRow.getRetryCount(), nextAttemptAt, ex.getMessage()
+                            outboxRow.getRetryCount(), nextAttemptAt, errorMessage, ex
                     );
                 }
             }
@@ -72,13 +72,5 @@ public class SwipeOutboxBatchProcessor {
 
         outboxRepository.saveAll(batch);
         return new OutboxPublishResult(batch.size(), published, failed, deadLettered);
-    }
-
-    private String truncateError(String message) {
-        if (message == null) {
-            return "Unknown error";
-        }
-        int maxLength = Math.max(64, properties.getMaxErrorLength());
-        return message.length() > maxLength ? message.substring(0, maxLength) : message;
     }
 }

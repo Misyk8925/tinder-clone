@@ -53,16 +53,16 @@ func NewSwipeCreatedEvent(command SwipeCommand) SwipeCreatedEvent {
 }
 
 type ProfileCreateEvent struct {
-	EventID   string     `json:"eventId"`
-	ProfileID string     `json:"profileId"`
-	Timestamp *time.Time `json:"timestamp"`
-	UserID    *string    `json:"userId"`
+	EventID   string          `json:"eventId"`
+	ProfileID string          `json:"profileId"`
+	Timestamp *EventTimestamp `json:"timestamp"`
+	UserID    *string         `json:"userId"`
 }
 
 type ProfileDeleteEvent struct {
-	EventID   string     `json:"eventId"`
-	ProfileID string     `json:"profileId"`
-	Timestamp *time.Time `json:"timestamp"`
+	EventID   string          `json:"eventId"`
+	ProfileID string          `json:"profileId"`
+	Timestamp *EventTimestamp `json:"timestamp"`
 }
 
 type HTTPError struct {

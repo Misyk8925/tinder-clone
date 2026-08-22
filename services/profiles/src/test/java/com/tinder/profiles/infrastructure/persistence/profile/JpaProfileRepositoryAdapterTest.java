@@ -161,6 +161,39 @@ class JpaProfileRepositoryAdapterTest {
     }
 
     @Test
+    @DisplayName("save prefers the resolved location id over a city lookup")
+    void savePrefersResolvedLocationId() {
+        UUID locationId = UUID.randomUUID();
+        Location resolved = Location.builder().id(locationId).city("Unknown").geo(point(52.52, 13.40)).build();
+        given(locationRepository.findById(locationId)).willReturn(Optional.of(resolved));
+        given(preferencesService.findOrCreate(any(MatchingPreferences.class))).willReturn(preferences());
+        given(profileRepository.save(any(com.tinder.profiles.infrastructure.persistence.profile.ProfileJpaEntity.class)))
+                .willAnswer(inv -> inv.getArgument(0));
+
+        Profile profile = Profile.builder()
+                .userId("user-1")
+                .name("Alex")
+                .age(28)
+                .gender("MALE")
+                .bio("gps")
+                .city("Unknown")
+                .position(new GeoPoint(52.52, 13.40))
+                .locationId(locationId)
+                .active(true)
+                .preferences(new MatchingPreferences(18, 40, "FEMALE", 50))
+                .build();
+
+        adapter.save(profile);
+
+        ArgumentCaptor<com.tinder.profiles.infrastructure.persistence.profile.ProfileJpaEntity> captor =
+                ArgumentCaptor.forClass(com.tinder.profiles.infrastructure.persistence.profile.ProfileJpaEntity.class);
+        verify(profileRepository).save(captor.capture());
+        then(captor.getValue().getLocation().getId()).isEqualTo(locationId);
+        then(captor.getValue().getLocation().getLatitude()).isEqualTo(52.52);
+        verify(locationRepository).findById(locationId);
+    }
+
+    @Test
     @DisplayName("findByUserId returns empty when the repository has no row")
     void findByUserIdEmpty() {
         given(profileRepository.findByUserId("missing")).willReturn(null);

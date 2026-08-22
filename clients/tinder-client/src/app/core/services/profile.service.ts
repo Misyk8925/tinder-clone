@@ -11,9 +11,10 @@ export class ProfileService {
   private base = `${environment.apiGatewayUrl}/api/v1/profiles`;
   private deckUrl = `${environment.apiGatewayUrl}/api/v2/deck`;
 
-  getMyDeck(cursor?: string, limit = 20): Observable<DeckResponse> {
+  getMyDeck(cursor?: string, limit = 20, refresh = false): Observable<DeckResponse> {
     let params = new HttpParams().set('limit', limit);
     if (cursor) params = params.set('cursor', cursor);
+    if (refresh) params = params.set('refresh', 'true');
     return this.http.get<DeckResponse>(this.deckUrl, { params });
   }
 

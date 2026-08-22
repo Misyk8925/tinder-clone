@@ -6,6 +6,8 @@ import com.tinder.profiles.infrastructure.persistence.location.Location;
 import com.tinder.profiles.infrastructure.persistence.photos.Photo;
 import com.tinder.profiles.infrastructure.persistence.photos.PhotoRepository;
 import com.tinder.profiles.infrastructure.persistence.photos.SharedPhotoMapper;
+import com.tinder.profiles.infrastructure.photos.PhotoDownloadUrlSigner;
+import com.tinder.profiles.infrastructure.photos.PhotoSignerFixtures;
 import com.tinder.profiles.infrastructure.persistence.preferences.Preferences;
 import com.tinder.profiles.infrastructure.persistence.profile.ProfileJpaEntity;
 import com.tinder.profiles.infrastructure.persistence.profile.ProfileRepository;
@@ -78,7 +80,8 @@ class SharedProfileAssociationQueriesTest {
     @Autowired
     private EntityManager entityManager;
 
-    private final SharedPhotoMapper sharedPhotoMapper = new SharedPhotoMapper();
+    private final SharedPhotoMapper sharedPhotoMapper = new SharedPhotoMapper(
+            new PhotoDownloadUrlSigner(null, PhotoSignerFixtures.testPhotos()));
     private final SharedProfileRowMapper rowMapper = new SharedProfileRowMapper();
 
     private UUID adaId;

@@ -38,7 +38,7 @@ Deck Read сейчас синхронно запрашивает Profiles для
 
 - отсутствие синхронного Profiles lookup на read path;
 - fresh перед repeat;
-- PASS/LIKE repeat только после 30 секунд refresh или двух ошибок и не дольше 7 дней;
+- PASS/LIKE repeat после успешного rebuild в хвосте колоды (не дольше 7 дней); при ошибке ensure — только после 30 секунд refresh или двух ошибок;
 - match/deleted никогда не возвращаются;
 - после потери Read Cluster не возвращается ложная пустая колода.
 
@@ -58,7 +58,7 @@ Deck Read сейчас синхронно запрашивает Profiles для
 | FR-3 | Profiles публикует полную `profile.deck-card-projection.v1` через outbox при profile/photo mutation/delete. Для initial fill и recovery оператор явно запускает maintenance-job: он читает PostgreSQL страницами по 500, атомарно добавляет события в тот же outbox и сохраняет durable cursor, поэтому после рестарта продолжает со следующей страницы. | Profiles boundary acceptance + AsyncAPI/data-contract validation. |
 | FR-4 | Deck Read применяет profile/event versions идемпотентно и не откатывает projection старым или duplicate event. | Projection acceptance с duplicate/out-of-order сценариями. |
 | FR-5 | Deck Read сохраняет ensure-on-miss и стабильно импортирует ordering из existing Deck Redis, проверяя build timestamp до и после ZSET; source entry с `isSwiped=true` не попадает во fresh. Deck после стабильной записи, включая authoritative empty snapshot, публикует repairable `deck.built.v1`. | Architecture/source-import acceptance. |
-| FR-6 | Fresh всегда предшествует repeat; PASS/LIKE становятся repeat после 30 секунд или двух consecutive failures; успешный ensure без source ZSET остаётся BUILDING 30 секунд и затем материализуется как EMPTY без увеличения failure count; snapshot содержит не больше 500+500 IDs. | Snapshot policy acceptance с injected clock. |
+| FR-6 | Fresh всегда предшествует repeat; успешный rebuild добавляет eligible PASS/LIKE repeats в хвост; при ошибке ensure repeats включаются после 30 секунд или двух consecutive failures; успешный ensure без source ZSET и без repeat остаётся BUILDING 30 секунд и затем материализуется как EMPTY без увеличения failure count; snapshot содержит не больше 500+500 IDs. | Snapshot policy acceptance с injected clock. |
 | FR-7 | Swipe, match и profile delete немедленно удаляют карточку из активной выдачи; match/delete запрещают repeat. | Materializer acceptance. |
 | FR-8 | При пустом/потерянном Read Cluster API возвращает 503 READ_MODEL_NOT_READY до завершения Profiles backfill, catch-up, count verification и safe replay/warm-up. | Recovery/readiness acceptance. |
 | FR-9 | Gateway пропускает v1/v2 в Deck Read; Angular использует v2, polling 2s до 30s, затем retry + 10s background polling, generation reset и profileId dedup без замены текущей карточки. | Gateway и Angular acceptance. |

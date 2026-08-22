@@ -27,15 +27,9 @@ GOCACHE=/tmp/tinder-swipes-go-cache go test -run '^$' -bench . -benchmem ./inter
 
 ## Candidate and rollback wiring
 
-The main Compose file continues to use Java until the paired contract,
-dependency-failure, event-delivery, and load-test gates are recorded. Run the Go
-candidate with:
+Go swipes is the default in `docker-compose.yml`. Photos is the Python service at `services/photos`; location is `services/location-go`.
 
-```shell
-docker compose -f docker-compose.yml -f docker-compose.swipes-go.yml up -d swipes
-```
-
-The explicit rollback overlay is:
+The explicit Java rollback overlay is:
 
 ```shell
 docker compose -f docker-compose.yml -f docker-compose.swipes-java-rollback.yml up -d swipes
@@ -48,6 +42,5 @@ docker compose -f docker-compose.yml -f docker-compose.swipes-go.yml \
   -f docker-compose.swipes-go-benchmark.yml up -d swipes
 ```
 
-After three same-environment runs at 8,000 requests/second for 120 seconds meet
-the documented zero-loss and latency gates, promote the Go build stanza into
-`docker-compose.yml`. Retain the Java rollback overlay for the seven-day soak.
+Keep `docker-compose.swipes-java-rollback.yml` for a Java rollback. Do not use
+the Go overlay except with the benchmark file for the isolated internal-auth path.

@@ -2,7 +2,9 @@
 
 Canonical contract: [`profiles-deck-card-backfill.openapi.yaml`](profiles-deck-card-backfill.openapi.yaml).
 
-This is an internal mTLS API on Profiles port `8011`. It is an explicit operator action, not a startup hook and not a request from Deck Read.
+This is an internal mTLS API on Profiles port `8011`. Deck Read calls it when the
+card catalog is empty. Operators may still invoke the same URI. It is not a Profiles
+startup hook.
 
 ## Exact invocation
 

@@ -1,5 +1,6 @@
 package com.tinder.deckread.service;
 
+import com.tinder.deckread.client.DeckPhotoUrlRewriter;
 import com.tinder.deckread.dto.DeckCardDto;
 import com.tinder.deckread.dto.DeckCardV1Dto;
 import com.tinder.deckread.dto.DeckPage;
@@ -61,7 +62,13 @@ public class DeckQueryService {
     DeckRefreshTrigger refreshes;
 
     @Inject
+    CatalogBackfillTrigger catalogBackfill;
+
+    @Inject
     MeterRegistry meters;
+
+    @Inject
+    DeckPhotoUrlRewriter photoUrls;
 
     @ConfigProperty(name = "deck-read.materialized.required", defaultValue = "false")
     boolean materializedRequired;
@@ -71,6 +78,11 @@ public class DeckQueryService {
     }
 
     public Uni<DeckQueryResult> getDeckV2(String viewerUserId, String cursor, int limit) {
+        return getDeckV2(viewerUserId, cursor, limit, false);
+    }
+
+    public Uni<DeckQueryResult> getDeckV2(
+            String viewerUserId, String cursor, int limit, boolean refresh) {
         if (cursor != null) {
             try {
                 cursors.decode(cursor);
@@ -86,6 +98,7 @@ public class DeckQueryService {
                         : Uni.createFrom().item((UUID) null))
                 .flatMap(viewerProfileId -> {
                     if (viewerProfileId == null) {
+                        requestCatalogBackfill();
                         return readiness.isReady().map(ready -> ready
                                 ? new DeckQueryResult.Building()
                                 : failureNotReady());
@@ -93,13 +106,21 @@ public class DeckQueryService {
                     DeckCursorCodec.Cursor decoded = cursor == null ? null : cursors.decode(cursor);
                     long requestedGeneration = decoded == null ? 0 : decoded.generation();
                     int requestedPosition = decoded == null ? 0 : decoded.position();
-                    return materializedQuery.getV2(
+                    Uni<Void> rebuild = refresh
+                            ? refreshes.requestAsync(viewerProfileId, MaterializationReason.API_STALE)
+                                    .invoke(() -> {
+                                        if (!materializedRequired) {
+                                            builder.requestBuild(viewerProfileId);
+                                        }
+                                    })
+                            : Uni.createFrom().voidItem();
+                    return rebuild.flatMap(ignored -> materializedQuery.getV2(
                                     viewerProfileId, requestedGeneration, requestedPosition, limit)
                             .flatMap(result -> {
                         if (result.isPresent()) {
                             DeckQueryResult hit = result.orElseThrow();
                             recordPath(materializedPath(hit, requestedPosition));
-                            return Uni.createFrom().item(hit);
+                            return Uni.createFrom().item(afterRefresh(hit, refresh));
                         }
                         recordPath("miss");
                         requestMaterialization(viewerProfileId, MaterializationReason.API_MISS);
@@ -109,8 +130,9 @@ public class DeckQueryService {
                         return snapshots.load(viewerProfileId)
                                 .flatMap(snapshot -> snapshot.isEmpty()
                                         ? requestAndBuild(viewerProfileId)
-                                        : page(viewerProfileId, snapshot.get(), cursor, limit));
-                    });
+                                        : page(viewerProfileId, snapshot.get(), cursor, limit)
+                                                .map(page -> afterRefresh(page, refresh)));
+                    }));
                 })
                 .onFailure(DeckCursorCodec.InvalidCursorException.class)
                 .recoverWithItem(new DeckQueryResult.Failure(
@@ -124,6 +146,7 @@ public class DeckQueryService {
         return profiles.viewerProfileId(viewerUserId)
                 .flatMap(viewerProfileId -> {
                     if (viewerProfileId == null) {
+                        requestCatalogBackfill();
                         return Uni.createFrom().item(List.<DeckCardV1Dto>of());
                     }
                     return materializedQuery.getV1(viewerProfileId, offset, limit).flatMap(cards -> {
@@ -144,11 +167,12 @@ public class DeckQueryService {
                                     return Uni.createFrom().item(List.<DeckCardV1Dto>of());
                                 }
                                 return scanVisible(viewerProfileId, ordered(snapshot.get()), 0, offset + limit)
-                                        .map(result -> result.cards().stream()
-                                                .skip(offset)
-                                                .limit(limit)
-                                                .map(DeckCardV1Dto::from)
-                                                .toList());
+                                        .flatMap(result -> withFreshPhotoUrls(result.cards())
+                                                .map(fresh -> fresh.stream()
+                                                        .skip(offset)
+                                                        .limit(limit)
+                                                        .map(DeckCardV1Dto::from)
+                                                        .toList()));
                             });
                     });
                 });
@@ -156,6 +180,30 @@ public class DeckQueryService {
 
     private void requestMaterialization(UUID viewerProfileId, MaterializationReason reason) {
         refreshes.request(viewerProfileId, reason);
+    }
+
+    private DeckQueryResult afterRefresh(DeckQueryResult result, boolean refresh) {
+        if (!refresh) {
+            return result;
+        }
+        if (result instanceof DeckQueryResult.Page page
+                && page.value().items().isEmpty()
+                && page.value().nextCursor() == null) {
+            return new DeckQueryResult.Building();
+        }
+        if (result instanceof DeckQueryResult.Page page) {
+            DeckPage value = page.value();
+            return new DeckQueryResult.Page(new DeckPage(
+                    value.items(), value.nextCursor(), value.generation(),
+                    value.cursorReset(), DeckState.REFRESHING));
+        }
+        return result;
+    }
+
+    private void requestCatalogBackfill() {
+        if (catalogBackfill != null) {
+            catalogBackfill.requestIfEmptyAsync();
+        }
     }
 
     private void recordPath(String path) {
@@ -208,17 +256,17 @@ public class DeckQueryService {
         List<Candidate> ordered = ordered(snapshot);
         int start = Math.min(position, ordered.size());
         return scanVisible(viewerProfileId, ordered, start, limit)
-                .map(result -> {
+                .flatMap(result -> withFreshPhotoUrls(result.cards()).map(cards -> {
                     String next = result.nextPosition() < ordered.size()
                             ? cursors.encode(snapshot.meta().generation(), result.nextPosition())
                             : null;
                     DeckState state = stale ? DeckState.REFRESHING : snapshot.meta().state();
-                    if (result.cards().isEmpty() && start == 0 && next == null && state != DeckState.DEGRADED) {
+                    if (cards.isEmpty() && start == 0 && next == null && state != DeckState.DEGRADED) {
                         state = DeckState.EMPTY;
                     }
                     return (DeckQueryResult) new DeckQueryResult.Page(new DeckPage(
-                            result.cards(), next, snapshot.meta().generation(), cursorReset, state));
-                });
+                            cards, next, snapshot.meta().generation(), cursorReset, state));
+                }));
     }
 
     private List<Candidate> ordered(DeckSnapshot snapshot) {
@@ -285,6 +333,13 @@ public class DeckQueryService {
                     }
                     return scanVisible(viewerProfileId, ordered, nextPosition, limit, result);
                 });
+    }
+
+    private Uni<List<DeckCardDto>> withFreshPhotoUrls(List<DeckCardDto> cards) {
+        if (photoUrls == null) {
+            return Uni.createFrom().item(cards);
+        }
+        return photoUrls.rewrite(cards);
     }
 
     private DeckQueryResult failureNotReady() {

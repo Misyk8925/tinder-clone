@@ -3,8 +3,9 @@ info:
   title: Profiles Deck Card Projection Backfill API
   version: 1.0.0
   description: >-
-    Internal mTLS maintenance contract used to start, resume and observe one explicit
-    Deck Card projection backfill. The endpoint is never invoked on service startup.
+    Internal mTLS maintenance contract used to start, resume and observe one Deck Card
+    projection backfill. Deck Read invokes it when the read-model catalog is empty;
+    operators may call the same URI. Profiles never starts a run on its own startup.
 servers:
   - url: https://profiles:8011
 security:

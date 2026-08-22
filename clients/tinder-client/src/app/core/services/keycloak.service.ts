@@ -1,12 +1,15 @@
 import { Injectable } from '@angular/core';
 import Keycloak from 'keycloak-js';
 import { environment } from '../../../environments/environment';
+import { ChatHistoryCache } from './chat-history.cache';
+
+export const PREMIUM_REALM_ROLE = 'USER_PREMIUM';
 
 @Injectable({ providedIn: 'root' })
 export class KeycloakService {
   private keycloak: Keycloak;
 
-  constructor() {
+  constructor(private chatHistoryCache: ChatHistoryCache) {
     this.keycloak = new Keycloak({
       url: environment.keycloak.url,
       realm: environment.keycloak.realm,
@@ -32,6 +35,7 @@ export class KeycloakService {
 
   logout(): void {
     if (environment.designPreview) return;
+    this.chatHistoryCache.clear();
     this.keycloak.logout({ redirectUri: window.location.origin });
   }
 
@@ -64,5 +68,14 @@ export class KeycloakService {
 
   hasRole(role: string): boolean {
     return this.getRoles().includes(role);
+  }
+
+  hasPremium(): boolean {
+    return this.hasRole(PREMIUM_REALM_ROLE);
+  }
+
+  async refreshRoles(): Promise<void> {
+    if (environment.designPreview) return;
+    await this.keycloak.updateToken(-1);
   }
 }

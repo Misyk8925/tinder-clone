@@ -14,10 +14,16 @@ export type Hobby =
   | 'VOLUNTEERING' | 'PETS' | 'GARDENING' | 'MEDITATION' | 'ASTROLOGY';
 
 export interface Photo {
-  photoID: string;
+  photoId?: string;
+  photoID?: string;
   url: string;
   position: number;
   isPrimary?: boolean;
+}
+
+/** Profiles JSON uses `photoId`; some client fixtures still use `photoID`. */
+export function profilePhotoId(photo: Pick<Photo, 'photoId' | 'photoID' | 'position'>): string {
+  return photo.photoId || photo.photoID || `pos-${photo.position}`;
 }
 
 export interface Profile {

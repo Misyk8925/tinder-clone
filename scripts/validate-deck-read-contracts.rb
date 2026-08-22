@@ -69,6 +69,10 @@ assert(retry_after == 2, "202 must require Retry-After: 2")
 
 limit = v2.fetch("parameters").map { |p| p["$ref"] }.include?("#/components/parameters/Limit")
 assert(limit, "v2 must use the canonical limit parameter")
+assert(v2.fetch("parameters").map { |p| p["$ref"] }.include?("#/components/parameters/Refresh"),
+       "v2 must use the canonical refresh parameter")
+assert(http.dig("components", "parameters", "Refresh", "schema", "type") == "boolean",
+       "refresh must be a boolean query flag")
 assert(http.dig("components", "parameters", "Limit", "schema", "minimum") == 1, "limit minimum must be 1")
 assert(http.dig("components", "parameters", "Limit", "schema", "maximum") == 100, "limit maximum must be 100")
 

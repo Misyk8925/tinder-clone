@@ -69,8 +69,8 @@ import { ThemeService } from '../../../core/services/theme.service';
       left: 0;
       right: 0;
       bottom: 0;
-      min-height: 56px;
-      padding: 4px 12px calc(4px + env(safe-area-inset-bottom, 0px));
+      min-height: var(--mobile-bottombar-height);
+      padding: 1px 10px calc(1px + env(safe-area-inset-bottom, 0px));
       background: var(--surface-glass);
       border-top: 1px solid var(--border-light);
       backdrop-filter: blur(18px);
@@ -87,7 +87,7 @@ import { ThemeService } from '../../../core/services/theme.service';
 
     .nav-item {
       position: relative;
-      min-height: 48px;
+      min-height: 44px;
       display: flex;
       flex-direction: column;
       align-items: center;
@@ -101,16 +101,16 @@ import { ThemeService } from '../../../core/services/theme.service';
 
       .nav-item-icon {
         position: relative;
-        width: 38px;
-        height: 38px;
+        width: 34px;
+        height: 34px;
         display: grid;
         place-items: center;
         border-radius: 14px;
         transition: color 160ms ease, background 160ms ease, transform 160ms ease, box-shadow 160ms ease;
 
         lucide-icon {
-          width: 22px;
-          height: 22px;
+          width: 20px;
+          height: 20px;
           display: grid;
           place-items: center;
           line-height: 0;
@@ -132,8 +132,8 @@ import { ThemeService } from '../../../core/services/theme.service';
             position: absolute;
             left: 50%;
             bottom: 0;
-            width: 4px;
-            height: 4px;
+            width: 3px;
+            height: 3px;
             border-radius: 999px;
             background: currentColor;
             transform: translateX(-50%);
@@ -142,7 +142,7 @@ import { ThemeService } from '../../../core/services/theme.service';
       }
 
       &:focus-visible {
-        outline: 2px solid var(--brand);
+        outline: 1px solid var(--text-secondary);
         outline-offset: 2px;
       }
     }
@@ -150,7 +150,7 @@ import { ThemeService } from '../../../core/services/theme.service';
     @media (min-width: 768px) {
       :host {
         display: block;
-        width: 260px;
+        width: 244px;
         flex-shrink: 0;
         background: var(--bg);
       }
@@ -162,10 +162,10 @@ import { ThemeService } from '../../../core/services/theme.service';
         bottom: 14px;
         left: 14px;
         right: auto;
-        width: 232px;
+        width: 216px;
         min-height: 0;
         height: calc(100dvh - 28px);
-        padding: 14px;
+        padding: 12px;
         display: flex;
         flex-direction: column;
         background: var(--surface-glass);
@@ -180,7 +180,7 @@ import { ThemeService } from '../../../core/services/theme.service';
         display: flex;
         align-items: center;
         gap: 10px;
-        padding: 4px 4px 22px;
+        padding: 4px 4px 20px;
         text-decoration: none;
         color: var(--text-primary);
       }
@@ -194,7 +194,7 @@ import { ThemeService } from '../../../core/services/theme.service';
         border-radius: 14px;
         color: var(--text-primary);
         background: var(--brand);
-        box-shadow: 0 10px 22px rgba(109, 144, 55, 0.2);
+        box-shadow: 0 10px 22px var(--brand-glow);
       }
 
       .brand-text {
@@ -239,11 +239,11 @@ import { ThemeService } from '../../../core/services/theme.service';
 
       .nav-item {
         position: relative;
-        min-height: 52px;
+        min-height: 50px;
         flex-direction: row;
         justify-content: flex-start;
         gap: 12px;
-        padding: 0 13px;
+        padding: 0 11px;
         border-radius: 16px;
         font-weight: 600;
         transition: color 160ms ease, background 160ms ease, transform 160ms ease, box-shadow 160ms ease;
@@ -263,22 +263,10 @@ import { ThemeService } from '../../../core/services/theme.service';
         }
 
         &.active {
-          color: var(--text-primary);
+          color: var(--brand);
           background: transparent;
           box-shadow: none;
           font-weight: 700;
-
-          &::before {
-            content: '';
-            position: absolute;
-            left: 0;
-            top: 50%;
-            width: 3px;
-            height: 20px;
-            border-radius: 999px;
-            background: var(--brand);
-            transform: translateY(-50%);
-          }
 
           .nav-item-icon {
             color: var(--brand);
@@ -294,16 +282,17 @@ import { ThemeService } from '../../../core/services/theme.service';
       .nav-actions {
         display: flex;
         flex-direction: column;
-        gap: 5px;
+        gap: 2px;
         margin-top: auto;
-        padding: 8px;
-        border: 1px solid var(--border-light);
-        border-radius: 18px;
-        background: var(--surface-2);
+        padding: 12px 0 0;
+        border: 0;
+        border-top: 1px solid var(--border-light);
+        border-radius: 0;
+        background: transparent;
       }
 
       .account-label {
-        margin: 2px 4px 4px;
+        margin: 0 12px 5px;
       }
 
       .utility-action {
@@ -311,7 +300,7 @@ import { ThemeService } from '../../../core/services/theme.service';
         display: flex;
         align-items: center;
         gap: 10px;
-        padding: 0 10px;
+        padding: 0 12px;
         border: 0;
         border-radius: 12px;
         background: transparent;
@@ -334,13 +323,14 @@ import { ThemeService } from '../../../core/services/theme.service';
       }
 
       .edit-action {
-        color: var(--text-primary);
-        background: var(--brand);
-        box-shadow: 0 8px 18px rgba(109, 144, 55, 0.18);
+        color: var(--brand);
+        background: transparent;
+        box-shadow: none;
 
         &:hover {
-          background: var(--brand-2);
-          transform: translateY(-1px);
+          color: var(--brand);
+          background: var(--brand-soft);
+          transform: none;
         }
       }
     }

@@ -24,6 +24,9 @@ import java.util.UUID;
  * <p>Reference note: {@code position} holds resolved coordinates rather than a
  * {@code Location} entity (owned by the location service). The aggregate only
  * needs coordinates (for movement/distance rules) and the city name.
+ * {@code locationId} is a write-side hint: the id of the local location row
+ * already persisted by {@code LocationPort} for this save, required because
+ * city {@code Unknown} is not unique.
  */
 public class Profile {
 
@@ -36,6 +39,7 @@ public class Profile {
     private String bio;
     private String city;
     private GeoPoint position;
+    private UUID locationId;
 
     private boolean active;
     private boolean premium;
@@ -57,6 +61,7 @@ public class Profile {
         this.bio = b.bio;
         this.city = b.city;
         this.position = b.position;
+        this.locationId = b.locationId;
         this.active = b.active;
         this.premium = b.premium;
         this.premiumExpiresAt = b.premiumExpiresAt;
@@ -84,9 +89,16 @@ public class Profile {
 
     /** Moves the profile to a resolved position and (optionally) city. */
     public void relocate(GeoPoint position, String city) {
+        relocate(position, city, null);
+    }
+
+    public void relocate(GeoPoint position, String city, UUID locationId) {
         this.position = position;
         if (city != null && !city.isBlank()) {
             this.city = city;
+        }
+        if (locationId != null) {
+            this.locationId = locationId;
         }
     }
 
@@ -186,6 +198,10 @@ public class Profile {
         return position;
     }
 
+    public UUID getLocationId() {
+        return locationId;
+    }
+
     public boolean isActive() {
         return active;
     }
@@ -230,6 +246,7 @@ public class Profile {
         private String bio;
         private String city;
         private GeoPoint position;
+        private UUID locationId;
         private boolean active;
         private boolean premium;
         private LocalDateTime premiumExpiresAt;
@@ -247,6 +264,7 @@ public class Profile {
         public Builder bio(String bio) { this.bio = bio; return this; }
         public Builder city(String city) { this.city = city; return this; }
         public Builder position(GeoPoint position) { this.position = position; return this; }
+        public Builder locationId(UUID locationId) { this.locationId = locationId; return this; }
         public Builder active(boolean active) { this.active = active; return this; }
         public Builder premium(boolean premium) { this.premium = premium; return this; }
         public Builder premiumExpiresAt(LocalDateTime v) { this.premiumExpiresAt = v; return this; }

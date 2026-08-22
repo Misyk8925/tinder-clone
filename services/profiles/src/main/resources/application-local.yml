@@ -2,8 +2,10 @@ spring:
   config:
     activate:
       on-profile: local
+  kafka:
+    bootstrap-servers: ${PROFILES_KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
   datasource:
-    url: ${PROFILES_DB_URL:jdbc:postgresql://postgres:5432/profiles_db}
+    url: ${PROFILES_DB_URL:jdbc:postgresql://127.0.0.1:5435/profiles_db}
     username: ${PROFILES_DB_USER:profiles_app}
     password: ${PROFILES_DB_PASSWORD:change_me_profiles_db_password}
   ssl:

@@ -35,7 +35,7 @@ class BillingServiceTest {
         when(customerRepository.findByUserId("user-123")).thenReturn(Optional.of(customer));
         when(stripeConfig.getSecretKey()).thenReturn("sk_test_fixture");
 
-        BillingService service = new BillingService(customerRepository, stripeConfig);
+        BillingService service = new BillingService(customerRepository, stripeConfig, mock(com.tinder.subscriptions.events.StripeWebhookProcessService.class));
         ReflectionTestUtils.setField(service, "returnUrl", "https://example.test/account");
 
         Session portalSession = mock(Session.class);

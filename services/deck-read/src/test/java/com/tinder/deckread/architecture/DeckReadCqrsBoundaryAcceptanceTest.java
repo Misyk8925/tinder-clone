@@ -35,7 +35,8 @@ class DeckReadCqrsBoundaryAcceptanceTest {
         assertThat(main)
                 .doesNotContain("ProfilesClient")
                 .doesNotContain("ProfileCache")
-                .doesNotContain("ViewerIdentityCache");
+                .doesNotContain("ViewerIdentityCache")
+                .contains("DeckCardProjectionBackfillClient");
         assertThat(pom).doesNotContain("caffeine");
     }
 
@@ -52,7 +53,7 @@ class DeckReadCqrsBoundaryAcceptanceTest {
     }
 
     @Test
-    @DisplayName("Scenario: Given two Redis responsibilities, when configuration is inspected, then source and clustered read-model clients are distinct")
+    @DisplayName("Scenario: Given two Redis responsibilities, when configuration is inspected, then source and read-model clients are distinct")
     void sourceAndReadModelUseDistinctNamedRedisClientsAndReadModelIsClustered() throws IOException {
         // Given
         String config = Files.readString(SERVICE.resolve("src/main/resources/application.properties"));
@@ -61,19 +62,145 @@ class DeckReadCqrsBoundaryAcceptanceTest {
         assertThat(config)
                 .contains("quarkus.redis.deck-source.hosts")
                 .contains("quarkus.redis.read-model.hosts")
-                .contains("quarkus.redis.read-model.client-type=cluster");
+                .contains("quarkus.redis.read-model.client-type=cluster")
+                .contains("%prod.deck-read.auto-backfill-on-empty=${DECK_READ_AUTO_BACKFILL_ON_EMPTY:true}")
+                .contains("%test.deck-read.auto-backfill-on-empty=false")
+                .contains("quarkus.rest-client.profiles-backfill.url")
+                .contains("%prod.quarkus.tls.profiles-backfill.hostname-verification-algorithm=NONE");
     }
 
     @Test
-    @DisplayName("Scenario: Given production Deck Read roles, when Redis Cluster seed hosts are configured, then every URI is a contiguous comma-separated value")
-    void productionRedisClusterSeedHostsDoNotContainYamlFoldedWhitespace() throws IOException {
+    @DisplayName("Scenario: Given the runtime Compose stack, when Deck Read Redis is configured, then the read model uses a dedicated standalone Redis")
+    void runtimeComposeUsesDedicatedStandaloneRedisForTheReadModel() throws IOException {
         // Given
         String compose = Files.readString(REPOSITORY.resolve("docker-compose.yml"));
+        String local = Files.readString(REPOSITORY.resolve("docker-compose.local.yml"));
 
         // When / Then
         assertThat(compose)
-                .contains("DECK_READ_REDIS_HOSTS: redis://deck-read-redis-1:6379,redis://deck-read-redis-2:6379,redis://deck-read-redis-3:6379,redis://deck-read-redis-4:6379,redis://deck-read-redis-5:6379,redis://deck-read-redis-6:6379")
+                .contains("deck-read-redis:")
+                .contains("DECK_READ_REDIS_HOSTS: redis://deck-read-redis:6379")
+                .contains("DECK_SOURCE_REDIS_HOST: redis")
+                .contains("QUARKUS_REDIS_READ_MODEL_CLIENT_TYPE: standalone")
+                .contains("DECK_READ_AUTO_BACKFILL_ON_EMPTY: \"true\"")
+                .contains("PROFILES_INTERNAL_URL: https://profiles:8011")
+                .doesNotContain("DECK_READ_REDIS_HOSTS: redis://redis:6379")
+                .doesNotContain("deck-read-redis-1")
                 .doesNotContain("DECK_READ_REDIS_HOSTS: >-");
+        assertThat(local).contains("127.0.0.1:6380:6379");
+    }
+
+    @Test
+    @DisplayName("Scenario: Given Docker IP churn in the isolated cluster fixture, when nodes are configured, then they advertise stable hostnames and data ports")
+    void readModelClusterAdvertisesStableHostnamesAndDataPort() throws IOException {
+        // Given
+        String clusterCompose = Files.readString(REPOSITORY.resolve("docker-compose.deck-read-cluster.yml"));
+
+        // When / Then
+        assertThat(clusterCompose)
+                .contains("cluster-preferred-endpoint-type hostname")
+                .contains("cluster-announce-port 6379")
+                .contains("cluster-announce-bus-port 16379")
+                .contains("cluster-announce-hostname deck-read-redis-1")
+                .contains("cluster-announce-hostname deck-read-redis-2")
+                .contains("cluster-announce-hostname deck-read-redis-3");
+    }
+
+    @Test
+    @DisplayName("Scenario: Given the runtime Compose stack, when service images are inspected, then location and swipes are Go, photos is Python, and unused ELK/Nexus/cluster services are absent")
+    void runtimeComposeUsesGoAndPythonServicesAndOmitsUnusedInfra() throws IOException {
+        // Given
+        String compose = Files.readString(REPOSITORY.resolve("docker-compose.yml"));
+        String local = Files.readString(REPOSITORY.resolve("docker-compose.local.yml"));
+
+        // When / Then
+        assertThat(compose)
+                .contains("context: ./services/location-go")
+                .contains("context: ./services/photos")
+                .contains("context: ./services/swipes-go")
+                .doesNotContain("context: ./services/swipes-demo")
+                .doesNotContain("elasticsearch:")
+                .doesNotContain("logstash:")
+                .doesNotContain("kibana:")
+                .doesNotContain("nexus:")
+                .doesNotContain("elk:");
+        assertThat(local).contains("SWIPES_JWT_ISSUER: http://localhost:9080/realms/spring");
+        // Profiles has no healthcheck; service_healthy leaves swipes Created forever.
+        assertThat(compose).contains("      profiles:\n        condition: service_started");
+    }
+
+    @Test
+    @DisplayName("Scenario: Given the runtime Compose stack, when subscriptions and consumer start, then Stripe return URL has a default and consumer health uses Actuator")
+    void runtimeComposeKeepsSubscriptionsReturnUrlAndConsumerHealthReachable() throws IOException {
+        String compose = Files.readString(REPOSITORY.resolve("docker-compose.yml"));
+        String local = Files.readString(REPOSITORY.resolve("docker-compose.local.yml"));
+        String consumerPom = Files.readString(REPOSITORY.resolve("services/consumer/pom.xml"));
+        String consumerDockerfile = Files.readString(REPOSITORY.resolve("services/consumer/Dockerfile"));
+        String subscriptionsProd = Files.readString(
+                REPOSITORY.resolve("services/subscriptions/src/main/resources/application-prod.yaml"));
+
+        String subscriptionsYaml = Files.readString(
+                REPOSITORY.resolve("services/subscriptions/src/main/resources/application.yaml"));
+
+        assertThat(compose)
+                .contains("STRIPE_RETURN_URL: ${STRIPE_RETURN_URL:-http://localhost:4200/profile}")
+                .doesNotContain("STRIPE_RETURN_URL: ${STRIPE_RETURN_URL:?")
+                .contains("http://localhost:8050/actuator/health");
+        assertThat(local)
+                .contains("STRIPE_SUCCESS_URL: http://localhost:4200/profile")
+                .contains("STRIPE_CANCEL_URL: http://localhost:4200/profile")
+                .contains("STRIPE_RETURN_URL: http://localhost:4200/profile")
+                .doesNotContain("localhost:8095")
+                .doesNotContain("/subscriptions/return");
+        assertThat(subscriptionsProd).contains("return-url: ${STRIPE_RETURN_URL:http://localhost:4200/profile}");
+        assertThat(subscriptionsYaml)
+                .contains("success-url: ${STRIPE_SUCCESS_URL:http://localhost:4200/profile}")
+                .contains("cancel-url: ${STRIPE_CANCEL_URL:http://localhost:4200/profile}")
+                .contains("return-url: ${STRIPE_RETURN_URL:http://localhost:4200/profile}")
+                .doesNotContain("localhost:8095/success")
+                .doesNotContain("localhost:8095/cancel")
+                .doesNotContain("localhost:8095/return");
+        assertThat(consumerPom).contains("spring-boot-starter-actuator");
+        assertThat(consumerDockerfile).contains("apk add --no-cache wget");
+    }
+
+    @Test
+    @DisplayName("Scenario: Given duplicate profile_cache user_id rows, when the identity index migration runs, then it keeps one row per user before creating the unique index")
+    void swipesIdentityIndexMigrationDeduplicatesBeforeUniqueIndex() throws IOException {
+        String sql = Files.readString(REPOSITORY.resolve("migrations/migration/V2_swipes_identity_index.sql"));
+
+        assertThat(sql)
+                .contains("DELETE FROM profile_cache AS stale")
+                .contains("CREATE UNIQUE INDEX IF NOT EXISTS profile_cache_user_id_unique");
+    }
+
+    @Test
+    @DisplayName("Scenario: Given a persisted cluster whose replicas advertise :0/noaddr, when init runs, then it refuses to treat cluster_state:ok as healthy")
+    void clusterInitRejectsDisconnectedPortZeroReplicas() throws IOException {
+        // Given
+        String init = Files.readString(REPOSITORY.resolve("docker/redis-cluster/init-cluster.sh"));
+
+        // When / Then
+        assertThat(init)
+                .contains("noaddr")
+                .contains(":0@0")
+                .doesNotContain("cluster_state:ok; then\n  exit 0");
+    }
+
+    @Test
+    @DisplayName("Scenario: Given the local Compose override, when Deck Read starts without an operator recovery, then it does not require the production ready marker")
+    void localComposeDoesNotRequireProductionReadyMarker() throws IOException {
+        // Given
+        String local = Files.readString(REPOSITORY.resolve("docker-compose.local.yml"));
+        String production = Files.readString(REPOSITORY.resolve("docker-compose.yml"));
+
+        // When / Then
+        assertThat(production).contains("DECK_READ_REQUIRE_READY_MARKER: \"true\"");
+        assertThat(local).contains("DECK_READ_REQUIRE_READY_MARKER: \"false\"");
+        String config = Files.readString(SERVICE.resolve("src/main/resources/application.properties"));
+        assertThat(config)
+                .contains("%prod.deck-read.read-model.require-ready-marker=${DECK_READ_REQUIRE_READY_MARKER:true}")
+                .doesNotContain("%prod.deck-read.read-model.require-ready-marker=true");
     }
 
     @Test

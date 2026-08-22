@@ -8,6 +8,7 @@ import com.stripe.model.checkout.Session;
 import com.tinder.subscriptions.grpc.SubscriptionGrpcClient;
 import com.tinder.subscriptions.stripeCustomer.StripeCustomer;
 import com.tinder.subscriptions.stripeCustomer.StripeCustomerRepository;
+import com.tinder.subscriptions.stripeServices.StripeSubscriptionGateway;
 import com.tinder.subscriptions.subscription.BillingSubscription;
 import com.tinder.subscriptions.subscription.SubscriptionRepository;
 import org.junit.jupiter.api.BeforeEach;
@@ -39,6 +40,7 @@ class StripeWebhookProcessServiceTest {
     @Mock private StripeCustomerRepository customerRepository;
     @Mock private SubscriptionRepository subscriptionRepository;
     @Mock private SubscriptionGrpcClient grpcClient;
+    @Mock private StripeSubscriptionGateway stripeSubscriptionGateway;
     @Mock private TransactionTemplate transactionTemplate;
 
     private StripeWebhookProcessService service;
@@ -46,7 +48,8 @@ class StripeWebhookProcessServiceTest {
     @BeforeEach
     void setUp() {
         service = new StripeWebhookProcessService(
-                inboxRepository, customerRepository, subscriptionRepository, grpcClient, transactionTemplate);
+                inboxRepository, customerRepository, subscriptionRepository, grpcClient,
+                stripeSubscriptionGateway, transactionTemplate);
         StripeCustomer customer = new StripeCustomer();
         customer.setUserId("user-123");
         customer.setStripeCustomerId("cus_123");
@@ -67,6 +70,34 @@ class StripeWebhookProcessServiceTest {
         verify(subscriptionRepository).save(saved.capture());
         assertThat(saved.getValue().getCurrentPeriodEnd()).isEqualTo(paidThrough);
         assertThat(saved.getValue().getPriceId()).isEqualTo("price_premium");
+    }
+
+    @Test
+    @org.junit.jupiter.api.DisplayName("Scenario: Given a paid Stripe customer and no webhook, when the user is reconciled, then premium is activated from Stripe")
+    void givenActiveStripeSubscriptionWhenReconciledThenActivatesPremium() throws Exception {
+        Instant paidThrough = Instant.parse("2030-02-03T04:05:06Z");
+        when(customerRepository.findByUserId("user-123")).thenReturn(Optional.of(customer("user-123", "cus_123")));
+        when(stripeSubscriptionGateway.listByCustomer("cus_123"))
+                .thenReturn(List.of(subscription("active", paidThrough, "price_premium")));
+        when(subscriptionRepository.findById("sub_123")).thenReturn(Optional.empty());
+
+        boolean premium = service.reconcileUser("user-123");
+
+        assertThat(premium).isTrue();
+        verify(grpcClient).activatePremiumUntil("user-123", paidThrough);
+    }
+
+    @Test
+    @org.junit.jupiter.api.DisplayName("Scenario: Given no Stripe customer mapping, when reconciled, then premium is not activated")
+    void givenNoStripeCustomerWhenReconciledThenDoesNotActivate() throws Exception {
+        when(customerRepository.findByUserId("user-123")).thenReturn(Optional.empty());
+
+        boolean premium = service.reconcileUser("user-123");
+
+        assertThat(premium).isFalse();
+        verify(stripeSubscriptionGateway, never()).listByCustomer(org.mockito.ArgumentMatchers.anyString());
+        verify(grpcClient, never()).activatePremiumUntil(org.mockito.ArgumentMatchers.anyString(),
+                org.mockito.ArgumentMatchers.any());
     }
 
     @Test
@@ -180,5 +211,12 @@ class StripeWebhookProcessServiceTest {
             subscription.setItems(items);
         }
         return subscription;
+    }
+
+    private StripeCustomer customer(String userId, String stripeCustomerId) {
+        StripeCustomer customer = new StripeCustomer();
+        customer.setUserId(userId);
+        customer.setStripeCustomerId(stripeCustomerId);
+        return customer;
     }
 }

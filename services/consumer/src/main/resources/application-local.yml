@@ -5,6 +5,6 @@ spring:
   kafka:
     bootstrap-servers: ${SPRING_KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
   datasource:
-    url: jdbc:postgresql://127.0.0.1:54322/postgres?sslmode=disable
-    username: postgres
-    password: postgres
+    url: ${CONSUMER_DB_URL:jdbc:postgresql://127.0.0.1:5435/consumer_db}
+    username: ${CONSUMER_DB_USER:consumer_app}
+    password: ${CONSUMER_DB_PASSWORD:change_me_consumer_db_password}

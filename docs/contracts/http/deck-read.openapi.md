@@ -16,6 +16,7 @@ Serves FR-1, FR-6, FR-7, FR-8 and FR-9.
 |---|---|
 | `cursor` | Optional opaque server value, 1–1024 characters. |
 | `limit` | Optional integer, 1–100, default 20. |
+| `refresh` | Optional boolean, default false. When true, enqueue a rebuild. An authoritative empty page returns `202 BUILDING` so the client polls. Pagination and background polling omit this flag. |
 
 `200 DeckPage` contains `items`, `nextCursor`, monotonic `generation`, `cursorReset` and `state`.
 

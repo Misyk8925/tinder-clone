@@ -15,4 +15,8 @@ export class SubscriptionService {
   createPortalSession(): Observable<string> {
     return this.http.post(`${this.base}/portal-session`, null, { responseType: 'text' });
   }
+
+  syncEntitlement(): Observable<{ premium: boolean }> {
+    return this.http.post<{ premium: boolean }>(`${this.base}/sync`, null);
+  }
 }

@@ -14,7 +14,8 @@ x-deck-read-environment: &deck-read-environment
   QUARKUS_OIDC_TOKEN_ISSUER: ${KEYCLOAK_TOKEN_ISSUER:-https://auth.misyk.tech/realms/spring}
   DECK_SOURCE_REDIS_HOST: redis
   DECK_SOURCE_REDIS_PORT: 6379
-  DECK_READ_REDIS_HOSTS: redis://deck-read-redis-1:6379,redis://deck-read-redis-2:6379,redis://deck-read-redis-3:6379,redis://deck-read-redis-4:6379,redis://deck-read-redis-5:6379,redis://deck-read-redis-6:6379
+  DECK_READ_REDIS_HOSTS: redis://deck-read-redis:6379
+  QUARKUS_REDIS_READ_MODEL_CLIENT_TYPE: standalone
   KAFKA_BOOTSTRAP_SERVERS: kafka:29092
   DECK_READ_PROFILE_GROUP_ID: ${DECK_READ_PROFILE_GROUP_ID:-deck-read-profile-projection-v1}
   DECK_READ_SWIPE_GROUP_ID: ${DECK_READ_SWIPE_GROUP_ID:-deck-read-swipe-projection-v1}
@@ -25,6 +26,13 @@ x-deck-read-environment: &deck-read-environment
   DECK_READ_REQUIRE_READY_MARKER: "true"
   DECK_READ_MATERIALIZED_REQUIRED: ${DECK_READ_MATERIALIZED_REQUIRED:-true}
   DECK_READ_CURSOR_SECRET: ${DECK_READ_CURSOR_SECRET:?DECK_READ_CURSOR_SECRET is required}
+  PHOTOS_SERVICE_URL: http://photos:8070
+  PROFILES_INTERNAL_URL: https://profiles:8011
+  DECK_READ_AUTO_BACKFILL_ON_EMPTY: "true"
+  DECK_READ_KEYSTORE_PATH: /certs/deck-read-service.p12
+  DECK_READ_TRUSTSTORE_PATH: /certs/truststore.jks
+  DECK_READ_KEYSTORE_PASSWORD: ${MTLS_KEYSTORE_PASSWORD:?MTLS_KEYSTORE_PASSWORD is required}
+  DECK_READ_TRUSTSTORE_PASSWORD: ${MTLS_TRUSTSTORE_PASSWORD:?MTLS_TRUSTSTORE_PASSWORD is required}
   JAVA_TOOL_OPTIONS: "-XX:+UseContainerSupport -XX:+UseG1GC -XX:InitialRAMPercentage=40.0 -XX:MaxRAMPercentage=75.0 -Dfile.encoding=UTF-8 -Dsun.net.inetaddr.ttl=60 -Djava.io.tmpdir=/tmp"
 
 services:
@@ -127,7 +135,7 @@ services:
     ports:
       - "127.0.0.1:9080:9080"
     volumes:
-      - ./docker/keycloak/themes:/opt/keycloak/themes
+      - ./docker/keycloak/themes:/opt/keycloak/themes:ro
     environment:
       KC_BOOTSTRAP_ADMIN_USERNAME: ${KEYCLOAK_ADMIN:?KEYCLOAK_ADMIN is required}
       KC_BOOTSTRAP_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:?KEYCLOAK_ADMIN_PASSWORD is required}
@@ -169,124 +177,27 @@ services:
       start_period: 10s
       retries: 5
 
-  # Deck Read-owned production cluster: three masters plus three replicas.
-  # The single-node `redis` service above remains Deck's source cache and
-  # coordination store; only dr:* data belongs here.
-  deck-read-redis-1:
+  # Deck Read owns this instance and only writes dr:* projection keys here.
+  # Shared redis remains the read-only Deck source (ordering / build timestamps).
+  deck-read-redis:
     image: redis:8.2.1-alpine
     <<: *prod-mid-defaults
+    ports: []
     command: >-
-      redis-server --port 6379 --cluster-enabled yes
-      --cluster-config-file nodes.conf --cluster-node-timeout 5000
-      --appendonly yes --appendfsync everysec --maxmemory-policy noeviction
-      --save 900 1 --save 300 10 --save 60 10000
-    volumes: ["deck-read-redis-1-data:/data"]
-    networks: [app]
-    healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
-      interval: 5s
-      timeout: 3s
-      retries: 20
-
-  deck-read-redis-2:
-    image: redis:8.2.1-alpine
-    <<: *prod-mid-defaults
-    command: >-
-      redis-server --port 6379 --cluster-enabled yes
-      --cluster-config-file nodes.conf --cluster-node-timeout 5000
-      --appendonly yes --appendfsync everysec --maxmemory-policy noeviction
-      --save 900 1 --save 300 10 --save 60 10000
-    volumes: ["deck-read-redis-2-data:/data"]
-    networks: [app]
-    healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
-      interval: 5s
-      timeout: 3s
-      retries: 20
-
-  deck-read-redis-3:
-    image: redis:8.2.1-alpine
-    <<: *prod-mid-defaults
-    command: >-
-      redis-server --port 6379 --cluster-enabled yes
-      --cluster-config-file nodes.conf --cluster-node-timeout 5000
-      --appendonly yes --appendfsync everysec --maxmemory-policy noeviction
-      --save 900 1 --save 300 10 --save 60 10000
-    volumes: ["deck-read-redis-3-data:/data"]
-    networks: [app]
-    healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
-      interval: 5s
-      timeout: 3s
-      retries: 20
-
-  deck-read-redis-4:
-    image: redis:8.2.1-alpine
-    <<: *prod-mid-defaults
-    command: >-
-      redis-server --port 6379 --cluster-enabled yes
-      --cluster-config-file nodes.conf --cluster-node-timeout 5000
-      --appendonly yes --appendfsync everysec --maxmemory-policy noeviction
-      --save 900 1 --save 300 10 --save 60 10000
-    volumes: ["deck-read-redis-4-data:/data"]
-    networks: [app]
-    healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
-      interval: 5s
-      timeout: 3s
-      retries: 20
-
-  deck-read-redis-5:
-    image: redis:8.2.1-alpine
-    <<: *prod-mid-defaults
-    command: >-
-      redis-server --port 6379 --cluster-enabled yes
-      --cluster-config-file nodes.conf --cluster-node-timeout 5000
-      --appendonly yes --appendfsync everysec --maxmemory-policy noeviction
-      --save 900 1 --save 300 10 --save 60 10000
-    volumes: ["deck-read-redis-5-data:/data"]
-    networks: [app]
-    healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
-      interval: 5s
-      timeout: 3s
-      retries: 20
-
-  deck-read-redis-6:
-    image: redis:8.2.1-alpine
-    <<: *prod-mid-defaults
-    command: >-
-      redis-server --port 6379 --cluster-enabled yes
-      --cluster-config-file nodes.conf --cluster-node-timeout 5000
-      --appendonly yes --appendfsync everysec --maxmemory-policy noeviction
-      --save 900 1 --save 300 10 --save 60 10000
-    volumes: ["deck-read-redis-6-data:/data"]
-    networks: [app]
-    healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
-      interval: 5s
-      timeout: 3s
-      retries: 20
-
-  deck-read-cluster-init:
-    image: redis:8.2.1-alpine
-    restart: "no"
-    depends_on:
-      deck-read-redis-1: {condition: service_healthy}
-      deck-read-redis-2: {condition: service_healthy}
-      deck-read-redis-3: {condition: service_healthy}
-      deck-read-redis-4: {condition: service_healthy}
-      deck-read-redis-5: {condition: service_healthy}
-      deck-read-redis-6: {condition: service_healthy}
-    environment:
-      REDIS_CLUSTER_NODES: >-
-        deck-read-redis-1:6379 deck-read-redis-2:6379 deck-read-redis-3:6379
-        deck-read-redis-4:6379 deck-read-redis-5:6379 deck-read-redis-6:6379
-      REDIS_CLUSTER_REPLICAS: "1"
+      redis-server --appendonly yes --appendfsync everysec
+      --maxmemory 512mb --maxmemory-policy noeviction
     volumes:
-      - ./docker/redis-cluster/init-cluster.sh:/usr/local/bin/init-cluster.sh:ro
-    entrypoint: ["/bin/sh", "/usr/local/bin/init-cluster.sh"]
-    networks: [app]
+      - deck-read-redis-data:/data
+    networks:
+      - app
+    mem_limit: 768m
+    cpus: "0.50"
+    healthcheck:
+      test: redis-cli ping
+      interval: 10s
+      timeout: 5s
+      start_period: 10s
+      retries: 5
 
   zookeeper:
     image: confluentinc/cp-zookeeper:7.5.0
@@ -343,118 +254,6 @@ services:
         --topic deck-read.materialization-requested.v1 --partitions 48 --replication-factor 1
     networks: [app]
 
-#  elasticsearch:
-#    image: docker.elastic.co/elasticsearch/elasticsearch:8.12.0
-#    container_name: elasticsearch
-#    <<: *prod-mid-defaults
-#    ports: []
-#    environment:
-#      - discovery.type=single-node
-#      - xpack.security.enabled=false
-#      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
-#    volumes:
-#      - elasticsearch-data:/usr/share/elasticsearch/data
-#    networks:
-#      - elk
-#    mem_limit: 1g
-#    cpus: "0.75"
-#    healthcheck:
-#      test: ["CMD-SHELL", "curl -sf http://localhost:9200/_cluster/health?wait_for_status=yellow&timeout=5s || exit 1"]
-#      interval: 15s
-#      timeout: 10s
-#      start_period: 60s
-#      retries: 10
-
-#  logstash:
-#    image: docker.elastic.co/logstash/logstash:8.12.0
-#    container_name: logstash
-#    <<: *prod-mid-defaults
-#    ports: []
-#    environment:
-#      - "LS_JAVA_OPTS=-Xms128m -Xmx128m"
-#    networks:
-#      - elk
-#      - app
-#    depends_on:
-#      elasticsearch:
-#        condition: service_healthy
-#    command: |
-#      bash -c "
-#      cat > /usr/share/logstash/pipeline/logstash.conf <<EOF
-#      input {
-#        tcp {
-#          port => 5000
-#          codec => json
-#        }
-#      }
-#      output {
-#        elasticsearch {
-#          hosts => ['http://elasticsearch:9200']
-#          index => 'logstash-%{+YYYY.MM.dd}'
-#        }
-#      }
-#      EOF
-#      /usr/local/bin/docker-entrypoint
-#      "
-#    mem_limit: 256m
-#    cpus: "0.50"
-
-#  kibana:
-#    image: docker.elastic.co/kibana/kibana:8.12.0
-#    container_name: kibana
-#    <<: *prod-mid-defaults
-#    ports:
-#      - "127.0.0.1:5602:5601"
-#    environment:
-#      - ELASTICSEARCH_HOSTS=http://elasticsearch:9200
-#    networks:
-#      - elk
-#    depends_on:
-#      elasticsearch:
-#        condition: service_healthy
-#    mem_limit: 256m
-#    cpus: "0.50"
-
-#  config-server:
-#    build:
-#      context: ./services/config-server2
-#    container_name: config-server
-#    <<: *prod-mid-defaults
-#    ports: []
-#    networks:
-#      - app
-#    mem_limit: 512m
-#    cpus: "0.75"
-#    environment:
-#      JAVA_OPTS: "-Xms192m -Xmx256m"
-#    healthcheck:
-#      test: ["CMD-SHELL", "wget -qO- http://localhost:8888/actuator/health | grep -q UP || exit 1"]
-#      interval: 15s
-#      timeout: 10s
-#      start_period: 300s
-#      retries: 10
-#
-#  discovery:
-#    build:
-#      context: ./services/discovery
-#    container_name: discovery
-#    <<: *prod-mid-defaults
-#    ports: []
-#    environment:
-#      SPRING_CONFIG_IMPORT: optional:configserver:http://config-server:8888
-#      EUREKA_INSTANCE_HOSTNAME: discovery
-#      JAVA_OPTS: "-Xms192m -Xmx256m"
-#    networks:
-#      - app
-#    mem_limit: 512m
-#    cpus: "0.75"
-#    healthcheck:
-#      test: ["CMD-SHELL", "wget -qO- http://localhost:8761/actuator/health | grep -q UP || exit 1"]
-#      interval: 15s
-#      timeout: 10s
-#      start_period: 300s
-#      retries: 10
-
   profiles:
     build:
       context: ./services
@@ -472,6 +271,8 @@ services:
       redis:
         condition: service_healthy
       location:
+        condition: service_healthy
+      photos:
         condition: service_healthy
     environment:
       SPRING_PROFILES_ACTIVE: prod
@@ -504,6 +305,7 @@ services:
       LOGSTASH_PORT: 5000
       MANAGEMENT_TRACING_ENABLED: "false"
       LOCATION_SERVICE_URL: http://location:8065
+      PHOTOS_SERVICE_URL: http://photos:8070
 
       PROFILES_KEYSTORE_PATH: file:/certs/profiles-service.p12
       PROFILES_KEYSTORE_PASSWORD: ${MTLS_KEYSTORE_PASSWORD:?MTLS_KEYSTORE_PASSWORD is required}
@@ -575,17 +377,24 @@ services:
     depends_on:
       redis:
         condition: service_healthy
-      deck-read-cluster-init:
-        condition: service_completed_successfully
+      deck-read-redis:
+        condition: service_healthy
       deck:
         condition: service_started
       kafka:
         condition: service_healthy
       deck-read-topics:
         condition: service_completed_successfully
+      photos:
+        condition: service_started
+      profiles:
+        condition: service_started
     environment:
       <<: *deck-read-environment
       QUARKUS_PROFILE: prod,api
+    volumes:
+      - /etc/dokploy/certs/tinderclone/deck-read-service.p12:/certs/deck-read-service.p12:ro
+      - /etc/dokploy/certs/tinderclone/truststore.jks:/certs/truststore.jks:ro
     networks:
       - app
     mem_limit: 512m
@@ -606,17 +415,22 @@ services:
     depends_on:
       redis:
         condition: service_healthy
-      deck-read-cluster-init:
-        condition: service_completed_successfully
+      deck-read-redis:
+        condition: service_healthy
       deck:
         condition: service_started
       kafka:
         condition: service_healthy
       deck-read-topics:
         condition: service_completed_successfully
+      profiles:
+        condition: service_started
     environment:
       <<: *deck-read-environment
       QUARKUS_PROFILE: prod,worker
+    volumes:
+      - /etc/dokploy/certs/tinderclone/deck-read-service.p12:/certs/deck-read-service.p12:ro
+      - /etc/dokploy/certs/tinderclone/truststore.jks:/certs/truststore.jks:ro
     networks:
       - app
     mem_limit: 768m
@@ -645,13 +459,38 @@ services:
       GEOCODING_BASE_URL: https://nominatim.openstreetmap.org
       GEOCODING_USER_AGENT: tinder-clone-app
       GEOCODING_TIMEOUT_MS: "3000"
-      JAVA_TOOL_OPTIONS: ""
     networks:
       - app
     mem_limit: 64m
     cpus: "0.25"
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://localhost:8065/health | grep -q UP || exit 1"]
+      interval: 15s
+      timeout: 5s
+      start_period: 30s
+      retries: 5
+
+  photos:
+    build:
+      context: ./services/photos
+    container_name: photos
+    <<: *prod-mid-defaults
+    ports: []
+    environment:
+      PORT: "8070"
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID:?AWS_ACCESS_KEY_ID is required}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY:?AWS_SECRET_ACCESS_KEY is required}
+      AWS_S3_BUCKET: ${AWS_S3_BUCKET:?AWS_S3_BUCKET is required}
+      AWS_REGION: ${AWS_REGION:-eu-north-1}
+      AWS_S3_ENDPOINT: ${AWS_S3_ENDPOINT:-}
+      CLOUDFRONT_DOMAIN: ${CLOUDFRONT_DOMAIN:?CLOUDFRONT_DOMAIN is required}
+      CDN_ENABLED: ${CDN_ENABLED:-true}
+    networks:
+      - app
+    mem_limit: 256m
+    cpus: "0.50"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8070/health | grep -q UP || exit 1"]
       interval: 15s
       timeout: 5s
       start_period: 30s
@@ -707,10 +546,11 @@ services:
     <<: *prod-mid-defaults
     ports: []
     depends_on:
-
       postgres:
         condition: service_healthy
       kafka:
+        condition: service_healthy
+      photos:
         condition: service_healthy
     environment:
       SPRING_PROFILES_ACTIVE: prod
@@ -720,6 +560,7 @@ services:
       AWS_REGION: ${AWS_REGION:-eu-north-1}
       CLOUDFRONT_DOMAIN: ${CLOUDFRONT_DOMAIN:?CLOUDFRONT_DOMAIN is required}
       CDN_ENABLED: ${CDN_ENABLED:-true}
+      PHOTOS_SERVICE_URL: http://photos:8070
       SPRING_DATASOURCE_URL: ${MATCH_DB_URL:?MATCH_DB_URL is required}
       SPRING_DATASOURCE_USERNAME: ${MATCH_DB_USER:?MATCH_DB_USER is required}
       SPRING_DATASOURCE_PASSWORD: ${MATCH_DB_PASSWORD:?MATCH_DB_PASSWORD is required}
@@ -807,7 +648,7 @@ services:
       KEYCLOAK_JWK_SET_URI: ${KEYCLOAK_JWK_SET_URI:-http://keycloak:9080/realms/spring/protocol/openid-connect/certs}
       STRIPE_SUCCESS_URL: ${STRIPE_SUCCESS_URL:?STRIPE_SUCCESS_URL is required}
       STRIPE_CANCEL_URL: ${STRIPE_CANCEL_URL:?STRIPE_CANCEL_URL is required}
-      STRIPE_RETURN_URL: ${STRIPE_RETURN_URL:?STRIPE_RETURN_URL is required}
+      STRIPE_RETURN_URL: ${STRIPE_RETURN_URL:-http://localhost:4200/profile}
       SUBSCRIPTIONS_GRPC_KEYSTORE_PATH: file:/certs/subscriptions-service.p12
       SUBSCRIPTIONS_GRPC_KEYSTORE_PASSWORD: ${MTLS_KEYSTORE_PASSWORD:?MTLS_KEYSTORE_PASSWORD is required}
       SUBSCRIPTIONS_GRPC_TRUSTSTORE_PATH: file:/certs/truststore.jks
@@ -829,48 +670,54 @@ services:
 
   swipes:
     build:
-      context: ./services/swipes-demo
+      context: ./services/swipes-go
     container_name: swipes
     <<: *prod-mid-defaults
     ports: []
     depends_on:
-
       postgres:
         condition: service_healthy
+      swipes-migrations:
+        condition: service_completed_successfully
       kafka:
         condition: service_healthy
       redis:
         condition: service_healthy
+      keycloak:
+        condition: service_started
+      profiles:
+        condition: service_started
     environment:
-      SPRING_PROFILES_ACTIVE: prod
+      APP_ENV: production
+      PORT: "8040"
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/swipes_db
       SPRING_DATASOURCE_USERNAME: ${SWIPES_DB_USER:?SWIPES_DB_USER is required}
       SPRING_DATASOURCE_PASSWORD: ${SWIPES_DB_PASSWORD:?SWIPES_DB_PASSWORD is required}
-      SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE: 4
-      SPRING_DATASOURCE_HIKARI_MINIMUM_IDLE: 2
       SPRING_DATA_REDIS_HOST: redis
       SPRING_DATA_REDIS_PORT: 6379
       SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:29092
       SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_JWK_SET_URI: ${KEYCLOAK_JWK_SET_URI:-http://keycloak:9080/realms/spring/protocol/openid-connect/certs}
+      SWIPES_JWT_ISSUER: ${KEYCLOAK_TOKEN_ISSUER:-https://auth.misyk.tech/realms/spring}
+      SWIPES_JWT_AUDIENCE: ${SWIPES_JWT_AUDIENCE:-tinder-client}
       SERVICES_PROFILES_BASE_URL: http://profiles:8010/api/v1/profiles
-      INTERNAL_SWIPES_AUTH_SECRET: ${INTERNAL_SWIPES_AUTH_SECRET:-}
-      SWIPES_INTERNAL_BYPASS_PROFILE_CHECK: ${SWIPES_INTERNAL_BYPASS_PROFILE_CHECK:-false}
+      INTERNAL_SWIPES_AUTH_SECRET: ""
+      SWIPES_INTERNAL_BYPASS_PROFILE_CHECK: "false"
+      SWIPES_PROFILE_CONSUMER_GROUP: swipes-profile-cache-go
       SWIPES_PRODUCER_QUEUE_CAPACITY: ${SWIPES_PRODUCER_QUEUE_CAPACITY:-200000}
       SWIPES_PRODUCER_WORKER_COUNT: ${SWIPES_PRODUCER_WORKER_COUNT:-4}
       SWIPES_PRODUCER_CONCURRENCY: ${SWIPES_PRODUCER_CONCURRENCY:-4}
       SWIPES_PRODUCER_BATCH_SIZE: ${SWIPES_PRODUCER_BATCH_SIZE:-500}
       SWIPES_PRODUCER_BUFFER_TIMEOUT: ${SWIPES_PRODUCER_BUFFER_TIMEOUT:-1ms}
       SWIPES_PRODUCER_WARMUP_ENABLED: ${SWIPES_PRODUCER_WARMUP_ENABLED:-true}
-      JAVA_TOOL_OPTIONS: "-XX:+UseContainerSupport -XX:+UseG1GC -XX:InitialRAMPercentage=40.0 -XX:MaxRAMPercentage=75.0 -Dfile.encoding=UTF-8 -Dsun.net.inetaddr.ttl=60 -Djava.io.tmpdir=/tmp"
     networks:
       - app
-    mem_limit: 2g
-    cpus: "6.00"
+    mem_limit: 256m
+    cpus: "1.00"
     healthcheck:
-      test: ["CMD-SHELL", "(wget -q --server-response -O- http://localhost:8040/actuator/health 2>&1 || true) | grep -Eq 'HTTP/1.1 (200|401|403|404)' || exit 1"]
-      interval: 15s
-      timeout: 10s
-      start_period: 300s
+      test: ["CMD", "wget", "-qO-", "http://localhost:8040/actuator/health"]
+      interval: 10s
+      timeout: 5s
+      start_period: 30s
       retries: 10
 
   tinder-client:
@@ -887,42 +734,12 @@ services:
     mem_limit: 160m
     cpus: "0.30"
 
-  nexus:
-    image: sonatype/nexus3:latest
-    <<: *prod-mid-defaults
-    container_name: nexus
-    ports:
-      - "127.0.0.1:8081:8081"
-    volumes:
-      - nexus-data:/nexus-data
-    networks:
-      - app
-    mem_limit: 1g
-    cpus: "1.00"
-    healthcheck:
-      test: ["CMD-SHELL", "curl -sf http://localhost:8081/service/rest/v1/status || exit 1"]
-      interval: 30s
-      timeout: 10s
-      start_period: 120s
-      retries: 5
-
-
 networks:
   app:
-    driver: bridge
-  elk:
     driver: bridge
 
 volumes:
   redis-data:
+  deck-read-redis-data:
   profiles-pgdata:
-  elasticsearch-data:
-    driver: local
   kc-pgdata:
-  nexus-data:
-  deck-read-redis-1-data:
-  deck-read-redis-2-data:
-  deck-read-redis-3-data:
-  deck-read-redis-4-data:
-  deck-read-redis-5-data:
-  deck-read-redis-6-data:

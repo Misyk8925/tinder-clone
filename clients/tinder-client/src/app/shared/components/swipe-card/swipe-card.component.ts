@@ -105,7 +105,8 @@ import { DeckCard } from '../../../core/models/deck.model';
       overflow: hidden;
       isolation: isolate;
       border-radius: 20px;
-      background: var(--card-surface);
+      background: var(--surface);
+      background-color: var(--surface);
       border: 1px solid var(--card-border);
       box-shadow: 0 12px 34px var(--shadow-md);
       cursor: grab;
@@ -121,6 +122,7 @@ import { DeckCard } from '../../../core/models/deck.model';
       min-height: 0;
       overflow: hidden;
       background: var(--surface-3);
+      isolation: isolate;
     }
 
     .photo-stage > img {
@@ -130,6 +132,7 @@ import { DeckCard } from '../../../core/models/deck.model';
       object-fit: cover;
       object-position: center 40%;
       pointer-events: none;
+      background: var(--surface-3);
     }
 
     .photo-placeholder {
@@ -235,7 +238,7 @@ import { DeckCard } from '../../../core/models/deck.model';
       padding: 16px clamp(16px, 5vw, 22px);
       border-radius: 0;
       border-top: 1px solid var(--card-border);
-      background: var(--card-surface);
+      background: var(--surface);
       box-shadow: none;
       overflow: hidden;
       transform: none;
@@ -364,6 +367,7 @@ import { DeckCard } from '../../../core/models/deck.model';
 })
 export class SwipeCardComponent implements OnInit, OnDestroy {
   @Input({ required: true }) profile!: DeckCard;
+  @Output() swipeCommitted = new EventEmitter<'left' | 'right'>();
   @Output() swiped = new EventEmitter<'left' | 'right'>();
 
   currentPhoto = signal(0);
@@ -402,6 +406,7 @@ export class SwipeCardComponent implements OnInit, OnDestroy {
     const emitDir: 'left' | 'right' = direction === 'left' ? 'left' : 'right';
 
     if (direction === 'up') {
+      this.swipeCommitted.emit(emitDir);
       this.cardStyle.set({
         transform: 'translate(0, -1200px) scale(0.84)',
         transition: 'transform 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94)'
@@ -410,6 +415,7 @@ export class SwipeCardComponent implements OnInit, OnDestroy {
       const flyX = direction === 'right' ? 1200 : -1200;
       const rotation = direction === 'right' ? 24 : -24;
       this.swipeDir.set(direction);
+      this.swipeCommitted.emit(emitDir);
       this.cardStyle.set({
         transform: `translate(${flyX}px, -120px) rotate(${rotation}deg)`,
         transition: 'transform 0.38s cubic-bezier(0.25, 0.46, 0.45, 0.94)'
@@ -417,6 +423,17 @@ export class SwipeCardComponent implements OnInit, OnDestroy {
     }
 
     setTimeout(() => this.swiped.emit(emitDir), 360);
+  }
+
+  /** Snap the card back after a rejected swipe (e.g. HTTP 429). */
+  public resetSwipe(): void {
+    this.isAnimating = false;
+    this.isDragging = false;
+    this.swipeDir.set(null);
+    this.cardStyle.set({
+      transform: 'translate(0,0) rotate(0deg)',
+      transition: 'transform 0.28s ease'
+    });
   }
 
   onDragStart(event: MouseEvent): void {
@@ -469,6 +486,8 @@ export class SwipeCardComponent implements OnInit, OnDestroy {
       const direction = dx > 0 ? 'right' : 'left';
       const flyX = direction === 'right' ? 1200 : -1200;
       const rotation = direction === 'right' ? 24 : -24;
+      this.swipeDir.set(direction);
+      this.swipeCommitted.emit(direction);
       this.cardStyle.set({
         transform: `translate(${flyX}px, -120px) rotate(${rotation}deg)`,
         transition: 'transform 0.38s cubic-bezier(0.25, 0.46, 0.45, 0.94)'

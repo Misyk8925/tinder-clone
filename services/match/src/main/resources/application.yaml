@@ -33,7 +33,8 @@ spring:
         spring.json.add.type.headers: false
         enable.idempotence: true
         max.in.flight.requests.per.connection: 5
-        delivery.timeout.ms: 30000
+        # Kafka 4 default linger.ms is 5; delivery.timeout must be >= linger.ms + request.timeout.ms.
+        delivery.timeout.ms: 120000
   security:
     oauth2:
       resourceserver:
@@ -53,6 +54,10 @@ app:
   cloudfront:
     domain: ${CLOUDFRONT_DOMAIN:d123example.cloudfront.net}
     enabled: ${CDN_ENABLED:false}
+
+photos:
+  service:
+    url: ${PHOTOS_SERVICE_URL:http://localhost:8070}
 
 cloud:
   aws:

@@ -79,6 +79,7 @@ class RedisPolicyDslTest {
 
         assertTrue(json.contains("\"controlMode\" : \"DESIRED_STATE_READ_ONLY\""))
         assertTrue(json.contains("\"name\" : \"shared-redis\""))
+        assertTrue(json.contains("\"name\" : \"deck-read-redis\""))
         assertTrue(json.contains("\"name\" : \"deck-read-cluster\""))
         assertTrue(json.contains("\"operationalRisks\""))
         assertTrue(json.contains("\"runtimeSources\""))
@@ -131,6 +132,46 @@ class RedisPolicyDslTest {
     }
 
     @Test
+    fun `project catalog represents the Deck-Read runtime store`() {
+        val store = TinderRedisPolicies.catalog.stores.single { it.name == "deck-read-redis" }
+
+        assertEquals(RedisTopology.SINGLE_NODE, store.topology)
+        assertEquals(EvictionPolicy.NO_EVICTION, store.memory.evictionPolicy)
+        assertEquals(536_870_912L, store.memory.maxMemoryBytes)
+        assertEquals("deck-read-redis-data:/data", store.persistence.dataVolume)
+        assertEquals("deck-read", store.clients.single().service)
+        assertTrue(store.namespaces.map { it.pattern }.contains("dr:viewer:{viewerProfileId}"))
+        assertTrue(store.namespaces.map { it.pattern }.contains("dr:read-model:auto-backfill-run"))
+        assertEquals("dr:reconciliation:lease", store.locks.single { it.name == "dr-reconciliation" }.pattern)
+        assertTrue(OperationalRisk.SINGLE_NODE_NO_FAILOVER in store.operationalRisks)
+    }
+
+    @Test
+    fun `runtime Deck-Read Redis configuration matches the desired catalog`() {
+        val repositoryRoot = Path.of(System.getProperty("user.dir")).resolve("../..").normalize()
+        val compose = Files.readString(repositoryRoot.resolve("docker-compose.yml"))
+        val keys = Files.readString(
+            repositoryRoot.resolve("services/deck-read/src/main/java/com/tinder/deckread/readmodel/ReadModelKeys.java")
+        )
+        val store = TinderRedisPolicies.catalog.stores.single { it.name == "deck-read-redis" }
+        val node = composeService(compose, "deck-read-redis")
+
+        assertTrue(node.contains("--appendonly yes --appendfsync everysec"))
+        assertTrue(node.contains("--maxmemory 512mb --maxmemory-policy noeviction"))
+        assertTrue(node.contains("- ${store.persistence.dataVolume}"))
+        assertTrue(compose.contains("DECK_READ_REDIS_HOSTS: redis://deck-read-redis:6379"))
+        assertTrue(compose.contains("DECK_SOURCE_REDIS_HOST: redis"))
+        assertTrue(keys.contains("\"dr:viewer:{\""))
+        assertTrue(keys.contains("\"dr:profile:{\""))
+        assertTrue(keys.contains("\"dr:read-model:ready\""))
+        assertTrue(keys.contains("\"dr:read-model:auto-backfill-run\""))
+
+        store.runtimeSources.forEach { source ->
+            assertTrue(Files.exists(repositoryRoot.resolve(source)), "Missing runtime source: $source")
+        }
+    }
+
+    @Test
     fun `project catalog represents the Deck-Read cluster store`() {
         val store = TinderRedisPolicies.catalog.stores.single { it.name == "deck-read-cluster" }
 
@@ -142,9 +183,9 @@ class RedisPolicyDslTest {
     }
 
     @Test
-    fun `runtime Deck-Read cluster configuration matches the desired catalog`() {
+    fun `IT Deck-Read cluster configuration matches the desired catalog`() {
         val repositoryRoot = Path.of(System.getProperty("user.dir")).resolve("../..").normalize()
-        val compose = Files.readString(repositoryRoot.resolve("docker-compose.yml"))
+        val compose = Files.readString(repositoryRoot.resolve("docker-compose.deck-read-cluster.yml"))
         val keys = Files.readString(
             repositoryRoot.resolve("services/deck-read/src/main/java/com/tinder/deckread/readmodel/ReadModelKeys.java")
         )
@@ -154,7 +195,6 @@ class RedisPolicyDslTest {
         assertTrue(node.contains("--cluster-enabled yes"))
         assertTrue(node.contains("--appendonly yes --appendfsync everysec"))
         assertTrue(node.contains("--maxmemory-policy noeviction"))
-        assertTrue(compose.contains(store.persistence.dataVolume))
         assertTrue(keys.contains("\"dr:viewer:{\""))
         assertTrue(keys.contains("\"dr:profile:{\""))
         assertTrue(keys.contains("\"dr:read-model:ready\""))
