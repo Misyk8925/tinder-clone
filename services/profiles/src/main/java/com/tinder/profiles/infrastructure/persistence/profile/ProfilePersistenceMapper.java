@@ -43,6 +43,7 @@ public class ProfilePersistenceMapper {
                 .bio(entity.getBio())
                 .city(entity.getCity())
                 .position(toGeoPoint(entity.getLocation()))
+                .locationId(entity.getLocation() != null ? entity.getLocation().getId() : null)
                 .active(entity.isActive())
                 .premium(entity.isPremium())
                 .premiumExpiresAt(entity.getPremiumExpiresAt())

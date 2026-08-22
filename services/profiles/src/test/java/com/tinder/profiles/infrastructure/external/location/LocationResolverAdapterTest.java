@@ -15,6 +15,8 @@ import org.locationtech.jts.geom.PrecisionModel;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import java.util.UUID;
+
 import static org.assertj.core.api.BDDAssertions.then;
 import static org.assertj.core.api.BDDAssertions.thenThrownBy;
 import static org.mockito.BDDMockito.given;
@@ -38,7 +40,7 @@ class LocationResolverAdapterTest {
     private static Location location(double lat, double lon) {
         Point p = GEO_FACTORY.createPoint(new Coordinate(lon, lat));
         p.setSRID(4326);
-        return Location.builder().city("Vienna").geo(p).build();
+        return Location.builder().id(UUID.randomUUID()).city("Vienna").geo(p).build();
     }
 
     @Test
@@ -50,6 +52,7 @@ class LocationResolverAdapterTest {
 
         then(resolved.position()).isEqualTo(new GeoPoint(48.2, 16.37));
         then(resolved.city()).isEqualTo("Vienna");
+        then(resolved.locationId()).isNotNull();
     }
 
     @Test

@@ -50,6 +50,7 @@ public class CreateProfileService {
                 .bio(edit.bio())
                 .city(resolved.city())
                 .position(resolved.position())
+                .locationId(resolved.locationId())
                 .active(true)
                 .premium(false)
                 .deleted(false)

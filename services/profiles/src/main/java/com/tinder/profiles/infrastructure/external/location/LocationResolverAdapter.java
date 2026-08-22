@@ -32,6 +32,6 @@ public class LocationResolverAdapter implements LocationPort {
             throw new LocationResolutionException(city);
         }
         GeoPoint position = GeoPoint.of(location.getLatitude(), location.getLongitude()).orElse(null);
-        return new ResolvedLocation(position, location.getCity());
+        return new ResolvedLocation(position, location.getCity(), location.getId());
     }
 }

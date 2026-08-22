@@ -64,7 +64,7 @@ public class PatchProfileService {
             if (cityChanged || moved) {
                 String cityForLocation = edit.city() != null ? edit.city() : existing.getCity();
                 ResolvedLocation resolved = location.resolve(cmd.latitude(), cmd.longitude(), cityForLocation);
-                existing.relocate(resolved.position(), resolved.city());
+                existing.relocate(resolved.position(), resolved.city(), resolved.locationId());
                 changes.add("city");
             } else {
                 log.debug("Ignoring coordinate update for profile {}: moved less than {}km",
