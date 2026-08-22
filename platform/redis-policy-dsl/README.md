@@ -1,8 +1,9 @@
 # Redis policy DSL
 
 This module is the typed desired-state catalog for Redis runtime policy. It currently covers the
-shared Redis instance and the Deck keyspaces, retention, client timeouts, and lock-safety rules
-that were confirmed by regression tests.
+shared Redis instance, the dedicated Deck Read projection store, the IT cluster fixture, and the
+Deck/Deck Read keyspaces, retention, client timeouts, and lock-safety rules that were confirmed by
+regression tests.
 
 The Kotlin catalog is the policy source of truth for a future control-plane API. Compose and
 Spring YAML remain runtime implementations; `RedisPolicyDslTest` compares them with the catalog so

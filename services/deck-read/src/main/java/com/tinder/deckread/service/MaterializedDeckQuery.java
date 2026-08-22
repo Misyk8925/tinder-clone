@@ -1,5 +1,6 @@
 package com.tinder.deckread.service;
 
+import com.tinder.deckread.client.DeckPhotoUrlRewriter;
 import com.tinder.deckread.dto.DeckCardDto;
 import com.tinder.deckread.dto.DeckCardV1Dto;
 import com.tinder.deckread.dto.DeckPage;
@@ -29,6 +30,7 @@ public class MaterializedDeckQuery {
     private final ViewerMutationStore viewerMutations;
     private final DeckCursorCodec cursors;
     private final DeckRefreshTrigger refreshes;
+    private final DeckPhotoUrlRewriter photoUrls;
 
     @Inject
     public MaterializedDeckQuery(
@@ -36,13 +38,15 @@ public class MaterializedDeckQuery {
             ProfileProjectionStore profiles,
             ViewerMutationStore viewerMutations,
             DeckCursorCodec cursors,
-            DeckRefreshTrigger refreshes
+            DeckRefreshTrigger refreshes,
+            DeckPhotoUrlRewriter photoUrls
     ) {
         this.store = store;
         this.profiles = profiles;
         this.viewerMutations = viewerMutations;
         this.cursors = cursors;
         this.refreshes = refreshes;
+        this.photoUrls = photoUrls;
     }
 
     public Uni<Optional<DeckQueryResult>> getV2(
@@ -65,10 +69,11 @@ public class MaterializedDeckQuery {
                             && offset < slice.totalCount()) {
                         refreshes.request(viewerProfileId, MaterializationReason.API_STALE);
                         return deepCards(viewerProfileId, slice, offset, limit)
+                                .flatMap(this::withFreshPhotoUrls)
                                 .map(cards -> Optional.of(cards.stream().map(DeckCardV1Dto::from).toList()));
                     }
-                    return Uni.createFrom().item(Optional.of(
-                            slice.cards().stream().map(DeckCardV1Dto::from).toList()));
+                    return withFreshPhotoUrls(slice.cards())
+                            .map(cards -> Optional.of(cards.stream().map(DeckCardV1Dto::from).toList()));
                 });
     }
 
@@ -90,17 +95,21 @@ public class MaterializedDeckQuery {
         String next = slice.nextPosition() < slice.totalCount()
                 ? cursors.encode(slice.generation(), slice.nextPosition())
                 : null;
-        DeckState state = stale ? DeckState.REFRESHING : slice.state();
-        if (slice.cards().isEmpty() && position == 0 && next == null && state != DeckState.DEGRADED) {
-            state = DeckState.EMPTY;
-        }
-        return Uni.createFrom().item(new DeckQueryResult.Page(new DeckPage(
-                slice.cards(), next, slice.generation(), slice.cursorReset(), state)));
+        DeckState[] state = {stale ? DeckState.REFRESHING : slice.state()};
+        return withFreshPhotoUrls(slice.cards()).map(cards -> {
+            if (cards.isEmpty() && position == 0 && next == null && state[0] != DeckState.DEGRADED) {
+                state[0] = DeckState.EMPTY;
+            }
+            return (DeckQueryResult) new DeckQueryResult.Page(new DeckPage(
+                    cards, next, slice.generation(), slice.cursorReset(), state[0]));
+        });
     }
 
     private Uni<DeckQueryResult> deepPage(
             UUID viewerProfileId, MaterializedDeckSlice slice, int position, int limit) {
-        return deepCards(viewerProfileId, slice, position, limit).map(cards -> {
+        return deepCards(viewerProfileId, slice, position, limit)
+                .flatMap(this::withFreshPhotoUrls)
+                .map(cards -> {
             int tailOffset = Math.max(0, position - MaterializedDeckStore.READY_WINDOW);
             int fetched = Math.min(
                     Math.min(100, Math.max(limit, 20)),
@@ -125,13 +134,20 @@ public class MaterializedDeckQuery {
                                 viewerMutations.swiped(viewerProfileId, ids),
                                 viewerMutations.matched(viewerProfileId, ids))
                         .asTuple()
-                        .map(tuple -> ids.stream()
-                                .filter(id -> tuple.getItem1().containsKey(id))
-                                .filter(id -> !tuple.getItem2().contains(id))
-                                .filter(id -> !tuple.getItem3().contains(id))
-                                .limit(limit)
-                                .map(tuple.getItem1()::get)
-                                .toList()));
+                        .map(tuple -> {
+                            List<DeckCardDto> visible = new java.util.ArrayList<>();
+                            for (int index = 0; index < ids.size() && visible.size() < limit; index++) {
+                                UUID id = ids.get(index);
+                                int absolute = position + index;
+                                boolean repeat = absolute >= slice.freshCount();
+                                if (tuple.getItem1().containsKey(id)
+                                        && !tuple.getItem3().contains(id)
+                                        && (repeat || !tuple.getItem2().contains(id))) {
+                                    visible.add(tuple.getItem1().get(id));
+                                }
+                            }
+                            return List.copyOf(visible);
+                        }));
     }
 
     private boolean requestIfStale(UUID viewerProfileId, MaterializedDeckSlice slice) {
@@ -142,5 +158,12 @@ public class MaterializedDeckQuery {
             refreshes.request(viewerProfileId, MaterializationReason.API_STALE);
         }
         return stale;
+    }
+
+    private Uni<List<DeckCardDto>> withFreshPhotoUrls(List<DeckCardDto> cards) {
+        if (photoUrls == null) {
+            return Uni.createFrom().item(cards);
+        }
+        return photoUrls.rewrite(cards);
     }
 }

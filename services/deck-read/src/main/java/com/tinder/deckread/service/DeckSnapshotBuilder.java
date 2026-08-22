@@ -153,10 +153,13 @@ public class DeckSnapshotBuilder {
                             .filter(id -> !matched.contains(id))
                             .limit(MAX_FRESH)
                             .toList();
-                    DeckState state = fresh.isEmpty() ? DeckState.EMPTY : DeckState.READY;
-                    return snapshots.install(
-                            viewerProfileId, previousGeneration, token, fresh, List.of(), state,
-                            source.buildTimestamp(), now).replaceWithVoid();
+                    return DeckRepeatFill.eligible(
+                                    readiness, viewerMutations, profiles, viewerProfileId, fresh,
+                                    MAX_REPEAT, now)
+                            .flatMap(repeat -> snapshots.install(
+                                    viewerProfileId, previousGeneration, token, fresh, repeat.ids(),
+                                    DeckRepeatFill.state(!fresh.isEmpty(), !repeat.ids().isEmpty()),
+                                    source.buildTimestamp(), now).replaceWithVoid());
                 });
     }
 

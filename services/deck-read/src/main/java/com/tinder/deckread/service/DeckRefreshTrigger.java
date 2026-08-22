@@ -3,6 +3,7 @@ package com.tinder.deckread.service;
 import com.tinder.deckread.messaging.DeckMaterializationRequester;
 import com.tinder.deckread.messaging.MaterializationReason;
 import io.micrometer.core.instrument.Counter;
+import io.smallrye.mutiny.Uni;
 import io.micrometer.core.instrument.MeterRegistry;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
@@ -26,12 +27,21 @@ public class DeckRefreshTrigger {
     }
 
     public void request(UUID viewerProfileId, MaterializationReason reason) {
+        requestAsync(viewerProfileId, reason).subscribe().with(ignored -> { }, ignored -> { });
+    }
+
+    /**
+     * Allocates the Redis revision before the HTTP response decides between a usable
+     * page and {@code 202 BUILDING}. Kafka notification failures are recorded, not fatal.
+     */
+    public Uni<Void> requestAsync(UUID viewerProfileId, MaterializationReason reason) {
         try {
-            requester.request(viewerProfileId, reason).subscribe().with(
-                    ignored -> { },
-                    failure -> recordFailure(viewerProfileId, reason, failure));
+            return requester.request(viewerProfileId, reason)
+                    .onFailure().invoke(failure -> recordFailure(viewerProfileId, reason, failure))
+                    .onFailure().recoverWithNull();
         } catch (RuntimeException failure) {
             recordFailure(viewerProfileId, reason, failure);
+            return Uni.createFrom().voidItem();
         }
     }
 

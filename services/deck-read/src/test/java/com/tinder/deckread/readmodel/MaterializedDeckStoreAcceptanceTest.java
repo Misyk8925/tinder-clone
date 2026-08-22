@@ -91,6 +91,29 @@ class MaterializedDeckStoreAcceptanceTest {
     }
 
     @Test
+    @DisplayName("Scenario: Given a fresh card ahead of a repeat, when the fresh card is swiped, then the repeat remains visible")
+    void repeatTailSurvivesSwipeExclusion() {
+        List<DeckCardDto> cards = cards(2);
+        long revision = requests.request(VIEWER, "TEST", Instant.now()).await().indefinitely();
+        store.install(VIEWER, revision, cards, 1, DeckState.READY, "1", Instant.now())
+                .await().indefinitely();
+
+        mutations.applySwipe(new SwipeSavedEvent(
+                UUID.randomUUID().toString(), VIEWER.toString(),
+                cards.get(0).profileId().toString(), false, Instant.now().toEpochMilli()))
+                .await().indefinitely();
+        mutations.applySwipe(new SwipeSavedEvent(
+                UUID.randomUUID().toString(), VIEWER.toString(),
+                cards.get(1).profileId().toString(), false, Instant.now().toEpochMilli()))
+                .await().indefinitely();
+
+        MaterializedDeckSlice page = store.readPage(VIEWER, 0, 0, 20).await().indefinitely();
+        assertThat(page.cards()).extracting(DeckCardDto::profileId)
+                .containsExactly(cards.get(1).profileId());
+        assertThat(page.freshCount()).isEqualTo(1);
+    }
+
+    @Test
     @DisplayName("Scenario: Given a committed card, when its swipe projection arrives, then the fast Lua read excludes it immediately")
     void fastReadAppliesImmediateSwipeExclusion() {
         List<DeckCardDto> cards = cards(2);

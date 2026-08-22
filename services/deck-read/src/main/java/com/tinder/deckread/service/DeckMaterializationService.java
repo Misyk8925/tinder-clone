@@ -8,6 +8,7 @@ import com.tinder.deckread.readmodel.DeckMaterializationRequestStore;
 import com.tinder.deckread.readmodel.DeckSnapshotStore;
 import com.tinder.deckread.readmodel.MaterializedDeckStore;
 import com.tinder.deckread.readmodel.ProfileProjectionStore;
+import com.tinder.deckread.readmodel.ReadModelReadiness;
 import com.tinder.deckread.readmodel.ViewerMutationStore;
 import com.tinder.deckread.redis.DeckRedisReader;
 import io.micrometer.core.instrument.Counter;
@@ -46,6 +47,9 @@ public class DeckMaterializationService {
 
     @Inject
     ViewerMutationStore mutations;
+
+    @Inject
+    ReadModelReadiness readiness;
 
     @Inject
     @RestClient
@@ -140,21 +144,34 @@ public class DeckMaterializationService {
             Set<UUID> matched,
             String lockToken
     ) {
-        List<DeckCardDto> visible = new ArrayList<>();
+        List<DeckCardDto> fresh = new ArrayList<>();
         for (UUID profileId : ordered) {
             DeckCardDto card = cards.get(profileId);
             if (card != null && !swiped.contains(profileId) && !matched.contains(profileId)) {
-                visible.add(card);
-                if (visible.size() == MaterializedDeckStore.TOTAL_WINDOW) {
+                fresh.add(card);
+                if (fresh.size() == MaterializedDeckStore.TOTAL_WINDOW) {
                     break;
                 }
             }
         }
-        DeckState state = visible.isEmpty() ? DeckState.EMPTY : DeckState.READY;
-        return locks.renewBuildLock(request.viewerProfileId(), lockToken)
-                .flatMap(ignored -> materialized.install(
-                        request.viewerProfileId(), request.requestedRevision(), visible,
-                        state, sourceBuildTimestamp, java.time.Instant.now()))
+        java.time.Instant now = java.time.Instant.now();
+        List<UUID> freshIds = fresh.stream().map(DeckCardDto::profileId).toList();
+        return DeckRepeatFill.eligible(
+                        readiness, mutations, profiles, request.viewerProfileId(), freshIds,
+                        MaterializedDeckStore.TOTAL_WINDOW - fresh.size(), now)
+                .flatMap(repeat -> locks.renewBuildLock(request.viewerProfileId(), lockToken)
+                        .flatMap(ignored -> {
+                            List<DeckCardDto> visible = new ArrayList<>(fresh);
+                            visible.addAll(repeat.cards());
+                            return materialized.install(
+                                    request.viewerProfileId(),
+                                    request.requestedRevision(),
+                                    visible,
+                                    fresh.size(),
+                                    DeckRepeatFill.state(!fresh.isEmpty(), !repeat.cards().isEmpty()),
+                                    sourceBuildTimestamp,
+                                    now);
+                        }))
                 .invoke(result -> {
                     if (result < 0) {
                         fenced.increment();

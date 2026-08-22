@@ -76,6 +76,10 @@ public final class ReadModelKeys {
         return "dr:read-model:repeat-ready";
     }
 
+    public static String autoBackfillRun() {
+        return "dr:read-model:auto-backfill-run";
+    }
+
     private static String viewer(UUID viewerProfileId) {
         // The viewer profileId is the Redis Cluster hash tag, co-locating all
         // fresh/repeat/meta/mutation keys needed by atomic viewer operations.

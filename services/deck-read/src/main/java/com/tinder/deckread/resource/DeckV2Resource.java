@@ -29,13 +29,14 @@ public class DeckV2Resource {
     @GET
     public Uni<Response> getDeck(
             @QueryParam("cursor") String cursor,
-            @QueryParam("limit") @DefaultValue("20") int limit) {
+            @QueryParam("limit") @DefaultValue("20") int limit,
+            @QueryParam("refresh") @DefaultValue("false") boolean refresh) {
         if (limit < 1 || limit > 100) {
             return Uni.createFrom().item(DeckResource.problem(
                     400, DeckQueryService.INVALID_LIMIT, "Invalid page limit",
                     "limit must be between 1 and 100."));
         }
-        return deckQueryService.getDeckV2(jwt.getSubject(), cursor, limit)
+        return deckQueryService.getDeckV2(jwt.getSubject(), cursor, limit, refresh)
                 .map(this::response);
     }
 

@@ -23,9 +23,12 @@ paths:
         When a supplied cursor belongs to an expired or replaced generation, the server
         starts at the first page of the current generation and sets cursorReset=true.
         Fresh cards always precede repeat cards.
+        refresh=true requests a rebuild so newly appeared unseen cards are installed
+        first and eligible already-swiped cards are appended.
       parameters:
         - $ref: '#/components/parameters/Cursor'
         - $ref: '#/components/parameters/Limit'
+        - $ref: '#/components/parameters/Refresh'
       responses:
         '200':
           description: >-
@@ -217,6 +220,17 @@ components:
         minimum: 1
         maximum: 100
         default: 20
+    Refresh:
+      name: refresh
+      in: query
+      required: false
+      description: >-
+        When true, Deck Read enqueues a rebuild before serving. An authoritative
+        empty page becomes 202 BUILDING so the client can poll the new generation.
+        Pagination and background polling omit this flag.
+      schema:
+        type: boolean
+        default: false
   responses:
     Unauthenticated:
       description: Missing, expired or invalid bearer token. Authenticate; do not retry unchanged.
