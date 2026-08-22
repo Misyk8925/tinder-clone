@@ -135,7 +135,17 @@ services:
     ports:
       - "127.0.0.1:9080:9080"
     volumes:
-      - ./docker/keycloak/themes:/opt/keycloak/themes:ro
+      - type: bind
+        source: ./docker/keycloak/themes
+        target: /opt/keycloak/themes
+        read_only: true
+        bind:
+          create_host_path: false
+    labels:
+      # CI verifies this digest against the complete spring theme directory.
+      # Changing it updates the Compose service config, forcing Dokploy to
+      # recreate Keycloak instead of retaining a stale directory bind.
+      com.connect.keycloak-theme-revision: "a2834ba44a68"
     environment:
       KC_BOOTSTRAP_ADMIN_USERNAME: ${KEYCLOAK_ADMIN:?KEYCLOAK_ADMIN is required}
       KC_BOOTSTRAP_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:?KEYCLOAK_ADMIN_PASSWORD is required}
