@@ -138,7 +138,7 @@ func (repo *Profiles) SaveProfile(ctx context.Context, event model.ProfileCreate
 	}
 	createdAt := time.Now()
 	if event.Timestamp != nil {
-		createdAt = *event.Timestamp
+		createdAt = event.Timestamp.Time
 	}
 	if err := repo.save(ctx, id, userID, createdAt); err != nil {
 		return err

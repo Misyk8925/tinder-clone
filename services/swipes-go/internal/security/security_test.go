@@ -38,6 +38,20 @@ func TestValidateRejectsWrongAudience(t *testing.T) {
 	}
 }
 
+func TestValidateAcceptsKeycloakAzpWhenAudIsAccount(t *testing.T) {
+	validator, token := keycloakStyleToken(t, "issuer", "account", "tinder-client")
+	if _, err := validator.Validate(context.Background(), token); err != nil {
+		t.Fatalf("expected azp client to satisfy audience: %v", err)
+	}
+}
+
+func TestValidateRejectsWrongAzpWhenAudIsAccount(t *testing.T) {
+	validator, token := keycloakStyleToken(t, "issuer", "account", "other-client")
+	if _, err := validator.Validate(context.Background(), token); err == nil {
+		t.Fatal("expected azp mismatch")
+	}
+}
+
 func TestAuthenticatorAcceptsOnlyExactBenchmarkSecret(t *testing.T) {
 	auth := NewAuthenticator("benchmark-secret", nil)
 	principal, err := auth.Authenticate(context.Background(), nil, []byte("benchmark-secret"))
@@ -84,6 +98,16 @@ type testingTB interface {
 
 func validatorFixture(tb testingTB, expectedIssuer, tokenAudience string) (*JWTValidator, string) {
 	tb.Helper()
+	return signedToken(tb, expectedIssuer, "audience", tokenAudience, "")
+}
+
+func keycloakStyleToken(tb testingTB, expectedIssuer, tokenAudience, azp string) (*JWTValidator, string) {
+	tb.Helper()
+	return signedToken(tb, expectedIssuer, "tinder-client", tokenAudience, azp)
+}
+
+func signedToken(tb testingTB, expectedIssuer, expectedAudience, tokenAudience, azp string) (*JWTValidator, string) {
+	tb.Helper()
 	key, err := rsa.GenerateKey(rand.Reader, 2048)
 	if err != nil {
 		tb.Fatalf("RSA key: %v", err)
@@ -97,7 +121,7 @@ func validatorFixture(tb testingTB, expectedIssuer, tokenAudience string) (*JWTV
 		}}})
 	}))
 	tb.Cleanup(server.Close)
-	validator := NewJWTValidator(server.URL, expectedIssuer, "audience")
+	validator := NewJWTValidator(server.URL, expectedIssuer, expectedAudience)
 	if err := validator.Initialize(context.Background()); err != nil {
 		tb.Fatalf("initialize validator: %v", err)
 	}
@@ -106,7 +130,8 @@ func validatorFixture(tb testingTB, expectedIssuer, tokenAudience string) (*JWTV
 			Issuer: "issuer", Subject: "user-1", Audience: jwt.ClaimStrings{tokenAudience},
 			ExpiresAt: jwt.NewNumericDate(time.Now().Add(time.Hour)),
 		},
-		RealmAccess: keycloakAccess{Roles: []string{"USER_PREMIUM"}},
+		AuthorizedParty: azp,
+		RealmAccess:     keycloakAccess{Roles: []string{"USER_PREMIUM"}},
 	}
 	token := jwt.NewWithClaims(jwt.SigningMethodRS256, claims)
 	token.Header["kid"] = kid

@@ -87,12 +87,14 @@ type keycloakAccess struct {
 
 type Claims struct {
 	jwt.RegisteredClaims
-	RealmAccess    keycloakAccess            `json:"realm_access"`
-	ResourceAccess map[string]keycloakAccess `json:"resource_access"`
+	AuthorizedParty string                     `json:"azp"`
+	RealmAccess     keycloakAccess             `json:"realm_access"`
+	ResourceAccess  map[string]keycloakAccess  `json:"resource_access"`
 }
 
 type JWTValidator struct {
 	jwkSetURL          string
+	audience           string
 	parser             *jwt.Parser
 	client             *http.Client
 	mu                 sync.RWMutex
@@ -105,10 +107,12 @@ type JWTValidator struct {
 func NewJWTValidator(jwkSetURL, issuer, audience string) *JWTValidator {
 	return &JWTValidator{
 		jwkSetURL: strings.TrimSpace(jwkSetURL),
+		audience:  strings.TrimSpace(audience),
+		// Keycloak access tokens usually put the SPA client in azp and leave aud as
+		// "account". Enforce the configured client via aud or azp after signature checks.
 		parser: jwt.NewParser(
 			jwt.WithValidMethods([]string{"RS256"}),
 			jwt.WithIssuer(issuer),
-			jwt.WithAudience(audience),
 			jwt.WithExpirationRequired(),
 			jwt.WithStrictDecoding(),
 		),
@@ -130,7 +134,22 @@ func (validator *JWTValidator) Validate(ctx context.Context, rawToken string) (C
 	if err != nil || token == nil || !token.Valid || strings.TrimSpace(claims.Subject) == "" {
 		return Claims{}, errors.New("invalid JWT")
 	}
+	if !audienceAccepted(claims, validator.audience) {
+		return Claims{}, errors.New("invalid JWT audience")
+	}
 	return claims, nil
+}
+
+func audienceAccepted(claims Claims, expected string) bool {
+	if expected == "" {
+		return false
+	}
+	for _, audience := range claims.Audience {
+		if audience == expected {
+			return true
+		}
+	}
+	return claims.AuthorizedParty == expected
 }
 
 func (validator *JWTValidator) keyFunc(ctx context.Context) jwt.Keyfunc {
