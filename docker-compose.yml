@@ -704,9 +704,12 @@ services:
       PROFILES_GRPC_ADDRESS: static://profiles:9010
       PROFILES_BASE_URL: http://profiles:8010/api/profiles
       KEYCLOAK_JWK_SET_URI: ${KEYCLOAK_JWK_SET_URI:-http://keycloak:9080/realms/spring/protocol/openid-connect/certs}
-      STRIPE_SUCCESS_URL: ${STRIPE_SUCCESS_URL:?STRIPE_SUCCESS_URL is required}
-      STRIPE_CANCEL_URL: ${STRIPE_CANCEL_URL:?STRIPE_CANCEL_URL is required}
-      STRIPE_RETURN_URL: ${STRIPE_RETURN_URL:-http://localhost:4200/profile}
+      # Checkout and Billing Portal redirects must always be browser-reachable.
+      # A single public profile URL prevents stale internal service URLs from
+      # being injected independently by the deployment environment.
+      STRIPE_SUCCESS_URL: ${PUBLIC_APP_PROFILE_URL:-https://matchapp.misyk.tech/profile}
+      STRIPE_CANCEL_URL: ${PUBLIC_APP_PROFILE_URL:-https://matchapp.misyk.tech/profile}
+      STRIPE_RETURN_URL: ${PUBLIC_APP_PROFILE_URL:-https://matchapp.misyk.tech/profile}
       SUBSCRIPTIONS_GRPC_KEYSTORE_PATH: file:/certs/subscriptions-service.p12
       SUBSCRIPTIONS_GRPC_KEYSTORE_PASSWORD: ${MTLS_KEYSTORE_PASSWORD:?MTLS_KEYSTORE_PASSWORD is required}
       SUBSCRIPTIONS_GRPC_TRUSTSTORE_PATH: file:/certs/truststore.jks
