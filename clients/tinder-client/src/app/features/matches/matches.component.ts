@@ -85,6 +85,7 @@ export function markConversationRead(conversationId: string): void {
                   <button
                     class="match-bubble"
                     [class.starting]="startingChat() === match.matchId"
+                    [attr.aria-busy]="startingChat() === match.matchId"
                     (click)="startChat(match)"
                   >
                     <div class="bubble-ring">
@@ -95,7 +96,7 @@ export function markConversationRead(conversationId: string): void {
                           <span>{{ match.otherProfile?.name?.[0] ?? '?' }}</span>
                         }
                         @if (startingChat() === match.matchId) {
-                          <div class="bubble-spinner"></div>
+                          <div class="bubble-spinner" role="status" aria-label="Starting conversation"></div>
                         }
                       </div>
                     </div>
@@ -444,12 +445,13 @@ export function markConversationRead(conversationId: string): void {
       inset: 0;
       border-radius: 50%;
       background: rgba(0,0,0,0.3);
+      display: grid;
+      place-items: center;
+      overflow: hidden;
+      pointer-events: none;
 
       &::after {
         content: '';
-        position: absolute;
-        top: 50%; left: 50%;
-        transform: translate(-50%, -50%);
         width: 20px; height: 20px;
         border: 2px solid rgba(255,255,255,0.4);
         border-top: 2px solid #fff;
@@ -684,9 +686,19 @@ export class MatchesComponent implements OnInit, OnDestroy {
     if (this.startingChat()) return;
     this.startingChat.set(match.matchId);
     this.matchService.createConversation(match.myId, match.otherId).subscribe({
-      next: conv => this.router.navigate(['/chat', conv.id]),
+      next: conv => void this.navigateToCreatedChat(match.matchId, conv.id),
       error: () => this.startingChat.set(null)
     });
+  }
+
+  private async navigateToCreatedChat(matchId: string, conversationId: string): Promise<void> {
+    try {
+      await this.router.navigate(['/chat', conversationId]);
+    } finally {
+      if (this.startingChat() === matchId) {
+        this.startingChat.set(null);
+      }
+    }
   }
 
   openChat(conversationId: string): void {
