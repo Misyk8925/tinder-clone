@@ -130,8 +130,8 @@ class DeckReadCqrsBoundaryAcceptanceTest {
     }
 
     @Test
-    @DisplayName("Scenario: Given the runtime Compose stack, when subscriptions and consumer start, then Stripe return URL has a default and consumer health uses Actuator")
-    void runtimeComposeKeepsSubscriptionsReturnUrlAndConsumerHealthReachable() throws IOException {
+    @DisplayName("Scenario: Given the runtime Compose stack, when subscriptions starts, then every Stripe redirect uses one browser-reachable profile URL")
+    void runtimeComposeKeepsStripeRedirectsPublicAndConsumerHealthReachable() throws IOException {
         String compose = Files.readString(REPOSITORY.resolve("docker-compose.yml"));
         String local = Files.readString(REPOSITORY.resolve("docker-compose.local.yml"));
         String consumerPom = Files.readString(REPOSITORY.resolve("services/consumer/pom.xml"));
@@ -143,8 +143,14 @@ class DeckReadCqrsBoundaryAcceptanceTest {
                 REPOSITORY.resolve("services/subscriptions/src/main/resources/application.yaml"));
 
         assertThat(compose)
-                .contains("STRIPE_RETURN_URL: ${STRIPE_RETURN_URL:-http://localhost:4200/profile}")
-                .doesNotContain("STRIPE_RETURN_URL: ${STRIPE_RETURN_URL:?")
+                .contains("STRIPE_SUCCESS_URL: ${PUBLIC_APP_PROFILE_URL:-https://matchapp.misyk.tech/profile}")
+                .contains("STRIPE_CANCEL_URL: ${PUBLIC_APP_PROFILE_URL:-https://matchapp.misyk.tech/profile}")
+                .contains("STRIPE_RETURN_URL: ${PUBLIC_APP_PROFILE_URL:-https://matchapp.misyk.tech/profile}")
+                .doesNotContain("STRIPE_SUCCESS_URL: ${STRIPE_SUCCESS_URL:")
+                .doesNotContain("STRIPE_CANCEL_URL: ${STRIPE_CANCEL_URL:")
+                .doesNotContain("STRIPE_RETURN_URL: ${STRIPE_RETURN_URL:")
+                .doesNotContain("http://subscriptions:8095/success")
+                .doesNotContain("http://subscriptions:8095/cancel")
                 .contains("http://localhost:8050/actuator/health");
         assertThat(local)
                 .contains("STRIPE_SUCCESS_URL: http://localhost:4200/profile")
