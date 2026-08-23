@@ -130,6 +130,7 @@ services:
       - app
 
   keycloak:
+    image: connect-keycloak:26.3.5
     build:
       context: .
       dockerfile: docker/keycloak/Dockerfile
@@ -158,6 +159,24 @@ services:
       KC_PROXY_HEADERS: "xforwarded"
     networks:
       - app
+
+  keycloak-realm-config:
+    image: connect-keycloak:26.3.5
+    <<: *prod-mid-defaults
+    restart: "no"
+    depends_on:
+      keycloak:
+        condition: service_started
+    environment:
+      KEYCLOAK_URL: http://keycloak:9080
+      KEYCLOAK_REALM: ${KEYCLOAK_REALM:-spring}
+      KEYCLOAK_ADMIN_USERNAME: ${KEYCLOAK_ADMIN:?KEYCLOAK_ADMIN is required}
+      KC_CLI_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:?KEYCLOAK_ADMIN_PASSWORD is required}
+    entrypoint: ["/opt/keycloak/bin/configure-connect-realm.sh"]
+    networks:
+      - app
+    mem_limit: 128m
+    cpus: "0.20"
 
 
 
@@ -267,6 +286,8 @@ services:
     <<: *prod-mid-defaults
     ports: []
     depends_on:
+      keycloak-realm-config:
+        condition: service_completed_successfully
       postgres:
         condition: service_healthy
       profiles-migrations:
@@ -800,6 +821,8 @@ services:
     depends_on:
       gateway:
         condition: service_healthy
+      keycloak-realm-config:
+        condition: service_completed_successfully
     networks:
       - app
     mem_limit: 160m

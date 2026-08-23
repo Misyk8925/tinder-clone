@@ -6,6 +6,7 @@ COMPOSE_FILE="${KEYCLOAK_THEME_COMPOSE_FILE:-${REPO_ROOT}/docker-compose.yml}"
 THEME="${KEYCLOAK_THEME_NAME:-spring}"
 THEME_TARGET="/opt/keycloak/themes"
 DOCKERFILE="${REPO_ROOT}/docker/keycloak/Dockerfile"
+REALM_CONFIG_SCRIPT="${REPO_ROOT}/docker/keycloak/configure-realm.sh"
 ADMIN_USER="theme-smoke-admin"
 ADMIN_PASSWORD="theme-smoke-password"
 SMOKE_REALM="theme-smoke"
@@ -90,6 +91,22 @@ revision = keycloak.get("labels", {}).get("com.connect.keycloak-theme-revision")
 if not revision or not re.fullmatch(r"[0-9a-f]{12}", revision):
     raise SystemExit("Keycloak service must declare a 12-character theme revision label")
 
+realm_config = config.get("services", {}).get("keycloak-realm-config")
+if not realm_config:
+    raise SystemExit("Compose must configure the production Keycloak realm")
+if realm_config.get("image") != keycloak.get("image"):
+    raise SystemExit("Keycloak and its realm configurator must use the same image")
+if realm_config.get("entrypoint") != ["/opt/keycloak/bin/configure-connect-realm.sh"]:
+    raise SystemExit("Keycloak realm configurator must use the baked-in script")
+if realm_config.get("depends_on", {}).get("keycloak", {}).get("condition") != "service_started":
+    raise SystemExit("Keycloak realm configurator must wait for Keycloak to start")
+
+for service_name in ("profiles", "tinder-client"):
+    service = config.get("services", {}).get(service_name, {})
+    condition = service.get("depends_on", {}).get("keycloak-realm-config", {}).get("condition")
+    if condition != "service_completed_successfully":
+        raise SystemExit(f"{service_name} must wait for successful Keycloak realm configuration")
+
 print(os.path.realpath(build.get("context", "")))
 print(os.path.realpath(dockerfile))
 print(revision)
@@ -139,6 +156,12 @@ if [[ "${DECLARED_THEME_REVISION}" != "${EXPECTED_THEME_REVISION}" ]]; then
 fi
 
 grep -Fq 'COPY --chown=keycloak:keycloak docker/keycloak/themes/ /opt/keycloak/themes/' "${COMPOSE_DOCKERFILE}"
+grep -Fq 'docker/keycloak/configure-realm.sh /opt/keycloak/bin/configure-connect-realm.sh' "${COMPOSE_DOCKERFILE}"
+
+if [[ ! -r "${REALM_CONFIG_SCRIPT}" ]]; then
+  echo "Keycloak realm configuration script is missing or unreadable" >&2
+  exit 1
+fi
 
 echo "PASS: Compose builds Keycloak with the repository theme baked into the image"
 echo "PASS: Compose theme revision matches the repository and forces recreation on changes"
@@ -199,11 +222,29 @@ docker exec "${CONTAINER_NAME}" /opt/keycloak/bin/kcadm.sh config credentials \
 docker exec "${CONTAINER_NAME}" /opt/keycloak/bin/kcadm.sh create realms \
   -s "realm=${SMOKE_REALM}" \
   -s enabled=true \
-  -s registrationAllowed=true \
+  -s registrationAllowed=false \
   -s resetPasswordAllowed=true \
   -s rememberMe=true \
   -s "loginTheme=${THEME}" \
   -s "displayName=Connect" >/dev/null
+
+docker exec \
+  --env "KEYCLOAK_URL=http://127.0.0.1:9080" \
+  --env "KEYCLOAK_REALM=${SMOKE_REALM}" \
+  --env "KEYCLOAK_ADMIN_USERNAME=${ADMIN_USER}" \
+  --env "KC_CLI_PASSWORD=${ADMIN_PASSWORD}" \
+  "${CONTAINER_NAME}" \
+  /opt/keycloak/bin/configure-connect-realm.sh >/dev/null
+
+REALM_STATE="$(
+  docker exec "${CONTAINER_NAME}" /opt/keycloak/bin/kcadm.sh get "realms/${SMOKE_REALM}" \
+    --fields registrationAllowed
+)"
+if ! grep -Eq '"registrationAllowed"[[:space:]]*:[[:space:]]*true' <<<"${REALM_STATE}"; then
+  echo "Realm configurator did not enable self-registration" >&2
+  exit 1
+fi
+echo "PASS: Deployment realm configurator enables self-registration before dependent services start"
 
 docker exec "${CONTAINER_NAME}" /opt/keycloak/bin/kcadm.sh create clients \
   -r "${SMOKE_REALM}" \
