@@ -5,13 +5,16 @@ REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)"
 COMPOSE_FILE="${KEYCLOAK_THEME_COMPOSE_FILE:-${REPO_ROOT}/docker-compose.yml}"
 THEME="${KEYCLOAK_THEME_NAME:-spring}"
 THEME_TARGET="/opt/keycloak/themes"
+DOCKERFILE="${REPO_ROOT}/docker/keycloak/Dockerfile"
 ADMIN_USER="theme-smoke-admin"
 ADMIN_PASSWORD="theme-smoke-password"
 SMOKE_REALM="theme-smoke"
 SMOKE_CLIENT="theme-smoke-client"
 CONTAINER_NAME="connect-keycloak-theme-${RANDOM}-$(date +%s)"
+IMAGE_NAME="connect-keycloak-theme-image-${RANDOM}-$(date +%s)"
 TEMP_DIR="$(mktemp -d "${TMPDIR:-/tmp}/connect-keycloak-theme.XXXXXX")"
 CONTAINER_STARTED=false
+IMAGE_BUILT=false
 
 cleanup() {
   local exit_code=$?
@@ -21,6 +24,9 @@ cleanup() {
       docker logs --tail 100 "${CONTAINER_NAME}" >&2 || true
     fi
     docker rm -f "${CONTAINER_NAME}" >/dev/null 2>&1 || true
+  fi
+  if [[ "${IMAGE_BUILT}" == "true" ]]; then
+    docker image rm "${IMAGE_NAME}" >/dev/null 2>&1 || true
   fi
   rm -rf "${TEMP_DIR}"
   exit "${exit_code}"
@@ -47,13 +53,13 @@ COMPOSE_JSON="${TEMP_DIR}/compose.json"
 docker compose -f "${COMPOSE_FILE}" config --no-interpolate --format json >"${COMPOSE_JSON}"
 
 COMPOSE_RESULT="${TEMP_DIR}/compose-result.txt"
-python3 - "${COMPOSE_JSON}" "${REPO_ROOT}/docker/keycloak/themes" "${THEME_TARGET}" >"${COMPOSE_RESULT}" <<'PY'
+python3 - "${COMPOSE_JSON}" "${REPO_ROOT}" "${DOCKERFILE}" "${THEME_TARGET}" >"${COMPOSE_RESULT}" <<'PY'
 import json
 import os
 import re
 import sys
 
-config_path, expected_source, expected_target = sys.argv[1:]
+config_path, expected_context, expected_dockerfile, expected_target = sys.argv[1:]
 with open(config_path, encoding="utf-8") as handle:
     config = json.load(handle)
 
@@ -61,41 +67,38 @@ keycloak = config.get("services", {}).get("keycloak")
 if not keycloak:
     raise SystemExit("docker-compose.yml has no keycloak service")
 
-image = keycloak.get("image")
-if not image:
-    raise SystemExit("Keycloak service has no image")
+build = keycloak.get("build")
+if not isinstance(build, dict):
+    raise SystemExit("Keycloak service must build a theme image")
+if os.path.realpath(build.get("context", "")) != os.path.realpath(expected_context):
+    raise SystemExit("Keycloak build context must be the repository root")
+dockerfile = build.get("dockerfile", "")
+if not os.path.isabs(dockerfile):
+    dockerfile = os.path.join(build.get("context", ""), dockerfile)
+if os.path.realpath(dockerfile) != os.path.realpath(expected_dockerfile):
+    raise SystemExit("Keycloak service must use docker/keycloak/Dockerfile")
 
-expected_source = os.path.realpath(expected_source)
 mounts = [
     mount
     for mount in keycloak.get("volumes", [])
     if mount.get("target") == expected_target
 ]
-if len(mounts) != 1:
-    raise SystemExit(f"Expected exactly one mount at {expected_target}, found {len(mounts)}")
-
-mount = mounts[0]
-if mount.get("type") != "bind":
-    raise SystemExit("Keycloak theme mount must be a bind mount")
-if os.path.realpath(mount.get("source", "")) != expected_source:
-    raise SystemExit(f"Keycloak theme mount source must be {expected_source}")
-if mount.get("read_only") is not True:
-    raise SystemExit("Keycloak theme mount must be read-only")
-if mount.get("bind", {}).get("create_host_path") is not False:
-    raise SystemExit("Keycloak theme mount must set bind.create_host_path=false")
+if mounts:
+    raise SystemExit(f"Keycloak theme must be baked into the image, found mount at {expected_target}")
 
 revision = keycloak.get("labels", {}).get("com.connect.keycloak-theme-revision")
 if not revision or not re.fullmatch(r"[0-9a-f]{12}", revision):
     raise SystemExit("Keycloak service must declare a 12-character theme revision label")
 
-print(image)
-print(expected_source)
+print(os.path.realpath(build.get("context", "")))
+print(os.path.realpath(dockerfile))
 print(revision)
 PY
 
-KEYCLOAK_IMAGE="$(sed -n '1p' "${COMPOSE_RESULT}")"
-THEMES_SOURCE="$(sed -n '2p' "${COMPOSE_RESULT}")"
+BUILD_CONTEXT="$(sed -n '1p' "${COMPOSE_RESULT}")"
+COMPOSE_DOCKERFILE="$(sed -n '2p' "${COMPOSE_RESULT}")"
 DECLARED_THEME_REVISION="$(sed -n '3p' "${COMPOSE_RESULT}")"
+THEMES_SOURCE="${REPO_ROOT}/docker/keycloak/themes"
 
 required_files=(
   "login/theme.properties"
@@ -135,8 +138,16 @@ if [[ "${DECLARED_THEME_REVISION}" != "${EXPECTED_THEME_REVISION}" ]]; then
   exit 1
 fi
 
-echo "PASS: Compose config mounts ${THEME} read-only without creating a missing host path"
+grep -Fq 'COPY --chown=keycloak:keycloak docker/keycloak/themes/ /opt/keycloak/themes/' "${COMPOSE_DOCKERFILE}"
+
+echo "PASS: Compose builds Keycloak with the repository theme baked into the image"
 echo "PASS: Compose theme revision matches the repository and forces recreation on changes"
+
+docker build --quiet \
+  --tag "${IMAGE_NAME}" \
+  --file "${COMPOSE_DOCKERFILE}" \
+  "${BUILD_CONTEXT}" >/dev/null
+IMAGE_BUILT=true
 
 docker run -d --rm \
   --name "${CONTAINER_NAME}" \
@@ -146,17 +157,13 @@ docker run -d --rm \
   --env "KC_SPI_THEME_CACHE_THEMES=false" \
   --env "KC_SPI_THEME_CACHE_TEMPLATES=false" \
   --env "KC_SPI_THEME_STATIC_MAX_AGE=-1" \
-  --mount "type=bind,source=${THEMES_SOURCE},target=${THEME_TARGET},readonly" \
-  "${KEYCLOAK_IMAGE}" \
+  "${IMAGE_NAME}" \
   start-dev --http-port=9080 --hostname-strict=false >/dev/null
 CONTAINER_STARTED=true
 
-LIVE_MOUNT="$(docker inspect --format '{{range .Mounts}}{{if eq .Destination "/opt/keycloak/themes"}}{{printf "%s|%s|%t" .Source .Destination .RW}}{{end}}{{end}}' "${CONTAINER_NAME}")"
-EXPECTED_MOUNT="${THEMES_SOURCE}|${THEME_TARGET}|false"
-if [[ "${LIVE_MOUNT}" != "${EXPECTED_MOUNT}" ]]; then
-  echo "Live Keycloak theme mount does not match the read-only Compose contract" >&2
-  echo "Expected: ${EXPECTED_MOUNT}" >&2
-  echo "Actual:   ${LIVE_MOUNT}" >&2
+LIVE_MOUNT="$(docker inspect --format '{{range .Mounts}}{{if eq .Destination "/opt/keycloak/themes"}}{{.Destination}}{{end}}{{end}}' "${CONTAINER_NAME}")"
+if [[ -n "${LIVE_MOUNT}" ]]; then
+  echo "Live Keycloak image unexpectedly mounts ${THEME_TARGET}" >&2
   exit 1
 fi
 
@@ -313,5 +320,5 @@ PY
 verify_asset_fingerprint "${CSS_FILE}" "${CSS_URL}" css
 verify_asset_fingerprint "${JS_FILE}" "${JS_URL}" javascript
 
-echo "PASS: Live container exposes the repository theme through a read-only mount"
+echo "PASS: Live container exposes the complete baked-in repository theme without a host bind"
 echo "PASS: Keycloak renders Connect login and registration pages with fingerprinted CSS and JavaScript"

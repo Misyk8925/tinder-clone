@@ -130,21 +130,16 @@ services:
       - app
 
   keycloak:
-    image: quay.io/keycloak/keycloak:26.3.5
+    build:
+      context: .
+      dockerfile: docker/keycloak/Dockerfile
     command: [ "start","--http-port=9080" ]
     ports:
       - "127.0.0.1:9080:9080"
-    volumes:
-      - type: bind
-        source: ./docker/keycloak/themes
-        target: /opt/keycloak/themes
-        read_only: true
-        bind:
-          create_host_path: false
     labels:
       # CI verifies this digest against the complete spring theme directory.
-      # Changing it updates the Compose service config, forcing Dokploy to
-      # recreate Keycloak instead of retaining a stale directory bind.
+      # Changing it updates the Compose service config while the image build
+      # bakes the same revision into Keycloak without a checkout bind mount.
       com.connect.keycloak-theme-revision: "a2834ba44a68"
     environment:
       KC_BOOTSTRAP_ADMIN_USERNAME: ${KEYCLOAK_ADMIN:?KEYCLOAK_ADMIN is required}
