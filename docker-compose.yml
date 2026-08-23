@@ -141,7 +141,7 @@ services:
       # CI verifies this digest against the complete spring theme directory.
       # Changing it updates the Compose service config while the image build
       # bakes the same revision into Keycloak without a checkout bind mount.
-      com.connect.keycloak-theme-revision: "a2834ba44a68"
+      com.connect.keycloak-theme-revision: "20680786169d"
     environment:
       KC_BOOTSTRAP_ADMIN_USERNAME: ${KEYCLOAK_ADMIN:?KEYCLOAK_ADMIN is required}
       KC_BOOTSTRAP_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:?KEYCLOAK_ADMIN_PASSWORD is required}

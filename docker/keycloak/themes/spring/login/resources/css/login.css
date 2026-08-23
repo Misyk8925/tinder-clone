@@ -69,6 +69,10 @@ a {
   min-height: 760px;
 }
 
+.auth-shell-state {
+  min-height: 620px;
+}
+
 .brand-panel {
   position: relative;
   isolation: isolate;
@@ -205,6 +209,70 @@ a {
 
 .form-container-register {
   max-width: 500px;
+}
+
+.state-container {
+  max-width: 440px;
+}
+
+.state-symbol {
+  width: 54px;
+  height: 54px;
+  display: grid;
+  place-items: center;
+  margin-bottom: 24px;
+  border-radius: 18px;
+  background: rgba(156, 206, 43, 0.16);
+  color: #527506;
+  font-size: 28px;
+  font-weight: 760;
+  line-height: 1;
+}
+
+.state-symbol-error {
+  background: rgba(200, 62, 77, 0.12);
+  color: var(--connect-error);
+}
+
+.state-heading {
+  margin-bottom: 26px;
+}
+
+.state-message {
+  padding: 13px 15px;
+  border: 1px solid var(--connect-border);
+  border-radius: var(--connect-radius-md);
+  background: var(--connect-surface-muted);
+}
+
+.state-actions {
+  display: grid;
+  gap: 11px;
+}
+
+.btn-link {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-decoration: none;
+}
+
+.btn-secondary {
+  width: 100%;
+  min-height: 50px;
+  padding: 12px 20px;
+  border: 1px solid var(--connect-border);
+  border-radius: 999px;
+  background: var(--connect-surface);
+  color: var(--connect-text);
+  font-size: 14px;
+  font-weight: 760;
+  transition: border-color 150ms ease, background 150ms ease;
+}
+
+.btn-secondary:hover {
+  border-color: #c7cdc0;
+  background: var(--connect-surface-muted);
 }
 
 .form-heading {
@@ -384,6 +452,7 @@ input.input-error {
 }
 
 .btn-primary:focus-visible,
+.btn-secondary:focus-visible,
 .btn-social:focus-visible,
 .text-link:focus-visible,
 .switch-row a:focus-visible {
@@ -497,7 +566,8 @@ input.input-error {
   }
 
   .auth-shell,
-  .auth-shell-register {
+  .auth-shell-register,
+  .auth-shell-state {
     min-height: calc(100vh - 36px);
     grid-template-columns: 1fr;
     grid-template-rows: auto 1fr;
@@ -539,7 +609,8 @@ input.input-error {
   }
 
   .auth-shell,
-  .auth-shell-register {
+  .auth-shell-register,
+  .auth-shell-state {
     min-height: 100vh;
     border: 0;
     border-radius: 0;

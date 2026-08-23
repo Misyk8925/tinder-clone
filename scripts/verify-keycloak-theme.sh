@@ -121,6 +121,8 @@ required_files=(
   "login/theme.properties"
   "login/login.ftl"
   "login/register.ftl"
+  "login/login-page-expired.ftl"
+  "login/error.ftl"
   "login/connect-components.ftl"
   "login/resources/css/login.css"
   "login/resources/js/login.js"
@@ -293,6 +295,8 @@ class Extractor(HTMLParser):
         classes = values.get("class", "").split()
         if mode == "register" and tag == "a" and "register-link" in classes:
             self.value = values.get("href")
+        elif mode == "login-action" and tag == "form" and values.get("id") == "kc-form-login":
+            self.value = values.get("action")
         elif mode == "css" and tag == "link" and "stylesheet" in values.get("rel", "").split():
             self.value = values.get("href")
         elif mode == "js" and tag == "script" and values.get("src"):
@@ -308,6 +312,7 @@ PY
 }
 
 REGISTER_URL="$(extract_url "${LOGIN_HTML}" "${BASE_URL}" register)"
+LOGIN_ACTION_URL="$(extract_url "${LOGIN_HTML}" "${BASE_URL}" login-action)"
 CSS_URL="$(extract_url "${LOGIN_HTML}" "${BASE_URL}" css)"
 JS_URL="$(extract_url "${LOGIN_HTML}" "${BASE_URL}" js)"
 
@@ -321,6 +326,50 @@ curl --fail --silent --show-error --location \
 for marker in 'data-connect-theme="true"' 'data-auth-screen="register"' 'id="kc-register-form"' 'class="login-link"'; do
   if ! grep -Fq "${marker}" "${REGISTER_HTML}"; then
     echo "Rendered registration page is missing marker: ${marker}" >&2
+    exit 1
+  fi
+done
+
+EXPIRED_ACTION_URL="$(python3 - "${LOGIN_ACTION_URL}" <<'PY'
+from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
+import sys
+
+parts = urlsplit(sys.argv[1])
+query = dict(parse_qsl(parts.query, keep_blank_values=True))
+query["session_code"] = "expired-connect-smoke"
+print(urlunsplit((parts.scheme, parts.netloc, parts.path, urlencode(query), parts.fragment)))
+PY
+)"
+EXPIRED_HTML="${TEMP_DIR}/expired.html"
+curl --silent --show-error --location \
+  --cookie "${COOKIE_JAR}" \
+  --cookie-jar "${COOKIE_JAR}" \
+  --data-urlencode "username=expired-smoke" \
+  --data-urlencode "password=expired-smoke" \
+  "${EXPIRED_ACTION_URL}" \
+  -o "${EXPIRED_HTML}"
+
+for marker in 'data-connect-theme="true"' 'data-auth-screen="expired"' 'id="loginRestartLink"' 'id="loginContinueLink"'; do
+  if ! grep -Fq "${marker}" "${EXPIRED_HTML}"; then
+    echo "Rendered expired page is missing marker: ${marker}" >&2
+    exit 1
+  fi
+done
+
+ERROR_HTML="${TEMP_DIR}/error.html"
+ERROR_STATUS="$(
+  curl --silent --show-error --location \
+    --output "${ERROR_HTML}" \
+    --write-out '%{http_code}' \
+    "${BASE_URL}/realms/${SMOKE_REALM}/protocol/openid-connect/auth?client_id=${SMOKE_CLIENT}&redirect_uri=https%3A%2F%2Finvalid.example%2Fcallback&response_type=code&scope=openid"
+)"
+if [[ "${ERROR_STATUS}" != "400" ]]; then
+  echo "Invalid redirect smoke expected HTTP 400, received ${ERROR_STATUS}" >&2
+  exit 1
+fi
+for marker in 'data-connect-theme="true"' 'data-auth-screen="error"' 'class="state-message"'; do
+  if ! grep -Fq "${marker}" "${ERROR_HTML}"; then
+    echo "Rendered error page is missing marker: ${marker}" >&2
     exit 1
   fi
 done
@@ -363,3 +412,4 @@ verify_asset_fingerprint "${JS_FILE}" "${JS_URL}" javascript
 
 echo "PASS: Live container exposes the complete baked-in repository theme without a host bind"
 echo "PASS: Keycloak renders Connect login and registration pages with fingerprinted CSS and JavaScript"
+echo "PASS: Keycloak renders branded expired-session and error states"
