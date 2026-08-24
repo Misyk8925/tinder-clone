@@ -3,9 +3,34 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Match Chat - Tinder Clone</title>
+  <meta name="color-scheme" content="light dark">
+  <meta id="app-theme-color" name="theme-color" content="#fffffe">
+  <meta name="application-name" content="Connect">
+  <meta name="apple-mobile-web-app-title" content="Connect">
+  <title>Connect</title>
   <base href="/">
-  <link rel="icon" type="image/x-icon" href="favicon.ico">
+  <link rel="icon" type="image/svg+xml" sizes="any" href="connect-icon.svg">
+  <link rel="alternate icon" type="image/x-icon" href="favicon.ico">
+  <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png">
+  <link rel="manifest" href="manifest.webmanifest">
+  <script>
+    (() => {
+      const storageKey = 'connect-theme-preference';
+      let preference = 'system';
+      try {
+        const stored = localStorage.getItem(storageKey);
+        if (stored === 'light' || stored === 'dark') preference = stored;
+      } catch {
+        // Storage can be unavailable in private or embedded browser contexts.
+      }
+      const dark = preference === 'dark'
+        || (preference === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches);
+      document.documentElement.setAttribute('data-theme', dark ? 'dark' : 'light');
+      document.documentElement.style.colorScheme = dark ? 'dark' : 'light';
+      document.getElementById('app-theme-color')
+        ?.setAttribute('content', dark ? '#171717' : '#fffffe');
+    })();
+  </script>
 </head>
 <body>
   <app-root></app-root>

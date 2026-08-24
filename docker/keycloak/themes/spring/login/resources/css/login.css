@@ -73,6 +73,10 @@ a {
   min-height: 620px;
 }
 
+.auth-shell-flow {
+  min-height: 660px;
+}
+
 .brand-panel {
   position: relative;
   isolation: isolate;
@@ -215,6 +219,202 @@ a {
   max-width: 440px;
 }
 
+.flow-container {
+  max-width: 470px;
+}
+
+.flow-heading h1 {
+  overflow-wrap: anywhere;
+}
+
+.required-note {
+  margin-top: 10px !important;
+  font-size: 12px !important;
+}
+
+.locale-switcher {
+  position: relative;
+  width: fit-content;
+  margin: 0 0 22px auto;
+  color: var(--connect-text-soft);
+  font-size: 12px;
+}
+
+.locale-switcher summary {
+  cursor: pointer;
+  font-weight: 700;
+}
+
+.locale-options {
+  position: absolute;
+  z-index: 5;
+  top: calc(100% + 8px);
+  right: 0;
+  min-width: 150px;
+  display: grid;
+  overflow: hidden;
+  border: 1px solid var(--connect-border);
+  border-radius: 12px;
+  background: var(--connect-surface);
+  box-shadow: var(--connect-shadow);
+}
+
+.locale-options a {
+  padding: 9px 12px;
+  text-decoration: none;
+}
+
+.locale-options a:hover {
+  background: var(--connect-surface-muted);
+}
+
+.attempted-user {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin: -12px 0 22px;
+  padding: 12px 14px;
+  border: 1px solid var(--connect-border);
+  border-radius: var(--connect-radius-md);
+  background: var(--connect-surface-muted);
+  font-size: 13px;
+}
+
+.attempted-user a {
+  color: #587d0a;
+  font-size: 12px;
+  font-weight: 760;
+}
+
+.flow-content,
+.flow-content .instruction,
+.flow-content p,
+.flow-content li {
+  color: var(--connect-text-soft);
+  font-size: 14px;
+  line-height: 1.58;
+}
+
+.flow-content a {
+  color: #587d0a;
+  font-weight: 700;
+  text-underline-offset: 3px;
+}
+
+.flow-content ul,
+.flow-content ol {
+  margin: 14px 0;
+  padding-left: 22px;
+}
+
+.flow-content img {
+  max-width: 100%;
+  height: auto;
+}
+
+.flow-content #kc-totp-secret-qr-code {
+  width: min(220px, 100%);
+  padding: 12px;
+  border: 1px solid var(--connect-border);
+  border-radius: 16px;
+  background: #fff;
+}
+
+.flow-info {
+  margin-top: 22px;
+  padding-top: 18px;
+  border-top: 1px solid var(--connect-border);
+}
+
+.flow-info p:last-child {
+  margin-bottom: 0;
+}
+
+.form-options,
+.form-buttons,
+.form-buttons-inner {
+  display: grid;
+  gap: 10px;
+}
+
+.form-options {
+  margin-top: 2px;
+}
+
+.field-label,
+.field-control {
+  min-width: 0;
+}
+
+.connect-input-group {
+  position: relative;
+}
+
+.connect-input-group input {
+  padding-right: 62px;
+}
+
+.flow-container .toggle-pw {
+  font-size: 0;
+}
+
+.flow-container .toggle-pw::before {
+  content: "Show";
+  font-size: 10px;
+  font-weight: 760;
+}
+
+.flow-container .toggle-pw[aria-pressed="true"]::before {
+  content: "Hide";
+}
+
+.flow-container .toggle-pw[aria-label^="Hide"]::before {
+  content: "Hide";
+}
+
+.flow-margin-top {
+  margin-top: 14px;
+}
+
+.select-auth-list {
+  display: grid;
+  gap: 10px;
+}
+
+.select-auth-item,
+.otp-choice {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 13px 14px;
+  border: 1px solid var(--connect-border);
+  border-radius: var(--connect-radius-md);
+  background: var(--connect-surface-muted);
+  color: var(--connect-text);
+  text-decoration: none;
+}
+
+.select-auth-item:hover,
+.otp-choice:hover {
+  border-color: var(--connect-lime);
+}
+
+.select-auth-title,
+.otp-choice-title {
+  color: var(--connect-text);
+  font-weight: 760;
+}
+
+.select-auth-description {
+  color: var(--connect-text-soft);
+  font-size: 12px;
+}
+
+.otp-choice-input {
+  accent-color: var(--connect-lime);
+}
+
 .state-symbol {
   width: 54px;
   height: 54px;
@@ -340,7 +540,11 @@ label {
 
 input[type="text"],
 input[type="email"],
-input[type="password"] {
+input[type="password"],
+input[type="number"],
+input[type="tel"],
+select,
+textarea {
   width: 100%;
   min-height: 50px;
   padding: 12px 14px;
@@ -355,7 +559,11 @@ input[type="password"] {
 
 input[type="text"]:focus,
 input[type="email"]:focus,
-input[type="password"]:focus {
+input[type="password"]:focus,
+input[type="number"]:focus,
+input[type="tel"]:focus,
+select:focus,
+textarea:focus {
   border-color: var(--connect-lime);
   background: var(--connect-surface);
   box-shadow: 0 0 0 4px rgba(156, 206, 43, 0.14);
@@ -440,6 +648,18 @@ input.input-error {
   cursor: pointer;
   box-shadow: 0 12px 26px rgba(156, 206, 43, 0.2);
   transition: background 150ms ease, transform 120ms ease, box-shadow 150ms ease;
+}
+
+.connect-button,
+input[type="submit"].connect-button,
+button.connect-button {
+  appearance: none;
+  font: inherit;
+  text-decoration: none;
+}
+
+.button-block {
+  width: 100%;
 }
 
 .btn-primary:hover {
@@ -567,7 +787,8 @@ input.input-error {
 
   .auth-shell,
   .auth-shell-register,
-  .auth-shell-state {
+  .auth-shell-state,
+  .auth-shell-flow {
     min-height: calc(100vh - 36px);
     grid-template-columns: 1fr;
     grid-template-rows: auto 1fr;
@@ -610,7 +831,8 @@ input.input-error {
 
   .auth-shell,
   .auth-shell-register,
-  .auth-shell-state {
+  .auth-shell-state,
+  .auth-shell-flow {
     min-height: 100vh;
     border: 0;
     border-radius: 0;

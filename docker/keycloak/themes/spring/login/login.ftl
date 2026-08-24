@@ -5,7 +5,9 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="color-scheme" content="light dark">
+  <meta name="theme-color" content="#9cce2b">
   <title>Connect — Sign in</title>
+  <link rel="icon" type="image/svg+xml" href="${url.resourcesPath}/img/connect-icon.svg">
   <link rel="stylesheet" href="${url.resourcesPath}/css/login.css?v=${connect.cssFingerprint}">
   <script src="${url.resourcesPath}/js/login.js?v=${connect.jsFingerprint}" defer></script>
 </head>
@@ -56,7 +58,7 @@
               <div class="label-row">
                 <label for="password">Password</label>
                 <#if realm.resetPasswordAllowed>
-                  <a class="text-link" href="${url.loginResetCredentialsUrl}">Forgot password?</a>
+                  <a class="text-link reset-link" href="${url.loginResetCredentialsUrl}">Forgot password?</a>
                 </#if>
               </div>
               <div class="password-wrap">

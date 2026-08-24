@@ -121,11 +121,13 @@ required_files=(
   "login/theme.properties"
   "login/login.ftl"
   "login/register.ftl"
+  "login/template.ftl"
   "login/login-page-expired.ftl"
   "login/error.ftl"
   "login/connect-components.ftl"
   "login/resources/css/login.css"
   "login/resources/js/login.js"
+  "login/resources/img/connect-icon.svg"
 )
 
 for relative_path in "${required_files[@]}"; do
@@ -265,7 +267,7 @@ curl --fail --silent --show-error --location \
   "${AUTH_URL}" \
   -o "${LOGIN_HTML}"
 
-for marker in 'data-connect-theme="true"' 'data-auth-screen="login"' 'class="brand-mark"' 'class="register-link"'; do
+for marker in 'data-connect-theme="true"' 'data-auth-screen="login"' 'class="brand-mark"' 'class="register-link"' 'connect-icon.svg'; do
   if ! grep -Fq "${marker}" "${LOGIN_HTML}"; then
     echo "Rendered login page is missing marker: ${marker}" >&2
     exit 1
@@ -295,9 +297,13 @@ class Extractor(HTMLParser):
         classes = values.get("class", "").split()
         if mode == "register" and tag == "a" and "register-link" in classes:
             self.value = values.get("href")
+        elif mode == "reset" and tag == "a" and "reset-link" in classes:
+            self.value = values.get("href")
         elif mode == "login-action" and tag == "form" and values.get("id") == "kc-form-login":
             self.value = values.get("action")
         elif mode == "css" and tag == "link" and "stylesheet" in values.get("rel", "").split():
+            self.value = values.get("href")
+        elif mode == "icon" and tag == "link" and "icon" in values.get("rel", "").split():
             self.value = values.get("href")
         elif mode == "js" and tag == "script" and values.get("src"):
             self.value = values.get("src")
@@ -312,9 +318,25 @@ PY
 }
 
 REGISTER_URL="$(extract_url "${LOGIN_HTML}" "${BASE_URL}" register)"
+RESET_URL="$(extract_url "${LOGIN_HTML}" "${BASE_URL}" reset)"
 LOGIN_ACTION_URL="$(extract_url "${LOGIN_HTML}" "${BASE_URL}" login-action)"
 CSS_URL="$(extract_url "${LOGIN_HTML}" "${BASE_URL}" css)"
 JS_URL="$(extract_url "${LOGIN_HTML}" "${BASE_URL}" js)"
+ICON_URL="$(extract_url "${LOGIN_HTML}" "${BASE_URL}" icon)"
+
+RESET_HTML="${TEMP_DIR}/reset.html"
+curl --fail --silent --show-error --location \
+  --cookie "${COOKIE_JAR}" \
+  --cookie-jar "${COOKIE_JAR}" \
+  "${RESET_URL}" \
+  -o "${RESET_HTML}"
+
+for marker in 'data-connect-theme="true"' 'data-auth-screen="flow"' 'class="brand-mark"' 'id="kc-reset-password-form"' 'connect-icon.svg'; do
+  if ! grep -Fq "${marker}" "${RESET_HTML}"; then
+    echo "Rendered inherited reset-password page is missing marker: ${marker}" >&2
+    exit 1
+  fi
+done
 
 REGISTER_HTML="${TEMP_DIR}/register.html"
 curl --fail --silent --show-error --location \
@@ -383,6 +405,11 @@ JS_FILE="${TEMP_DIR}/login.js"
 curl --fail --silent --show-error "${JS_URL}" -o "${JS_FILE}"
 grep -Fq 'data-password-toggle' "${JS_FILE}"
 
+ICON_FILE="${TEMP_DIR}/connect-icon.svg"
+curl --fail --silent --show-error "${ICON_URL}" -o "${ICON_FILE}"
+grep -Fq 'viewBox="0 0 48 48"' "${ICON_FILE}"
+grep -Fq '#9cce2b' "${ICON_FILE}"
+
 verify_asset_fingerprint() {
   local asset_file="$1"
   local asset_url="$2"
@@ -411,5 +438,6 @@ verify_asset_fingerprint "${CSS_FILE}" "${CSS_URL}" css
 verify_asset_fingerprint "${JS_FILE}" "${JS_URL}" javascript
 
 echo "PASS: Live container exposes the complete baked-in repository theme without a host bind"
-echo "PASS: Keycloak renders Connect login and registration pages with fingerprinted CSS and JavaScript"
+echo "PASS: Keycloak renders Connect login and registration pages with fingerprinted CSS, JavaScript, and icon assets"
+echo "PASS: Inherited Keycloak account screens render through the shared Connect layout"
 echo "PASS: Keycloak renders branded expired-session and error states"

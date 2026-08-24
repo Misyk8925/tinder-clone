@@ -5,7 +5,9 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="color-scheme" content="light dark">
+  <meta name="theme-color" content="#9cce2b">
   <title>Connect — Sign-in issue</title>
+  <link rel="icon" type="image/svg+xml" href="${url.resourcesPath}/img/connect-icon.svg">
   <link rel="stylesheet" href="${url.resourcesPath}/css/login.css?v=${connect.cssFingerprint}">
 </head>
 <body>

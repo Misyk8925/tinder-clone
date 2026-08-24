@@ -1,4 +1,4 @@
-<#assign cssFingerprint="dce28bebe23b">
+<#assign cssFingerprint="0de8caf975e3">
 <#assign jsFingerprint="6fa24d7b98ec">
 
 <#macro brandPanel eyebrow title copy>
