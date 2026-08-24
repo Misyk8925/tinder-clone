@@ -1,17 +1,16 @@
-<#assign cssFingerprint="0de8caf975e3">
+<#assign cssFingerprint="1d54f36cc8ea">
 <#assign jsFingerprint="6fa24d7b98ec">
 
 <#macro brandPanel eyebrow title copy>
   <aside class="brand-panel">
-    <div class="brand-lockup" aria-label="Connect">
+    <div class="brand-lockup" aria-label="Lunari">
       <span class="brand-mark" aria-hidden="true">
         <svg viewBox="0 0 48 48" fill="none">
-          <path d="M19.2 14.7l-3.1-3.1a7.2 7.2 0 0 0-10.2 10.2l5.7 5.7a7.2 7.2 0 0 0 10.2 0l3.1-3.1"/>
-          <path d="M28.8 33.3l3.1 3.1a7.2 7.2 0 0 0 10.2-10.2l-5.7-5.7a7.2 7.2 0 0 0-10.2 0l-3.1 3.1"/>
-          <path d="M17.5 30.5l13-13"/>
+          <path d="M31.8 10.7a14.8 14.8 0 1 0 6 25.6 13.2 13.2 0 0 1-6-25.6Z" fill="currentColor" stroke="none"/>
+          <path d="M36.5 8.8c.35 2.4 2.2 4.25 4.6 4.6-2.4.35-4.25 2.2-4.6 4.6-.35-2.4-2.2-4.25-4.6-4.6 2.4-.35 4.25-2.2 4.6-4.6Z" fill="currentColor" stroke="none"/>
         </svg>
       </span>
-      <span class="brand-name">connect</span>
+      <span class="brand-name">Lunari</span>
     </div>
 
     <div class="brand-copy">

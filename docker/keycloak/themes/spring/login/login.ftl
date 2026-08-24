@@ -6,14 +6,14 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="color-scheme" content="light dark">
   <meta name="theme-color" content="#9cce2b">
-  <title>Connect — Sign in</title>
+  <title>Lunari — Sign in</title>
   <link rel="icon" type="image/svg+xml" href="${url.resourcesPath}/img/connect-icon.svg">
   <link rel="stylesheet" href="${url.resourcesPath}/css/login.css?v=${connect.cssFingerprint}">
   <script src="${url.resourcesPath}/js/login.js?v=${connect.jsFingerprint}" defer></script>
 </head>
 <body>
   <main class="auth-page">
-    <section class="auth-shell" aria-label="Connect sign in">
+    <section class="auth-shell" aria-label="Lunari sign in">
       <@connect.brandPanel
         eyebrow="Dating with intention"
         title="Meet people worth meeting."
@@ -24,7 +24,7 @@
         <div class="form-container">
           <div class="form-heading">
             <span class="form-kicker">Welcome back</span>
-            <h1>Sign in to Connect</h1>
+            <h1>Sign in to Lunari</h1>
             <p>Continue to your conversations and new matches.</p>
           </div>
 
@@ -109,7 +109,7 @@
 
           <#if realm.password && realm.registrationAllowed && !registrationDisabled??>
             <div class="switch-row">
-              New to Connect? <a class="register-link" href="${url.registrationUrl}">Create account</a>
+              New to Lunari? <a class="register-link" href="${url.registrationUrl}">Create account</a>
             </div>
           </#if>
         </div>

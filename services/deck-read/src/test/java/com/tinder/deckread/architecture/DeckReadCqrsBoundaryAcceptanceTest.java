@@ -143,9 +143,9 @@ class DeckReadCqrsBoundaryAcceptanceTest {
                 REPOSITORY.resolve("services/subscriptions/src/main/resources/application.yaml"));
 
         assertThat(compose)
-                .contains("STRIPE_SUCCESS_URL: ${PUBLIC_APP_PROFILE_URL:-https://matchapp.misyk.tech/profile}")
-                .contains("STRIPE_CANCEL_URL: ${PUBLIC_APP_PROFILE_URL:-https://matchapp.misyk.tech/profile}")
-                .contains("STRIPE_RETURN_URL: ${PUBLIC_APP_PROFILE_URL:-https://matchapp.misyk.tech/profile}")
+                .contains("STRIPE_SUCCESS_URL: ${PUBLIC_APP_PROFILE_URL:-https://lunari.misyk.tech/profile}")
+                .contains("STRIPE_CANCEL_URL: ${PUBLIC_APP_PROFILE_URL:-https://lunari.misyk.tech/profile}")
+                .contains("STRIPE_RETURN_URL: ${PUBLIC_APP_PROFILE_URL:-https://lunari.misyk.tech/profile}")
                 .doesNotContain("STRIPE_SUCCESS_URL: ${STRIPE_SUCCESS_URL:")
                 .doesNotContain("STRIPE_CANCEL_URL: ${STRIPE_CANCEL_URL:")
                 .doesNotContain("STRIPE_RETURN_URL: ${STRIPE_RETURN_URL:")

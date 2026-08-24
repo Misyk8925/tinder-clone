@@ -2,6 +2,7 @@ import {
   AfterViewChecked,
   Component,
   ElementRef,
+  HostListener,
   inject,
   OnDestroy,
   OnInit,
@@ -55,7 +56,7 @@ import {
 
           <section class="profile-overview" aria-label="Profile overview">
             <div class="profile-visual">
-              <!-- Photo Hero + Manager -->
+              <!-- Photo hero -->
               <div class="photo-hero">
                 @if (profile()!.photos[0]; as hero) {
                   <div class="photo-frame" [class.ready]="isPhotoReady(photoKey(hero))">
@@ -83,85 +84,15 @@ import {
                     type="button"
                     class="btn-manage"
                     [class.active]="managePhotos()"
-                    [attr.aria-pressed]="managePhotos()"
-                    [attr.aria-label]="managePhotos() ? 'Finish managing photos' : 'Manage photos'"
+                    [attr.aria-expanded]="managePhotos()"
+                    aria-controls="photo-manager-dialog"
+                    aria-label="Edit profile photos"
                     (click)="toggleManagePhotos()">
-                    <lucide-icon [name]="managePhotos() ? 'check' : 'images'" [size]="16" strokeWidth="2.2" />
-                    {{ managePhotos() ? 'Done' : 'Manage photos' }}
+                    <lucide-icon name="images" [size]="16" strokeWidth="2.2" />
+                    Edit photos
                   </button>
                 </div>
               </div>
-
-              @if (managePhotos()) {
-                <div class="photo-manager">
-                  <div class="manager-header">
-                    <div>
-                      <h3>Manage photos</h3>
-                      <p>Your first photo is shown on your profile.</p>
-                    </div>
-                    <span class="manager-count">{{ profile()!.photos.length }}/5 added</span>
-                  </div>
-                  <div class="manager-list">
-                    @for (slot of photoSlots(); track $index) {
-                      <div class="manager-row"
-                           [class.filled]="!!slot"
-                           [class.uploading]="uploadingSlot() === $index">
-                        <div class="manager-thumb">
-                          @if (slot) {
-                            @if (!isPhotoReady(photoKey(slot))) {
-                              <div class="photo-skeleton" role="status" aria-label="Loading photo"></div>
-                            }
-                            <img
-                              #photoImg
-                              [attr.data-photo-id]="photoKey(slot)"
-                              [src]="slot.url"
-                              [class.ready]="isPhotoReady(photoKey(slot))"
-                              [alt]="'Photo ' + ($index + 1)"
-                              (load)="markPhotoReady(photoKey(slot))"
-                              (error)="markPhotoReady(photoKey(slot))"
-                            />
-                          } @else {
-                            <div class="thumb-empty">{{ $index + 1 }}</div>
-                          }
-                        </div>
-                        <div class="manager-meta">
-                          <div class="manager-title">Photo {{ $index + 1 }}</div>
-                          <div class="manager-sub">{{ $index === 0 ? 'Profile photo' : 'Optional' }}</div>
-                        </div>
-                        <div class="manager-actions">
-                          @if (slot) {
-                            <button type="button" class="btn-ghost" [attr.aria-label]="'Replace photo ' + ($index + 1)" (click)="triggerUploadAt($index)">
-                              <lucide-icon name="refresh-cw" [size]="14" strokeWidth="2.2" />
-                              Replace
-                            </button>
-                            <button type="button" class="btn-danger" [attr.aria-label]="'Remove photo ' + ($index + 1)" (click)="deletePhoto(photoKey(slot))">
-                              <lucide-icon name="trash-2" [size]="14" strokeWidth="2.2" />
-                              Remove
-                            </button>
-                          } @else if ($index === profile()!.photos.length) {
-                            <button type="button" class="btn-add" [attr.aria-label]="'Add photo ' + ($index + 1)" (click)="triggerUploadAt($index)">
-                              <lucide-icon name="plus" [size]="15" strokeWidth="2.4" />
-                              Add
-                            </button>
-                          } @else {
-                            <span class="locked-state" [attr.aria-label]="'Photo ' + ($index + 1) + ' is locked'">
-                              <lucide-icon name="lock-keyhole" [size]="13" strokeWidth="2.2" />
-                              Locked
-                            </span>
-                          }
-                        </div>
-
-                        @if (uploadingSlot() === $index && !(slot && isPhotoReady(photoKey(slot)))) {
-                          <div class="upload-overlay">
-                            <div class="upload-spinner"></div>
-                          </div>
-                        }
-                      </div>
-                    }
-                  </div>
-                  <input type="file" accept="image/*" (change)="uploadPhoto($event)" hidden #fileInput />
-                </div>
-              }
             </div>
 
             <!-- Info section -->
@@ -217,6 +148,98 @@ import {
             </div>
           </section>
 
+          @if (managePhotos()) {
+            <div class="photo-manager-layer" (click)="closePhotoManager()">
+              <section
+                id="photo-manager-dialog"
+                class="photo-manager"
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby="photo-manager-title"
+                (click)="$event.stopPropagation()">
+                <div class="manager-grabber" aria-hidden="true"></div>
+                <header class="manager-header">
+                  <div class="manager-heading">
+                    <span class="manager-eyebrow">Profile gallery</span>
+                    <h3 id="photo-manager-title">Your photos</h3>
+                    <p>The first photo is your profile cover. Add up to five.</p>
+                  </div>
+                  <div class="manager-heading-actions">
+                    <span class="manager-count">{{ profile()!.photos.length }} of 5</span>
+                    <button type="button" class="manager-close" aria-label="Close photo manager" (click)="closePhotoManager()">
+                      <lucide-icon name="x" [size]="18" strokeWidth="2.2" />
+                    </button>
+                  </div>
+                </header>
+
+                <div class="manager-list" aria-label="Profile photo slots">
+                  @for (slot of photoSlots(); track $index) {
+                    <article class="manager-slot"
+                             [class.filled]="!!slot"
+                             [class.available]="!slot && $index === profile()!.photos.length"
+                             [class.locked]="!slot && $index > profile()!.photos.length"
+                             [class.uploading]="uploadingSlot() === $index">
+                      <div class="manager-thumb">
+                        @if (slot) {
+                          @if (!isPhotoReady(photoKey(slot))) {
+                            <div class="photo-skeleton" role="status" aria-label="Loading photo"></div>
+                          }
+                          <img
+                            #photoImg
+                            [attr.data-photo-id]="photoKey(slot)"
+                            [src]="slot.url"
+                            [class.ready]="isPhotoReady(photoKey(slot))"
+                            [alt]="'Profile photo ' + ($index + 1)"
+                            (load)="markPhotoReady(photoKey(slot))"
+                            (error)="markPhotoReady(photoKey(slot))"
+                          />
+                        } @else if ($index === profile()!.photos.length) {
+                          <button type="button" class="empty-slot-action" [attr.aria-label]="'Add photo ' + ($index + 1)" (click)="triggerUploadAt($index)">
+                            <span class="empty-slot-icon"><lucide-icon name="plus" [size]="20" strokeWidth="2.2" /></span>
+                            <span>Add photo</span>
+                          </button>
+                        } @else {
+                          <div class="locked-slot" [attr.aria-label]="'Photo ' + ($index + 1) + ' is locked'">
+                            <lucide-icon name="lock-keyhole" [size]="17" strokeWidth="1.9" />
+                            <span>Add the previous photo first</span>
+                          </div>
+                        }
+
+                        <span class="slot-number">{{ $index + 1 }}</span>
+                        @if ($index === 0) {
+                          <span class="cover-badge">Cover</span>
+                        }
+
+                        @if (uploadingSlot() === $index && !(slot && isPhotoReady(photoKey(slot)))) {
+                          <div class="upload-overlay" role="status" aria-label="Uploading photo">
+                            <div class="upload-spinner"></div>
+                          </div>
+                        }
+                      </div>
+
+                      <footer class="manager-slot-footer">
+                        <span class="manager-title">Photo {{ $index + 1 }}</span>
+                        @if (slot) {
+                          <div class="manager-actions">
+                            <button type="button" class="btn-ghost" [title]="'Replace photo ' + ($index + 1)" [attr.aria-label]="'Replace photo ' + ($index + 1)" (click)="triggerUploadAt($index)">
+                              <lucide-icon name="refresh-cw" [size]="15" strokeWidth="2.2" />
+                            </button>
+                            <button type="button" class="btn-danger" [title]="'Remove photo ' + ($index + 1)" [attr.aria-label]="'Remove photo ' + ($index + 1)" (click)="deletePhoto(photoKey(slot))">
+                              <lucide-icon name="trash-2" [size]="15" strokeWidth="2.2" />
+                            </button>
+                          </div>
+                        } @else {
+                          <span class="slot-status">{{ $index === profile()!.photos.length ? 'Ready' : 'Locked' }}</span>
+                        }
+                      </footer>
+                    </article>
+                  }
+                </div>
+                <input type="file" accept="image/*" (change)="uploadPhoto($event)" hidden #fileInput />
+              </section>
+            </div>
+          }
+
           <!-- Premium: show banner for subscribers, nothing for non-subscribers (no upsell here) -->
           @if (isPremium()) {
             <div class="premium-banner">
@@ -225,7 +248,7 @@ import {
                   <lucide-icon name="crown" [size]="20" strokeWidth="1.8" />
                 </div>
                 <div>
-                  <span class="premium-banner-title">Connect Premium</span>
+                  <span class="premium-banner-title">Lunari Premium</span>
                   <span class="premium-banner-sub">€10/month · Active membership</span>
                 </div>
               </div>
@@ -835,6 +858,17 @@ export class ProfileComponent implements OnInit, AfterViewChecked, OnDestroy {
 
   toggleManagePhotos(): void {
     this.managePhotos.set(!this.managePhotos());
+  }
+
+  closePhotoManager(): void {
+    this.managePhotos.set(false);
+  }
+
+  @HostListener('document:keydown.escape')
+  closePhotoManagerOnEscape(): void {
+    if (this.managePhotos()) {
+      this.closePhotoManager();
+    }
   }
 
   private showToast(msg: string): void {

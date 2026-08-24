@@ -11,11 +11,15 @@ import { ThemeService } from '../../../core/services/theme.service';
   template: `
     @if (isAuthenticated) {
       <nav class="navbar" [class.route-hidden]="hidden" aria-label="Primary navigation">
-        <a routerLink="/discover" class="brand-lockup" aria-label="Connect home">
-          <span class="brand-icon"><lucide-icon name="heart-handshake" [size]="22" strokeWidth="1.8" /></span>
+        <a routerLink="/discover" class="brand-lockup" aria-label="Lunari home">
+          <span class="brand-icon" aria-hidden="true">
+            <svg class="lunari-mark" viewBox="0 0 48 48" fill="none">
+              <path d="M31.8 10.7a14.8 14.8 0 1 0 6 25.6 13.2 13.2 0 0 1-6-25.6Z" fill="currentColor" />
+              <path d="M36.5 8.8c.35 2.4 2.2 4.25 4.6 4.6-2.4.35-4.25 2.2-4.6 4.6-.35-2.4-2.2-4.25-4.6-4.6 2.4-.35 4.25-2.2 4.6-4.6Z" fill="currentColor" />
+            </svg>
+          </span>
           <span class="brand-text">
-            <span class="brand-copy">connect</span>
-            <span class="brand-tagline">HTL St. Pölten</span>
+            <span class="brand-copy">Lunari</span>
           </span>
         </a>
 
@@ -197,6 +201,12 @@ import { ThemeService } from '../../../core/services/theme.service';
         box-shadow: 0 10px 22px var(--brand-glow);
       }
 
+      .lunari-mark {
+        width: 25px;
+        height: 25px;
+        display: block;
+      }
+
       .brand-text {
         min-width: 0;
         display: flex;
@@ -209,13 +219,6 @@ import { ThemeService } from '../../../core/services/theme.service';
         font-weight: 700;
         letter-spacing: -0.5px;
         line-height: 1.05;
-      }
-
-      .brand-tagline {
-        color: var(--text-muted);
-        font-size: 10px;
-        font-weight: 600;
-        letter-spacing: 0.02em;
       }
 
       .nav-label {

@@ -8,7 +8,7 @@
   <meta name="color-scheme" content="light dark">
   <meta name="theme-color" content="#9cce2b">
   <meta name="robots" content="noindex, nofollow">
-  <title>${msg("loginTitle", (realm.displayName!'Connect'))}</title>
+  <title>${msg("loginTitle", (realm.displayName!'Lunari'))}</title>
   <link rel="icon" type="image/svg+xml" href="${url.resourcesPath}/img/connect-icon.svg">
   <link rel="stylesheet" href="${url.resourcesPath}/css/login.css?v=${connect.cssFingerprint}">
   <script type="importmap">
@@ -36,11 +36,11 @@
 </head>
 <body class="${bodyClass}">
   <main class="auth-page">
-    <section class="auth-shell auth-shell-flow" aria-label="Connect secure account flow">
+    <section class="auth-shell auth-shell-flow" aria-label="Lunari secure account flow">
       <@connect.brandPanel
         eyebrow="Your account, securely"
         title="Keep the conversation moving."
-        copy="Sign in, recover access or confirm an account action without leaving the Connect experience."
+        copy="Sign in, recover access or confirm an account action without leaving the Lunari experience."
       />
 
       <div class="auth-panel">
@@ -57,7 +57,7 @@
           </#if>
 
           <div class="form-heading flow-heading">
-            <span class="form-kicker">Connect account</span>
+            <span class="form-kicker">Lunari account</span>
             <h1 id="kc-page-title"><#nested "header"></h1>
             <#if displayRequiredFields>
               <p class="required-note"><span aria-hidden="true">*</span> ${msg("requiredFields")}</p>

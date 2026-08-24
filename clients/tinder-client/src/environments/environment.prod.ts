@@ -1,8 +1,8 @@
 export const environment = {
   production: true,
   designPreview: false,
-  apiGatewayUrl: 'https://matchapp-api.misyk.tech',
-  wsUrl: 'wss://matchapp-api.misyk.tech/ws',
+  apiGatewayUrl: 'https://lunari-api.misyk.tech',
+  wsUrl: 'wss://lunari-api.misyk.tech/ws',
   keycloak: {
     url: 'https://auth.misyk.tech',
     realm: 'spring',

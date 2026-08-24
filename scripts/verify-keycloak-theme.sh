@@ -230,7 +230,7 @@ docker exec "${CONTAINER_NAME}" /opt/keycloak/bin/kcadm.sh create realms \
   -s resetPasswordAllowed=true \
   -s rememberMe=true \
   -s "loginTheme=${THEME}" \
-  -s "displayName=Connect" >/dev/null
+  -s "displayName=Lunari" >/dev/null
 
 docker exec \
   --env "KEYCLOAK_URL=http://127.0.0.1:9080" \
@@ -242,13 +242,17 @@ docker exec \
 
 REALM_STATE="$(
   docker exec "${CONTAINER_NAME}" /opt/keycloak/bin/kcadm.sh get "realms/${SMOKE_REALM}" \
-    --fields registrationAllowed
+    --fields displayName,registrationAllowed
 )"
 if ! grep -Eq '"registrationAllowed"[[:space:]]*:[[:space:]]*true' <<<"${REALM_STATE}"; then
   echo "Realm configurator did not enable self-registration" >&2
   exit 1
 fi
-echo "PASS: Deployment realm configurator enables self-registration before dependent services start"
+if ! grep -Eq '"displayName"[[:space:]]*:[[:space:]]*"Lunari"' <<<"${REALM_STATE}"; then
+  echo "Realm configurator did not apply the Lunari display name" >&2
+  exit 1
+fi
+echo "PASS: Deployment realm configurator applies the Lunari brand and enables self-registration before dependent services start"
 
 docker exec "${CONTAINER_NAME}" /opt/keycloak/bin/kcadm.sh create clients \
   -r "${SMOKE_REALM}" \
@@ -267,7 +271,7 @@ curl --fail --silent --show-error --location \
   "${AUTH_URL}" \
   -o "${LOGIN_HTML}"
 
-for marker in 'data-connect-theme="true"' 'data-auth-screen="login"' 'class="brand-mark"' 'class="register-link"' 'connect-icon.svg'; do
+for marker in 'data-connect-theme="true"' 'data-auth-screen="login"' 'class="brand-mark"' 'class="register-link"' 'connect-icon.svg' '>Lunari<' 'Sign in to Lunari'; do
   if ! grep -Fq "${marker}" "${LOGIN_HTML}"; then
     echo "Rendered login page is missing marker: ${marker}" >&2
     exit 1
@@ -345,7 +349,7 @@ curl --fail --silent --show-error --location \
   "${REGISTER_URL}" \
   -o "${REGISTER_HTML}"
 
-for marker in 'data-connect-theme="true"' 'data-auth-screen="register"' 'id="kc-register-form"' 'class="login-link"'; do
+for marker in 'data-connect-theme="true"' 'data-auth-screen="register"' 'id="kc-register-form"' 'class="login-link"' 'Join Lunari'; do
   if ! grep -Fq "${marker}" "${REGISTER_HTML}"; then
     echo "Rendered registration page is missing marker: ${marker}" >&2
     exit 1
@@ -398,7 +402,7 @@ done
 
 CSS_FILE="${TEMP_DIR}/login.css"
 curl --fail --silent --show-error "${CSS_URL}" -o "${CSS_FILE}"
-grep -Fq 'Connect Keycloak theme' "${CSS_FILE}"
+grep -Fq 'Lunari Keycloak theme' "${CSS_FILE}"
 grep -Fq -- '--connect-lime: #9cce2b' "${CSS_FILE}"
 
 JS_FILE="${TEMP_DIR}/login.js"
@@ -438,6 +442,6 @@ verify_asset_fingerprint "${CSS_FILE}" "${CSS_URL}" css
 verify_asset_fingerprint "${JS_FILE}" "${JS_URL}" javascript
 
 echo "PASS: Live container exposes the complete baked-in repository theme without a host bind"
-echo "PASS: Keycloak renders Connect login and registration pages with fingerprinted CSS, JavaScript, and icon assets"
-echo "PASS: Inherited Keycloak account screens render through the shared Connect layout"
+echo "PASS: Keycloak renders Lunari login and registration pages with fingerprinted CSS, JavaScript, and icon assets"
+echo "PASS: Inherited Keycloak account screens render through the shared Lunari layout"
 echo "PASS: Keycloak renders branded expired-session and error states"

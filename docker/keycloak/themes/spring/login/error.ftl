@@ -6,17 +6,17 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="color-scheme" content="light dark">
   <meta name="theme-color" content="#9cce2b">
-  <title>Connect — Sign-in issue</title>
+  <title>Lunari — Sign-in issue</title>
   <link rel="icon" type="image/svg+xml" href="${url.resourcesPath}/img/connect-icon.svg">
   <link rel="stylesheet" href="${url.resourcesPath}/css/login.css?v=${connect.cssFingerprint}">
 </head>
 <body>
   <main class="auth-page">
-    <section class="auth-shell auth-shell-state" aria-label="Connect sign-in issue">
+    <section class="auth-shell auth-shell-state" aria-label="Lunari sign-in issue">
       <@connect.brandPanel
         eyebrow="A small detour"
         title="Something interrupted the sign-in flow."
-        copy="Your account remains safe. Return to Connect and try the sign-in flow once more."
+        copy="Your account remains safe. Return to Lunari and try the sign-in flow once more."
       />
 
       <div class="auth-panel">
@@ -30,7 +30,7 @@
 
           <div class="state-actions">
             <#if client?? && client.baseUrl?has_content>
-              <a id="backToApplication" class="btn-primary btn-link" href="${client.baseUrl}">Back to Connect</a>
+              <a id="backToApplication" class="btn-primary btn-link" href="${client.baseUrl}">Back to Lunari</a>
             <#else>
               <a class="btn-primary btn-link" href="${url.loginUrl}">Return to sign in</a>
             </#if>

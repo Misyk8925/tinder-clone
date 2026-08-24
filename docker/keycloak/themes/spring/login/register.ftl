@@ -6,14 +6,14 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="color-scheme" content="light dark">
   <meta name="theme-color" content="#9cce2b">
-  <title>Connect — Create account</title>
+  <title>Lunari — Create account</title>
   <link rel="icon" type="image/svg+xml" href="${url.resourcesPath}/img/connect-icon.svg">
   <link rel="stylesheet" href="${url.resourcesPath}/css/login.css?v=${connect.cssFingerprint}">
   <script src="${url.resourcesPath}/js/login.js?v=${connect.jsFingerprint}" defer></script>
 </head>
 <body>
   <main class="auth-page">
-    <section class="auth-shell auth-shell-register" aria-label="Create a Connect account">
+    <section class="auth-shell auth-shell-register" aria-label="Create a Lunari account">
       <@connect.brandPanel
         eyebrow="Start something real"
         title="Your next good conversation starts here."
@@ -23,7 +23,7 @@
       <div class="auth-panel">
         <div class="form-container form-container-register">
           <div class="form-heading">
-            <span class="form-kicker">Join Connect</span>
+            <span class="form-kicker">Join Lunari</span>
             <h1>Create your account</h1>
             <p>A few details, then you are ready to start connecting.</p>
           </div>

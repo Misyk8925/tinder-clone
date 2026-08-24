@@ -32,12 +32,13 @@ fi
 
 /opt/keycloak/bin/kcadm.sh update "realms/${KEYCLOAK_REALM}" \
   --config "${KCADM_CONFIG}" \
+  -s displayName=Lunari \
   -s registrationAllowed=true >/dev/null
 
 REALM_STATE="$(
   /opt/keycloak/bin/kcadm.sh get "realms/${KEYCLOAK_REALM}" \
     --config "${KCADM_CONFIG}" \
-    --fields registrationAllowed
+    --fields displayName,registrationAllowed
 )"
 
 if ! grep -Eq '"registrationAllowed"[[:space:]]*:[[:space:]]*true' <<<"${REALM_STATE}"; then
@@ -45,4 +46,9 @@ if ! grep -Eq '"registrationAllowed"[[:space:]]*:[[:space:]]*true' <<<"${REALM_S
   exit 1
 fi
 
-echo "PASS: Keycloak realm '${KEYCLOAK_REALM}' allows self-registration"
+if ! grep -Eq '"displayName"[[:space:]]*:[[:space:]]*"Lunari"' <<<"${REALM_STATE}"; then
+  echo "Keycloak realm '${KEYCLOAK_REALM}' did not apply the Lunari display name" >&2
+  exit 1
+fi
+
+echo "PASS: Keycloak realm '${KEYCLOAK_REALM}' uses the Lunari brand and allows self-registration"

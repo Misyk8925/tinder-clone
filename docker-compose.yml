@@ -141,7 +141,7 @@ services:
       # CI verifies this digest against the complete spring theme directory.
       # Changing it updates the Compose service config while the image build
       # bakes the same revision into Keycloak without a checkout bind mount.
-      com.connect.keycloak-theme-revision: "0c9730ce10b7"
+      com.connect.keycloak-theme-revision: "3916951adf2c"
     environment:
       KC_BOOTSTRAP_ADMIN_USERNAME: ${KEYCLOAK_ADMIN:?KEYCLOAK_ADMIN is required}
       KC_BOOTSTRAP_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:?KEYCLOAK_ADMIN_PASSWORD is required}
@@ -728,9 +728,9 @@ services:
       # Checkout and Billing Portal redirects must always be browser-reachable.
       # A single public profile URL prevents stale internal service URLs from
       # being injected independently by the deployment environment.
-      STRIPE_SUCCESS_URL: ${PUBLIC_APP_PROFILE_URL:-https://matchapp.misyk.tech/profile}
-      STRIPE_CANCEL_URL: ${PUBLIC_APP_PROFILE_URL:-https://matchapp.misyk.tech/profile}
-      STRIPE_RETURN_URL: ${PUBLIC_APP_PROFILE_URL:-https://matchapp.misyk.tech/profile}
+      STRIPE_SUCCESS_URL: ${PUBLIC_APP_PROFILE_URL:-https://lunari.misyk.tech/profile}
+      STRIPE_CANCEL_URL: ${PUBLIC_APP_PROFILE_URL:-https://lunari.misyk.tech/profile}
+      STRIPE_RETURN_URL: ${PUBLIC_APP_PROFILE_URL:-https://lunari.misyk.tech/profile}
       SUBSCRIPTIONS_GRPC_KEYSTORE_PATH: file:/certs/subscriptions-service.p12
       SUBSCRIPTIONS_GRPC_KEYSTORE_PASSWORD: ${MTLS_KEYSTORE_PASSWORD:?MTLS_KEYSTORE_PASSWORD is required}
       SUBSCRIPTIONS_GRPC_TRUSTSTORE_PATH: file:/certs/truststore.jks

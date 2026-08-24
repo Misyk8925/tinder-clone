@@ -6,13 +6,13 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="color-scheme" content="light dark">
   <meta name="theme-color" content="#9cce2b">
-  <title>Connect — Session expired</title>
+  <title>Lunari — Session expired</title>
   <link rel="icon" type="image/svg+xml" href="${url.resourcesPath}/img/connect-icon.svg">
   <link rel="stylesheet" href="${url.resourcesPath}/css/login.css?v=${connect.cssFingerprint}">
 </head>
 <body>
   <main class="auth-page">
-    <section class="auth-shell auth-shell-state" aria-label="Connect session expired">
+    <section class="auth-shell auth-shell-state" aria-label="Lunari session expired">
       <@connect.brandPanel
         eyebrow="One quick reset"
         title="Good connections are worth another click."

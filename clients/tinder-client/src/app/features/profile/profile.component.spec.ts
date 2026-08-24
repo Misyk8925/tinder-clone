@@ -75,7 +75,7 @@ describe('ProfileComponent photo loading placeholders', () => {
     component.isPremium.set(true);
     fixture.detectChanges();
 
-    expect(fixture.nativeElement.querySelector('.premium-banner-title').textContent).toContain('Connect Premium');
+    expect(fixture.nativeElement.querySelector('.premium-banner-title').textContent).toContain('Lunari Premium');
     expect(fixture.nativeElement.querySelector('.premium-banner-sub').textContent).toContain('€10/month · Active membership');
     expect(fixture.nativeElement.querySelector('.premium-banner-btn').textContent).toContain('Manage plan');
   });
@@ -103,6 +103,33 @@ describe('ProfileComponent photo loading placeholders', () => {
 
     expect(fixture.nativeElement.querySelector('.photo-hero .photo-skeleton')).toBeNull();
     expect(img.classList.contains('ready')).toBe(true);
+  });
+
+  it('Given the profile is open, when photo management starts, then a gallery dialog is rendered outside the overview columns', () => {
+    fixture.detectChanges();
+
+    (fixture.nativeElement.querySelector('.btn-manage') as HTMLButtonElement).click();
+    fixture.detectChanges();
+
+    const overview = fixture.nativeElement.querySelector('.profile-overview');
+    const dialog = fixture.nativeElement.querySelector('#photo-manager-dialog');
+    expect(overview.querySelector('.photo-manager')).toBeNull();
+    expect(dialog).toBeTruthy();
+    expect(dialog.getAttribute('role')).toBe('dialog');
+    expect(dialog.getAttribute('aria-modal')).toBe('true');
+    expect(dialog.querySelectorAll('.manager-slot')).toHaveLength(5);
+    expect(dialog.querySelector('.available .empty-slot-action')?.textContent).toContain('Add photo');
+  });
+
+  it('Given the photo gallery is open, when Escape is pressed, then it closes', () => {
+    fixture.detectChanges();
+    component.toggleManagePhotos();
+    fixture.detectChanges();
+
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.querySelector('#photo-manager-dialog')).toBeNull();
   });
 });
 

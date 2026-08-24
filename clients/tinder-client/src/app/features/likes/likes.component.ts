@@ -57,7 +57,7 @@ interface LikerCard {
                 <path d="M5 20h14"/>
               </svg>
             </div>
-            <span class="eyebrow">Connect Premium</span>
+            <span class="eyebrow">Lunari Premium</span>
             <h2>See Who Likes You</h2>
             <p>Skip the guessing and start with people who are already interested.</p>
             <button class="btn-upgrade" (click)="goUpgrade()">
