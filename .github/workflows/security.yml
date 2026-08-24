@@ -262,6 +262,7 @@ jobs:
           severity: CRITICAL,HIGH
           ignore-unfixed: true
           format: sarif
+          limit-severities-for-sarif: true
           output: trivy-fs.sarif
           exit-code: "1"
           skip-dirs: .git,**/node_modules,**/target,**/dist,.idea
@@ -309,6 +310,7 @@ jobs:
           severity: CRITICAL,HIGH
           ignore-unfixed: true
           format: sarif
+          limit-severities-for-sarif: true
           output: trivy-image-${{ matrix.service }}.sarif
           exit-code: "1"
       - name: Upload SARIF
