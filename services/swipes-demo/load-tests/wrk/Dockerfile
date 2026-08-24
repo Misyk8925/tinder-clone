@@ -7,7 +7,11 @@ RUN make
 
 FROM alpine:3.21
 
-RUN apk add --no-cache libgcc openssl zlib
-COPY --from=build /src/wrk/wrk /usr/local/bin/wrk
+RUN apk add --no-cache libgcc openssl zlib \
+    && addgroup -S wrk \
+    && adduser -S -G wrk wrk
+COPY --from=build --chown=wrk:wrk /src/wrk/wrk /usr/local/bin/wrk
+
+USER wrk
 
 ENTRYPOINT ["wrk"]

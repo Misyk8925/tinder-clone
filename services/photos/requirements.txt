@@ -1,7 +1,7 @@
-fastapi==0.115.14
+fastapi==0.141.1
 uvicorn[standard]==0.34.3
-python-multipart==0.0.20
-pillow==11.2.1
+python-multipart==0.0.32
+pillow==12.3.0
 boto3==1.38.32
 pydantic-settings==2.10.1
 httpx==0.28.1

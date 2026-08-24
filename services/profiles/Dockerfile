@@ -19,7 +19,7 @@ RUN --mount=type=cache,id=m2-profiles,sharing=locked,target=/root/.m2 \
     find /root/.m2/repository/com/tinder \( -name "*.lastUpdated" -o -name "resolver-status.properties" \) -delete && \
     mvn -B -e -ntp -Dmaven.repo.local=/root/.m2/repository -f profiles/pom.xml package -DskipTests -Dmaven.test.skip=true
 
-FROM eclipse-temurin:21-jre-alpine
+FROM eclipse-temurin:21-jre-alpine-3.24
 
 RUN apk add --no-cache wget
 
