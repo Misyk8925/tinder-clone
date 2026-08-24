@@ -1,6 +1,5 @@
 import { Component, inject, OnInit, signal } from '@angular/core';
 import { NgClass } from '@angular/common';
-import { Router } from '@angular/router';
 import { HttpErrorResponse } from '@angular/common/http';
 import { forkJoin, of } from 'rxjs';
 import { catchError, map } from 'rxjs/operators';
@@ -9,6 +8,7 @@ import { LikesService } from '../../core/services/likes.service';
 import { ProfileService } from '../../core/services/profile.service';
 import { SwipeService } from '../../core/services/swipe.service';
 import { KeycloakService } from '../../core/services/keycloak.service';
+import { SubscriptionService } from '../../core/services/subscription.service';
 import { Profile } from '../../core/models/profile.model';
 
 interface LikerCard {
@@ -40,32 +40,56 @@ interface LikerCard {
         <div class="state-center">
           <div class="spinner" role="status" aria-label="Loading likes"></div>
         </div>
+      } @else if (entitlementError()) {
+        <div class="state-center entitlement-error">
+          <div class="premium-mark">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+              <path d="M12 3 4.5 6v5.4c0 4.7 3.2 8.2 7.5 9.6 4.3-1.4 7.5-4.9 7.5-9.6V6z"/>
+              <path d="M9 12.2 11 14l4-4"/>
+            </svg>
+          </div>
+          <span class="eyebrow">Premium check</span>
+          <h2>We couldn't verify your plan</h2>
+          <p>Your purchase is safe. Try again to refresh your access.</p>
+          <button class="btn-retry" type="button" (click)="load()">Check again</button>
+        </div>
       } @else if (forbidden()) {
         <section class="premium-gate">
-          <div class="teaser-grid" aria-hidden="true">
-            @for (i of placeholders; track i) {
-              <div class="teaser-card gradient-{{ i % 4 }}">
-                <span></span>
-              </div>
-            }
-          </div>
-
-          <div class="upgrade-box">
-            <div class="premium-mark">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
-                <path d="M4 16.5 3 7l5 4 4-7 4 7 5-4-1 9.5z"/>
-                <path d="M5 20h14"/>
-              </svg>
+          <div class="teaser-stage">
+            <div class="teaser-grid" aria-hidden="true">
+              @for (i of placeholders; track i) {
+                <div class="teaser-card gradient-{{ i % 4 }}">
+                  <span></span>
+                </div>
+              }
             </div>
-            <span class="eyebrow">Lunari Premium</span>
-            <h2>See Who Likes You</h2>
-            <p>Skip the guessing and start with people who are already interested.</p>
-            <button class="btn-upgrade" (click)="goUpgrade()">
-              Unlock likes
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <path d="m9 18 6-6-6-6"/>
-              </svg>
-            </button>
+            <div class="teaser-vignette" aria-hidden="true"></div>
+
+            <div class="upgrade-box">
+              <div class="premium-mark">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+                  <path d="M4 16.5 3 7l5 4 4-7 4 7 5-4-1 9.5z"/>
+                  <path d="M5 20h14"/>
+                </svg>
+              </div>
+              <span class="eyebrow">Lunari Premium</span>
+              <h2>See everyone who likes you</h2>
+              <p>Four people are waiting. Unlock their profiles and choose who you want to meet.</p>
+              <ul class="premium-benefits">
+                <li><span>✓</span> Reveal every profile</li>
+                <li><span>✓</span> Match without guessing</li>
+                <li><span>✓</span> Unlimited likes</li>
+              </ul>
+              <button class="btn-upgrade" type="button" (click)="goUpgrade()" [disabled]="checkoutLoading()">
+                {{ checkoutLoading() ? 'Opening checkout…' : 'Get Premium · €10/month' }}
+                @if (!checkoutLoading()) {
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="m9 18 6-6-6-6"/>
+                  </svg>
+                }
+              </button>
+              <span class="checkout-note">Cancel anytime · Secure checkout by Stripe</span>
+            </div>
           </div>
         </section>
       } @else if (likers().length === 0) {
@@ -261,44 +285,88 @@ interface LikerCard {
 
     .premium-gate {
       width: min(100%, 1040px);
-      min-height: calc(100dvh - 126px);
+      min-height: calc(100dvh - 62px - var(--mobile-bottombar-height));
       margin: 0 auto;
-      padding: 20px 16px 28px;
-      display: grid;
-      align-content: center;
-      gap: 18px;
+      padding: 12px 14px 20px;
+      display: flex;
+      align-items: center;
+    }
+    .teaser-stage {
+      position: relative;
+      width: 100%;
+      min-height: min(570px, calc(100dvh - 142px));
+      overflow: hidden;
+      border: 1px solid var(--border-light);
+      border-radius: 26px;
+      background: var(--surface-2);
+      box-shadow: var(--shadow-card);
     }
     .teaser-grid {
+      position: absolute;
+      inset: 0;
       display: grid;
       grid-template-columns: repeat(2, minmax(0, 1fr));
-      gap: 10px;
-      filter: saturate(0.8);
+      grid-template-rows: repeat(2, minmax(0, 1fr));
+      gap: 12px;
+      padding: 12px;
+      filter: saturate(0.65);
+      opacity: 0.66;
     }
     .teaser-card {
       position: relative;
-      aspect-ratio: 4 / 5;
       overflow: hidden;
       border: 1px solid var(--border-light);
-      border-radius: 18px;
-      filter: blur(7px);
-      opacity: 0.72;
+      border-radius: 20px;
+      filter: blur(5px);
+      transform: scale(1.035);
     }
-    .teaser-card span { position: absolute; inset: auto 12px 12px; height: 12px; border-radius: 999px; background: rgba(255,255,255,0.45); }
+    .teaser-card::before {
+      content: '';
+      position: absolute;
+      width: 34%;
+      aspect-ratio: 1;
+      top: 18%;
+      left: 33%;
+      border-radius: 50%;
+      background: rgba(255, 255, 255, 0.38);
+    }
+    .teaser-card::after {
+      content: '';
+      position: absolute;
+      width: 68%;
+      height: 44%;
+      left: 16%;
+      bottom: 12%;
+      border-radius: 50% 50% 20% 20%;
+      background: rgba(255, 255, 255, 0.3);
+    }
+    .teaser-card span { position: absolute; z-index: 1; inset: auto 14px 14px; height: 10px; border-radius: 999px; background: rgba(255,255,255,0.5); }
     .gradient-0 { background: linear-gradient(145deg, #cfe892, #759443); }
     .gradient-1 { background: linear-gradient(145deg, #a6c9c4, #536d70); }
     .gradient-2 { background: linear-gradient(145deg, #d9b5a5, #8b5e52); }
     .gradient-3 { background: linear-gradient(145deg, #c6bddb, #6f6881); }
+    .teaser-vignette {
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(180deg, color-mix(in srgb, var(--surface) 8%, transparent), color-mix(in srgb, var(--surface) 70%, transparent));
+      backdrop-filter: blur(1px);
+    }
 
     .upgrade-box {
-      position: relative;
-      max-width: none;
+      position: absolute;
+      z-index: 2;
+      left: 14px;
+      right: 14px;
+      top: 50%;
+      transform: translateY(-50%);
       overflow: hidden;
-      padding: 24px;
-      text-align: left;
+      padding: 24px 22px 20px;
       border: 1px solid var(--brand-border);
       border-radius: 24px;
-      background: linear-gradient(145deg, var(--surface), var(--surface-2));
-      box-shadow: var(--shadow-card);
+      background: color-mix(in srgb, var(--surface) 94%, transparent);
+      box-shadow: 0 24px 64px var(--shadow-lg), 0 4px 16px var(--shadow-md);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
     }
     .upgrade-box::after {
       content: '';
@@ -310,23 +378,47 @@ interface LikerCard {
       filter: blur(12px);
       pointer-events: none;
     }
-    .upgrade-box .eyebrow { margin: 20px 0 8px; }
-    .upgrade-box h2 { margin: 0; color: var(--text-primary); font-family: var(--font-editorial); font-size: 30px; font-weight: 600; letter-spacing: -0.045em; }
-    .upgrade-box p { max-width: 390px; margin: 10px 0 22px; color: var(--text-muted); font-size: 14px; line-height: 1.55; }
+    .upgrade-box .eyebrow { margin: 18px 0 8px; }
+    .upgrade-box h2 { max-width: 350px; margin: 0; color: var(--text-primary); font-family: var(--font-editorial); font-size: 29px; font-weight: 600; line-height: 1.12; letter-spacing: -0.045em; }
+    .upgrade-box p { max-width: 390px; margin: 10px 0 16px; color: var(--text-secondary); font-size: 13px; line-height: 1.5; }
+    .premium-benefits {
+      margin: 0 0 20px;
+      padding: 0;
+      display: grid;
+      gap: 9px;
+      list-style: none;
+      color: var(--text-primary);
+      font-size: 13px;
+      font-weight: 600;
+    }
+    .premium-benefits span { margin-right: 8px; color: var(--brand-strong); }
     .btn-upgrade {
-      width: auto;
-      min-height: 46px;
-      padding: 0 17px;
+      width: 100%;
+      min-height: 48px;
+      padding: 0 16px;
       display: inline-flex;
+      justify-content: center;
       align-items: center;
       gap: 8px;
       border-radius: 15px;
       background: var(--brand);
       color: #18200d;
       font-size: 14px;
+      font-weight: 750;
       box-shadow: 0 10px 24px var(--brand-glow);
     }
+    .btn-upgrade:disabled { cursor: wait; opacity: 0.72; }
     .btn-upgrade svg { width: 17px; height: 17px; }
+    .checkout-note { display: block; margin-top: 10px; color: var(--text-muted); font-size: 10px; text-align: center; }
+    .btn-retry {
+      min-height: 44px;
+      padding: 0 18px;
+      border: 1px solid var(--brand-border);
+      border-radius: 14px;
+      color: #18200d;
+      background: var(--brand);
+      font-weight: 700;
+    }
 
     .likes-grid {
       width: min(100%, 1080px);
@@ -413,9 +505,10 @@ interface LikerCard {
       .page-header p { display: block; margin: 7px 0 0; color: var(--text-muted); font-size: 14px; }
       .title-row h1 { font-size: 40px; }
       .likes-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); padding: 10px 32px 48px; gap: 28px 18px; }
-      .premium-gate { grid-template-columns: minmax(320px, 1.1fr) minmax(300px, 0.9fr); align-items: center; padding: 12px 32px 54px; }
-      .teaser-grid { gap: 14px; }
-      .upgrade-box { padding: 32px; }
+      .premium-gate { min-height: 660px; padding: 12px 32px 54px; }
+      .teaser-stage { min-height: 590px; }
+      .teaser-grid { gap: 16px; padding: 16px; }
+      .upgrade-box { width: min(440px, calc(100% - 48px)); left: auto; right: 34px; padding: 32px; }
     }
 
     @media (min-width: 1120px) {
@@ -428,11 +521,13 @@ export class LikesComponent implements OnInit {
   private profileService = inject(ProfileService);
   private swipeService = inject(SwipeService);
   private keycloak = inject(KeycloakService);
-  private router = inject(Router);
+  private subscriptionService = inject(SubscriptionService);
 
   likers = signal<LikerCard[]>([]);
   loading = signal(true);
   forbidden = signal(false);
+  entitlementError = signal(false);
+  checkoutLoading = signal(false);
   toast = signal<string | null>(null);
   readonly placeholders = [0, 1, 2, 3];
   private toastTimer: ReturnType<typeof setTimeout> | null = null;
@@ -455,13 +550,43 @@ export class LikesComponent implements OnInit {
   load(): void {
     this.loading.set(true);
     this.forbidden.set(false);
+    this.entitlementError.set(false);
 
-    if (!this.keycloak.hasPremium()) {
-      this.forbidden.set(true);
-      this.loading.set(false);
+    if (this.keycloak.hasPremium()) {
+      this.loadLikes();
       return;
     }
 
+    // A user's token can still be stale immediately after Stripe Checkout.
+    // Reconcile with Stripe before showing an upgrade prompt so a paid user is
+    // never presented with the non-premium paywall.
+    this.subscriptionService.syncEntitlement().subscribe({
+      next: ({ premium }) => {
+        if (!premium) {
+          this.forbidden.set(true);
+          this.loading.set(false);
+          return;
+        }
+        void this.refreshPremiumAndLoad();
+      },
+      error: () => {
+        this.entitlementError.set(true);
+        this.loading.set(false);
+      }
+    });
+  }
+
+  private async refreshPremiumAndLoad(): Promise<void> {
+    try {
+      await this.keycloak.refreshRoles();
+      this.loadLikes();
+    } catch {
+      this.entitlementError.set(true);
+      this.loading.set(false);
+    }
+  }
+
+  private loadLikes(): void {
     this.likesService.getLikedMe().subscribe({
       next: (items) => {
         if (items.length === 0) {
@@ -484,7 +609,7 @@ export class LikesComponent implements OnInit {
       },
       error: (err: HttpErrorResponse) => {
         if (err.status === 403 || err.status === 401) {
-          this.forbidden.set(true);
+          this.entitlementError.set(true);
         } else if (err.status === 429) {
           this.showToast('Too many requests. Please wait before refreshing.');
         }
@@ -524,7 +649,14 @@ export class LikesComponent implements OnInit {
   }
 
   goUpgrade(): void {
-    this.router.navigate(['/profile']);
+    this.checkoutLoading.set(true);
+    this.subscriptionService.createCheckoutSession().subscribe({
+      next: (url) => { window.location.href = url; },
+      error: () => {
+        this.checkoutLoading.set(false);
+        this.showToast('Checkout could not be opened. Please try again.');
+      }
+    });
   }
 
   onImgError(e: Event): void {

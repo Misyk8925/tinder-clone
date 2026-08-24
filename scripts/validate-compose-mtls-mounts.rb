@@ -38,6 +38,12 @@ expected_identities.each do |service_name, identity|
   end
 end
 
+subscriptions_environment = services.fetch("subscriptions").fetch("environment")
+expected_profiles_target = "dns:///profiles:9010"
+unless subscriptions_environment["PROFILES_GRPC_ADDRESS"] == expected_profiles_target
+  failures << "subscriptions PROFILES_GRPC_ADDRESS must be #{expected_profiles_target} so Docker DNS resolves profiles"
+end
+
 unless failures.empty?
   warn failures.map { |failure| "FAIL: #{failure}" }.join("\n")
   exit 1

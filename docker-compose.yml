@@ -722,7 +722,9 @@ services:
       SUBSCRIPTIONS_DB_PASSWORD: ${SUBSCRIPTIONS_DB_PASSWORD:?SUBSCRIPTIONS_DB_PASSWORD is required}
       SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE: 4
       SPRING_DATASOURCE_HIKARI_MINIMUM_IDLE: 2
-      PROFILES_GRPC_ADDRESS: static://profiles:9010
+      # Use gRPC's DNS resolver explicitly. The static target leaves Docker
+      # hostnames unresolved with newer grpc-java versions.
+      PROFILES_GRPC_ADDRESS: dns:///profiles:9010
       PROFILES_BASE_URL: http://profiles:8010/api/profiles
       KEYCLOAK_JWK_SET_URI: ${KEYCLOAK_JWK_SET_URI:-http://keycloak:9080/realms/spring/protocol/openid-connect/certs}
       # Checkout and Billing Portal redirects must always be browser-reachable.

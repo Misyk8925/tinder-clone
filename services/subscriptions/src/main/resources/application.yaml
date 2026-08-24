@@ -10,7 +10,7 @@ grpc:
   # gRPC client — subscriptions-service calls profiles-service to promote users to premium
   client:
     profiles-service:
-      address: ${PROFILES_GRPC_ADDRESS:static://localhost:9010}
+      address: ${PROFILES_GRPC_ADDRESS:dns:///localhost:9010}
       # Use TLS — mTLS SslContext is wired in GrpcMtlsConfig
       negotiation-type: tls
     mtls:
