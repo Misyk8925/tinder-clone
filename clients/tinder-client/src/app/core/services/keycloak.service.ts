@@ -71,6 +71,7 @@ export class KeycloakService {
   }
 
   hasPremium(): boolean {
+    if (environment.designPreview) return true;
     return this.hasRole(PREMIUM_REALM_ROLE);
   }
 

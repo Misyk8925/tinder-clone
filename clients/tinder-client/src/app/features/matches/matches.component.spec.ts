@@ -64,6 +64,8 @@ describe('MatchesComponent new-conversation loading state', () => {
     fixture = TestBed.createComponent(MatchesComponent);
     fixture.detectChanges();
 
+    expect(fixture.nativeElement.querySelector('.page-header h1')?.textContent).toContain('Messages');
+    expect(fixture.nativeElement.querySelector('.new-match-section h2')?.textContent).toContain('New connections');
     const matchButton = fixture.nativeElement.querySelector('.match-bubble') as HTMLButtonElement;
     matchButton.click();
     fixture.detectChanges();

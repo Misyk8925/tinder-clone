@@ -35,57 +35,59 @@ export function markConversationRead(conversationId: string): void {
   selector: 'app-matches',
   template: `
     <div class="matches-page">
-      <header class="header">
-        <div class="header-left"></div>
-        <div class="logo">
-          <svg viewBox="0 0 24 24" width="22" height="22" fill="#9cce2b">
-            <path d="M17.66 11.2c-.23-.3-.51-.56-.77-.82-.67-.6-1.43-1.03-2.07-1.66C13.33 7.26 13 4.85 13.95 3c-.95.23-1.78.75-2.49 1.32-2.59 2.11-3.66 5.65-2.67 8.9.04.14.08.28.08.43 0 .28-.19.52-.45.57-.28.07-.53-.09-.63-.37-.04-.1-.06-.21-.09-.32C7.15 13 7 12.5 7 11.85c0-.58.16-1.2.44-1.7-1.16 1.27-1.86 2.97-1.86 4.77 0 3.31 2.69 6 6 6s6-2.69 6-6c0-1.88-.82-3.63-2.09-4.82z"/>
-          </svg>
-          <span class="logo-text">connect</span>
+      <header class="page-header">
+        <div class="header-copy">
+          <span class="eyebrow">Connections</span>
+          <div class="title-row">
+            <h1>Messages</h1>
+            @if (newMatches().length + conversations().length > 0) {
+              <span class="total-count">{{ newMatches().length + conversations().length }}</span>
+            }
+          </div>
+          <p>New connections and ongoing conversations, together.</p>
         </div>
-        <button type="button" class="header-icon-btn" aria-label="Safety center">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" width="24" height="24">
-            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
-          </svg>
-        </button>
       </header>
 
       @if (loading()) {
         <div class="loading">
-          <div class="spinner"></div>
+          <div class="spinner" role="status" aria-label="Loading conversations"></div>
         </div>
       } @else if (newMatches().length === 0 && conversations().length === 0) {
         <div class="empty">
-          <!-- Tinder card stack illustration -->
-          <div class="card-illustration">
-            <div class="card card-back-2"></div>
-            <div class="card card-back-1"></div>
-            <div class="card card-front">
-              <div class="like-stamp">LIKE</div>
+          <div class="empty-visual" aria-hidden="true">
+            <span class="person person-one"></span>
+            <span class="person person-two"></span>
+            <div class="message-mark">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+                <path d="M21 15a4 4 0 0 1-4 4H8l-5 3V7a4 4 0 0 1 4-4h10a4 4 0 0 1 4 4z"/>
+                <path d="M8 10h8M8 14h5"/>
+              </svg>
             </div>
           </div>
-
-          <h2 class="empty-title">Start Swiping</h2>
-          <p class="empty-text">
-            Your confirmed matches will appear here.<br>
-            You can message a match directly.
-          </p>
+          <span class="eyebrow">Your circle starts here</span>
+          <h2 class="empty-title">No conversations yet</h2>
+          <p class="empty-text">When the interest is mutual, your new connection will appear here.</p>
+          <button class="discover-btn" type="button" (click)="goDiscover()">Discover people</button>
         </div>
       } @else {
         <div class="content">
-
           @if (newMatches().length > 0) {
-            <section class="section">
-              <h2 class="section-title">
-                New Matches
-                <span class="badge">{{ newMatches().length }}</span>
-              </h2>
+            <section class="section new-match-section">
+              <div class="section-heading">
+                <div>
+                  <span class="eyebrow">Just matched</span>
+                  <h2>New connections</h2>
+                </div>
+                <span class="section-count">{{ newMatches().length }}</span>
+              </div>
               <div class="new-matches-scroll">
                 @for (match of newMatches(); track match.matchId) {
                   <button
+                    type="button"
                     class="match-bubble"
                     [class.starting]="startingChat() === match.matchId"
                     [attr.aria-busy]="startingChat() === match.matchId"
+                    [attr.aria-label]="'Start a conversation with ' + firstName(match.otherProfile?.name)"
                     (click)="startChat(match)"
                   >
                     <div class="bubble-ring">
@@ -99,8 +101,10 @@ export function markConversationRead(conversationId: string): void {
                           <div class="bubble-spinner" role="status" aria-label="Starting conversation"></div>
                         }
                       </div>
+                      <span class="new-dot"></span>
                     </div>
                     <p class="bubble-name">{{ firstName(match.otherProfile?.name) }}</p>
+                    <span class="bubble-hint">Say hello</span>
                   </button>
                 }
               </div>
@@ -108,17 +112,29 @@ export function markConversationRead(conversationId: string): void {
           }
 
           @if (conversations().length > 0) {
-            <section class="section">
-              <h2 class="section-title">Messages</h2>
+            <section class="section message-section">
+              <div class="section-heading">
+                <div>
+                  <span class="eyebrow">In touch</span>
+                  <h2>Conversations</h2>
+                </div>
+              </div>
               <div class="conversations-list">
                 @for (item of conversations(); track item.conversationId) {
-                  <div class="conv-item" [class.unread]="item.unread" (click)="openChat(item.conversationId)">
+                  <button
+                    type="button"
+                    class="conv-item"
+                    [class.unread]="item.unread"
+                    [attr.aria-label]="'Open conversation with ' + (item.otherProfile?.name ?? 'user')"
+                    (click)="openChat(item.conversationId)"
+                  >
                     <div class="conv-avatar">
                       @if (item.otherProfile?.photos?.length) {
                         <img [src]="item.otherProfile!.photos[0].url" [alt]="item.otherProfile!.name" />
                       } @else {
                         <span>{{ item.otherProfile?.name?.[0] ?? '?' }}</span>
                       }
+                      @if (item.otherProfile?.isActive) { <span class="presence-dot" aria-label="Active now"></span> }
                     </div>
                     <div class="conv-info">
                       <div class="conv-name-row">
@@ -128,24 +144,19 @@ export function markConversationRead(conversationId: string): void {
                         }
                       </div>
                       <div class="conv-preview-row">
-                        <p [class.unread-text]="item.unread">
-                          {{ item.lastMessageText ?? 'Tap to open chat' }}
-                        </p>
-                        @if (item.unread) {
-                          <span class="unread-dot"></span>
-                        }
+                        <p [class.unread-text]="item.unread">{{ item.lastMessageText ?? 'Start the conversation' }}</p>
                       </div>
                     </div>
-                  </div>
+                    @if (item.unread) { <span class="unread-dot" aria-label="Unread message"></span> }
+                    <svg class="conv-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="m9 18 6-6-6-6"/></svg>
+                  </button>
                 }
               </div>
             </section>
           }
-
         </div>
       }
     </div>
-
   `,
   styles: [`
     .matches-page {
@@ -560,6 +571,242 @@ export function markConversationRead(conversationId: string): void {
       background: var(--brand);
       flex-shrink: 0;
       margin-left: auto;
+    }
+
+    /* Fresh connections layout */
+    .page-header {
+      min-height: 62px;
+      padding: 8px 18px;
+      display: flex;
+      align-items: center;
+      flex-shrink: 0;
+      position: relative;
+      z-index: 10;
+      background: var(--header-surface);
+      border-bottom: 1px solid var(--border-light);
+      backdrop-filter: blur(18px);
+      -webkit-backdrop-filter: blur(18px);
+    }
+    .header-copy { min-width: 0; }
+    .eyebrow {
+      display: block;
+      color: var(--brand-ink);
+      font-size: 10px;
+      font-weight: 800;
+      line-height: 1;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+    }
+    .page-header .eyebrow,
+    .page-header p { display: none; }
+    .title-row { display: flex; align-items: center; gap: 9px; }
+    .title-row h1 {
+      margin: 0;
+      color: var(--text-primary);
+      font-family: var(--font-editorial);
+      font-size: 25px;
+      font-weight: 600;
+      letter-spacing: -0.04em;
+    }
+    .total-count,
+    .section-count {
+      min-width: 24px;
+      height: 24px;
+      padding: 0 7px;
+      display: grid;
+      place-items: center;
+      border-radius: 999px;
+      background: var(--brand-soft);
+      color: var(--brand-ink);
+      font-size: 11px;
+      font-weight: 800;
+    }
+
+    .empty {
+      gap: 10px;
+      padding: 44px 30px 76px;
+    }
+    .empty-visual {
+      position: relative;
+      width: 150px;
+      height: 114px;
+      margin-bottom: 16px;
+    }
+    .person {
+      position: absolute;
+      top: 10px;
+      width: 76px;
+      height: 76px;
+      border-radius: 50%;
+      border: 6px solid var(--bg);
+      background: linear-gradient(145deg, var(--surface-3), var(--brand-soft));
+      box-shadow: var(--shadow-float);
+    }
+    .person-one { left: 10px; }
+    .person-two { right: 10px; background: linear-gradient(145deg, #d9b5a5, #8b5e52); }
+    .message-mark {
+      position: absolute;
+      z-index: 2;
+      left: 50%;
+      bottom: 0;
+      width: 48px;
+      height: 48px;
+      display: grid;
+      place-items: center;
+      border: 1px solid var(--brand-border);
+      border-radius: 17px;
+      background: var(--brand);
+      color: #1b230f;
+      box-shadow: 0 10px 24px var(--brand-glow);
+      transform: translateX(-50%);
+    }
+    .message-mark svg { width: 23px; height: 23px; }
+    .empty-title { margin: 2px 0 0; font-family: var(--font-editorial); font-size: 28px; font-weight: 600; letter-spacing: -0.04em; }
+    .empty-text { max-width: 320px; margin: 0; }
+    .discover-btn {
+      min-height: 44px;
+      margin-top: 10px;
+      padding: 0 17px;
+      border: 1px solid var(--brand-border);
+      border-radius: 14px;
+      background: var(--brand-soft);
+      color: var(--brand-ink);
+      font-size: 13px;
+      font-weight: 800;
+      cursor: pointer;
+    }
+
+    .content {
+      width: min(100%, 920px);
+      margin: 0 auto;
+      padding: 14px 0 30px;
+    }
+    .section {
+      margin: 0;
+      overflow: visible;
+      border: 0;
+      border-radius: 0;
+      background: transparent;
+      box-shadow: none;
+    }
+    .section + .section { margin-top: 18px; }
+    .section-heading {
+      padding: 14px 18px 12px;
+      display: flex;
+      align-items: flex-end;
+      justify-content: space-between;
+      gap: 12px;
+    }
+    .section-heading .eyebrow { margin-bottom: 5px; }
+    .section-heading h2 { margin: 0; color: var(--text-primary); font-size: 19px; font-weight: 700; letter-spacing: -0.03em; }
+
+    .new-matches-scroll {
+      gap: 18px;
+      padding: 2px 18px 18px;
+    }
+    .match-bubble { gap: 5px; opacity: 1; }
+    .match-bubble.starting { opacity: 1; }
+    .bubble-ring {
+      position: relative;
+      padding: 3px;
+      border: 1px solid var(--brand-border);
+      background: var(--surface);
+      box-shadow: var(--shadow-float);
+    }
+    .bubble-avatar {
+      width: 72px;
+      height: 72px;
+      border: 2px solid var(--bg);
+      background: linear-gradient(145deg, var(--surface-3), var(--brand-soft));
+      color: var(--brand-ink);
+      font-family: var(--font-editorial);
+      font-size: 26px;
+      font-weight: 600;
+    }
+    .new-dot {
+      position: absolute;
+      right: 1px;
+      bottom: 7px;
+      width: 13px;
+      height: 13px;
+      border: 3px solid var(--bg);
+      border-radius: 50%;
+      background: var(--brand);
+    }
+    .bubble-name { max-width: 82px; margin-top: 2px; font-size: 13px; font-weight: 700; }
+    .bubble-hint { color: var(--text-muted); font-size: 10px; }
+
+    .message-section { padding: 0 14px; }
+    .message-section .section-heading { padding-left: 4px; padding-right: 4px; }
+    .conversations-list {
+      overflow: hidden;
+      border: 1px solid var(--card-border);
+      border-radius: 20px;
+      background: var(--card-surface);
+      box-shadow: var(--shadow-card);
+    }
+    .conv-item {
+      width: 100%;
+      min-height: 78px;
+      padding: 11px 13px;
+      gap: 12px;
+      border: 0;
+      border-bottom: 1px solid var(--border-light);
+      border-radius: 0;
+      background: transparent;
+      color: inherit;
+      font: inherit;
+      text-align: left;
+    }
+    .conv-item.unread { background: linear-gradient(90deg, var(--brand-soft), transparent 42%); }
+    .conv-avatar {
+      position: relative;
+      width: 54px;
+      height: 54px;
+      overflow: visible;
+      background: linear-gradient(145deg, var(--surface-3), var(--brand-soft));
+      color: var(--brand-ink);
+      font-family: var(--font-editorial);
+      font-weight: 600;
+    }
+    .conv-avatar img { border-radius: 50%; }
+    .presence-dot {
+      position: absolute;
+      right: -1px;
+      bottom: 2px;
+      width: 12px;
+      height: 12px;
+      border: 3px solid var(--card-surface);
+      border-radius: 50%;
+      background: var(--brand);
+    }
+    .conv-name-row { margin-bottom: 4px; }
+    .conv-name-row h3 { font-size: 15px; font-weight: 700; }
+    .conv-time { font-size: 10px; }
+    .conv-preview-row p { max-width: 100%; font-size: 13px; }
+    .unread-dot { width: 7px; height: 7px; margin: 0; box-shadow: 0 0 0 3px var(--brand-soft); }
+    .conv-chevron { width: 17px; height: 17px; flex: 0 0 auto; color: var(--text-muted); }
+
+    @media (min-width: 768px) {
+      .page-header {
+        width: min(100%, 920px);
+        min-height: 0;
+        margin: 0 auto;
+        padding: 42px 24px 22px;
+        background: transparent;
+        border: 0;
+        backdrop-filter: none;
+      }
+      .page-header .eyebrow { display: block; margin-bottom: 8px; }
+      .page-header p { display: block; margin: 7px 0 0; color: var(--text-muted); font-size: 14px; }
+      .title-row h1 { font-size: 40px; }
+      .content { max-width: 920px; padding: 4px 24px 50px; }
+      .new-matches-scroll { flex-wrap: nowrap; overflow-x: auto; gap: 22px; padding-left: 4px; }
+      .message-section { padding: 0; }
+      .conv-item { min-height: 84px; padding: 13px 17px; }
+      .conv-item:hover { background: var(--surface-2); }
+      .conv-avatar { width: 58px; height: 58px; }
+      .empty { padding-bottom: 40px; }
     }
 
   `]

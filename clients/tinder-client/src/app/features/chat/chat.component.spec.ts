@@ -113,4 +113,41 @@ describe('ChatComponent photo loading placeholders', () => {
     expect(fixture.nativeElement.querySelector('.loading-msgs')).toBeNull();
     expect(fixture.nativeElement.textContent).toContain('hello from cache');
   });
+
+  it('Given a conversation participant, when chat opens, then the participant profile anchors the header and intro', async () => {
+    TestBed.resetTestingModule();
+    await TestBed.configureTestingModule({
+      imports: [ChatComponent],
+      providers: [
+        { provide: Router, useValue: { navigate: vi.fn() } },
+        { provide: ActivatedRoute, useValue: { snapshot: { paramMap: { get: () => 'conv-1' } } } },
+        { provide: MatchService, useValue: { getConversation: vi.fn(() => of({
+          id: 'conv-1',
+          participant1Id: 'me',
+          participant2Id: 'mila',
+          createdAt: '',
+          messages: [],
+        })) } },
+        { provide: ProfileService, useValue: {
+          getMe: vi.fn(() => of({ profileId: 'me' })),
+          getProfile: vi.fn(() => of({
+            profileId: 'mila',
+            name: 'Mila',
+            isActive: true,
+            photos: [{ url: '/mila.jpg' }],
+          })),
+        } },
+        { provide: KeycloakService, useValue: { getToken: vi.fn() } },
+        { provide: HttpClient, useValue: { post: vi.fn(() => of(null)) } },
+        ChatHistoryCache,
+      ],
+    }).compileComponents();
+
+    fixture = TestBed.createComponent(ChatComponent);
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.querySelector('.chat-header h1')?.textContent).toContain('Mila');
+    expect(fixture.nativeElement.querySelector('.chat-header .avatar img')?.getAttribute('alt')).toBe('Mila');
+    expect(fixture.nativeElement.querySelector('.conversation-start h2')?.textContent).toContain('You and Mila matched');
+  });
 });

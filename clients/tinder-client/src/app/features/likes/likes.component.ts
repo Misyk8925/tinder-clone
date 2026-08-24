@@ -23,97 +23,104 @@ interface LikerCard {
   imports: [NgClass],
   template: `
     <div class="likes-page">
-      <header class="header">
-        <h1>Likes You</h1>
-        @if (likers().length > 0) {
-          <span class="count-badge">{{ likers().length }}</span>
-        }
+      <header class="page-header">
+        <div class="header-copy">
+          <span class="eyebrow">Interest</span>
+          <div class="title-row">
+            <h1>Likes you</h1>
+            @if (likers().length > 0) {
+              <span class="count-badge">{{ likers().length }}</span>
+            }
+          </div>
+          <p>People who already noticed something in you.</p>
+        </div>
       </header>
 
       @if (loading()) {
         <div class="state-center">
-          <div class="spinner"></div>
+          <div class="spinner" role="status" aria-label="Loading likes"></div>
         </div>
       } @else if (forbidden()) {
-        <div class="forbidden-container">
-          <div class="blur-grid">
+        <section class="premium-gate">
+          <div class="teaser-grid" aria-hidden="true">
             @for (i of placeholders; track i) {
-              <div class="blur-card">
-                <div class="blur-photo gradient-{{ i % 6 }}"></div>
-                <div class="blur-info">
-                  <div class="blur-line short"></div>
-                  <div class="blur-line long"></div>
-                </div>
+              <div class="teaser-card gradient-{{ i % 4 }}">
+                <span></span>
               </div>
             }
           </div>
 
-          <div class="upgrade-overlay">
-            <div class="upgrade-box">
-              <div class="gold-icon">
-                <svg viewBox="0 0 24 24" fill="currentColor" width="36" height="36">
-                  <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
-                </svg>
-              </div>
-              <h2>See Who Likes You</h2>
-              <p>Upgrade to Premium to see everyone who already liked you.</p>
-              <button class="btn-upgrade" (click)="goUpgrade()">
-                Upgrade to Gold
-              </button>
+          <div class="upgrade-box">
+            <div class="premium-mark">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+                <path d="M4 16.5 3 7l5 4 4-7 4 7 5-4-1 9.5z"/>
+                <path d="M5 20h14"/>
+              </svg>
             </div>
+            <span class="eyebrow">Connect Premium</span>
+            <h2>See Who Likes You</h2>
+            <p>Skip the guessing and start with people who are already interested.</p>
+            <button class="btn-upgrade" (click)="goUpgrade()">
+              Unlock likes
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="m9 18 6-6-6-6"/>
+              </svg>
+            </button>
           </div>
-        </div>
+        </section>
       } @else if (likers().length === 0) {
-        <div class="state-center">
-          <div class="empty-flame">
-            <svg viewBox="0 0 24 24" fill="#e0e0e0" width="72" height="72">
-              <path d="M17.66 11.2c-.23-.3-.51-.56-.77-.82-.67-.6-1.43-1.03-2.07-1.66C13.33 7.26 13 4.85 13.95 3c-.95.23-1.78.75-2.49 1.32-2.59 2.11-3.66 5.65-2.67 8.9.04.14.08.28.08.43 0 .28-.19.52-.45.57-.28.07-.53-.09-.63-.37-.04-.1-.06-.21-.09-.32C7.15 13 7 12.5 7 11.85c0-.58.16-1.2.44-1.7-1.16 1.27-1.86 2.97-1.86 4.77 0 3.31 2.69 6 6 6s6-2.69 6-6c0-1.88-.82-3.63-2.09-4.82z"/>
+        <div class="state-center empty-state">
+          <div class="empty-mark">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7">
+              <path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.7l-1.1-1.1a5.5 5.5 0 0 0-7.8 7.8l1.1 1.1L12 21l7.8-7.5 1.1-1.1a5.5 5.5 0 0 0-.1-7.8Z"/>
+              <path d="M12 8v8M8 12h8"/>
             </svg>
           </div>
-          <h3>No Likes Yet</h3>
-          <p>When someone likes your profile, you'll see them here.</p>
+          <span class="eyebrow">Nothing waiting yet</span>
+          <h2>Your likes will land here</h2>
+          <p>Keep your profile current and continue discovering people you genuinely want to meet.</p>
         </div>
       } @else {
-        <div class="grid">
+        <section class="likes-grid" aria-label="People who like you">
           @for (card of likers(); track card.likerProfileId) {
-            <div class="liker-card" [ngClass]="{ 'super-like': card.isSuper }">
+            <article class="liker-card" [ngClass]="{ 'super-like': card.isSuper }">
+              <div class="profile-visual">
+                @if (card.profile?.photos?.length) {
+                  <img class="card-img" [src]="card.profile!.photos[0].url" [alt]="card.profile!.name" (error)="onImgError($event)" />
+                } @else {
+                  <div class="card-no-photo">
+                    <span>{{ card.profile?.name?.[0] ?? '?' }}</span>
+                  </div>
+                }
+                <div class="visual-scrim"></div>
 
-              <!-- background: real photo or gradient -->
-              @if (card.profile?.photos?.length) {
-                <img class="card-img" [src]="card.profile!.photos[0].url" [alt]="card.profile!.name" (error)="onImgError($event)" />
-              } @else {
-                <div class="card-no-photo">
-                  <span>{{ card.profile?.name?.[0] ?? '?' }}</span>
-                </div>
-              }
+                @if (card.isSuper) {
+                  <div class="priority-badge">
+                    <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 17.27 18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z"/></svg>
+                    Priority like
+                  </div>
+                }
 
-              <!-- super like badge -->
-              @if (card.isSuper) {
-                <div class="super-banner">
-                  <svg viewBox="0 0 24 24" fill="currentColor" width="13" height="13"><path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z"/></svg>
-                  Super Like
-                </div>
-              }
-
-              <!-- bottom overlay: gradient + name + buttons -->
-              <div class="card-bottom">
-                <div class="card-name">
-                  {{ card.profile?.name ?? 'Unknown' }}
-                  @if (card.profile?.age) { <span class="card-age">, {{ card.profile!.age }}</span> }
-                </div>
                 <div class="card-actions">
-                  <button class="btn-pass" (click)="pass(card)" title="Pass">
-                    <svg viewBox="0 0 24 24" fill="currentColor"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+                  <button class="btn-pass" (click)="pass(card)" [attr.aria-label]="'Pass on ' + (card.profile?.name ?? 'profile')">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="m7 7 10 10M17 7 7 17"/></svg>
                   </button>
-                  <button class="btn-like" (click)="like(card)" title="Like back">
-                    <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 21.593c-5.63-5.539-11-10.297-11-14.402 0-3.791 3.068-5.191 5.281-5.191 1.312 0 4.151.501 5.719 4.457 1.59-3.968 4.464-4.447 5.726-4.447 2.54 0 5.274 1.621 5.274 5.181 0 4.069-5.136 8.625-11 14.402z"/></svg>
+                  <button class="btn-like" (click)="like(card)" [attr.aria-label]="'Like back ' + (card.profile?.name ?? 'profile')">
+                    <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 21.35 10.55 20C5.4 15.36 2 12.28 2 8.5A5.5 5.5 0 0 1 7.5 3 6 6 0 0 1 12 5.09 6 6 0 0 1 16.5 3 5.5 5.5 0 0 1 22 8.5c0 3.78-3.4 6.86-8.55 11.51z"/></svg>
                   </button>
                 </div>
               </div>
 
-            </div>
+              <div class="profile-copy">
+                <div class="profile-title">
+                  <h2>{{ card.profile?.name ?? 'Unknown' }}@if (card.profile?.age) {<span>, {{ card.profile!.age }}</span>}</h2>
+                  @if (card.profile?.isActive) { <span class="active-dot" aria-label="Active now"></span> }
+                </div>
+                <p>{{ card.profile?.city || 'Close to you' }}</p>
+              </div>
+            </article>
           }
-        </div>
+        </section>
       }
     </div>
 
@@ -134,73 +141,6 @@ interface LikerCard {
       background: transparent;
       padding-bottom: calc(env(safe-area-inset-bottom, 0px) + var(--mobile-bottombar-height));
       overflow-y: auto;
-    }
-
-    @media (min-width: 768px) {
-      .likes-page {
-        padding-bottom: 0;
-        height: 100dvh;
-      }
-
-      .grid {
-        grid-template-columns: repeat(3, 1fr);
-        max-width: 900px;
-        margin: 0 auto;
-      }
-
-      .blur-grid {
-        grid-template-columns: repeat(4, 1fr);
-        max-width: 900px;
-        margin: 0 auto;
-      }
-
-      .header {
-        padding: 18px 32px 14px;
-      }
-    }
-
-    @media (min-width: 1200px) {
-      .grid {
-        grid-template-columns: repeat(4, 1fr);
-        max-width: 1100px;
-      }
-
-      .blur-grid {
-        grid-template-columns: repeat(4, 1fr);
-        max-width: 1100px;
-      }
-    }
-
-    .header {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      min-height: var(--mobile-topbar-height);
-      padding: 0 16px;
-      background: var(--header-surface);
-      position: sticky;
-      top: 0;
-      z-index: 10;
-      width: 100%;
-      backdrop-filter: blur(16px);
-      -webkit-backdrop-filter: blur(16px);
-
-      h1 {
-        margin: 0;
-        font-size: 19px;
-        font-weight: 700;
-        color: var(--text-primary);
-        letter-spacing: -0.3px;
-      }
-    }
-
-    .count-badge {
-      background: var(--brand-gradient);
-      color: #fff;
-      border-radius: 12px;
-      padding: 2px 9px;
-      font-size: 12px;
-      font-weight: 700;
     }
 
     .state-center {
@@ -228,233 +168,6 @@ interface LikerCard {
 
     @keyframes spin { to { transform: rotate(360deg); } }
 
-    /* ── Forbidden / Non-premium ── */
-    .forbidden-container {
-      position: relative;
-      flex: 1;
-      min-height: 60vh;
-    }
-
-    .blur-grid {
-      display: grid;
-      grid-template-columns: repeat(2, 1fr);
-      gap: 12px;
-      padding: 16px;
-    }
-
-    .blur-card {
-      border-radius: 16px;
-      overflow: hidden;
-      background: var(--surface);
-      filter: blur(10px);
-      pointer-events: none;
-      border: 1px solid var(--border-light);
-    }
-
-    .blur-photo {
-      aspect-ratio: 3/4;
-
-      &.gradient-0 { background: linear-gradient(160deg, #b7dd61, #6d9037); }
-      &.gradient-1 { background: linear-gradient(160deg, #4fc3ff, #2f8cff); }
-      &.gradient-2 { background: linear-gradient(160deg, #27d1a2, #39e2b7); }
-      &.gradient-3 { background: linear-gradient(160deg, #f6b53f, #9cce2b); }
-      &.gradient-4 { background: linear-gradient(160deg, #ffb084, #ffd3a5); }
-      &.gradient-5 { background: linear-gradient(160deg, #6d9037, #b7dd61); }
-    }
-
-    .blur-info {
-      padding: 10px 12px;
-      display: flex;
-      flex-direction: column;
-      gap: 6px;
-    }
-
-    .blur-line {
-      height: 10px;
-      background: var(--border);
-      border-radius: 5px;
-
-      &.short { width: 60%; }
-      &.long { width: 80%; }
-    }
-
-    .upgrade-overlay {
-      position: absolute;
-      inset: 0;
-      z-index: 3;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      pointer-events: auto;
-      background: linear-gradient(to bottom, transparent 0%, rgba(0,0,0,0.45) 40%, rgba(0,0,0,0.85) 100%);
-      padding: 24px;
-    }
-
-    .upgrade-box {
-      text-align: center;
-      max-width: 300px;
-      width: 100%;
-    }
-
-    .gold-icon {
-      width: 72px;
-      height: 72px;
-      border-radius: 50%;
-      background: linear-gradient(135deg, var(--gold), var(--gold-2));
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      margin: 0 auto 16px;
-      color: #fff;
-      box-shadow: 0 10px 26px rgba(246, 181, 63, 0.45);
-    }
-
-    .upgrade-box h2 {
-      margin: 0 0 10px;
-      font-size: 24px;
-      font-weight: 800;
-      color: #fff;
-    }
-
-    .upgrade-box p {
-      margin: 0 0 24px;
-      font-size: 14px;
-      color: rgba(255,255,255,0.8);
-      line-height: 1.5;
-    }
-
-    .btn-upgrade {
-      width: 100%;
-      padding: 15px;
-      border: none;
-      border-radius: 50px;
-      background: linear-gradient(135deg, var(--gold), var(--gold-2));
-      color: #fff;
-      font-size: 16px;
-      font-weight: 700;
-      cursor: pointer;
-      box-shadow: 0 8px 20px rgba(246, 181, 63, 0.4);
-      transition: transform 0.15s;
-
-      &:active { transform: scale(0.96); }
-    }
-
-    /* ── Premium grid ── */
-    .grid {
-      display: grid;
-      grid-template-columns: repeat(2, 1fr);
-      gap: 12px;
-      padding: 14px 16px 20px;
-    }
-
-    .liker-card {
-      border-radius: 20px;
-      overflow: hidden;
-      aspect-ratio: 3/4;
-      position: relative;
-      box-shadow: 0 16px 32px var(--shadow-md);
-      cursor: pointer;
-      border: 1px solid var(--border-light);
-
-      &.super-like {
-        outline: 2.5px solid rgba(47, 140, 255, 0.7);
-        outline-offset: -2px;
-      }
-
-      .card-img {
-        position: absolute;
-        inset: 0;
-        width: 100%; height: 100%;
-        object-fit: cover;
-      }
-
-      .card-no-photo {
-        position: absolute;
-        inset: 0;
-        background: var(--brand-gradient);
-        display: flex;
-        align-items: center;
-        justify-content: center;
-
-        span {
-          font-size: 56px;
-          font-weight: 800;
-          color: rgba(255,255,255,0.35);
-          text-transform: uppercase;
-        }
-      }
-
-      .super-banner {
-        position: absolute;
-        top: 10px;
-        left: 10px;
-        background: linear-gradient(135deg, var(--super), #5bb1ff);
-        color: #fff;
-        font-size: 11px;
-        font-weight: 700;
-        border-radius: 6px;
-        padding: 4px 9px;
-        display: flex;
-        align-items: center;
-        gap: 4px;
-        letter-spacing: 0.3px;
-        z-index: 2;
-        box-shadow: 0 6px 16px rgba(47, 140, 255, 0.35);
-      }
-
-      /* bottom overlay: name + action buttons */
-      .card-bottom {
-        position: absolute;
-        bottom: 0;
-        left: 0;
-        right: 0;
-        padding: 36px 10px 10px;
-        background: linear-gradient(to top, rgba(0,0,0,0.78) 0%, rgba(0,0,0,0.25) 60%, transparent 100%);
-        z-index: 2;
-      }
-
-      .card-name {
-        color: #fff;
-        font-size: 15px;
-        font-weight: 700;
-        margin-bottom: 8px;
-        padding: 0 2px;
-
-        .card-age { font-weight: 500; }
-      }
-
-      .card-actions {
-        display: flex;
-        gap: 8px;
-
-        button {
-          flex: 1;
-          border: none;
-          border-radius: 50px;
-          padding: 10px 0;
-          cursor: pointer;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          transition: transform 0.15s;
-          svg { width: 20px; height: 20px; }
-          &:active { transform: scale(0.9); }
-        }
-
-        .btn-pass {
-          background: rgba(0,0,0,0.45);
-          color: #fff;
-          border: 1.5px solid rgba(255,255,255,0.5);
-          backdrop-filter: blur(4px);
-        }
-
-        .btn-like {
-          background: var(--brand-gradient);
-          color: #fff;
-        }
-      }
-    }
-
     .toast-msg {
       position: fixed;
       bottom: calc(env(safe-area-inset-bottom, 0px) + var(--mobile-bottombar-height) + 16px);
@@ -480,8 +193,233 @@ interface LikerCard {
       to { opacity: 1; transform: translateX(-50%) translateY(0); }
     }
 
+    /* Fresh connections layout */
+    .page-header {
+      min-height: 62px;
+      padding: 8px 18px;
+      display: flex;
+      align-items: center;
+      position: sticky;
+      top: 0;
+      z-index: 10;
+      background: var(--header-surface);
+      border-bottom: 1px solid var(--border-light);
+      backdrop-filter: blur(18px);
+      -webkit-backdrop-filter: blur(18px);
+    }
+
+    .header-copy { min-width: 0; }
+    .eyebrow {
+      display: block;
+      color: var(--brand-ink);
+      font-size: 10px;
+      font-weight: 800;
+      line-height: 1;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+    }
+
+    .page-header .eyebrow,
+    .page-header p { display: none; }
+    .title-row { display: flex; align-items: center; gap: 9px; }
+    .title-row h1 {
+      margin: 0;
+      color: var(--text-primary);
+      font-family: var(--font-editorial);
+      font-size: 25px;
+      font-weight: 600;
+      letter-spacing: -0.04em;
+    }
+    .count-badge {
+      min-width: 24px;
+      height: 24px;
+      padding: 0 7px;
+      display: grid;
+      place-items: center;
+      border-radius: 999px;
+      background: var(--brand-soft);
+      color: var(--brand-ink);
+      font-size: 11px;
+      font-weight: 800;
+    }
+
+    .state-center h2 { margin: 4px 0 0; font-size: 24px; letter-spacing: -0.04em; }
+    .state-center p { max-width: 330px; line-height: 1.55; }
+    .empty-mark,
+    .premium-mark {
+      width: 52px;
+      height: 52px;
+      display: grid;
+      place-items: center;
+      border-radius: 18px;
+      color: var(--brand-ink);
+      background: var(--brand-soft);
+      border: 1px solid var(--brand-border);
+    }
+    .empty-mark svg,
+    .premium-mark svg { width: 25px; height: 25px; }
+
+    .premium-gate {
+      width: min(100%, 1040px);
+      min-height: calc(100dvh - 126px);
+      margin: 0 auto;
+      padding: 20px 16px 28px;
+      display: grid;
+      align-content: center;
+      gap: 18px;
+    }
+    .teaser-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px;
+      filter: saturate(0.8);
+    }
+    .teaser-card {
+      position: relative;
+      aspect-ratio: 4 / 5;
+      overflow: hidden;
+      border: 1px solid var(--border-light);
+      border-radius: 18px;
+      filter: blur(7px);
+      opacity: 0.72;
+    }
+    .teaser-card span { position: absolute; inset: auto 12px 12px; height: 12px; border-radius: 999px; background: rgba(255,255,255,0.45); }
+    .gradient-0 { background: linear-gradient(145deg, #cfe892, #759443); }
+    .gradient-1 { background: linear-gradient(145deg, #a6c9c4, #536d70); }
+    .gradient-2 { background: linear-gradient(145deg, #d9b5a5, #8b5e52); }
+    .gradient-3 { background: linear-gradient(145deg, #c6bddb, #6f6881); }
+
+    .upgrade-box {
+      position: relative;
+      max-width: none;
+      overflow: hidden;
+      padding: 24px;
+      text-align: left;
+      border: 1px solid var(--brand-border);
+      border-radius: 24px;
+      background: linear-gradient(145deg, var(--surface), var(--surface-2));
+      box-shadow: var(--shadow-card);
+    }
+    .upgrade-box::after {
+      content: '';
+      position: absolute;
+      width: 180px; height: 180px;
+      right: -80px; top: -90px;
+      border-radius: 50%;
+      background: var(--brand-soft);
+      filter: blur(12px);
+      pointer-events: none;
+    }
+    .upgrade-box .eyebrow { margin: 20px 0 8px; }
+    .upgrade-box h2 { margin: 0; color: var(--text-primary); font-family: var(--font-editorial); font-size: 30px; font-weight: 600; letter-spacing: -0.045em; }
+    .upgrade-box p { max-width: 390px; margin: 10px 0 22px; color: var(--text-muted); font-size: 14px; line-height: 1.55; }
+    .btn-upgrade {
+      width: auto;
+      min-height: 46px;
+      padding: 0 17px;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      border-radius: 15px;
+      background: var(--brand);
+      color: #18200d;
+      font-size: 14px;
+      box-shadow: 0 10px 24px var(--brand-glow);
+    }
+    .btn-upgrade svg { width: 17px; height: 17px; }
+
+    .likes-grid {
+      width: min(100%, 1080px);
+      margin: 0 auto;
+      padding: 16px 14px 28px;
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 22px 12px;
+    }
+    .liker-card {
+      min-width: 0;
+      aspect-ratio: auto;
+      overflow: visible;
+      border: 0;
+      border-radius: 0;
+      box-shadow: none;
+      cursor: default;
+    }
+    .liker-card.super-like { outline: 0; }
+    .profile-visual {
+      position: relative;
+      aspect-ratio: 4 / 5;
+      overflow: hidden;
+      border: 1px solid var(--card-border);
+      border-radius: 20px;
+      background: var(--surface-2);
+      box-shadow: var(--shadow-card);
+    }
+    .super-like .profile-visual { border-color: var(--brand-border); }
+    .liker-card .card-img,
+    .liker-card .card-no-photo { position: absolute; inset: 0; width: 100%; height: 100%; }
+    .liker-card .card-img { object-fit: cover; }
+    .liker-card .card-no-photo { display: grid; place-items: center; background: linear-gradient(145deg, var(--surface-3), var(--brand-soft)); color: var(--brand-ink); }
+    .liker-card .card-no-photo span { color: var(--brand-ink); font-family: var(--font-editorial); font-size: 58px; font-weight: 600; opacity: 0.72; }
+    .visual-scrim { position: absolute; inset: 42% 0 0; background: linear-gradient(transparent, rgba(13,15,11,0.45)); pointer-events: none; }
+    .priority-badge {
+      position: absolute;
+      top: 10px; left: 10px;
+      padding: 6px 9px;
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      border-radius: 999px;
+      color: #1b230f;
+      background: rgba(190, 230, 91, 0.92);
+      font-size: 10px;
+      font-weight: 800;
+      backdrop-filter: blur(10px);
+    }
+    .priority-badge svg { width: 11px; height: 11px; }
+    .liker-card .card-actions { position: absolute; right: 10px; bottom: 10px; display: flex; gap: 7px; }
+    .liker-card .card-actions button {
+      width: 38px; height: 38px;
+      padding: 0;
+      display: grid;
+      place-items: center;
+      border-radius: 50%;
+      cursor: pointer;
+      backdrop-filter: blur(14px);
+    }
+    .liker-card .card-actions svg { width: 18px; height: 18px; }
+    .liker-card .card-actions .btn-pass { border: 1px solid rgba(255,255,255,0.26); background: rgba(23,23,23,0.46); color: #fff; }
+    .liker-card .card-actions .btn-like { border: 0; background: var(--brand); color: #1b230f; }
+    .profile-copy { padding: 10px 2px 0; }
+    .profile-title { display: flex; align-items: center; gap: 7px; }
+    .profile-title h2 { min-width: 0; margin: 0; overflow: hidden; color: var(--text-primary); font-size: 16px; font-weight: 700; letter-spacing: -0.02em; text-overflow: ellipsis; white-space: nowrap; }
+    .profile-title h2 span { font-weight: 500; }
+    .active-dot { width: 7px; height: 7px; flex: 0 0 auto; border-radius: 50%; background: var(--brand); box-shadow: 0 0 0 3px var(--brand-soft); }
+    .profile-copy p { margin: 3px 0 0; overflow: hidden; color: var(--text-muted); font-size: 12px; text-overflow: ellipsis; white-space: nowrap; }
+
     @media (min-width: 768px) {
       .toast-msg { bottom: 24px; }
+      .page-header {
+        position: static;
+        width: min(100%, 1080px);
+        min-height: 0;
+        margin: 0 auto;
+        padding: 42px 32px 22px;
+        background: transparent;
+        border: 0;
+        backdrop-filter: none;
+      }
+      .page-header .eyebrow { display: block; margin-bottom: 8px; }
+      .page-header p { display: block; margin: 7px 0 0; color: var(--text-muted); font-size: 14px; }
+      .title-row h1 { font-size: 40px; }
+      .likes-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); padding: 10px 32px 48px; gap: 28px 18px; }
+      .premium-gate { grid-template-columns: minmax(320px, 1.1fr) minmax(300px, 0.9fr); align-items: center; padding: 12px 32px 54px; }
+      .teaser-grid { gap: 14px; }
+      .upgrade-box { padding: 32px; }
+    }
+
+    @media (min-width: 1120px) {
+      .likes-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
     }
   `]
 })

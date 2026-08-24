@@ -56,4 +56,30 @@ describe('LikesComponent non-premium placeholder', () => {
     upgrade.click();
     expect(router.navigate).toHaveBeenCalledWith(['/profile']);
   });
+
+  it('Given a premium user with likes, when Likes opens, then people are presented as profile-first cards', () => {
+    keycloak.hasPremium.mockReturnValue(true);
+    likesService.getLikedMe.mockReturnValue(of([{
+      likerProfileId: 'profile-1',
+      likedAt: '2026-08-23T18:00:00Z',
+      isSuper: true,
+    }]));
+    profileService.getProfile.mockReturnValue(of({
+      profileId: 'profile-1',
+      name: 'Mila',
+      age: 24,
+      city: 'St. Pölten · 3 km',
+      isActive: true,
+      photos: [{ url: '/mila.jpg' }],
+    }));
+
+    fixture = TestBed.createComponent(LikesComponent);
+    fixture.detectChanges();
+
+    const root = fixture.nativeElement as HTMLElement;
+    expect(root.querySelector('.likes-grid')).toBeTruthy();
+    expect(root.querySelector('.profile-visual img')?.getAttribute('alt')).toBe('Mila');
+    expect(root.querySelector('.profile-copy h2')?.textContent).toContain('Mila, 24');
+    expect(root.querySelector('.priority-badge')?.textContent).toContain('Priority like');
+  });
 });

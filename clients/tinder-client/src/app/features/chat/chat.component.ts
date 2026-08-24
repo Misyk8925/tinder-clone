@@ -12,6 +12,7 @@ import { ChatHistoryCache } from '../../core/services/chat-history.cache';
 import { markConversationRead } from '../matches/matches.component';
 import { KeycloakService } from '../../core/services/keycloak.service';
 import { ProfileService } from '../../core/services/profile.service';
+import { Profile } from '../../core/models/profile.model';
 import { MinimalStompClient } from '../../core/stomp-client';
 import { environment } from '../../../environments/environment';
 import { mergeServerChatMessages } from '../../core/utils/chat-history-merge';
@@ -44,26 +45,50 @@ interface StompMessageEvent {
           </svg>
         </button>
         <div class="header-info">
-          <div class="avatar">{{ conversationId().slice(0,2).toUpperCase() }}</div>
-          <div>
-            <h2>Match Chat</h2>
-            <span class="online" [class.connecting]="wsState() === 'connecting'">
-              {{ wsState() === 'connected' ? 'Online' : wsState() === 'connecting' ? 'Connecting…' : 'Offline' }}
-            </span>
+          <div class="avatar">
+            @if (otherProfile()?.photos?.length) {
+              <img [src]="otherProfile()!.photos[0].url" [alt]="otherProfile()!.name" />
+            } @else {
+              <span>{{ otherInitial() }}</span>
+            }
+            @if (otherProfile()?.isActive) { <span class="presence-dot" aria-label="Active now"></span> }
           </div>
+          <div class="header-copy">
+            <span class="eyebrow">Conversation</span>
+            <h1>{{ otherName() }}</h1>
+          </div>
+        </div>
+        <div class="connection-state" [class.connecting]="wsState() === 'connecting'" [class.offline]="wsState() === 'disconnected'">
+          <span></span>
+          {{ connectionLabel() }}
         </div>
       </header>
 
       <div class="messages-area" #messagesArea>
         @if (loading()) {
           <div class="loading-msgs">
-            <div class="spinner"></div>
-          </div>
-        } @else if (messages().length === 0) {
-          <div class="no-msgs">
-            <p>Say hello! 👋</p>
+            <div class="spinner" role="status" aria-label="Loading conversation"></div>
           </div>
         } @else {
+          <div class="conversation-start">
+            <div class="start-avatar">
+              @if (otherProfile()?.photos?.length) {
+                <img [src]="otherProfile()!.photos[0].url" [alt]="otherProfile()!.name" />
+              } @else {
+                <span>{{ otherInitial() }}</span>
+              }
+            </div>
+            <span class="eyebrow">You connected</span>
+            <h2>You and {{ otherName() }} matched</h2>
+            <p>Start with something you noticed. Real conversations usually begin small.</p>
+          </div>
+
+          @if (messages().length === 0) {
+            <div class="no-msgs">
+              <p>Write the first message</p>
+              <span>Ask about an interest or share a simple plan.</span>
+            </div>
+          }
           @for (msg of messages(); track msg.id) {
             <div class="message" [ngClass]="{ 'mine': msg.senderId === myId() }">
               <div class="bubble">
@@ -97,25 +122,26 @@ interface StompMessageEvent {
       </div>
 
       <div class="input-area">
-        <label class="photo-btn" title="Send photo">
-          <input type="file" accept="image/*" (change)="sendPhoto($event)" hidden />
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
-            <rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/>
-            <polyline points="21 15 16 10 5 21"/>
-          </svg>
-        </label>
-        <input
-          class="msg-input"
-          type="text"
-          [(ngModel)]="messageText"
-          placeholder="Type a message..."
-          (keydown.enter)="sendMessage()"
-        />
-        <button class="send-btn" (click)="sendMessage()" [disabled]="!messageText.trim() || wsState() !== 'connected'">
-          <svg viewBox="0 0 24 24" fill="currentColor">
-            <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/>
-          </svg>
-        </button>
+        <div class="composer-shell">
+          <label class="photo-btn" title="Send photo" aria-label="Send a photo">
+            <input type="file" accept="image/*" (change)="sendPhoto($event)" hidden />
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M4 7a2 2 0 0 1 2-2h3l1.4-2h3.2L15 5h3a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2z"/>
+              <circle cx="12" cy="12" r="3"/>
+            </svg>
+          </label>
+          <input
+            class="msg-input"
+            type="text"
+            [(ngModel)]="messageText"
+            placeholder="Write a message"
+            aria-label="Message"
+            (keydown.enter)="sendMessage()"
+          />
+          <button class="send-btn" aria-label="Send message" (click)="sendMessage()" [disabled]="!messageText.trim() || wsState() !== 'connected'">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="m5 12 14-7-4 14-3-5z"/><path d="m12 14 7-9"/></svg>
+          </button>
+        </div>
       </div>
     </div>
 
@@ -441,6 +467,235 @@ interface StompMessageEvent {
 
       &:disabled { opacity: 0.4; cursor: not-allowed; }
     }
+
+    /* Fresh conversation layout */
+    .chat-page {
+      background:
+        radial-gradient(circle at 50% -10%, var(--brand-soft), transparent 34%),
+        var(--bg);
+    }
+    .chat-header {
+      min-height: 58px;
+      padding: 6px 12px 6px 8px;
+      justify-content: space-between;
+      border-bottom: 1px solid var(--border-light);
+      flex-shrink: 0;
+    }
+    .back-btn {
+      width: 38px;
+      height: 38px;
+      padding: 8px;
+      color: var(--text-primary);
+      border-radius: 13px;
+    }
+    .back-btn:active { background: var(--surface-2); }
+    .header-info { flex: 1; gap: 10px; min-width: 0; }
+    .header-info .avatar {
+      position: relative;
+      width: 40px;
+      height: 40px;
+      flex: 0 0 auto;
+      overflow: visible;
+      background: linear-gradient(145deg, var(--surface-3), var(--brand-soft));
+      color: var(--brand-ink);
+      font-family: var(--font-editorial);
+      font-size: 17px;
+      font-weight: 600;
+    }
+    .header-info .avatar img { width: 100%; height: 100%; border-radius: 50%; object-fit: cover; }
+    .presence-dot {
+      position: absolute;
+      right: -1px;
+      bottom: 1px;
+      width: 11px;
+      height: 11px;
+      border: 3px solid var(--surface);
+      border-radius: 50%;
+      background: var(--brand);
+    }
+    .header-copy { min-width: 0; }
+    .eyebrow {
+      display: block;
+      color: var(--brand-ink);
+      font-size: 9px;
+      font-weight: 800;
+      line-height: 1;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+    }
+    .header-copy .eyebrow { display: none; }
+    .header-copy h1 {
+      margin: 0;
+      overflow: hidden;
+      color: var(--text-primary);
+      font-size: 15px;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .connection-state {
+      padding: 6px 9px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      border: 1px solid var(--brand-border);
+      border-radius: 999px;
+      background: var(--brand-soft);
+      color: var(--brand-ink);
+      font-size: 10px;
+      font-weight: 700;
+    }
+    .connection-state > span { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+    .connection-state.connecting { color: var(--gold-2); border-color: rgba(242,140,38,0.24); background: rgba(242,140,38,0.1); }
+    .connection-state.offline { color: var(--text-muted); border-color: var(--border); background: var(--surface-2); }
+
+    .messages-area {
+      width: 100%;
+      max-width: 760px;
+      margin: 0 auto;
+      gap: 10px;
+      padding: 22px 14px 12px;
+    }
+    .conversation-start {
+      width: min(100%, 360px);
+      margin: 14px auto 26px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      text-align: center;
+    }
+    .start-avatar {
+      width: 66px;
+      height: 66px;
+      margin-bottom: 13px;
+      display: grid;
+      place-items: center;
+      overflow: hidden;
+      border: 3px solid var(--bg);
+      border-radius: 50%;
+      outline: 1px solid var(--brand-border);
+      background: linear-gradient(145deg, var(--surface-3), var(--brand-soft));
+      color: var(--brand-ink);
+      font-family: var(--font-editorial);
+      font-size: 27px;
+      box-shadow: var(--shadow-float);
+    }
+    .start-avatar img { width: 100%; height: 100%; object-fit: cover; }
+    .conversation-start h2 { margin: 7px 0 0; font-family: var(--font-editorial); font-size: 24px; font-weight: 600; letter-spacing: -0.04em; }
+    .conversation-start p { margin: 7px 0 0; color: var(--text-muted); font-size: 12px; line-height: 1.5; }
+    .no-msgs {
+      flex: none;
+      margin: 0 auto 18px;
+      padding: 13px 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      border: 1px solid var(--border);
+      border-radius: 15px;
+      background: var(--surface-glass);
+    }
+    .no-msgs p { margin: 0; color: var(--text-primary); font-size: 13px; font-weight: 700; }
+    .no-msgs span { color: var(--text-muted); font-size: 11px; }
+
+    .message { gap: 3px; }
+    .bubble {
+      max-width: min(78%, 520px);
+      padding: 10px 13px;
+      border: 1px solid var(--card-border);
+      border-radius: 17px 17px 17px 6px;
+      background: var(--card-surface);
+      box-shadow: 0 3px 10px var(--shadow-sm);
+      font-size: 14px;
+      line-height: 1.45;
+    }
+    .message.mine .bubble {
+      border: 1px solid var(--brand-border);
+      border-radius: 17px 17px 6px 17px;
+      background: var(--brand);
+      color: #18200d;
+      box-shadow: 0 5px 14px var(--brand-glow);
+    }
+    [data-theme="dark"] .bubble { background: var(--surface-3); border-color: var(--border); }
+    [data-theme="dark"] .message.mine .bubble { background: var(--brand); color: #18200d; border-color: var(--brand-border); }
+    .msg-time { padding: 0 3px; font-size: 9px; }
+
+    .input-area {
+      padding: 8px 10px calc(8px + env(safe-area-inset-bottom, 0px));
+      border-top: 0;
+      background: linear-gradient(transparent, var(--bg) 26%);
+      backdrop-filter: none;
+    }
+    .composer-shell {
+      width: 100%;
+      max-width: 760px;
+      min-height: 48px;
+      margin: 0 auto;
+      padding: 4px 4px 4px 7px;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      border: 1px solid var(--border);
+      border-radius: 18px;
+      background: var(--surface-glass);
+      box-shadow: var(--shadow-float);
+      backdrop-filter: blur(18px);
+      -webkit-backdrop-filter: blur(18px);
+    }
+    .photo-btn {
+      width: 38px;
+      height: 38px;
+      padding: 0;
+      display: grid;
+      place-items: center;
+      flex: 0 0 auto;
+      border-radius: 13px;
+      color: var(--text-muted);
+    }
+    .photo-btn:active { background: var(--surface-2); }
+    .photo-btn svg { width: 20px; height: 20px; }
+    .msg-input {
+      min-width: 0;
+      padding: 9px 7px;
+      border: 0;
+      border-radius: 0;
+      background: transparent;
+      font-size: 14px;
+      box-shadow: none;
+    }
+    .msg-input:focus { border: 0; background: transparent; box-shadow: none; }
+    .send-btn {
+      width: 39px;
+      height: 39px;
+      border-radius: 14px;
+      background: var(--brand);
+      color: #18200d;
+      box-shadow: 0 7px 18px var(--brand-glow);
+    }
+    .send-btn svg { width: 18px; height: 18px; }
+    .send-btn:disabled { background: var(--surface-3); color: var(--text-muted); box-shadow: none; opacity: 1; }
+
+    @media (min-width: 768px) {
+      .chat-page {
+        max-width: 920px;
+        border: 0;
+      }
+      .chat-header {
+        min-height: 72px;
+        padding: 10px 18px;
+        border: 1px solid var(--border-light);
+        border-top: 0;
+        border-radius: 0 0 20px 20px;
+        background: var(--surface-glass);
+      }
+      .header-info .avatar { width: 46px; height: 46px; }
+      .header-copy .eyebrow { display: block; margin-bottom: 4px; }
+      .header-copy h1 { font-size: 17px; }
+      .messages-area { padding: 28px 20px 16px; }
+      .conversation-start { margin-top: 28px; }
+      .input-area { padding: 12px 20px 18px; }
+      .composer-shell { min-height: 52px; border-radius: 19px; }
+    }
   `]
 })
 export class ChatComponent implements OnInit, OnDestroy, AfterViewChecked {
@@ -460,6 +715,7 @@ export class ChatComponent implements OnInit, OnDestroy, AfterViewChecked {
   loading = signal(true);
   wsState = signal<'disconnected' | 'connecting' | 'connected'>('disconnected');
   previewUrl = signal<string | null>(null);
+  otherProfile = signal<Profile | null>(null);
   messageText = '';
   myId = signal('');  // profile UUID — used to distinguish own vs other messages
   private loadedPhotoIds = signal(new Set<string>());
@@ -502,6 +758,7 @@ export class ChatComponent implements OnInit, OnDestroy, AfterViewChecked {
     // which the WS controller uses to validate STOMP send access.
     this.matchService.getConversation(id, profileId).subscribe({
       next: (conv) => {
+        this.loadOtherProfile(conv.participant1Id, conv.participant2Id, profileId);
         this.applyServerMessages(conv.messages ?? []);
         this.persistHistory();
         this.loading.set(false);
@@ -516,6 +773,15 @@ export class ChatComponent implements OnInit, OnDestroy, AfterViewChecked {
         }
         this.ensureStomp(id);
       }
+    });
+  }
+
+  private loadOtherProfile(participant1Id: string, participant2Id: string, myProfileId: string | undefined): void {
+    if (!myProfileId) return;
+    const otherProfileId = participant1Id === myProfileId ? participant2Id : participant1Id;
+    if (!otherProfileId || otherProfileId === myProfileId) return;
+    this.profileService.getProfile(otherProfileId).subscribe({
+      next: profile => this.otherProfile.set(profile)
     });
   }
 
@@ -795,6 +1061,20 @@ export class ChatComponent implements OnInit, OnDestroy, AfterViewChecked {
 
   goBack(): void {
     this.router.navigate(['/matches']);
+  }
+
+  otherName(): string {
+    return this.otherProfile()?.name || 'New connection';
+  }
+
+  otherInitial(): string {
+    return this.otherProfile()?.name?.[0]?.toUpperCase() || 'C';
+  }
+
+  connectionLabel(): string {
+    if (this.wsState() === 'connected') return 'Live';
+    if (this.wsState() === 'connecting') return 'Connecting';
+    return 'Offline';
   }
 
   formatTime(dateStr: string): string {
