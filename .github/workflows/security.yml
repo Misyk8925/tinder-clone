@@ -297,7 +297,9 @@ jobs:
           push: false
           provenance: false
           tags: tinder/${{ matrix.service }}:${{ github.sha }}
-          outputs: type=oci,dest=/tmp/${{ matrix.service }}.tar
+          # Trivy's --input mode expects a Docker image archive (manifest.json),
+          # not an OCI layout archive (index.json).
+          outputs: type=docker,dest=/tmp/${{ matrix.service }}.tar
           cache-from: type=gha,scope=trivy-${{ matrix.service }}
           cache-to: type=gha,mode=max,scope=trivy-${{ matrix.service }}
       - name: Scan image
