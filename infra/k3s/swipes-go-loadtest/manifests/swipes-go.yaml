@@ -1,0 +1,106 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: swipes-go-loadtest-config
+  namespace: swipes-go-loadtest
+data:
+  APP_ENV: benchmark
+  PORT: "8040"
+  KAFKA_BROKERS: swipes-kafka:9092
+  SWIPES_KAFKA_TOPIC: swipe-created
+  SWIPES_INTERNAL_BYPASS_PROFILE_CHECK: "true"
+  SWIPES_INTERNAL_ONLY_BENCHMARK: "true"
+  PROFILE_CACHE_CONSUMERS_ENABLED: "false"
+  SWIPES_PRODUCER_QUEUE_CAPACITY: "200000"
+  SWIPES_PRODUCER_CONCURRENCY: "4"
+  SWIPES_PRODUCER_BATCH_SIZE: "500"
+  SWIPES_PRODUCER_BUFFER_TIMEOUT: 1ms
+  SWIPES_PRODUCER_WARMUP_ENABLED: "true"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: swipes-go
+  namespace: swipes-go-loadtest
+  labels:
+    app.kubernetes.io/name: swipes-go
+    app.kubernetes.io/part-of: swipes-go-loadtest
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: swipes-go
+  ports:
+    - name: http
+      port: 8040
+      targetPort: http
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: swipes-go
+  namespace: swipes-go-loadtest
+  labels:
+    app.kubernetes.io/name: swipes-go
+    app.kubernetes.io/part-of: swipes-go-loadtest
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: swipes-go
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: swipes-go
+        app.kubernetes.io/part-of: swipes-go-loadtest
+    spec:
+      initContainers:
+        - name: create-swipe-topic
+          image: confluentinc/cp-kafka:7.5.0
+          imagePullPolicy: IfNotPresent
+          command:
+            - /bin/bash
+            - -ec
+            - |
+              until kafka-topics --bootstrap-server swipes-kafka:9092 --create --if-not-exists \
+                --topic swipe-created --partitions 12 --replication-factor 1; do
+                sleep 2
+              done
+      containers:
+        - name: swipes-go
+          image: __SWIPES_GO_IMAGE__
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: http
+              containerPort: 8040
+          envFrom:
+            - configMapRef:
+                name: swipes-go-loadtest-config
+          env:
+            - name: INTERNAL_SWIPES_AUTH_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: swipes-loadtest-auth
+                  key: internal-auth-secret
+          resources:
+            requests:
+              cpu: 500m
+              memory: 128Mi
+          readinessProbe:
+            httpGet:
+              path: /actuator/health
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 5
+            failureThreshold: 12
+          livenessProbe:
+            httpGet:
+              path: /actuator/health
+              port: http
+            initialDelaySeconds: 20
+            periodSeconds: 10
+            failureThreshold: 3
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]

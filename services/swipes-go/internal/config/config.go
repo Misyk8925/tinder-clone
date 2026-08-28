@@ -14,6 +14,7 @@ type Config struct {
 	Port                    string
 	InternalAuthSecret      string
 	InternalBypassProfile   bool
+	InternalOnlyBenchmark   bool
 	KafkaBrokers            []string
 	SwipeTopic              string
 	ProfileCreatedTopic     string
@@ -41,6 +42,7 @@ func Load() (Config, error) {
 		Port:                    stringEnv("8040", "PORT", "SERVER_PORT"),
 		InternalAuthSecret:      firstEnv("INTERNAL_SWIPES_AUTH_SECRET", "SWIPES_INTERNAL_AUTH_SECRET"),
 		InternalBypassProfile:   boolEnv(false, "SWIPES_INTERNAL_BYPASS_PROFILE_CHECK"),
+		InternalOnlyBenchmark:   boolEnv(false, "SWIPES_INTERNAL_ONLY_BENCHMARK"),
 		KafkaBrokers:            splitCSV(firstEnv("KAFKA_BROKERS", "SPRING_KAFKA_BOOTSTRAP_SERVERS")),
 		SwipeTopic:              stringEnv("swipe-created", "SWIPES_KAFKA_TOPIC", "KAFKA_TOPIC_SWIPE_CREATED"),
 		ProfileCreatedTopic:     stringEnv("profile.created", "KAFKA_TOPICS_PROFILE_CREATED", "KAFKA_TOPIC_PROFILE_CREATED"),
@@ -83,15 +85,27 @@ func (cfg Config) Validate() error {
 	if cfg.ConsumerMaxRetries < 0 || cfg.ConsumerRetryBackoff < 0 {
 		return fmt.Errorf("consumer retries and retry backoff must not be negative")
 	}
-	if cfg.JWKSetURL == "" || cfg.JWTIssuer == "" || cfg.JWTAudience == "" {
-		return fmt.Errorf("JWT JWK URL, issuer, and audience are required")
-	}
 	benchmarkAuth := cfg.InternalAuthSecret != "" || cfg.InternalBypassProfile
 	if benchmarkAuth && cfg.AppEnv != "benchmark" {
 		return fmt.Errorf("internal swipe authentication is allowed only when APP_ENV=benchmark")
 	}
 	if cfg.AppEnv == "benchmark" && cfg.InternalAuthSecret == "" {
 		return fmt.Errorf("INTERNAL_SWIPES_AUTH_SECRET is required in benchmark mode")
+	}
+	if cfg.InternalOnlyBenchmark {
+		if cfg.AppEnv != "benchmark" {
+			return fmt.Errorf("internal-only benchmark mode is allowed only when APP_ENV=benchmark")
+		}
+		if !cfg.InternalBypassProfile {
+			return fmt.Errorf("internal-only benchmark mode requires SWIPES_INTERNAL_BYPASS_PROFILE_CHECK=true")
+		}
+		if cfg.ProfileConsumersEnabled {
+			return fmt.Errorf("internal-only benchmark mode requires profile cache consumers to be disabled")
+		}
+		return nil
+	}
+	if cfg.JWKSetURL == "" || cfg.JWTIssuer == "" || cfg.JWTAudience == "" {
+		return fmt.Errorf("JWT JWK URL, issuer, and audience are required")
 	}
 	return nil
 }

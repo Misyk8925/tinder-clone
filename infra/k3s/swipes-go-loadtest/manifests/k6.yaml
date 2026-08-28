@@ -1,0 +1,118 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: swipes-k6-script
+  namespace: swipes-go-loadtest
+data:
+  swipe-load-test.js: |
+    import http from 'k6/http';
+    import { check } from 'k6';
+
+    const target = (__ENV.SWIPES_URL || 'http://swipes-go:8040').replace(/\/$/, '');
+    const rate = Number.parseInt(__ENV.LOAD_RATE || '2000', 10);
+    const duration = __ENV.LOAD_DURATION || '30s';
+    const preAllocatedVUs = Number.parseInt(__ENV.LOAD_PRE_ALLOCATED_VUS || '500', 10);
+    const maxVUs = Number.parseInt(__ENV.LOAD_MAX_VUS || '2000', 10);
+    const p95 = Number.parseInt(__ENV.LOAD_P95_MS || '250', 10);
+
+    export const options = {
+      discardResponseBodies: true,
+      scenarios: {
+        swipes: {
+          executor: 'constant-arrival-rate',
+          rate,
+          timeUnit: '1s',
+          duration,
+          preAllocatedVUs,
+          maxVUs,
+        },
+      },
+      thresholds: {
+        http_req_failed: ['rate<0.01'],
+        http_req_duration: [`p(95)<${p95}`],
+      },
+    };
+
+    function uuid(value) {
+      const hex = (value >>> 0).toString(16).padStart(8, '0');
+      return `${hex}-0000-4000-8000-000000000000`;
+    }
+
+    export default function () {
+      const first = uuid(((__VU * 2654435761) + (__ITER * 2)) >>> 0);
+      const second = uuid(((__VU * 2654435761) + (__ITER * 2) + 1) >>> 0);
+      const response = http.post(`${target}/api/v1/swipes`, JSON.stringify({
+        profile1Id: first,
+        profile2Id: second,
+        decision: true,
+        isSuper: false,
+      }), {
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Internal-Auth': __ENV.INTERNAL_SWIPES_AUTH_SECRET,
+        },
+      });
+      check(response, { 'accepted': (result) => result.status === 202 });
+    }
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: swipes-k6
+  namespace: swipes-go-loadtest
+  labels:
+    app.kubernetes.io/name: swipes-k6
+    app.kubernetes.io/part-of: swipes-go-loadtest
+spec:
+  schedule: "0 0 * * *"
+  suspend: true
+  concurrencyPolicy: Forbid
+  jobTemplate:
+    spec:
+      backoffLimit: 0
+      ttlSecondsAfterFinished: 3600
+      template:
+        metadata:
+          labels:
+            app.kubernetes.io/name: swipes-k6
+            app.kubernetes.io/part-of: swipes-go-loadtest
+        spec:
+          restartPolicy: Never
+          containers:
+            - name: k6
+              image: grafana/k6:0.57.0
+              imagePullPolicy: IfNotPresent
+              args: ["run", "/scripts/swipe-load-test.js"]
+              env:
+                - name: INTERNAL_SWIPES_AUTH_SECRET
+                  valueFrom:
+                    secretKeyRef:
+                      name: swipes-loadtest-auth
+                      key: internal-auth-secret
+                - name: LOAD_RATE
+                  value: "2000"
+                - name: LOAD_DURATION
+                  value: 30s
+                - name: LOAD_PRE_ALLOCATED_VUS
+                  value: "500"
+                - name: LOAD_MAX_VUS
+                  value: "2000"
+                - name: LOAD_P95_MS
+                  value: "250"
+              volumeMounts:
+                - name: script
+                  mountPath: /scripts
+                  readOnly: true
+              resources:
+                requests:
+                  cpu: "1"
+                  memory: 256Mi
+              securityContext:
+                allowPrivilegeEscalation: false
+                readOnlyRootFilesystem: true
+                capabilities:
+                  drop: ["ALL"]
+          volumes:
+            - name: script
+              configMap:
+                name: swipes-k6-script

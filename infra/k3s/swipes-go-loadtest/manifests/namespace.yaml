@@ -1,0 +1,7 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: swipes-go-loadtest
+  labels:
+    app.kubernetes.io/part-of: swipes-go-loadtest
+    app.kubernetes.io/environment: benchmark

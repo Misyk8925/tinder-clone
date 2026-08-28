@@ -10,6 +10,11 @@ High-throughput candidate replacement for `swipes-demo`. The service uses direct
 
 Production startup fails unless JWT/JWKS, PostgreSQL, Redis, Kafka, and the
 central `profile_cache` migration are ready. The process never creates schema.
+The only exception is `SWIPES_INTERNAL_ONLY_BENCHMARK=true`: it is rejected
+outside `APP_ENV=benchmark` and additionally requires the trusted benchmark
+secret, profile-check bypass, and disabled profile-cache consumers. It exists
+solely for the disposable k3s/k6 topology in
+[`infra/k3s/swipes-go-loadtest`](../../infra/k3s/swipes-go-loadtest).
 
 The bounded producer still batches work across fixed workers, but `202 Accepted`
 is returned only after an `acks=all` Kafka write succeeds. Profile lifecycle

@@ -29,6 +29,38 @@ func TestValidateAllowsExplicitBenchmarkConfiguration(t *testing.T) {
 	}
 }
 
+func TestValidateAllowsIsolatedInternalOnlyBenchmarkWithoutJWT(t *testing.T) {
+	cfg := validConfig()
+	cfg.AppEnv = "benchmark"
+	cfg.InternalAuthSecret = "secret"
+	cfg.InternalBypassProfile = true
+	cfg.InternalOnlyBenchmark = true
+	cfg.ProfileConsumersEnabled = false
+	cfg.JWKSetURL = ""
+	cfg.JWTIssuer = ""
+	cfg.JWTAudience = ""
+	if err := cfg.Validate(); err != nil {
+		t.Fatalf("expected valid isolated benchmark configuration: %v", err)
+	}
+}
+
+func TestValidateRejectsUnsafeInternalOnlyBenchmarkConfiguration(t *testing.T) {
+	cfg := validConfig()
+	cfg.AppEnv = "benchmark"
+	cfg.InternalAuthSecret = "secret"
+	cfg.InternalOnlyBenchmark = true
+	cfg.ProfileConsumersEnabled = false
+	if err := cfg.Validate(); err == nil {
+		t.Fatal("expected internal-only benchmark without profile bypass to be rejected")
+	}
+
+	cfg.InternalBypassProfile = true
+	cfg.ProfileConsumersEnabled = true
+	if err := cfg.Validate(); err == nil {
+		t.Fatal("expected internal-only benchmark with profile consumers enabled to be rejected")
+	}
+}
+
 func validConfig() Config {
 	return Config{
 		AppEnv: "development", JWKSetURL: "http://keycloak/certs", JWTIssuer: "http://keycloak/realm",

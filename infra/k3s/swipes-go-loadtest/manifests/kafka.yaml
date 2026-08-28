@@ -1,0 +1,141 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: swipes-kafka
+  namespace: swipes-go-loadtest
+  labels:
+    app.kubernetes.io/name: swipes-kafka
+    app.kubernetes.io/part-of: swipes-go-loadtest
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: swipes-kafka
+  ports:
+    - name: kafka
+      port: 9092
+      targetPort: kafka
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: swipes-kafka
+  namespace: swipes-go-loadtest
+  labels:
+    app.kubernetes.io/name: swipes-kafka
+    app.kubernetes.io/part-of: swipes-go-loadtest
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: swipes-kafka
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: swipes-kafka
+        app.kubernetes.io/part-of: swipes-go-loadtest
+    spec:
+      containers:
+        - name: kafka
+          image: confluentinc/cp-kafka:7.5.0
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: kafka
+              containerPort: 9092
+          env:
+            - name: KAFKA_BROKER_ID
+              value: "1"
+            - name: KAFKA_ZOOKEEPER_CONNECT
+              value: swipes-zookeeper:2181
+            - name: KAFKA_ADVERTISED_LISTENERS
+              value: PLAINTEXT://swipes-kafka:9092
+            - name: KAFKA_LISTENER_SECURITY_PROTOCOL_MAP
+              value: PLAINTEXT:PLAINTEXT
+            - name: KAFKA_INTER_BROKER_LISTENER_NAME
+              value: PLAINTEXT
+            - name: KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR
+              value: "1"
+            - name: KAFKA_TRANSACTION_STATE_LOG_MIN_ISR
+              value: "1"
+            - name: KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR
+              value: "1"
+            - name: KAFKA_AUTO_CREATE_TOPICS_ENABLE
+              value: "false"
+            - name: KAFKA_HEAP_OPTS
+              value: -Xms256m -Xmx512m
+          resources:
+            requests:
+              cpu: 500m
+              memory: 768Mi
+          readinessProbe:
+            tcpSocket:
+              port: kafka
+            initialDelaySeconds: 20
+            periodSeconds: 5
+            failureThreshold: 24
+          livenessProbe:
+            tcpSocket:
+              port: kafka
+            initialDelaySeconds: 60
+            periodSeconds: 15
+            failureThreshold: 4
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: swipes-zookeeper
+  namespace: swipes-go-loadtest
+  labels:
+    app.kubernetes.io/name: swipes-zookeeper
+    app.kubernetes.io/part-of: swipes-go-loadtest
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: swipes-zookeeper
+  ports:
+    - name: zookeeper
+      port: 2181
+      targetPort: zookeeper
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: swipes-zookeeper
+  namespace: swipes-go-loadtest
+  labels:
+    app.kubernetes.io/name: swipes-zookeeper
+    app.kubernetes.io/part-of: swipes-go-loadtest
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: swipes-zookeeper
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: swipes-zookeeper
+        app.kubernetes.io/part-of: swipes-go-loadtest
+    spec:
+      containers:
+        - name: zookeeper
+          image: confluentinc/cp-zookeeper:7.5.0
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: zookeeper
+              containerPort: 2181
+          env:
+            - name: ZOOKEEPER_CLIENT_PORT
+              value: "2181"
+            - name: ZOOKEEPER_TICK_TIME
+              value: "2000"
+            - name: ZOOKEEPER_HEAP_OPTS
+              value: -Xms128m -Xmx256m
+          resources:
+            requests:
+              cpu: 200m
+              memory: 384Mi
+          readinessProbe:
+            tcpSocket:
+              port: zookeeper
+            initialDelaySeconds: 10
+            periodSeconds: 5
+            failureThreshold: 24

@@ -31,17 +31,21 @@ func main() {
 	rootCtx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
 
-	jwtValidator := security.NewJWTValidator(cfg.JWKSetURL, cfg.JWTIssuer, cfg.JWTAudience)
 	startupCtx, cancelStartup := context.WithTimeout(rootCtx, 20*time.Second)
 	defer cancelStartup()
-	if err := jwtValidator.Initialize(startupCtx); err != nil {
-		logger.Fatalf("JWT readiness failed: %v", err)
+	var jwtValidator *security.JWTValidator
+	var profileRepo *repository.Profiles
+	if !cfg.InternalOnlyBenchmark {
+		jwtValidator = security.NewJWTValidator(cfg.JWKSetURL, cfg.JWTIssuer, cfg.JWTAudience)
+		if err := jwtValidator.Initialize(startupCtx); err != nil {
+			logger.Fatalf("JWT readiness failed: %v", err)
+		}
+		profileRepo, err = repository.NewProfiles(startupCtx, cfg.RedisAddr, cfg.DatabaseURL, cfg.ProfilesBaseURL, logger)
+		if err != nil {
+			logger.Fatalf("profile repository failed: %v", err)
+		}
+		defer profileRepo.Close()
 	}
-	profileRepo, err := repository.NewProfiles(startupCtx, cfg.RedisAddr, cfg.DatabaseURL, cfg.ProfilesBaseURL, logger)
-	if err != nil {
-		logger.Fatalf("profile repository failed: %v", err)
-	}
-	defer profileRepo.Close()
 	serviceMetrics := &metrics.Metrics{}
 	producer, err := swipekafka.NewProducer(startupCtx, cfg, serviceMetrics, logger)
 	if err != nil {
