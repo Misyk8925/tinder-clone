@@ -1,0 +1,34 @@
+spring:
+  application:
+    name: moderation
+
+moderation:
+  runtime:
+    active-policy-version: ${MODERATION_POLICY_VERSION:unconfigured}
+  providers:
+    openai:
+      api-key: ${OPENAI_API_KEY:}
+      model: ${OPENAI_MODERATION_MODEL:omni-moderation-latest}
+      base-url: ${OPENAI_BASE_URL:https://api.openai.com}
+    gemini:
+      api-key: ${GEMINI_API_KEY:}
+      model: ${GEMINI_MODEL:gemini-3.8-flash}
+      base-url: ${GEMINI_BASE_URL:https://generativelanguage.googleapis.com}
+  security:
+    users:
+      - username: ${MODERATION_ADMIN_USERNAME:}
+        password-hash: ${MODERATION_ADMIN_PASSWORD_HASH:}
+        roles: [VIEWER, MODERATOR, POLICY_ADMIN]
+  traffic:
+    requests-per-minute: ${MODERATION_REQUESTS_PER_MINUTE:0}
+
+management:
+  endpoint:
+    health:
+      show-details: always
+      probes:
+        enabled: false
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics
