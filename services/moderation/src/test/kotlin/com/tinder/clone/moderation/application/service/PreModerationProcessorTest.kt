@@ -17,4 +17,13 @@ class PreModerationProcessorTest {
         val content = ModerationContent("1", ContentType.MESSAGE, "12345")
         assertIs<PreprocessingOutcome.Invalid>(PreModerationProcessor(4).process(content))
     }
+
+    @Test fun `throttles when the sliding window is already full`() {
+        val limiter = SlidingWindowTrafficLimiter(1)
+        val processor = PreModerationProcessor(trafficLimiter = limiter)
+        val first = ModerationContent("1", ContentType.MESSAGE, "first")
+        val second = ModerationContent("2", ContentType.MESSAGE, "second")
+        assertIs<PreprocessingOutcome.Ready>(processor.process(first))
+        assertIs<PreprocessingOutcome.Throttled>(processor.process(second))
+    }
 }

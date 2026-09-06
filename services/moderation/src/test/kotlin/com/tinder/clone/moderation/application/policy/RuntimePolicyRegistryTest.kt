@@ -32,7 +32,7 @@ class RuntimePolicyRegistryTest {
         assertIs<Decision.Block>(result.decision)
         assertEquals("v1", result.evidence.appliedPolicy?.version)
         val error = assertFailsWith<PolicyLifecycleException> {
-            registry.replaceDraft("v1", 1, null, listOf(scope(0.8, 0.99)))
+            registry.replaceDraft("v1", 0, null, listOf(scope(0.8, 0.99)))
         }
         assertEquals("PUBLISHED_POLICY_IMMUTABLE", error.code)
     }

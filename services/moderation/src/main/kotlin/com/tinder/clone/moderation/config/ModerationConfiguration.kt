@@ -5,6 +5,7 @@ import com.tinder.clone.moderation.application.ports.ModerationClassifierPort
 import com.tinder.clone.moderation.application.ports.input.ModerateContentInputPort
 import com.tinder.clone.moderation.application.service.EvidenceBuilder
 import com.tinder.clone.moderation.application.service.PreModerationProcessor
+import com.tinder.clone.moderation.application.service.SlidingWindowTrafficLimiter
 import com.tinder.clone.moderation.application.service.ModerationExecutionService
 import com.tinder.clone.moderation.application.service.ModerationDecisionStore
 import com.tinder.clone.moderation.application.service.InMemoryModerationDecisionStore
@@ -32,7 +33,8 @@ import io.micrometer.core.instrument.MeterRegistry
     OpenAiModerationProperties::class,
     GeminiProperties::class,
     ModerationRuntimeProperties::class,
-    ModerationSecurityProperties::class
+    ModerationSecurityProperties::class,
+    ModerationTrafficProperties::class
 )
 class ModerationConfiguration {
     @Bean
@@ -65,16 +67,24 @@ class ModerationConfiguration {
     fun runtimePolicyRegistry(store: PolicyStateStore): RuntimePolicyRegistry = RuntimePolicyRegistry(store = store)
 
     @Bean
+    fun preModerationProcessor(traffic: ModerationTrafficProperties): PreModerationProcessor =
+        PreModerationProcessor(
+            maxTextChars = 65_536,
+            trafficLimiter = SlidingWindowTrafficLimiter(traffic.requestsPerMinute)
+        )
+
+    @Bean
     fun moderateContentInputPort(
         classifierPort: ModerationClassifierPort,
         llmPort: LlmPort,
-        policies: RuntimePolicyRegistry
+        policies: RuntimePolicyRegistry,
+        preModerationProcessor: PreModerationProcessor
     ): ModerateContentInputPort = ModerateContentUsecase(
         classifierPort,
         llmPort,
         ModerationDomainService(policies),
         EvidenceBuilder(),
-        PreModerationProcessor(maxTextChars = 65_536)
+        preModerationProcessor
     )
 
     @Bean

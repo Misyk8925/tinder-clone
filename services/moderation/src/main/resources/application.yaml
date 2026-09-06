@@ -19,6 +19,8 @@ moderation:
       - username: ${MODERATION_ADMIN_USERNAME:}
         password-hash: ${MODERATION_ADMIN_PASSWORD_HASH:}
         roles: [VIEWER, MODERATOR, POLICY_ADMIN]
+  traffic:
+    requests-per-minute: ${MODERATION_REQUESTS_PER_MINUTE:0}
 
 management:
   endpoint:
@@ -26,6 +28,9 @@ management:
       show-details: always
       probes:
         enabled: true
+      group:
+        readiness:
+          include: readinessState,db,kafka
   endpoints:
     web:
       exposure:

@@ -90,10 +90,10 @@ class RuntimePolicyRegistry(
         actor: String = "system"
     ): PolicyDocument {
         val current = get(version)
-        requireVersion(current.aggregateVersion, expectedVersion)
         if (current.status == PolicyStatus.PUBLISHED) {
             throw PolicyLifecycleException("PUBLISHED_POLICY_IMMUTABLE", "Published policy is immutable")
         }
+        requireVersion(current.aggregateVersion, expectedVersion)
         return current.copy(
             description = description,
             scopes = scopes,
