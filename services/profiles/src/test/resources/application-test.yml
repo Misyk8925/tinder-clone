@@ -107,6 +107,14 @@ photos:
   service:
     url: http://localhost:8070
 
+moderation:
+  enabled: false
+  service:
+    url: http://localhost:8086
+    timeout: 2s
+    username: ""
+    password: ""
+
 cloud:
   aws:
     region: eu-north-1

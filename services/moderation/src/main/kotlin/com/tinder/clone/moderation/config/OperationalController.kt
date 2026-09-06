@@ -8,12 +8,6 @@ import org.springframework.web.bind.annotation.RestController
 @RestController
 @RequestMapping("/actuator")
 class OperationalController(private val meters: MeterRegistry) {
-    @GetMapping("/health/readiness")
-    fun readiness() = mapOf(
-        "status" to "UP",
-        "components" to mapOf("db" to mapOf("status" to "UP"), "kafka" to mapOf("status" to "UP"))
-    )
-
     @GetMapping("/metrics/moderation.decisions")
     fun decisionsMetric() = mapOf(
         "name" to "moderation.decisions",

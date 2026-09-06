@@ -54,6 +54,10 @@ class ConfigurationPropertiesBindingTest {
             PhotosServiceProperties photosService = context.getBean(PhotosServiceProperties.class);
             then(photosService.service().url()).isEqualTo("http://localhost:8070");
 
+            ModerationProperties moderation = context.getBean(ModerationProperties.class);
+            then(moderation.enabled()).isFalse();
+            then(moderation.service().url()).isEqualTo("http://localhost:8086");
+
             OutboxPublisherProperties outbox = context.getBean(OutboxPublisherProperties.class);
             then(outbox.enabled()).isTrue();
             then(outbox.batchSize()).isEqualTo(100);
@@ -88,6 +92,7 @@ class ConfigurationPropertiesBindingTest {
             OutboxPublisherProperties.class,
             PhotoProperties.class,
             PhotosServiceProperties.class,
+            ModerationProperties.class,
             ProfileCacheProperties.class,
             ProfileCleanupProperties.class
     })

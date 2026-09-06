@@ -1,4 +1,5 @@
 import { HttpErrorResponse } from '@angular/common/http';
+import { moderationFailureMessage } from './moderation-errors';
 
 export const PHOTO_UPLOAD_MAX_BYTES = 5 * 1024 * 1024;
 export const PHOTO_UPLOAD_MAX_EDGE_PX = 4096;
@@ -73,7 +74,7 @@ export function photoUploadFailureMessage(error: unknown): string {
   if (backend?.includes('Image too small') || backend?.includes('Image dimensions too large')) {
     return 'Photo dimensions are not supported. Please choose another image.';
   }
-  return 'Photo upload failed. Please try again.';
+  return moderationFailureMessage(error, 'Photo upload failed. Please try again.');
 }
 
 function extractBackendErrorMessage(error: HttpErrorResponse | undefined): string | null {

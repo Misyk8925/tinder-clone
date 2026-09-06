@@ -135,6 +135,75 @@ object TinderKafkaPolicies {
             runtimeSource("docker-compose.yml")
         }
 
+        topic("moderation.commands.v1") {
+            owner = "moderation"
+            criticality = Criticality.CORRECTNESS
+            messageKey = "contentId"
+            local = EnvironmentCapacity(partitions = 12, replicationFactor = 1)
+            production = EnvironmentCapacity(partitions = 12, replicationFactor = 3)
+            producer("moderation", "http-and-command-consumer") {
+                publishGuarantee = PublishGuarantee.BROKER_ACK
+            }
+            consumer("moderation", "moderation-service") {
+                idempotencyKey = "contentId"
+                deadLetterTopic = "moderation.commands.dlq.v1"
+            }
+            runtimeSource("services/moderation/src/main/resources/application.yaml")
+            runtimeSource("docker-compose.yml")
+        }
+
+        topic("moderation.results.v1") {
+            owner = "moderation"
+            criticality = Criticality.CORRECTNESS
+            messageKey = "contentId"
+            local = EnvironmentCapacity(partitions = 12, replicationFactor = 1)
+            production = EnvironmentCapacity(partitions = 12, replicationFactor = 3)
+            producer("moderation", "transactional-outbox") {
+                publishGuarantee = PublishGuarantee.TRANSACTIONAL_OUTBOX
+            }
+            runtimeSource("services/moderation/src/main/resources/application.yaml")
+            runtimeSource("docker-compose.yml")
+        }
+
+        topic("moderation.reviews.v1") {
+            owner = "moderation"
+            criticality = Criticality.REBUILDABLE
+            messageKey = "reviewTaskId"
+            local = EnvironmentCapacity(partitions = 6, replicationFactor = 1)
+            production = EnvironmentCapacity(partitions = 6, replicationFactor = 3)
+            producer("moderation", "transactional-outbox") {
+                publishGuarantee = PublishGuarantee.TRANSACTIONAL_OUTBOX
+            }
+            runtimeSource("services/moderation/src/main/resources/application.yaml")
+            runtimeSource("docker-compose.yml")
+        }
+
+        topic("moderation.policies.v1") {
+            owner = "moderation"
+            criticality = Criticality.REBUILDABLE
+            messageKey = "policyVersion"
+            local = EnvironmentCapacity(partitions = 3, replicationFactor = 1)
+            production = EnvironmentCapacity(partitions = 3, replicationFactor = 3)
+            producer("moderation", "transactional-outbox") {
+                publishGuarantee = PublishGuarantee.TRANSACTIONAL_OUTBOX
+            }
+            runtimeSource("services/moderation/src/main/resources/application.yaml")
+            runtimeSource("docker-compose.yml")
+        }
+
+        topic("moderation.commands.dlq.v1") {
+            owner = "moderation"
+            criticality = Criticality.REBUILDABLE
+            messageKey = "messageId"
+            local = EnvironmentCapacity(partitions = 3, replicationFactor = 1)
+            production = EnvironmentCapacity(partitions = 3, replicationFactor = 3)
+            producer("moderation", "command-consumer-dlq") {
+                publishGuarantee = PublishGuarantee.BROKER_ACK
+            }
+            runtimeSource("services/moderation/src/main/resources/application.yaml")
+            runtimeSource("docker-compose.yml")
+        }
+
         topic("deck-read.materialization-requested.v1") {
             owner = "deck-read"
             criticality = Criticality.REBUILDABLE

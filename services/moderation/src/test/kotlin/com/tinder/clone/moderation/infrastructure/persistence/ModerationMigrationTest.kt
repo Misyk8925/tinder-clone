@@ -16,7 +16,7 @@ class ModerationMigrationTest {
                 .load()
                 .migrate()
 
-            assertEquals(2, result.migrationsExecuted)
+            assertEquals(3, result.migrationsExecuted)
             DriverManager.getConnection(postgres.jdbcUrl, postgres.username, postgres.password).use { connection ->
                 connection.createStatement().use { statement ->
                     val rows = statement.executeQuery(

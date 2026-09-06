@@ -6,6 +6,7 @@ import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vite
 import { DeckCard, DeckPage } from '../../core/models/deck.model';
 import { ProfileService } from '../../core/services/profile.service';
 import { SwipeService } from '../../core/services/swipe.service';
+import { ReportService } from '../../core/services/report.service';
 import { DiscoverComponent } from './discover.component';
 import { Router } from '@angular/router';
 
@@ -32,6 +33,7 @@ describe('Feature: Discover consumes a changing Deck generation (FR-9)', () => {
       providers: [
         { provide: ProfileService, useValue: profileService },
         { provide: SwipeService, useValue: { swipe: vi.fn() } },
+        { provide: ReportService, useValue: { reportProfile: vi.fn() } },
         { provide: Router, useValue: { navigate: vi.fn() } },
       ],
     });

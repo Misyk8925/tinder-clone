@@ -9,6 +9,7 @@ import { KeycloakService } from '../../core/services/keycloak.service';
 import { MatchService } from '../../core/services/match.service';
 import { ProfileService } from '../../core/services/profile.service';
 import { ChatHistoryCache } from '../../core/services/chat-history.cache';
+import { ReportService } from '../../core/services/report.service';
 import { ChatComponent } from './chat.component';
 
 describe('ChatComponent photo loading placeholders', () => {
@@ -34,6 +35,7 @@ describe('ChatComponent photo loading placeholders', () => {
         { provide: ProfileService, useValue: { getMe: vi.fn(() => NEVER) } },
         { provide: KeycloakService, useValue: { getToken: vi.fn() } },
         { provide: HttpClient, useValue: { post: vi.fn(() => of(null)) } },
+        { provide: ReportService, useValue: { reportConversation: vi.fn(() => of(null)) } },
         ChatHistoryCache,
       ],
     }).compileComponents();
@@ -103,6 +105,7 @@ describe('ChatComponent photo loading placeholders', () => {
         { provide: ProfileService, useValue: { getMe: vi.fn(() => of({ profileId: 'me' })) } },
         { provide: KeycloakService, useValue: { getToken: vi.fn() } },
         { provide: HttpClient, useValue: { post: vi.fn(() => of(null)) } },
+        { provide: ReportService, useValue: { reportConversation: vi.fn(() => of(null)) } },
         { provide: ChatHistoryCache, useValue: cache },
       ],
     }).compileComponents();
@@ -139,6 +142,7 @@ describe('ChatComponent photo loading placeholders', () => {
         } },
         { provide: KeycloakService, useValue: { getToken: vi.fn() } },
         { provide: HttpClient, useValue: { post: vi.fn(() => of(null)) } },
+        { provide: ReportService, useValue: { reportConversation: vi.fn(() => of(null)) } },
         ChatHistoryCache,
       ],
     }).compileComponents();
@@ -149,5 +153,29 @@ describe('ChatComponent photo loading placeholders', () => {
     expect(fixture.nativeElement.querySelector('.chat-header h1')?.textContent).toContain('Mila');
     expect(fixture.nativeElement.querySelector('.chat-header .avatar img')?.getAttribute('alt')).toBe('Mila');
     expect(fixture.nativeElement.querySelector('.conversation-start h2')?.textContent).toContain('You and Mila matched');
+  });
+
+  it('Given preview mode, when a hate message is sent, then it is dropped and the user is told', () => {
+    const alertSpy = vi.spyOn(window, 'alert').mockImplementation(() => undefined);
+    (component as { previewMode: boolean }).previewMode = true;
+    component.messageText = 'kill yourself';
+
+    component.sendMessage();
+    fixture.detectChanges();
+
+    expect(component.messages()).toHaveLength(0);
+    expect(alertSpy).toHaveBeenCalledWith('This message was blocked by moderation.');
+    alertSpy.mockRestore();
+  });
+
+  it('Given preview mode, when a normal message is sent, then it stays in the conversation', () => {
+    (component as { previewMode: boolean }).previewMode = true;
+    component.messageText = 'That trail sounds perfect. Saturday?';
+
+    component.sendMessage();
+    fixture.detectChanges();
+
+    expect(component.messages()).toHaveLength(1);
+    expect(component.messages()[0].content).toBe('That trail sounds perfect. Saturday?');
   });
 });

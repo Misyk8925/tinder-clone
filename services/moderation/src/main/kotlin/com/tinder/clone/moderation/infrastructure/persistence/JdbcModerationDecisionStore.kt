@@ -28,7 +28,7 @@ import java.util.UUID
 
 class DurableStorageException(cause: Throwable) : RuntimeException("Durable storage is unavailable", cause)
 
-class JdbcModerationDecisionStore(
+open class JdbcModerationDecisionStore(
     private val jdbc: JdbcTemplate,
     private val objectMapper: ObjectMapper,
     private val rawContentRetention: Duration = Duration.ofDays(90)

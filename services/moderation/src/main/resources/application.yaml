@@ -1,10 +1,40 @@
 spring:
   application:
     name: moderation
+  datasource:
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/moderation_db}
+    username: ${SPRING_DATASOURCE_USERNAME:moderation_app}
+    password: ${SPRING_DATASOURCE_PASSWORD:}
+  flyway:
+    enabled: ${SPRING_FLYWAY_ENABLED:true}
+  kafka:
+    bootstrap-servers: ${SPRING_KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+    consumer:
+      group-id: ${moderation.kafka.group-id:moderation-service}
+      auto-offset-reset: earliest
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.apache.kafka.common.serialization.StringSerializer
+      acks: all
+
+server:
+  port: ${SERVER_PORT:8086}
 
 moderation:
+  persistence:
+    mode: ${MODERATION_PERSISTENCE_MODE:jdbc}
   runtime:
-    active-policy-version: ${MODERATION_POLICY_VERSION:unconfigured}
+    active-policy-version: ${MODERATION_POLICY_VERSION:tinder-default-v1}
+  kafka:
+    enabled: ${MODERATION_KAFKA_ENABLED:false}
+    commands-topic: ${MODERATION_COMMANDS_TOPIC:moderation.commands.v1}
+    results-topic: ${MODERATION_RESULTS_TOPIC:moderation.results.v1}
+    reviews-topic: ${MODERATION_REVIEWS_TOPIC:moderation.reviews.v1}
+    policies-topic: ${MODERATION_POLICIES_TOPIC:moderation.policies.v1}
+    commands-dlq-topic: ${MODERATION_COMMANDS_DLQ_TOPIC:moderation.commands.dlq.v1}
+    group-id: ${MODERATION_KAFKA_GROUP_ID:moderation-service}
   providers:
     openai:
       api-key: ${OPENAI_API_KEY:}
@@ -19,6 +49,9 @@ moderation:
       - username: ${MODERATION_ADMIN_USERNAME:}
         password-hash: ${MODERATION_ADMIN_PASSWORD_HASH:}
         roles: [VIEWER, MODERATOR, POLICY_ADMIN]
+      - username: ${MODERATION_CLIENT_USERNAME:}
+        password-hash: ${MODERATION_CLIENT_PASSWORD_HASH:}
+        roles: [VIEWER, MODERATOR]
   traffic:
     requests-per-minute: ${MODERATION_REQUESTS_PER_MINUTE:0}
 
@@ -27,8 +60,16 @@ management:
     health:
       show-details: always
       probes:
-        enabled: false
+        enabled: true
   endpoints:
     web:
       exposure:
         include: health,info,metrics
+  health:
+    defaults:
+      enabled: true
+    kafka:
+      enabled: false
+    group:
+      readiness:
+        include: readinessState,db,kafka

@@ -1,10 +1,11 @@
-import { HttpInterceptorFn, HttpResponse } from '@angular/common/http';
-import { delay, of } from 'rxjs';
+import { HttpErrorResponse, HttpInterceptorFn, HttpResponse } from '@angular/common/http';
+import { delay, of, throwError } from 'rxjs';
 import { environment } from '../../../environments/environment';
-import { Profile, profilePhotoId } from '../models/profile.model';
+import { Hobby, Preferences, Profile, profilePhotoId } from '../models/profile.model';
 import { DeckCard } from '../models/deck.model';
+import { previewTextBlocked } from '../preview/preview-moderation';
 
-const myProfile: Profile = {
+const INITIAL_MY_PROFILE: Profile = {
   profileId: 'preview-me',
   name: 'Michael',
   age: 27,
@@ -17,6 +18,13 @@ const myProfile: Profile = {
   photos: [{ photoID: 'preview-me-photo', url: '/assets/profiles/mila-discover.png', position: 0, isPrimary: true }],
   hobbies: ['HIKING', 'MUSIC', 'COOKING']
 };
+
+let myProfile: Profile = cloneProfile(INITIAL_MY_PROFILE);
+
+/** Test helper so preview writes do not leak across specs. */
+export function resetDesignPreviewFixtures(): void {
+  myProfile = cloneProfile(INITIAL_MY_PROFILE);
+}
 
 const milaProfile: Profile = {
   profileId: 'preview-mila',
@@ -95,7 +103,7 @@ export const designPreviewInterceptor: HttpInterceptorFn = (request, next) => {
 
   const url = request.url;
   if (request.method === 'GET' && url.endsWith('/api/v1/profiles/me')) {
-    return of(new HttpResponse({ status: 200, body: myProfile }));
+    return of(new HttpResponse({ status: 200, body: cloneProfile(myProfile) }));
   }
 
   if (request.method === 'GET' && url.includes('/api/v2/deck')) {
@@ -228,5 +236,80 @@ export const designPreviewInterceptor: HttpInterceptorFn = (request, next) => {
     return of(new HttpResponse({ status: 200, body: { conversationId: 'preview-new-chat' } })).pipe(delay(650));
   }
 
+  if (request.method === 'POST' && url.includes('/report')) {
+    return of(new HttpResponse({ status: 202, body: { status: 'accepted' } }));
+  }
+
+  if ((request.method === 'POST' || request.method === 'PUT' || request.method === 'PATCH')
+    && url.includes('/api/v1/profiles')
+    && !url.includes('/photos')
+    && !url.includes('/report')) {
+    if (previewBodyBlocked(request.body)) {
+      return throwError(() => new HttpErrorResponse({
+        status: 422,
+        statusText: 'Unprocessable Entity',
+        url: request.url,
+        error: {
+          code: 'CONTENT_BLOCKED',
+          message: 'This content was blocked by moderation. Please choose different wording.'
+        }
+      }));
+    }
+    applyPreviewProfileWrite(request.body);
+    return of(new HttpResponse({ status: 200, body: { message: 'saved', id: myProfile.profileId } }));
+  }
+
   return next(request);
 };
+
+function cloneProfile(profile: Profile): Profile {
+  return {
+    ...profile,
+    preferences: { ...profile.preferences },
+    photos: profile.photos.map(photo => ({ ...photo })),
+    hobbies: [...profile.hobbies]
+  };
+}
+
+function applyPreviewProfileWrite(body: unknown): void {
+  if (!body || typeof body !== 'object') {
+    return;
+  }
+  const record = body as Record<string, unknown>;
+  if (typeof record['name'] === 'string') {
+    myProfile.name = record['name'];
+  }
+  if (typeof record['age'] === 'number') {
+    myProfile.age = record['age'];
+  }
+  if (typeof record['gender'] === 'string') {
+    myProfile.gender = record['gender'];
+  }
+  if (typeof record['bio'] === 'string') {
+    myProfile.bio = record['bio'];
+  }
+  if (typeof record['city'] === 'string') {
+    myProfile.city = record['city'];
+  }
+  if (Array.isArray(record['hobbies'])) {
+    myProfile.hobbies = record['hobbies'] as Hobby[];
+  }
+  if (record['preferences'] && typeof record['preferences'] === 'object') {
+    myProfile.preferences = {
+      ...myProfile.preferences,
+      ...(record['preferences'] as Partial<Preferences>)
+    };
+  }
+}
+
+function previewBodyBlocked(body: unknown): boolean {
+  if (!body || typeof body !== 'object') {
+    return false;
+  }
+  const record = body as Record<string, unknown>;
+  return previewTextBlocked(
+    [record['name'], record['bio'], record['text']]
+      .filter(value => typeof value === 'string')
+      .join(' ')
+  );
+}

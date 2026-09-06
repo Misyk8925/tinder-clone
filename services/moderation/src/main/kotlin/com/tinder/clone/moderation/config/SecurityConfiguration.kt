@@ -32,7 +32,7 @@ class SecurityConfiguration {
         http
             .authorizeHttpRequests { requests ->
                 requests
-                    .requestMatchers("/actuator/health", "/actuator/health/**").permitAll()
+                    .requestMatchers("/actuator/health", "/actuator/health/**", "/actuator/info").permitAll()
                     .requestMatchers(
                         "/internal/v1/policies/**",
                         "/internal/v1/policy-activations/**",

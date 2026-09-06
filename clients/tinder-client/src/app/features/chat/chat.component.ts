@@ -8,6 +8,9 @@ import { NgClass } from '@angular/common';
 import { HttpClient } from '@angular/common/http';
 import { firstValueFrom } from 'rxjs';
 import { MatchService, Message } from '../../core/services/match.service';
+import { ReportService } from '../../core/services/report.service';
+import { moderationFailureMessage } from '../../core/utils/moderation-errors';
+import { previewTextBlocked } from '../../core/preview/preview-moderation';
 import { ChatHistoryCache } from '../../core/services/chat-history.cache';
 import { markConversationRead } from '../matches/matches.component';
 import { KeycloakService } from '../../core/services/keycloak.service';
@@ -58,6 +61,9 @@ interface StompMessageEvent {
             <h1>{{ otherName() }}</h1>
           </div>
         </div>
+        <button type="button" class="report-btn" (click)="reportConversation()" aria-label="Report conversation">
+          Report
+        </button>
         <div class="connection-state" [class.connecting]="wsState() === 'connecting'" [class.offline]="wsState() === 'disconnected'">
           <span></span>
           {{ connectionLabel() }}
@@ -138,7 +144,7 @@ interface StompMessageEvent {
             aria-label="Message"
             (keydown.enter)="sendMessage()"
           />
-          <button class="send-btn" aria-label="Send message" (click)="sendMessage()" [disabled]="!messageText.trim() || wsState() !== 'connected'">
+          <button class="send-btn" aria-label="Send message" (click)="sendMessage()" [disabled]="!messageText.trim() || (!previewMode && wsState() !== 'connected')">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="m5 12 14-7-4 14-3-5z"/><path d="m12 14 7-9"/></svg>
           </button>
         </div>
@@ -534,6 +540,17 @@ interface StompMessageEvent {
       text-overflow: ellipsis;
       white-space: nowrap;
     }
+    .report-btn {
+      border: 0;
+      background: transparent;
+      color: var(--text-muted);
+      font: inherit;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      padding: 6px 8px;
+    }
+
     .connection-state {
       padding: 6px 9px;
       display: flex;
@@ -709,6 +726,7 @@ export class ChatComponent implements OnInit, OnDestroy, AfterViewChecked {
   private profileService = inject(ProfileService);
   private http = inject(HttpClient);
   private chatCache = inject(ChatHistoryCache);
+  private reports = inject(ReportService);
 
   conversationId = signal('');
   messages = signal<Message[]>([]);
@@ -869,6 +887,16 @@ export class ChatComponent implements OnInit, OnDestroy, AfterViewChecked {
   private handleStompMessage(body: string): void {
     try {
       const event = JSON.parse(body) as StompMessageEvent;
+      if (event.type === 'MODERATION_BLOCKED') {
+        const blockedId = event.clientMessageId;
+        if (blockedId) {
+          this.messages.update(msgs => msgs.filter(message => message.id !== blockedId));
+          this.seenIds.delete(blockedId);
+          this.persistHistory();
+        }
+        this.showToast(event.text || 'This message was blocked by moderation.');
+        return;
+      }
       const id = event.messageId;
       if (!id || this.seenIds.has(id)) return;
 
@@ -907,9 +935,13 @@ export class ChatComponent implements OnInit, OnDestroy, AfterViewChecked {
     }
   }
 
+  readonly previewMode = environment.designPreview;
+
   sendMessage(): void {
     const text = this.messageText.trim();
-    if (!text || !this.stomp || this.wsState() !== 'connected') return;
+    if (!text) return;
+    const stomp = this.stomp;
+    if (!this.previewMode && (!stomp || this.wsState() !== 'connected')) return;
 
     const clientMessageId = crypto.randomUUID();
 
@@ -925,16 +957,27 @@ export class ChatComponent implements OnInit, OnDestroy, AfterViewChecked {
     this.messages.update(msgs => [...msgs, optimisticMsg]);
     this.shouldScroll = true;
     this.persistHistory();
+    this.messageText = '';
 
-    this.stomp.send('/app/chat.send', {
+    if (this.previewMode) {
+      if (previewTextBlocked(text)) {
+        this.handleStompMessage(JSON.stringify({
+          type: 'MODERATION_BLOCKED',
+          clientMessageId,
+          text: 'This message was blocked by moderation.'
+        }));
+      }
+      return;
+    }
+
+    if (!stomp) return;
+    stomp.send('/app/chat.send', {
       conversationId: this.conversationId(),
       clientMessageId,
       messageType: 'TEXT',
       text,
       attachments: []
     });
-
-    this.messageText = '';
   }
 
   async sendPhoto(e: Event): Promise<void> {
@@ -1057,6 +1100,15 @@ export class ChatComponent implements OnInit, OnDestroy, AfterViewChecked {
   @HostListener('document:keydown.escape')
   onEscape(): void {
     this.closePreview();
+  }
+
+  reportConversation(): void {
+    const details = window.prompt('Why are you reporting this conversation?');
+    if (!details?.trim()) return;
+    this.reports.reportConversation(this.conversationId(), 'other', details.trim()).subscribe({
+      next: () => this.showToast('Thanks. We will review this conversation.'),
+      error: (err: unknown) => this.showToast(moderationFailureMessage(err, 'Could not send the report. Please try again.'))
+    });
   }
 
   goBack(): void {

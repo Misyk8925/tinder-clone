@@ -2,6 +2,9 @@ package com.tinder.profiles.application.profile.usecase;
 
 import com.tinder.profiles.application.profile.command.CreateProfileCommand;
 import com.tinder.profiles.application.profile.command.DeleteProfileCommand;
+import com.tinder.profiles.application.moderation.ModerationDecision;
+import com.tinder.profiles.application.moderation.ModerationPort;
+import com.tinder.profiles.application.moderation.ProfileContentModerator;
 import com.tinder.profiles.application.profile.support.ProfileEditService;
 import com.tinder.profiles.application.profile.port.out.DomainEventPublisherPort;
 import com.tinder.profiles.application.profile.port.out.ProfileCachePort;
@@ -44,8 +47,23 @@ class WriteUseCaseOutboxTest {
 
     @BeforeEach
     void setUp() {
-        createService = new CreateProfileService(profiles, locations, events, cache, new ProfileEditService(input -> input));
+        createService = new CreateProfileService(profiles, locations, events, cache, new ProfileEditService(input -> input), allowAllModerator());
         deleteService = new DeleteProfileService(profiles, cache, events);
+    }
+
+    private static ProfileContentModerator allowAllModerator() {
+        ModerationPort port = new ModerationPort() {
+            @Override
+            public ModerationDecision moderateText(String contentId, com.tinder.profiles.application.moderation.ModerationContentType type, String text, String authorId) {
+                return ModerationDecision.allow();
+            }
+
+            @Override
+            public ModerationDecision moderateImages(String contentId, com.tinder.profiles.application.moderation.ModerationContentType type, java.util.List<String> imageUrls, String authorId) {
+                return ModerationDecision.allow();
+            }
+        };
+        return new ProfileContentModerator(port);
     }
 
     private CreateProfileCommand createCommand() {

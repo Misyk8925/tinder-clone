@@ -2,6 +2,8 @@ package com.tinder.clone.moderation.application.service
 
 import com.tinder.clone.moderation.application.commands.input.ContentCmd
 import com.tinder.clone.moderation.application.commands.output.ModerationResult
+import com.tinder.clone.moderation.application.ports.ModerationOutboxPort
+import com.tinder.clone.moderation.application.ports.NoOpModerationOutbox
 import com.tinder.clone.moderation.application.ports.input.ModerateContentInputPort
 import com.tinder.clone.moderation.domain.model.ContextMessage
 import com.tinder.clone.moderation.domain.model.Decision
@@ -30,7 +32,8 @@ class ModerationExecutionService(
     private val objectMapper: ObjectMapper,
     private val store: ModerationDecisionStore = InMemoryModerationDecisionStore(),
     private val clock: Clock = Clock.systemUTC(),
-    private val meterRegistry: MeterRegistry? = null
+    private val meterRegistry: MeterRegistry? = null,
+    private val outbox: ModerationOutboxPort = NoOpModerationOutbox()
 ) {
     fun execute(key: String, request: ModerationRequestDto): ModerationExecutionOutcome {
         val hash = sha256(objectMapper.writeValueAsBytes(request))
@@ -45,6 +48,11 @@ class ModerationExecutionService(
                 when (val saved = store.saveOrGet(candidate)) {
                     is DecisionSaveResult.Created -> {
                         meterRegistry?.counter("moderation.decisions")?.increment()
+                        outbox.enqueueCompleted(
+                            request,
+                            saved.decision.response,
+                            runCatching { UUID.fromString(key) }.getOrNull()
+                        )
                         ModerationExecutionOutcome.Evaluated(saved.decision.response)
                     }
                     is DecisionSaveResult.Existing -> {

@@ -88,6 +88,9 @@ import { DeckCard } from '../../../core/models/deck.model';
             <div><span>Age range</span><strong>{{ profile.preferences.minAge }}–{{ profile.preferences.maxAge }}</strong></div>
             <div><span>Distance</span><strong>Within {{ profile.preferences.maxDistanceKm }} km</strong></div>
           </div>
+          <button type="button" class="report-btn" (click)="$event.stopPropagation(); reportRequested.emit()">
+            <lucide-icon name="flag" [size]="14" strokeWidth="2" /> Report
+          </button>
         }
       </div>
     </article>
@@ -348,6 +351,21 @@ import { DeckCard } from '../../../core/models/deck.model';
     .more-details span { color: var(--text-muted); font-size: 11px; }
     .more-details strong { color: var(--text-primary); font-size: 13px; }
 
+    .report-btn {
+      margin-top: 12px;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      border: 0;
+      background: transparent;
+      color: var(--text-muted);
+      font: inherit;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      padding: 0;
+    }
+
     .profile-card.expanded { grid-template-rows: minmax(0, 46%) minmax(0, 54%); }
     .profile-card.expanded .profile-story { overflow-y: auto; }
 
@@ -369,6 +387,7 @@ export class SwipeCardComponent implements OnInit, OnDestroy {
   @Input({ required: true }) profile!: DeckCard;
   @Output() swipeCommitted = new EventEmitter<'left' | 'right'>();
   @Output() swiped = new EventEmitter<'left' | 'right'>();
+  @Output() reportRequested = new EventEmitter<void>();
 
   currentPhoto = signal(0);
   swipeDir = signal<'left' | 'right' | null>(null);

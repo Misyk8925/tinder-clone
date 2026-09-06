@@ -9,5 +9,17 @@ spring:
 moderation:
   persistence:
     mode: memory
+  kafka:
+    enabled: false
   security:
     users: []
+
+management:
+  endpoint:
+    health:
+      show-details: always
+      probes:
+        enabled: false
+  health:
+    kafka:
+      enabled: false

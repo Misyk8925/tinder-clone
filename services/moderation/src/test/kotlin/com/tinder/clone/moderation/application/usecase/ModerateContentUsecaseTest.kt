@@ -26,6 +26,8 @@ import com.tinder.clone.moderation.domain.policy.Rule
 import com.tinder.clone.moderation.domain.policy.moderationPolicies
 import com.tinder.clone.moderation.domain.signals.ApplicationSignalType
 import com.tinder.clone.moderation.domain.signals.ApplicationSignal
+import com.tinder.clone.moderation.infrastructure.provider.FallbackClassifier
+import com.tinder.clone.moderation.infrastructure.provider.FallbackLlmAdapter
 import org.junit.jupiter.api.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertIs
@@ -251,6 +253,39 @@ class ModerateContentUsecaseTest {
     }
 
     @Test
+    fun `fallback classifier plus default tinder thresholds blocks hate bios and harassment messages`() {
+        val usecase = ModerateContentUsecase(
+            FallbackClassifier(),
+            FallbackLlmAdapter(),
+            ModerationDomainService(tinderDefaultPolicy()),
+            EvidenceBuilder(),
+            PreModerationProcessor()
+        )
+
+        val hateBio = assertIs<ModerationResult.Evaluated>(
+            usecase.handle(
+                ContentCmd(
+                    "profile:hate",
+                    ContentType.PROFILE_DESCRIPTION,
+                    "I hate all outsiders and they should die"
+                )
+            )
+        )
+        val hateMessage = assertIs<ModerationResult.Evaluated>(
+            usecase.handle(ContentCmd("message:hate", ContentType.MESSAGE, "kill yourself"))
+        )
+        val cleanBio = assertIs<ModerationResult.Evaluated>(
+            usecase.handle(
+                ContentCmd("profile:clean", ContentType.PROFILE_DESCRIPTION, "Coffee and a long walk")
+            )
+        )
+
+        assertIs<Decision.Block>(hateBio.decision)
+        assertIs<Decision.Block>(hateMessage.decision)
+        assertEquals(Decision.Allow, cleanBio.decision)
+    }
+
+    @Test
     fun `rate limited payload stops before classifier`() {
         val classifierPort = CountingClassifierPort()
         val retryAfter = Duration.ofSeconds(30)
@@ -295,6 +330,24 @@ class ModerateContentUsecaseTest {
         catalog = moderationPolicies { version("test") { global { } } },
         version = "test",
         applicationRules = applicationRules
+    )
+
+    private fun tinderDefaultPolicy() = ModerationPolicy(
+        catalog = moderationPolicies {
+            version("tinder-default-v1") {
+                global {
+                    category(ModerationCategory.HARASSMENT, review = 0.55, block = 0.85)
+                    category(ModerationCategory.HARASSMENT_THREATENING, review = 0.35, block = 0.70)
+                    category(ModerationCategory.HATE, review = 0.50, block = 0.80)
+                    category(ModerationCategory.HATE_THREATENING, review = 0.30, block = 0.65)
+                    category(ModerationCategory.SEXUAL_CONTENT, review = 0.60, block = 0.90)
+                    category(ModerationCategory.SEXUAL_MINORS, review = 0.10, block = 0.25)
+                    category(ModerationCategory.SELF_HARM, review = 0.35, block = 0.70)
+                    category(ModerationCategory.VIOLENCE, review = 0.45, block = 0.80)
+                }
+            }
+        },
+        version = "tinder-default-v1"
     )
 
     private class CountingLlmPort : LlmPort {

@@ -5,6 +5,7 @@ import com.tinder.profiles.application.photos.exception.PhotoAccessDeniedExcepti
 import com.tinder.profiles.application.photos.exception.PhotoException;
 import com.tinder.profiles.application.photos.exception.PhotoNotFoundException;
 import com.tinder.profiles.application.photos.exception.PhotoStorageException;
+import com.tinder.profiles.application.photos.exception.PhotoContentBlockedException;
 import com.tinder.profiles.application.photos.exception.PhotoValidationException;
 import lombok.extern.slf4j.Slf4j;
 import org.slf4j.MDC;
@@ -70,6 +71,9 @@ public class PhotoExceptionHandler {
         }
         if (ex instanceof PhotoAccessDeniedException) {
             return HttpStatus.FORBIDDEN;
+        }
+        if (ex instanceof PhotoContentBlockedException) {
+            return HttpStatus.UNPROCESSABLE_ENTITY;
         }
         if (ex instanceof PhotoValidationException) {
             return HttpStatus.BAD_REQUEST;

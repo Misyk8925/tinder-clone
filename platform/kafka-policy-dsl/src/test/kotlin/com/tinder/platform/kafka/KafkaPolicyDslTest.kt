@@ -60,13 +60,19 @@ class KafkaPolicyDslTest {
                 "profile.deleted",
                 "profile.deck-card-projection.v1",
                 "deck.built.v1",
-                "deck-read.materialization-requested.v1"
+                "deck-read.materialization-requested.v1",
+                "moderation.commands.v1",
+                "moderation.results.v1",
+                "moderation.reviews.v1",
+                "moderation.policies.v1",
+                "moderation.commands.dlq.v1"
             ),
             catalog.topics.map { it.name }.toSet()
         )
         assertTrue(catalog.deadLetterTopics.contains("swipe-created.dlt"))
         assertTrue(catalog.deadLetterTopics.contains("match.created.dlt"))
         assertTrue(catalog.deadLetterTopics.contains("profile.deleted.dlt"))
+        assertTrue(catalog.deadLetterTopics.contains("moderation.commands.dlq.v1"))
     }
 
     @Test

@@ -27,6 +27,7 @@ import org.springframework.test.web.servlet.put
         "moderation.security.users[1].roles=VIEWER",
         "management.endpoint.health.show-details=always",
         "management.endpoint.health.probes.enabled=false",
+        "management.health.kafka.enabled=false",
     ]
 )
 @AutoConfigureMockMvc

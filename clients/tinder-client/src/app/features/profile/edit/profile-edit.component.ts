@@ -6,6 +6,7 @@ import { NgClass } from '@angular/common';
 import { ProfileService } from '../../../core/services/profile.service';
 import { GeoLocationService } from '../../../core/services/geo-location.service';
 import { Profile, Hobby } from '../../../core/models/profile.model';
+import { moderationFailureMessage } from '../../../core/utils/moderation-errors';
 
 const ALL_HOBBIES: Hobby[] = [
   'HIKING','CYCLING','RUNNING','GYM','YOGA','SWIMMING','FOOTBALL','BASKETBALL','TENNIS','VOLLEYBALL',
@@ -548,7 +549,7 @@ export class ProfileEditComponent implements OnInit {
         if (err.status === 429) {
           this.saveError.set('Too many requests. Please wait a moment before trying again.');
         } else {
-          this.saveError.set('Failed to save profile. Please try again.');
+          this.saveError.set(moderationFailureMessage(err, 'Failed to save profile. Please try again.'));
         }
       }
     });

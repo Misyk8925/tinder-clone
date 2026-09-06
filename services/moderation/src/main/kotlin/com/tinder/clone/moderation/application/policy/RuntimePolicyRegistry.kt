@@ -49,8 +49,6 @@ class RuntimePolicyRegistry(
     private val policies = linkedMapOf<String, PolicyDocument>()
     private val activations = linkedMapOf<Pair<ContentType?, String?>, PolicyActivation>()
 
-    init { refresh() }
-
     @Synchronized
     fun refresh() {
         policies.clear()
@@ -61,6 +59,7 @@ class RuntimePolicyRegistry(
 
     @Synchronized
     fun create(version: String, description: String?, scopes: List<PolicyScopeDefinition>, actor: String = "system"): PolicyDocument {
+        refresh()
         if (policies.containsKey(version)) throw PolicyLifecycleException("POLICY_VERSION_EXISTS", "Policy version already exists")
         validateVersion(version)
         val document = PolicyDocument(version, description, scopes, PolicyStatus.DRAFT, 0, clock.instant())
