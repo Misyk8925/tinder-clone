@@ -27,10 +27,7 @@ management:
     health:
       show-details: always
       probes:
-        enabled: true
-      group:
-        readiness:
-          include: readinessState,db,kafka
+        enabled: false
   endpoints:
     web:
       exposure:

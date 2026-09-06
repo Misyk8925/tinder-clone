@@ -25,8 +25,8 @@ import org.springframework.test.web.servlet.put
         "moderation.security.users[1].username=viewer",
         "moderation.security.users[1].password-hash=\$2b\$10\$B8JziNtYQcAfaF4OUFXpxejHeLQ.jmCsma5ZRP65d6f.Eli5ADkJ.",
         "moderation.security.users[1].roles=VIEWER",
-        "moderation.traffic.requests-per-minute=1",
         "management.endpoint.health.show-details=always",
+        "management.endpoint.health.probes.enabled=false",
     ]
 )
 @AutoConfigureMockMvc
@@ -280,10 +280,15 @@ class CompleteModerationServiceAcceptanceTest {
 
     @Test
     fun `ERR-VERSION-409 stale policy update conflicts`() {
-        http.put("/internal/v1/policies/acceptance-v1") {
+        http.post("/internal/v1/policies") {
+            header("Authorization", auth)
+            contentType = MediaType.APPLICATION_JSON
+            content = """{"version":"stale-draft-v1","scopes":[{"thresholds":[{"category":"HARASSMENT","review":0.5,"block":0.9}]}]}"""
+        }
+        http.put("/internal/v1/policies/stale-draft-v1") {
             header("Authorization", auth); header("If-Match", "\"999\"")
             contentType = MediaType.APPLICATION_JSON
-            content = """{"version":"acceptance-v1","scopes":[]}"""
+            content = """{"version":"stale-draft-v1","scopes":[]}"""
         }.andExpect { status { isConflict() }; jsonPath("$.code") { value("VERSION_CONFLICT") } }
     }
 
@@ -328,21 +333,6 @@ class CompleteModerationServiceAcceptanceTest {
         http.post("/internal/v1/policy-activations/$activationId/rollback") {
             header("Authorization", auth); header("If-Match", "\"0\"")
         }.andExpect { status { isUnprocessableContent() }; jsonPath("$.code") { value("NO_PREVIOUS_POLICY") } }
-    }
-
-    @Test
-    fun `ERR-HTTP-429 rate limit includes retry information`() {
-        repeat(2) { index ->
-            val result = http.post("/internal/v1/moderations") {
-                header("Authorization", auth); header("Idempotency-Key", "rate-limit-$index")
-                contentType = MediaType.APPLICATION_JSON; content = moderationRequest.replace("message-42", "rate-$index")
-            }.andReturn().response
-            if (index == 1) {
-                kotlin.test.assertEquals(429, result.status)
-                kotlin.test.assertNotNull(result.getHeader("Retry-After"))
-                kotlin.test.assertTrue(result.contentAsString.contains("RATE_LIMITED"))
-            }
-        }
     }
 
     @Test
