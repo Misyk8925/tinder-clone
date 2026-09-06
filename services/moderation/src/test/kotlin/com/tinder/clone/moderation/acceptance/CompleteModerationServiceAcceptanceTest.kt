@@ -25,8 +25,7 @@ import org.springframework.test.web.servlet.put
         "moderation.security.users[1].username=viewer",
         "moderation.security.users[1].password-hash=\$2b\$10\$B8JziNtYQcAfaF4OUFXpxejHeLQ.jmCsma5ZRP65d6f.Eli5ADkJ.",
         "moderation.security.users[1].roles=VIEWER",
-        "management.endpoint.health.show-details=always",
-        "management.endpoint.health.probes.enabled=false",
+        "management.endpoints.web.exposure.include=info",
     ]
 )
 @AutoConfigureMockMvc

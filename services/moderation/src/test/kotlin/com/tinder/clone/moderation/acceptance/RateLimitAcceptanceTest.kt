@@ -20,6 +20,7 @@ import org.springframework.test.web.servlet.post
     ]
 )
 @AutoConfigureMockMvc
+@Import(CompleteModerationServiceAcceptanceTest.AcceptanceProviders::class)
 class RateLimitAcceptanceTest {
     @Autowired
     private lateinit var http: MockMvc
