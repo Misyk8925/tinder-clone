@@ -1,8 +1,5 @@
 package com.tinder.profiles.application.photos.usecase;
 
-import com.tinder.profiles.application.moderation.ModerationDecision;
-import com.tinder.profiles.application.moderation.ModerationPort;
-import com.tinder.profiles.application.moderation.ProfileContentModerator;
 import com.tinder.profiles.application.photos.command.UploadPhotoCommand;
 import com.tinder.profiles.application.photos.exception.PhotoValidationException;
 import com.tinder.profiles.application.photos.model.PhotoDraft;
@@ -59,21 +56,7 @@ class UploadPhotoServiceTest {
     void setUp() {
         PhotoPolicy policy = new PhotoPolicy(
                 5, 5L * 1024 * 1024, List.of("image/jpeg", "image/png"), 300, 4096);
-        service = new UploadPhotoService(owner, catalog, media, cleanupOrphaned, policy, events, allowAllModerator());
-    }
-
-    private static ProfileContentModerator allowAllModerator() {
-        return new ProfileContentModerator(new ModerationPort() {
-            @Override
-            public ModerationDecision moderateText(String contentId, com.tinder.profiles.application.moderation.ModerationContentType type, String text, String authorId) {
-                return ModerationDecision.allow();
-            }
-
-            @Override
-            public ModerationDecision moderateImages(String contentId, com.tinder.profiles.application.moderation.ModerationContentType type, java.util.List<String> imageUrls, String authorId) {
-                return ModerationDecision.allow();
-            }
-        });
+        service = new UploadPhotoService(owner, catalog, media, cleanupOrphaned, policy, events);
     }
 
     @Test

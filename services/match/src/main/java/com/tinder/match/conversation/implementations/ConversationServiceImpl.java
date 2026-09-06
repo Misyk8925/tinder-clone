@@ -205,10 +205,6 @@ public class ConversationServiceImpl implements ConversationService {
 
         ConversationPhotoStorageService.UploadedPhoto uploadedPhoto =
                 conversationPhotoStorageService.uploadPhoto(file, conversationId, senderId, clientMessageId);
-        moderation.requireAllowedImages(
-                "message:" + conversationId + ":" + clientMessageId,
-                List.of(uploadedPhoto.url()),
-                senderId.toString());
 
         Message message = Message.builder()
                 .clientMessageId(clientMessageId)
