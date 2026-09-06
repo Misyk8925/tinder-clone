@@ -8,6 +8,7 @@ import com.tinder.profiles.application.profile.port.out.LocationPort;
 import com.tinder.profiles.application.profile.port.out.ProfileCachePort;
 import com.tinder.profiles.application.profile.port.out.ProfileRepositoryPort;
 import com.tinder.profiles.application.profile.port.out.ResolvedLocation;
+import com.tinder.profiles.application.moderation.ProfileContentModerator;
 import com.tinder.profiles.application.profile.support.LocationChangePolicy;
 import com.tinder.profiles.application.profile.support.ProfileEditService;
 import com.tinder.profiles.domain.profile.GeoPoint;
@@ -31,6 +32,7 @@ public class UpdateProfileService {
     private final ProfileCachePort cache;
     private final ProfileEditService editService;
     private final LocationChangePolicy locationChangePolicy;
+    private final ProfileContentModerator moderation;
 
     @Transactional
     public UUID handle(UpdateProfileCommand cmd) {
@@ -41,6 +43,12 @@ public class UpdateProfileService {
         editService.requireLocationProvided(edit);
 
         ProfileChangeSet changes = editService.detectChanges(existing, edit);
+        if (changes.has("name") || changes.has("bio")) {
+            moderation.requireAllowedText(
+                    "profile:" + existing.getId(),
+                    composeText(edit.name(), edit.bio()),
+                    cmd.userId());
+        }
 
         // Full update of the editable basic info; blank city falls back to current.
         String effectiveCity = edit.hasCity() ? edit.city() : existing.getCity();
@@ -78,5 +86,19 @@ public class UpdateProfileService {
             existing.relocate(resolved.position(), resolved.city(), resolved.locationId());
             changes.add("city");
         }
+    }
+
+    private static String composeText(String name, String bio) {
+        StringBuilder text = new StringBuilder();
+        if (name != null && !name.isBlank()) {
+            text.append(name.strip());
+        }
+        if (bio != null && !bio.isBlank()) {
+            if (!text.isEmpty()) {
+                text.append('\n');
+            }
+            text.append(bio.strip());
+        }
+        return text.toString();
     }
 }

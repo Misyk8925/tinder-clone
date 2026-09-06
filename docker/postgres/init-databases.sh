@@ -10,6 +10,7 @@ psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" <<-E
     CREATE ROLE subscriptions_app LOGIN PASSWORD '$SUBSCRIPTIONS_DB_PASSWORD';
     CREATE ROLE swipes_app        LOGIN PASSWORD '$SWIPES_DB_PASSWORD';
     CREATE ROLE location_app      LOGIN PASSWORD '$LOCATION_DB_PASSWORD';
+    CREATE ROLE moderation_app    LOGIN PASSWORD '$MODERATION_DB_PASSWORD';
 
     CREATE DATABASE profiles_db;
     CREATE DATABASE match_db;
@@ -17,6 +18,7 @@ psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" <<-E
     CREATE DATABASE subscriptions_db;
     CREATE DATABASE swipes_db;
     CREATE DATABASE location_db;
+    CREATE DATABASE moderation_db;
 EOSQL
 
 # profiles_db — PostGIS + migrations + grants
@@ -120,4 +122,15 @@ psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "location_db" <<-EO
     GRANT USAGE, SELECT, UPDATE ON ALL SEQUENCES IN SCHEMA public TO location_app;
     ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO location_app;
     ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT USAGE, SELECT, UPDATE ON SEQUENCES TO location_app;
+EOSQL
+
+# moderation_db — Flyway owns schema creation; grant the app role full use of public.
+psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "moderation_db" <<-EOSQL
+    REVOKE ALL ON DATABASE moderation_db FROM PUBLIC;
+    GRANT CONNECT ON DATABASE moderation_db TO moderation_app;
+    GRANT USAGE, CREATE ON SCHEMA public TO moderation_app;
+    GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO moderation_app;
+    GRANT USAGE, SELECT, UPDATE ON ALL SEQUENCES IN SCHEMA public TO moderation_app;
+    ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO moderation_app;
+    ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT USAGE, SELECT, UPDATE ON SEQUENCES TO moderation_app;
 EOSQL

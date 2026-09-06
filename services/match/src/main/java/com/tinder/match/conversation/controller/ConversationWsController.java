@@ -2,6 +2,7 @@ package com.tinder.match.conversation.controller;
 
 import com.tinder.match.conversation.ConversationService;
 import com.tinder.match.conversation.dto.MessageDto;
+import com.tinder.match.moderation.ContentBlockedException;
 import com.tinder.match.security.UserProfileMappingService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -10,6 +11,7 @@ import org.springframework.messaging.MessagingException;
 import org.springframework.messaging.handler.annotation.Header;
 import org.springframework.messaging.handler.annotation.MessageMapping;
 import org.springframework.messaging.handler.annotation.Payload;
+import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Controller;
 
 import java.security.Principal;
@@ -22,6 +24,7 @@ public class ConversationWsController {
 
     private final ConversationService conversationService;
     private final UserProfileMappingService userProfileMappingService;
+    private final SimpMessagingTemplate messagingTemplate;
 
     @MessageMapping("/chat.send")
     public void send(
@@ -38,7 +41,15 @@ public class ConversationWsController {
                 message.clientMessageId(),
                 message.messageType()
         );
-        conversationService.sendMessage(senderId, message);
+        try {
+            conversationService.sendMessage(senderId, message);
+        } catch (ContentBlockedException blocked) {
+            java.util.Map<String, Object> payload = new java.util.LinkedHashMap<>();
+            payload.put("type", "MODERATION_BLOCKED");
+            payload.put("clientMessageId", String.valueOf(message.clientMessageId()));
+            payload.put("text", blocked.getMessage());
+            messagingTemplate.convertAndSend("/topic/conversations/" + message.conversationId(), (Object) payload);
+        }
     }
 
     private UUID resolveSenderId(Principal principal) {

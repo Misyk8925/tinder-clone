@@ -1,6 +1,9 @@
 package com.tinder.profiles.application.profile.usecase;
 
 import com.tinder.profiles.application.profile.command.PatchProfileCommand;
+import com.tinder.profiles.application.moderation.ModerationDecision;
+import com.tinder.profiles.application.moderation.ModerationPort;
+import com.tinder.profiles.application.moderation.ProfileContentModerator;
 import com.tinder.profiles.application.profile.support.LocationChangePolicy;
 import com.tinder.profiles.application.profile.support.ProfileEditService;
 import com.tinder.profiles.application.profile.port.out.DomainEventPublisherPort;
@@ -56,7 +59,21 @@ class PatchProfileServiceTest {
     @BeforeEach
     void setUp() {
         service = new PatchProfileService(profiles, locations, events, cache,
-                new ProfileEditService(input -> input), new LocationChangePolicy(1.0));
+                new ProfileEditService(input -> input), new LocationChangePolicy(1.0), allowAllModerator());
+    }
+
+    private static ProfileContentModerator allowAllModerator() {
+        return new ProfileContentModerator(new ModerationPort() {
+            @Override
+            public ModerationDecision moderateText(String contentId, com.tinder.profiles.application.moderation.ModerationContentType type, String text, String authorId) {
+                return ModerationDecision.allow();
+            }
+
+            @Override
+            public ModerationDecision moderateImages(String contentId, com.tinder.profiles.application.moderation.ModerationContentType type, java.util.List<String> imageUrls, String authorId) {
+                return ModerationDecision.allow();
+            }
+        });
     }
 
     private Profile viennaProfile(String userId) {

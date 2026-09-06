@@ -7,6 +7,7 @@ import { DeckCard, DeckPage, isBuildingDeck } from '../../core/models/deck.model
 import { ProfileService } from '../../core/services/profile.service';
 import { SwipeService } from '../../core/services/swipe.service';
 import { SwipeCardComponent } from '../../shared/components/swipe-card/swipe-card.component';
+import { ReportService } from '../../core/services/report.service';
 
 @Component({
   selector: 'app-discover',
@@ -57,6 +58,7 @@ import { SwipeCardComponent } from '../../shared/components/swipe-card/swipe-car
                   [profile]="profile"
                   (swipeCommitted)="onSwipeCommitted(profile)"
                   (swiped)="onSwipe($event, profile)"
+                  (reportRequested)="reportProfile(profile)"
                 />
               </div>
             }
@@ -396,6 +398,7 @@ export class DiscoverComponent implements OnInit, OnDestroy {
   @ViewChildren(SwipeCardComponent) swipeCards!: QueryList<SwipeCardComponent>;
 
   private profileService = inject(ProfileService);
+  private reports = inject(ReportService);
   private swipeService = inject(SwipeService);
   private router = inject(Router);
 
@@ -461,6 +464,18 @@ export class DiscoverComponent implements OnInit, OnDestroy {
     this.retrying.set(false);
     this.loading.set(this.profiles().length === 0);
     this.requestPage(undefined, true, refresh);
+  }
+
+  reportProfile(profile: DeckCard): void {
+    const details = window.prompt(`Why are you reporting ${profile.name}?`);
+    if (!details?.trim()) return;
+    this.reports.reportProfile(profile.profileId, 'other', details.trim()).subscribe({
+      next: () => this.showToast('Thanks. We will review this profile.'),
+      error: (error: HttpErrorResponse) => {
+        if (error.status === 429) this.showToast('Too many requests. Please wait a moment.');
+        else this.showToast('Could not send the report. Please try again.');
+      }
+    });
   }
 
   onSwipeCommitted(profile: DeckCard): void {

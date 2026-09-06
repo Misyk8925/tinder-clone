@@ -15,6 +15,14 @@ photos:
   service:
     url: ${PHOTOS_SERVICE_URL:http://localhost:8070}
 
+moderation:
+  enabled: ${MODERATION_ENABLED:false}
+  service:
+    url: ${MODERATION_SERVICE_URL:http://localhost:8086}
+    timeout: 2s
+    username: ${MODERATION_CLIENT_USERNAME:}
+    password: ${MODERATION_CLIENT_PASSWORD:}
+
 server:
   port: 8010
   servlet:

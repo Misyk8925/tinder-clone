@@ -9,5 +9,7 @@ spring:
 moderation:
   persistence:
     mode: memory
+  kafka:
+    enabled: false
   security:
     users: []

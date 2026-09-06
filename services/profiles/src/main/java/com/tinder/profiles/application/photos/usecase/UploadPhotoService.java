@@ -8,6 +8,7 @@ import com.tinder.profiles.application.photos.model.StoredPhotoMedia;
 import com.tinder.profiles.application.photos.model.UploadedPhoto;
 import com.tinder.profiles.application.photos.port.out.PhotoCatalogPort;
 import com.tinder.profiles.application.photos.port.out.PhotoMediaPort;
+import com.tinder.profiles.application.moderation.ProfileContentModerator;
 import com.tinder.profiles.application.photos.support.PhotoKeys;
 import com.tinder.profiles.application.photos.support.PhotoPolicy;
 import com.tinder.profiles.application.photos.support.ProfilePhotoOwner;
@@ -36,6 +37,7 @@ public class UploadPhotoService {
     private final CleanupOrphanedPhotosService cleanupOrphaned;
     private final PhotoPolicy policy;
     private final DomainEventPublisherPort events;
+    private final ProfileContentModerator moderation;
 
     @Transactional
     public UploadedPhoto handle(UploadPhotoCommand cmd) {
@@ -60,6 +62,12 @@ public class UploadPhotoService {
 
         StoredPhotoMedia stored = media.store(profileId, cmd.image(), cmd.contentType());
         log.info("Stored photo {} for profile {}", stored.storageId(), profileId);
+        try {
+            moderation.requireAllowedPhoto("photo:" + stored.storageId(), stored.originalUrl(), cmd.userId());
+        } catch (RuntimeException blocked) {
+            media.delete(profileId, stored.storageId());
+            throw blocked;
+        }
 
         catalog.save(new PhotoDraft(
                 profileId,

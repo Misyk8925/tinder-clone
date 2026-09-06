@@ -9,6 +9,7 @@ import com.tinder.profiles.application.profile.port.out.LocationPort;
 import com.tinder.profiles.application.profile.port.out.ProfileCachePort;
 import com.tinder.profiles.application.profile.port.out.ProfileRepositoryPort;
 import com.tinder.profiles.application.profile.port.out.ResolvedLocation;
+import com.tinder.profiles.application.moderation.ProfileContentModerator;
 import com.tinder.profiles.application.profile.support.LocationChangePolicy;
 import com.tinder.profiles.application.profile.support.ProfileEditService;
 import com.tinder.profiles.domain.profile.GeoPoint;
@@ -32,6 +33,7 @@ public class PatchProfileService {
     private final ProfileCachePort cache;
     private final ProfileEditService editService;
     private final LocationChangePolicy locationChangePolicy;
+    private final ProfileContentModerator moderation;
 
     @Transactional
     public UUID handle(PatchProfileCommand cmd) {
@@ -45,6 +47,11 @@ public class PatchProfileService {
         // Sparse edit: only non-null fields are considered changes.
         ProfileEdit edit = editService.toEdit(cmd);
         ProfileChangeSet changes = editService.detectChanges(existing, edit);
+        if (changes.has("name") || changes.has("bio")) {
+            String name = edit.name() != null ? edit.name() : existing.getName();
+            String bio = edit.bio() != null ? edit.bio() : existing.getBio();
+            moderation.requireAllowedText("profile:" + existing.getId(), composeText(name, bio), cmd.userId());
+        }
 
         // Apply provided scalar fields, keeping current values for the rest.
         existing.updateBasicInfo(
@@ -92,5 +99,19 @@ public class PatchProfileService {
 
         cache.refreshOnWrite(cmd.userId(), saved);
         return saved.getId();
+    }
+
+    private static String composeText(String name, String bio) {
+        StringBuilder text = new StringBuilder();
+        if (name != null && !name.isBlank()) {
+            text.append(name.strip());
+        }
+        if (bio != null && !bio.isBlank()) {
+            if (!text.isEmpty()) {
+                text.append('\n');
+            }
+            text.append(bio.strip());
+        }
+        return text.toString();
     }
 }

@@ -9,4 +9,8 @@ describe('profile Lucide icon registration', () => {
   it('Given the profile premium row uses crown, when icons are provided, then Crown is registered', () => {
     expect(APP_LUCIDE_ICONS.Crown).toBeDefined();
   });
+
+  it('Given report actions use flag, when icons are provided, then Flag is registered', () => {
+    expect(APP_LUCIDE_ICONS.Flag).toBeDefined();
+  });
 });

@@ -9,6 +9,7 @@ import { KeycloakService } from '../../core/services/keycloak.service';
 import { MatchService } from '../../core/services/match.service';
 import { ProfileService } from '../../core/services/profile.service';
 import { ChatHistoryCache } from '../../core/services/chat-history.cache';
+import { ReportService } from '../../core/services/report.service';
 import { ChatComponent } from './chat.component';
 
 describe('ChatComponent photo loading placeholders', () => {
@@ -34,6 +35,7 @@ describe('ChatComponent photo loading placeholders', () => {
         { provide: ProfileService, useValue: { getMe: vi.fn(() => NEVER) } },
         { provide: KeycloakService, useValue: { getToken: vi.fn() } },
         { provide: HttpClient, useValue: { post: vi.fn(() => of(null)) } },
+        { provide: ReportService, useValue: { reportConversation: vi.fn(() => of(null)) } },
         ChatHistoryCache,
       ],
     }).compileComponents();
@@ -103,6 +105,7 @@ describe('ChatComponent photo loading placeholders', () => {
         { provide: ProfileService, useValue: { getMe: vi.fn(() => of({ profileId: 'me' })) } },
         { provide: KeycloakService, useValue: { getToken: vi.fn() } },
         { provide: HttpClient, useValue: { post: vi.fn(() => of(null)) } },
+        { provide: ReportService, useValue: { reportConversation: vi.fn(() => of(null)) } },
         { provide: ChatHistoryCache, useValue: cache },
       ],
     }).compileComponents();
@@ -139,6 +142,7 @@ describe('ChatComponent photo loading placeholders', () => {
         } },
         { provide: KeycloakService, useValue: { getToken: vi.fn() } },
         { provide: HttpClient, useValue: { post: vi.fn(() => of(null)) } },
+        { provide: ReportService, useValue: { reportConversation: vi.fn(() => of(null)) } },
         ChatHistoryCache,
       ],
     }).compileComponents();

@@ -2,6 +2,8 @@ package com.tinder.clone.moderation.config
 
 import com.tinder.clone.moderation.application.ports.LlmPort
 import com.tinder.clone.moderation.application.ports.ModerationClassifierPort
+import com.tinder.clone.moderation.application.ports.ModerationOutboxPort
+import com.tinder.clone.moderation.application.ports.NoOpModerationOutbox
 import com.tinder.clone.moderation.application.ports.input.ModerateContentInputPort
 import com.tinder.clone.moderation.application.service.EvidenceBuilder
 import com.tinder.clone.moderation.application.service.PreModerationProcessor
@@ -16,6 +18,8 @@ import com.tinder.clone.moderation.application.policy.InMemoryPolicyStateStore
 import com.tinder.clone.moderation.application.policy.RuntimePolicyRegistry
 import com.tinder.clone.moderation.infrastructure.persistence.JdbcModerationDecisionStore
 import com.tinder.clone.moderation.infrastructure.persistence.JdbcPolicyStateStore
+import com.tinder.clone.moderation.infrastructure.provider.FallbackClassifier
+import com.tinder.clone.moderation.infrastructure.provider.FallbackLlmAdapter
 import com.tinder.clone.moderation.infrastructure.provider.GeminiLlmAdapter
 import com.tinder.clone.moderation.infrastructure.provider.GeminiProperties
 import com.tinder.clone.moderation.infrastructure.provider.OpenAiModerationAdapter
@@ -34,16 +38,21 @@ import io.micrometer.core.instrument.MeterRegistry
     GeminiProperties::class,
     ModerationRuntimeProperties::class,
     ModerationSecurityProperties::class,
-    ModerationTrafficProperties::class
+    ModerationTrafficProperties::class,
+    ModerationKafkaProperties::class
 )
 class ModerationConfiguration {
     @Bean
     fun classifierPort(properties: OpenAiModerationProperties, objectMapper: ObjectMapper): ModerationClassifierPort =
-        OpenAiModerationAdapter(properties, objectMapper)
+        if (properties.apiKey.isBlank()) FallbackClassifier() else OpenAiModerationAdapter(properties, objectMapper)
 
     @Bean
     fun llmPort(properties: GeminiProperties, objectMapper: ObjectMapper): LlmPort =
-        GeminiLlmAdapter(properties, objectMapper)
+        if (properties.apiKey.isBlank()) FallbackLlmAdapter() else GeminiLlmAdapter(properties, objectMapper)
+
+    @Bean
+    @ConditionalOnProperty(prefix = "moderation.kafka", name = ["enabled"], havingValue = "false", matchIfMissing = true)
+    fun noOpModerationOutbox(): ModerationOutboxPort = NoOpModerationOutbox()
 
     @Bean
     @ConditionalOnProperty(prefix = "moderation.persistence", name = ["mode"], havingValue = "memory")
@@ -92,6 +101,13 @@ class ModerationConfiguration {
         input: ModerateContentInputPort,
         objectMapper: ObjectMapper,
         store: ModerationDecisionStore,
-        meterRegistry: MeterRegistry
-    ): ModerationExecutionService = ModerationExecutionService(input, objectMapper, store, meterRegistry = meterRegistry)
+        meterRegistry: MeterRegistry,
+        outbox: ModerationOutboxPort
+    ): ModerationExecutionService = ModerationExecutionService(
+        input,
+        objectMapper,
+        store,
+        meterRegistry = meterRegistry,
+        outbox = outbox
+    )
 }

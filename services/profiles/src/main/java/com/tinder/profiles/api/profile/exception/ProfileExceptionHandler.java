@@ -5,6 +5,7 @@ import com.tinder.profiles.application.profile.exception.PatchOperationException
 import com.tinder.profiles.application.profile.exception.ProfileAlreadyExistsException;
 import com.tinder.profiles.application.profile.exception.ProfileNotFoundException;
 import com.tinder.profiles.application.profile.exception.ProfileOperationException;
+import com.tinder.profiles.application.profile.exception.ContentBlockedException;
 import com.tinder.profiles.application.profile.exception.ProfileValidationException;
 
 import com.tinder.profiles.api.profile.dto.errors.ErrorSummary;
@@ -59,6 +60,9 @@ public class ProfileExceptionHandler {
         }
         if (ex instanceof PatchOperationException || ex instanceof ProfileValidationException) {
             return HttpStatus.BAD_REQUEST;
+        }
+        if (ex instanceof ContentBlockedException) {
+            return HttpStatus.UNPROCESSABLE_ENTITY;
         }
         return HttpStatus.INTERNAL_SERVER_ERROR;
     }

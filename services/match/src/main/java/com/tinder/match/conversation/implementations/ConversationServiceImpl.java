@@ -15,6 +15,7 @@ import com.tinder.match.conversation.model.MessageAttachment;
 import com.tinder.match.conversation.model.MessageType;
 import com.tinder.match.conversation.repository.ConversationRepository;
 import com.tinder.match.conversation.repository.MessageRepository;
+import com.tinder.match.moderation.ModerationClient;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -39,6 +40,7 @@ public class ConversationServiceImpl implements ConversationService {
     private final ConversationRepository conversationRepository;
     private final MessageRepository messageRepository;
     private final ConversationPhotoStorageService conversationPhotoStorageService;
+    private final ModerationClient moderation;
 
     @Override
     @Transactional
@@ -140,6 +142,12 @@ public class ConversationServiceImpl implements ConversationService {
 
         validateConversationAccess(conversation, senderId);
         validateMessagePayload(msg);
+        if (msg.messageType() == MessageType.TEXT) {
+            moderation.requireAllowedText(
+                    "message:" + msg.conversationId() + ":" + msg.clientMessageId(),
+                    msg.text(),
+                    senderId.toString());
+        }
 
         Optional<Message> duplicate = messageRepository.findBySenderIdAndClientMessageId(senderId, msg.clientMessageId());
         if (duplicate.isPresent()) {
@@ -197,6 +205,10 @@ public class ConversationServiceImpl implements ConversationService {
 
         ConversationPhotoStorageService.UploadedPhoto uploadedPhoto =
                 conversationPhotoStorageService.uploadPhoto(file, conversationId, senderId, clientMessageId);
+        moderation.requireAllowedImages(
+                "message:" + conversationId + ":" + clientMessageId,
+                List.of(uploadedPhoto.url()),
+                senderId.toString());
 
         Message message = Message.builder()
                 .clientMessageId(clientMessageId)

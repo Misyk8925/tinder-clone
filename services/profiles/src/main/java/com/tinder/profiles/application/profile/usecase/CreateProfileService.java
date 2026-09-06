@@ -8,6 +8,7 @@ import com.tinder.profiles.application.profile.port.out.LocationPort;
 import com.tinder.profiles.application.profile.port.out.ProfileCachePort;
 import com.tinder.profiles.application.profile.port.out.ProfileRepositoryPort;
 import com.tinder.profiles.application.profile.port.out.ResolvedLocation;
+import com.tinder.profiles.application.moderation.ProfileContentModerator;
 import com.tinder.profiles.application.profile.support.ProfileEditService;
 import com.tinder.profiles.domain.profile.Profile;
 import lombok.RequiredArgsConstructor;
@@ -27,6 +28,7 @@ public class CreateProfileService {
     private final DomainEventPublisherPort events;
     private final ProfileCachePort cache;
     private final ProfileEditService editService;
+    private final ProfileContentModerator moderation;
 
     @Transactional
     public UUID handle(CreateProfileCommand cmd) {
@@ -38,6 +40,7 @@ public class CreateProfileService {
         // against the originally-provided city before we default it.
         ProfileEdit edit = editService.toEdit(cmd);
         editService.requireLocationProvided(edit);
+        moderation.requireAllowedText("profile:" + cmd.userId(), composeText(edit.name(), edit.bio()), cmd.userId());
 
         String city = edit.hasCity() ? edit.city() : "Unknown";
         ResolvedLocation resolved = location.resolve(cmd.latitude(), cmd.longitude(), city);
@@ -64,5 +67,19 @@ public class CreateProfileService {
 
         log.info("Profile created successfully for userId: {}", cmd.userId());
         return saved.getId();
+    }
+
+    private static String composeText(String name, String bio) {
+        StringBuilder text = new StringBuilder();
+        if (name != null && !name.isBlank()) {
+            text.append(name.strip());
+        }
+        if (bio != null && !bio.isBlank()) {
+            if (!text.isEmpty()) {
+                text.append('\n');
+            }
+            text.append(bio.strip());
+        }
+        return text.toString();
     }
 }

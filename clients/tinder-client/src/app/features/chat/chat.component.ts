@@ -8,6 +8,8 @@ import { NgClass } from '@angular/common';
 import { HttpClient } from '@angular/common/http';
 import { firstValueFrom } from 'rxjs';
 import { MatchService, Message } from '../../core/services/match.service';
+import { ReportService } from '../../core/services/report.service';
+import { moderationFailureMessage } from '../../core/utils/moderation-errors';
 import { ChatHistoryCache } from '../../core/services/chat-history.cache';
 import { markConversationRead } from '../matches/matches.component';
 import { KeycloakService } from '../../core/services/keycloak.service';
@@ -58,6 +60,9 @@ interface StompMessageEvent {
             <h1>{{ otherName() }}</h1>
           </div>
         </div>
+        <button type="button" class="report-btn" (click)="reportConversation()" aria-label="Report conversation">
+          Report
+        </button>
         <div class="connection-state" [class.connecting]="wsState() === 'connecting'" [class.offline]="wsState() === 'disconnected'">
           <span></span>
           {{ connectionLabel() }}
@@ -534,6 +539,17 @@ interface StompMessageEvent {
       text-overflow: ellipsis;
       white-space: nowrap;
     }
+    .report-btn {
+      border: 0;
+      background: transparent;
+      color: var(--text-muted);
+      font: inherit;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      padding: 6px 8px;
+    }
+
     .connection-state {
       padding: 6px 9px;
       display: flex;
@@ -709,6 +725,7 @@ export class ChatComponent implements OnInit, OnDestroy, AfterViewChecked {
   private profileService = inject(ProfileService);
   private http = inject(HttpClient);
   private chatCache = inject(ChatHistoryCache);
+  private reports = inject(ReportService);
 
   conversationId = signal('');
   messages = signal<Message[]>([]);
@@ -869,6 +886,16 @@ export class ChatComponent implements OnInit, OnDestroy, AfterViewChecked {
   private handleStompMessage(body: string): void {
     try {
       const event = JSON.parse(body) as StompMessageEvent;
+      if (event.type === 'MODERATION_BLOCKED') {
+        const blockedId = event.clientMessageId;
+        if (blockedId) {
+          this.messages.update(msgs => msgs.filter(message => message.id !== blockedId));
+          this.seenIds.delete(blockedId);
+          this.persistHistory();
+        }
+        this.showToast(event.text || 'This message was blocked by moderation.');
+        return;
+      }
       const id = event.messageId;
       if (!id || this.seenIds.has(id)) return;
 
@@ -1057,6 +1084,15 @@ export class ChatComponent implements OnInit, OnDestroy, AfterViewChecked {
   @HostListener('document:keydown.escape')
   onEscape(): void {
     this.closePreview();
+  }
+
+  reportConversation(): void {
+    const details = window.prompt('Why are you reporting this conversation?');
+    if (!details?.trim()) return;
+    this.reports.reportConversation(this.conversationId(), 'other', details.trim()).subscribe({
+      next: () => this.showToast('Thanks. We will review this conversation.'),
+      error: (err: unknown) => this.showToast(moderationFailureMessage(err, 'Could not send the report. Please try again.'))
+    });
   }
 
   goBack(): void {

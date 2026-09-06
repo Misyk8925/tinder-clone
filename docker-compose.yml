@@ -51,6 +51,7 @@ services:
       SUBSCRIPTIONS_DB_PASSWORD: ${SUBSCRIPTIONS_DB_PASSWORD:?SUBSCRIPTIONS_DB_PASSWORD is required}
       SWIPES_DB_PASSWORD: ${SWIPES_DB_PASSWORD:?SWIPES_DB_PASSWORD is required}
       LOCATION_DB_PASSWORD: ${LOCATION_DB_PASSWORD:?LOCATION_DB_PASSWORD is required}
+      MODERATION_DB_PASSWORD: ${MODERATION_DB_PASSWORD:?MODERATION_DB_PASSWORD is required}
     command: postgres -c max_connections=120 -c shared_buffers=2GB -c effective_cache_size=12GB -c maintenance_work_mem=1GB -c work_mem=32MB -c max_wal_size=8GB -c synchronous_commit=off
     volumes:
       - profiles-pgdata:/var/lib/postgresql/data
@@ -89,6 +90,28 @@ services:
       - ./migrations/migration:/migrations:ro
       - ./docker/postgres/run-sql-migration.sh:/run-sql-migration.sh:ro
     entrypoint: ["/bin/sh", "/run-sql-migration.sh", "/migrations/V2_profiles_deck_read_cqrs.sql"]
+    networks:
+      - app
+
+  # Idempotent moderation database for both fresh and existing Postgres volumes.
+  moderation-db-init:
+    image: postgis/postgis:17-3.4
+    restart: "no"
+    init: true
+    security_opt:
+      - no-new-privileges:true
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      PGHOST: postgres
+      PGPORT: 5432
+      PGUSER: ${POSTGRES_USER:-postgres}
+      PGPASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
+      MODERATION_DB_PASSWORD: ${MODERATION_DB_PASSWORD:?MODERATION_DB_PASSWORD is required}
+    volumes:
+      - ./docker/postgres/init-moderation-db.sh:/init-moderation-db.sh:ro
+    entrypoint: ["/bin/sh", "/init-moderation-db.sh"]
     networks:
       - app
 
@@ -276,6 +299,16 @@ services:
         --topic deck.built.v1 --partitions 48 --replication-factor 1
         && kafka-topics --bootstrap-server kafka:29092 --create --if-not-exists
         --topic deck-read.materialization-requested.v1 --partitions 48 --replication-factor 1
+        && kafka-topics --bootstrap-server kafka:29092 --create --if-not-exists
+        --topic moderation.commands.v1 --partitions 12 --replication-factor 1
+        && kafka-topics --bootstrap-server kafka:29092 --create --if-not-exists
+        --topic moderation.results.v1 --partitions 12 --replication-factor 1
+        && kafka-topics --bootstrap-server kafka:29092 --create --if-not-exists
+        --topic moderation.reviews.v1 --partitions 6 --replication-factor 1
+        && kafka-topics --bootstrap-server kafka:29092 --create --if-not-exists
+        --topic moderation.policies.v1 --partitions 3 --replication-factor 1
+        && kafka-topics --bootstrap-server kafka:29092 --create --if-not-exists
+        --topic moderation.commands.dlq.v1 --partitions 3 --replication-factor 1
     networks: [app]
 
   profiles:
@@ -299,6 +332,8 @@ services:
       location:
         condition: service_healthy
       photos:
+        condition: service_healthy
+      moderation:
         condition: service_healthy
     environment:
       SPRING_PROFILES_ACTIVE: prod
@@ -332,6 +367,10 @@ services:
       MANAGEMENT_TRACING_ENABLED: "false"
       LOCATION_SERVICE_URL: http://location:8065
       PHOTOS_SERVICE_URL: http://photos:8070
+      MODERATION_ENABLED: "true"
+      MODERATION_SERVICE_URL: http://moderation:8086
+      MODERATION_CLIENT_USERNAME: ${MODERATION_CLIENT_USERNAME:?MODERATION_CLIENT_USERNAME is required}
+      MODERATION_CLIENT_PASSWORD: ${MODERATION_CLIENT_PASSWORD:?MODERATION_CLIENT_PASSWORD is required}
 
       PROFILES_KEYSTORE_PATH: file:/certs/profiles-service.p12
       PROFILES_KEYSTORE_PASSWORD: ${MTLS_KEYSTORE_PASSWORD:?MTLS_KEYSTORE_PASSWORD is required}
@@ -536,6 +575,46 @@ services:
       start_period: 30s
       retries: 5
 
+  moderation:
+    build:
+      context: ./services/moderation
+    container_name: moderation
+    <<: *prod-mid-defaults
+    ports: []
+    depends_on:
+      postgres:
+        condition: service_healthy
+      moderation-db-init:
+        condition: service_completed_successfully
+      kafka:
+        condition: service_healthy
+    environment:
+      SPRING_PROFILES_ACTIVE: prod
+      SERVER_PORT: "8086"
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/moderation_db
+      SPRING_DATASOURCE_USERNAME: moderation_app
+      SPRING_DATASOURCE_PASSWORD: ${MODERATION_DB_PASSWORD:?MODERATION_DB_PASSWORD is required}
+      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+      MODERATION_KAFKA_ENABLED: "true"
+      MODERATION_PERSISTENCE_MODE: jdbc
+      MODERATION_ADMIN_USERNAME: ${MODERATION_ADMIN_USERNAME:?MODERATION_ADMIN_USERNAME is required}
+      MODERATION_ADMIN_PASSWORD_HASH: ${MODERATION_ADMIN_PASSWORD_HASH:?MODERATION_ADMIN_PASSWORD_HASH is required}
+      MODERATION_CLIENT_USERNAME: ${MODERATION_CLIENT_USERNAME:?MODERATION_CLIENT_USERNAME is required}
+      MODERATION_CLIENT_PASSWORD_HASH: ${MODERATION_CLIENT_PASSWORD_HASH:?MODERATION_CLIENT_PASSWORD_HASH is required}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      JAVA_TOOL_OPTIONS: "-XX:+UseContainerSupport -XX:+UseG1GC -XX:InitialRAMPercentage=40.0 -XX:MaxRAMPercentage=75.0 -Dfile.encoding=UTF-8 -Dsun.net.inetaddr.ttl=60 -Djava.io.tmpdir=/tmp"
+    networks:
+      - app
+    mem_limit: 768m
+    cpus: "0.75"
+    healthcheck:
+      test: ["CMD-SHELL", "(wget -q --server-response -O- http://localhost:8086/actuator/health 2>&1 || true) | grep -Eq 'HTTP/1.1 (200|401)' || exit 1"]
+      interval: 15s
+      timeout: 10s
+      start_period: 240s
+      retries: 10
+
   photos:
     build:
       context: ./services/photos
@@ -616,6 +695,8 @@ services:
         condition: service_healthy
       kafka:
         condition: service_healthy
+      moderation:
+        condition: service_healthy
       photos:
         condition: service_healthy
     environment:
@@ -627,6 +708,10 @@ services:
       CLOUDFRONT_DOMAIN: ${CLOUDFRONT_DOMAIN:?CLOUDFRONT_DOMAIN is required}
       CDN_ENABLED: ${CDN_ENABLED:-true}
       PHOTOS_SERVICE_URL: http://photos:8070
+      MODERATION_ENABLED: "true"
+      MODERATION_SERVICE_URL: http://moderation:8086
+      MODERATION_CLIENT_USERNAME: ${MODERATION_CLIENT_USERNAME:?MODERATION_CLIENT_USERNAME is required}
+      MODERATION_CLIENT_PASSWORD: ${MODERATION_CLIENT_PASSWORD:?MODERATION_CLIENT_PASSWORD is required}
       SPRING_DATASOURCE_URL: ${MATCH_DB_URL:?MATCH_DB_URL is required}
       SPRING_DATASOURCE_USERNAME: ${MATCH_DB_USER:?MATCH_DB_USER is required}
       SPRING_DATASOURCE_PASSWORD: ${MATCH_DB_PASSWORD:?MATCH_DB_PASSWORD is required}

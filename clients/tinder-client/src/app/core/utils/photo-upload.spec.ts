@@ -36,4 +36,13 @@ describe('photo upload helpers', () => {
     expect(photoUploadFailureMessage(new HeicConversionError()))
       .toBe('HEIC conversion failed. Please choose another photo.');
   });
+
+  it('Given a 422 CONTENT_BLOCKED response, when mapping the toast, then the blocked copy is shown', () => {
+    const error = new HttpErrorResponse({
+      status: 422,
+      error: { code: 'CONTENT_BLOCKED', message: 'This photo was blocked by moderation.' }
+    });
+
+    expect(photoUploadFailureMessage(error)).toBe('This photo was blocked by moderation.');
+  });
 });
