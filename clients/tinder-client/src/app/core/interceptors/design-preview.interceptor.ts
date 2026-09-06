@@ -228,5 +228,9 @@ export const designPreviewInterceptor: HttpInterceptorFn = (request, next) => {
     return of(new HttpResponse({ status: 200, body: { conversationId: 'preview-new-chat' } })).pipe(delay(650));
   }
 
+  if (request.method === 'POST' && url.includes('/report')) {
+    return of(new HttpResponse({ status: 202, body: { status: 'accepted' } }));
+  }
+
   return next(request);
 };

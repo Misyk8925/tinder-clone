@@ -16,7 +16,7 @@ import java.sql.ResultSet
 import java.time.Instant
 import java.util.UUID
 
-class JdbcPolicyStateStore(
+open class JdbcPolicyStateStore(
     private val jdbc: JdbcTemplate,
     private val objectMapper: ObjectMapper
 ) : PolicyStateStore {
