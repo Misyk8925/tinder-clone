@@ -4,7 +4,7 @@ import { TestBed } from '@angular/core/testing';
 import { firstValueFrom } from 'rxjs';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { environment } from '../../../environments/environment';
-import { designPreviewInterceptor } from './design-preview.interceptor';
+import { designPreviewInterceptor, resetDesignPreviewFixtures } from './design-preview.interceptor';
 
 describe('design preview interceptor content events', () => {
   let http: HttpClient;
@@ -20,6 +20,7 @@ describe('design preview interceptor content events', () => {
   });
 
   afterEach(() => {
+    resetDesignPreviewFixtures();
     environment.designPreview = previousPreview;
   });
 
@@ -51,5 +52,35 @@ describe('design preview interceptor content events', () => {
     );
 
     expect(response).toEqual({ message: 'saved', id: 'preview-me' });
+  });
+
+  it('Given a clean bio save, when the profile page reloads /me, then the new bio is returned', async () => {
+    await firstValueFrom(
+      http.put('https://preview.test/api/v1/profiles', {
+        name: 'Michael',
+        bio: 'Coffee, a trail, then live music.'
+      })
+    );
+
+    const me = await firstValueFrom(
+      http.get<{ bio: string }>('https://preview.test/api/v1/profiles/me')
+    );
+
+    expect(me.bio).toBe('Coffee, a trail, then live music.');
+  });
+
+  it('Given a blocked bio, when /me is read again, then the previous bio is unchanged', async () => {
+    await firstValueFrom(
+      http.put('https://preview.test/api/v1/profiles', {
+        name: 'Michael',
+        bio: 'I hate all outsiders and they should die'
+      })
+    ).catch(() => undefined);
+
+    const me = await firstValueFrom(
+      http.get<{ bio: string }>('https://preview.test/api/v1/profiles/me')
+    );
+
+    expect(me.bio).toBe('A good conversation and a long walk are a strong start.');
   });
 });
