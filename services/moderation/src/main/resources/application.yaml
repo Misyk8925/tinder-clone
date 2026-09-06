@@ -68,3 +68,8 @@ management:
   health:
     defaults:
       enabled: true
+    kafka:
+      enabled: false
+    group:
+      readiness:
+        include: readinessState,db,kafka
