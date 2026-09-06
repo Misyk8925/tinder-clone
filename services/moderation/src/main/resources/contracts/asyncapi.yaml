@@ -1,0 +1,178 @@
+asyncapi: 3.0.0
+info:
+  title: Tinder Clone Moderation Events
+  version: 1.0.0
+  description: Versioned moderation commands, results, review, policy, and dead-letter events.
+defaultContentType: application/json
+servers:
+  local:
+    host: kafka:9092
+    protocol: kafka
+    description: Logical server; deployment overrides bootstrap servers and topic prefix.
+channels:
+  moderationCommandsV1:
+    address: moderation.commands.v1
+    messages:
+      moderationRequested:
+        $ref: '#/components/messages/ModerationRequested'
+  moderationResultsV1:
+    address: moderation.results.v1
+    messages:
+      moderationCompleted:
+        $ref: '#/components/messages/ModerationCompleted'
+  moderationReviewsV1:
+    address: moderation.reviews.v1
+    messages:
+      reviewChanged:
+        $ref: '#/components/messages/ReviewChanged'
+  moderationPoliciesV1:
+    address: moderation.policies.v1
+    messages:
+      policyChanged:
+        $ref: '#/components/messages/PolicyChanged'
+  moderationCommandsDlqV1:
+    address: moderation.commands.dlq.v1
+    messages:
+      moderationCommandRejected:
+        $ref: '#/components/messages/ModerationCommandRejected'
+operations:
+  consumeModerationRequests:
+    action: receive
+    channel:
+      $ref: '#/channels/moderationCommandsV1'
+    summary: Idempotently consume at-least-once commands, keyed by contentId.
+    messages:
+      - $ref: '#/channels/moderationCommandsV1/messages/moderationRequested'
+  publishModerationResults:
+    action: send
+    channel:
+      $ref: '#/channels/moderationResultsV1'
+    summary: Publish through transactional outbox, keyed by contentId.
+    messages:
+      - $ref: '#/channels/moderationResultsV1/messages/moderationCompleted'
+  publishReviewChanges:
+    action: send
+    channel:
+      $ref: '#/channels/moderationReviewsV1'
+    summary: Publish review task lifecycle changes, keyed by reviewTaskId.
+    messages:
+      - $ref: '#/channels/moderationReviewsV1/messages/reviewChanged'
+  publishPolicyChanges:
+    action: send
+    channel:
+      $ref: '#/channels/moderationPoliciesV1'
+    summary: Publish policy publication and activation changes, keyed by policyVersion.
+    messages:
+      - $ref: '#/channels/moderationPoliciesV1/messages/policyChanged'
+  publishRejectedCommands:
+    action: send
+    channel:
+      $ref: '#/channels/moderationCommandsDlqV1'
+    summary: Publish poison commands after five unsuccessful attempts, keyed by original messageId.
+    messages:
+      - $ref: '#/channels/moderationCommandsDlqV1/messages/moderationCommandRejected'
+components:
+  messages:
+    ModerationRequested:
+      name: ModerationRequested
+      title: Moderation requested
+      correlationId: { location: '$message.payload#/correlationId' }
+      payload: { $ref: '#/components/schemas/ModerationRequestedPayload' }
+    ModerationCompleted:
+      name: ModerationCompleted
+      title: Moderation completed
+      correlationId: { location: '$message.payload#/correlationId' }
+      payload: { $ref: '#/components/schemas/ModerationCompletedPayload' }
+    ReviewChanged:
+      name: ReviewChanged
+      title: Review task changed
+      correlationId: { location: '$message.payload#/correlationId' }
+      payload: { $ref: '#/components/schemas/ReviewChangedPayload' }
+    PolicyChanged:
+      name: PolicyChanged
+      title: Policy changed
+      correlationId: { location: '$message.payload#/correlationId' }
+      payload: { $ref: '#/components/schemas/PolicyChangedPayload' }
+    ModerationCommandRejected:
+      name: ModerationCommandRejected
+      title: Moderation command rejected
+      correlationId: { location: '$message.payload#/correlationId' }
+      payload: { $ref: '#/components/schemas/RejectedPayload' }
+  schemas:
+    EventEnvelope:
+      type: object
+      required: [schemaVersion, messageId, correlationId, occurredAt]
+      properties:
+        schemaVersion: { type: integer, const: 1 }
+        messageId: { type: string, format: uuid }
+        correlationId: { type: string, minLength: 1, maxLength: 128 }
+        occurredAt: { type: string, format: date-time }
+    ContextMessage:
+      type: object
+      additionalProperties: false
+      required: [contentId, authorId, text]
+      properties:
+        contentId: { type: string, minLength: 1, maxLength: 128 }
+        authorId: { type: string, minLength: 1, maxLength: 128 }
+        text: { type: string, minLength: 1, maxLength: 4096 }
+    ModerationRequestedPayload:
+      allOf:
+        - $ref: '#/components/schemas/EventEnvelope'
+        - type: object
+          required: [contentId, contentType]
+          properties:
+            contentId: { type: string, minLength: 1, maxLength: 128 }
+            contentType: { type: string, enum: [MESSAGE, PROFILE_DESCRIPTION, PHOTO, REPORT] }
+            text: { type: [string, 'null'], maxLength: 65536 }
+            imageUrls: { type: array, maxItems: 10, items: { type: string, format: uri, maxLength: 2048 } }
+            locale: { type: [string, 'null'], maxLength: 35 }
+            country: { type: [string, 'null'], pattern: '^[A-Z]{2}$' }
+            authorId: { type: [string, 'null'], maxLength: 128 }
+            conversationContext: { type: array, maxItems: 20, items: { $ref: '#/components/schemas/ContextMessage' } }
+    ModerationCompletedPayload:
+      allOf:
+        - $ref: '#/components/schemas/EventEnvelope'
+        - type: object
+          required: [requestMessageId, decisionId, contentId, decision, policyVersion]
+          properties:
+            requestMessageId: { type: string, format: uuid }
+            decisionId: { type: string, format: uuid }
+            contentId: { type: string }
+            decision: { type: string, enum: [ALLOW, FLAG, BLOCK, HOLD] }
+            reason: { type: [string, 'null'] }
+            policyVersion: { type: string }
+            reviewTaskId: { type: [string, 'null'], format: uuid }
+            evidence: { type: object, additionalProperties: true }
+    ReviewChangedPayload:
+      allOf:
+        - $ref: '#/components/schemas/EventEnvelope'
+        - type: object
+          required: [reviewTaskId, decisionId, status, aggregateVersion]
+          properties:
+            reviewTaskId: { type: string, format: uuid }
+            decisionId: { type: string, format: uuid }
+            status: { type: string, enum: [OPEN, RESOLVED, ESCALATED] }
+            resolution: { type: [string, 'null'], enum: [ALLOW, FLAG, BLOCK, HOLD, null] }
+            aggregateVersion: { type: integer, minimum: 0 }
+    PolicyChangedPayload:
+      allOf:
+        - $ref: '#/components/schemas/EventEnvelope'
+        - type: object
+          required: [policyVersion, changeType]
+          properties:
+            policyVersion: { type: string }
+            changeType: { type: string, enum: [PUBLISHED, ACTIVATED, ROLLED_BACK] }
+            contentType: { type: [string, 'null'] }
+            locale: { type: [string, 'null'] }
+            previousVersion: { type: [string, 'null'] }
+    RejectedPayload:
+      allOf:
+        - $ref: '#/components/schemas/EventEnvelope'
+        - type: object
+          required: [originalMessageId, failureCode, attempts]
+          properties:
+            originalMessageId: { type: string, format: uuid }
+            failureCode: { type: string }
+            attempts: { type: integer, const: 5 }
+            payloadSha256: { type: string, pattern: '^[a-f0-9]{64}$' }
+            diagnostic: { type: [string, 'null'], maxLength: 500 }

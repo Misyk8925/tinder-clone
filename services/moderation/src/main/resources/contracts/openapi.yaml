@@ -1,0 +1,676 @@
+openapi: 3.1.0
+info:
+  title: Tinder Clone Internal Moderation API
+  version: 1.0.0
+  description: Internal synchronous moderation, policy management, and human review API.
+servers:
+  - url: /internal/v1
+security:
+  - basicAuth: []
+tags:
+  - name: Moderation
+  - name: Policies
+  - name: Review
+  - name: Admin GUI
+paths:
+  /moderations:
+    post:
+      tags: [Moderation]
+      operationId: moderateContent
+      summary: Evaluate content synchronously
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ModerationRequest'
+      responses:
+        '200':
+          description: A new or idempotently replayed moderation result
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ModerationResponse'
+        '400': { $ref: '#/components/responses/InvalidPayload' }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '409': { $ref: '#/components/responses/IdempotencyConflict' }
+        '413': { $ref: '#/components/responses/PayloadTooLarge' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+        '503': { $ref: '#/components/responses/ServiceUnavailable' }
+    get:
+      tags: [Moderation]
+      operationId: listModerationDecisions
+      summary: List stored moderation decisions
+      parameters:
+        - $ref: '#/components/parameters/Cursor'
+        - $ref: '#/components/parameters/Limit'
+        - name: decision
+          in: query
+          schema: { $ref: '#/components/schemas/Decision' }
+        - name: policyVersion
+          in: query
+          schema: { type: string }
+        - name: category
+          in: query
+          schema: { type: string }
+      responses:
+        '200':
+          description: A newest-first page of decisions
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ModerationPage'
+        '400': { $ref: '#/components/responses/InvalidPayload' }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+  /moderations/{decisionId}:
+    get:
+      tags: [Moderation]
+      operationId: getModerationDecision
+      summary: Read one decision and its evidence
+      parameters:
+        - $ref: '#/components/parameters/DecisionId'
+      responses:
+        '200':
+          description: Stored moderation decision
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ModerationResponse'
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /policies:
+    get:
+      tags: [Policies]
+      operationId: listPolicies
+      summary: List policy versions and lifecycle states
+      parameters:
+        - $ref: '#/components/parameters/Cursor'
+        - $ref: '#/components/parameters/Limit'
+        - name: status
+          in: query
+          schema: { $ref: '#/components/schemas/PolicyStatus' }
+      responses:
+        '200':
+          description: Policy page
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PolicyPage'
+        '400': { $ref: '#/components/responses/InvalidPayload' }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+    post:
+      tags: [Policies]
+      operationId: createPolicyDraft
+      summary: Create a mutable policy draft
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PolicyDraftRequest'
+      responses:
+        '201':
+          description: Draft created
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PolicyVersion' }
+        '400': { $ref: '#/components/responses/InvalidPayload' }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '409': { $ref: '#/components/responses/PolicyVersionExists' }
+  /policies/{version}:
+    get:
+      tags: [Policies]
+      operationId: getPolicy
+      summary: Read a policy version
+      parameters:
+        - $ref: '#/components/parameters/PolicyVersion'
+      responses:
+        '200':
+          description: Policy version
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PolicyVersion' }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    put:
+      tags: [Policies]
+      operationId: replacePolicyDraft
+      summary: Replace an existing draft; published versions are immutable
+      parameters:
+        - $ref: '#/components/parameters/PolicyVersion'
+        - $ref: '#/components/parameters/IfMatch'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/PolicyDraftRequest' }
+      responses:
+        '200':
+          description: Updated draft
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PolicyVersion' }
+        '400': { $ref: '#/components/responses/InvalidPayload' }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/VersionConflict' }
+        '422': { $ref: '#/components/responses/PublishedPolicyImmutable' }
+  /policies/{version}/validation:
+    post:
+      tags: [Policies]
+      operationId: validatePolicyDraft
+      summary: Validate a draft without publishing it
+      parameters:
+        - $ref: '#/components/parameters/PolicyVersion'
+      responses:
+        '200':
+          description: Validation report; invalid drafts still return a report
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PolicyValidation' }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /policies/{version}/publication:
+    post:
+      tags: [Policies]
+      operationId: publishPolicy
+      summary: Publish an immutable policy version
+      parameters:
+        - $ref: '#/components/parameters/PolicyVersion'
+        - $ref: '#/components/parameters/IfMatch'
+      responses:
+        '200':
+          description: Published policy
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PolicyVersion' }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/VersionConflict' }
+        '422': { $ref: '#/components/responses/PolicyInvalid' }
+  /policies/{version}/activation:
+    put:
+      tags: [Policies]
+      operationId: activatePolicy
+      summary: Activate a published policy for a scope
+      parameters:
+        - $ref: '#/components/parameters/PolicyVersion'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/PolicyScope' }
+      responses:
+        '200':
+          description: Active scope pointer
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PolicyActivation' }
+        '400': { $ref: '#/components/responses/InvalidPayload' }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/VersionConflict' }
+        '422': { $ref: '#/components/responses/PolicyNotPublished' }
+  /policy-activations/{activationId}/rollback:
+    post:
+      tags: [Policies]
+      operationId: rollbackPolicy
+      summary: Move an active scope to its previous published version
+      parameters:
+        - name: activationId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - $ref: '#/components/parameters/IfMatch'
+      responses:
+        '200':
+          description: Rolled-back activation
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PolicyActivation' }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/VersionConflict' }
+        '422': { $ref: '#/components/responses/NoPreviousPolicy' }
+  /policy-previews:
+    post:
+      tags: [Policies]
+      operationId: previewPolicy
+      summary: Evaluate supplied evidence against a draft without persisting a moderation decision
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/PolicyPreviewRequest' }
+      responses:
+        '200':
+          description: Previewed decision
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PolicyPreviewResponse' }
+        '400': { $ref: '#/components/responses/InvalidPayload' }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/PolicyInvalid' }
+  /review-tasks:
+    get:
+      tags: [Review]
+      operationId: listReviewTasks
+      summary: List review tasks
+      parameters:
+        - $ref: '#/components/parameters/Cursor'
+        - $ref: '#/components/parameters/Limit'
+        - name: status
+          in: query
+          schema: { $ref: '#/components/schemas/ReviewStatus' }
+      responses:
+        '200':
+          description: Review task page
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ReviewPage' }
+        '400': { $ref: '#/components/responses/InvalidPayload' }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+  /review-tasks/{reviewTaskId}:
+    get:
+      tags: [Review]
+      operationId: getReviewTask
+      summary: Read one review task with decision evidence
+      parameters:
+        - $ref: '#/components/parameters/ReviewTaskId'
+      responses:
+        '200':
+          description: Review task
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ReviewTask' }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /review-tasks/{reviewTaskId}/resolution:
+    put:
+      tags: [Review]
+      operationId: resolveReviewTask
+      summary: Confirm, override, or escalate a review task
+      parameters:
+        - $ref: '#/components/parameters/ReviewTaskId'
+        - $ref: '#/components/parameters/IfMatch'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ReviewResolutionRequest' }
+      responses:
+        '200':
+          description: Updated review task
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ReviewTask' }
+        '400': { $ref: '#/components/responses/InvalidPayload' }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/VersionConflict' }
+        '422': { $ref: '#/components/responses/ReviewAlreadyResolved' }
+  /admin:
+    get:
+      tags: [Admin GUI]
+      operationId: adminDashboard
+      summary: Render the internal dashboard
+      security:
+        - sessionCookie: []
+      responses:
+        '200':
+          description: Dashboard HTML
+          content:
+            text/html: { schema: { type: string } }
+        '302': { description: Anonymous browser is redirected to login }
+  /admin/decisions:
+    get:
+      tags: [Admin GUI]
+      operationId: adminDecisions
+      summary: Render searchable moderation decisions
+      security:
+        - sessionCookie: []
+      responses:
+        '200':
+          description: Decisions HTML
+          content:
+            text/html: { schema: { type: string } }
+        '302': { description: Anonymous browser is redirected to login }
+  /admin/reviews:
+    get:
+      tags: [Admin GUI]
+      operationId: adminReviews
+      summary: Render the review queue
+      security:
+        - sessionCookie: []
+      responses:
+        '200':
+          description: Review queue HTML
+          content:
+            text/html: { schema: { type: string } }
+        '302': { description: Anonymous browser is redirected to login }
+  /admin/policies:
+    get:
+      tags: [Admin GUI]
+      operationId: adminPolicies
+      summary: Render policy management
+      security:
+        - sessionCookie: []
+      responses:
+        '200':
+          description: Policy management HTML
+          content:
+            text/html: { schema: { type: string } }
+        '302': { description: Anonymous browser is redirected to login }
+components:
+  securitySchemes:
+    basicAuth:
+      type: http
+      scheme: basic
+    sessionCookie:
+      type: apiKey
+      in: cookie
+      name: JSESSIONID
+  parameters:
+    IdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: true
+      schema: { type: string, minLength: 8, maxLength: 128 }
+    IfMatch:
+      name: If-Match
+      in: header
+      required: true
+      description: Quoted numeric aggregate version, for example `"3"`.
+      schema: { type: string, pattern: '^"[0-9]+"$' }
+    Cursor:
+      name: cursor
+      in: query
+      schema: { type: string, maxLength: 512 }
+    Limit:
+      name: limit
+      in: query
+      schema: { type: integer, minimum: 1, maximum: 100, default: 50 }
+    DecisionId:
+      name: decisionId
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+    ReviewTaskId:
+      name: reviewTaskId
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+    PolicyVersion:
+      name: version
+      in: path
+      required: true
+      schema: { type: string, minLength: 1, maxLength: 80, pattern: '^[A-Za-z0-9._-]+$' }
+  responses:
+    InvalidPayload:
+      description: Request validation failed
+      content: { application/json: { schema: { $ref: '#/components/schemas/ApiError' }, example: { code: INVALID_PAYLOAD, message: Request validation failed, retryable: false } } }
+    Unauthenticated:
+      description: Credentials are missing or invalid
+      content: { application/json: { schema: { $ref: '#/components/schemas/ApiError' }, example: { code: UNAUTHENTICATED, message: Authentication required, retryable: false } } }
+    Forbidden:
+      description: Authenticated user lacks the required role
+      content: { application/json: { schema: { $ref: '#/components/schemas/ApiError' }, example: { code: FORBIDDEN, message: Insufficient role, retryable: false } } }
+    NotFound:
+      description: Requested resource does not exist
+      content: { application/json: { schema: { $ref: '#/components/schemas/ApiError' }, example: { code: NOT_FOUND, message: Resource not found, retryable: false } } }
+    IdempotencyConflict:
+      description: The key was already used with a different request body
+      content: { application/json: { schema: { $ref: '#/components/schemas/ApiError' }, example: { code: IDEMPOTENCY_CONFLICT, message: Idempotency key payload differs, retryable: false } } }
+    VersionConflict:
+      description: If-Match does not match current aggregate version
+      content: { application/json: { schema: { $ref: '#/components/schemas/ApiError' }, example: { code: VERSION_CONFLICT, message: Resource changed, retryable: true } } }
+    PolicyVersionExists:
+      description: A policy with this version already exists
+      content: { application/json: { schema: { $ref: '#/components/schemas/ApiError' }, example: { code: POLICY_VERSION_EXISTS, message: Policy version already exists, retryable: false } } }
+    PayloadTooLarge:
+      description: Request body or content exceeded a configured limit
+      content: { application/json: { schema: { $ref: '#/components/schemas/ApiError' }, example: { code: PAYLOAD_TOO_LARGE, message: Payload exceeds limit, retryable: false } } }
+    RateLimited:
+      description: Rate limit exceeded
+      headers:
+        Retry-After: { schema: { type: integer, minimum: 1 }, description: Seconds before retry }
+      content: { application/json: { schema: { $ref: '#/components/schemas/ApiError' }, example: { code: RATE_LIMITED, message: Retry later, retryable: true } } }
+    ServiceUnavailable:
+      description: Durable processing cannot complete; provider degradation that can be persisted returns HTTP 200 with decision HOLD
+      headers:
+        Retry-After: { schema: { type: integer, minimum: 1 } }
+      content: { application/json: { schema: { $ref: '#/components/schemas/ApiError' }, example: { code: SERVICE_UNAVAILABLE, message: Persistence unavailable, retryable: true } } }
+    PublishedPolicyImmutable:
+      description: Published policy content cannot be changed
+      content: { application/json: { schema: { $ref: '#/components/schemas/ApiError' }, example: { code: PUBLISHED_POLICY_IMMUTABLE, message: Published policy is immutable, retryable: false } } }
+    PolicyInvalid:
+      description: Policy validation failed
+      content: { application/json: { schema: { $ref: '#/components/schemas/ApiError' }, example: { code: POLICY_INVALID, message: Policy contains invalid thresholds, retryable: false } } }
+    PolicyNotPublished:
+      description: Only published policies can be activated
+      content: { application/json: { schema: { $ref: '#/components/schemas/ApiError' }, example: { code: POLICY_NOT_PUBLISHED, message: Publish policy before activation, retryable: false } } }
+    NoPreviousPolicy:
+      description: The active scope has no previous published version
+      content: { application/json: { schema: { $ref: '#/components/schemas/ApiError' }, example: { code: NO_PREVIOUS_POLICY, message: No previous policy to restore, retryable: false } } }
+    ReviewAlreadyResolved:
+      description: Review task has already reached a terminal state
+      content: { application/json: { schema: { $ref: '#/components/schemas/ApiError' }, example: { code: REVIEW_ALREADY_RESOLVED, message: Review is already resolved, retryable: false } } }
+  schemas:
+    ApiError:
+      type: object
+      required: [code, message, retryable]
+      properties:
+        code: { type: string }
+        message: { type: string }
+        retryable: { type: boolean }
+        correlationId: { type: [string, 'null'] }
+        fieldErrors: { type: array, items: { type: string }, default: [] }
+    Decision:
+      type: string
+      enum: [ALLOW, FLAG, BLOCK, HOLD]
+    ContentType:
+      type: string
+      enum: [MESSAGE, PROFILE_DESCRIPTION, PHOTO, REPORT]
+    ContextMessage:
+      type: object
+      additionalProperties: false
+      required: [contentId, authorId, text]
+      properties:
+        contentId: { type: string, minLength: 1, maxLength: 128 }
+        authorId: { type: string, minLength: 1, maxLength: 128 }
+        text: { type: string, minLength: 1, maxLength: 4096 }
+    ModerationRequest:
+      type: object
+      additionalProperties: false
+      required: [contentId, contentType]
+      anyOf:
+        - required: [text]
+        - required: [imageUrls]
+      properties:
+        contentId: { type: string, minLength: 1, maxLength: 128 }
+        contentType: { $ref: '#/components/schemas/ContentType' }
+        text: { type: [string, 'null'], maxLength: 65536 }
+        imageUrls:
+          type: array
+          maxItems: 10
+          items: { type: string, format: uri, maxLength: 2048 }
+        locale: { type: [string, 'null'], maxLength: 35 }
+        country: { type: [string, 'null'], pattern: '^[A-Z]{2}$' }
+        authorId: { type: [string, 'null'], maxLength: 128 }
+        conversationContext:
+          type: array
+          maxItems: 20
+          items: { $ref: '#/components/schemas/ContextMessage' }
+    CategoryScore:
+      type: object
+      required: [category, score, supported]
+      properties:
+        category: { type: string }
+        score: { type: number, minimum: 0, maximum: 1 }
+        supported: { type: boolean }
+    RuleHit:
+      type: object
+      required: [ruleId, reason]
+      properties:
+        ruleId: { type: string }
+        reason: { type: string }
+        confidence: { type: [number, 'null'], minimum: 0, maximum: 1 }
+        category: { type: [string, 'null'] }
+    Evidence:
+      type: object
+      required: [provider, model, categoryScores, applicationSignals, ruleHits, policyVersion]
+      properties:
+        provider: { type: string }
+        model: { type: string }
+        providerRequestId: { type: [string, 'null'] }
+        categoryScores: { type: array, items: { $ref: '#/components/schemas/CategoryScore' } }
+        applicationSignals: { type: array, items: { type: object, additionalProperties: true } }
+        adjudication: { type: [object, 'null'], additionalProperties: true }
+        ruleHits: { type: array, items: { $ref: '#/components/schemas/RuleHit' } }
+        policyVersion: { type: string }
+        policyScope: { $ref: '#/components/schemas/PolicyScope' }
+    ModerationResponse:
+      type: object
+      required: [decisionId, contentId, decision, evidence, createdAt]
+      properties:
+        decisionId: { type: string, format: uuid }
+        contentId: { type: string }
+        decision: { $ref: '#/components/schemas/Decision' }
+        reason: { type: [string, 'null'] }
+        confidence: { type: [number, 'null'], minimum: 0, maximum: 1 }
+        evidence: { $ref: '#/components/schemas/Evidence' }
+        reviewTaskId: { type: [string, 'null'], format: uuid }
+        replayed: { type: boolean, default: false }
+        createdAt: { type: string, format: date-time }
+    ModerationPage:
+      type: object
+      required: [items]
+      properties:
+        items: { type: array, items: { $ref: '#/components/schemas/ModerationResponse' } }
+        nextCursor: { type: [string, 'null'] }
+    PolicyStatus:
+      type: string
+      enum: [DRAFT, PUBLISHED]
+    CategoryThreshold:
+      type: object
+      additionalProperties: false
+      required: [category, review, block]
+      properties:
+        category: { type: string }
+        review: { type: number, minimum: 0, maximum: 1 }
+        block: { type: number, minimum: 0, maximum: 1 }
+    PolicyScope:
+      type: object
+      additionalProperties: false
+      properties:
+        contentType: { anyOf: [{ $ref: '#/components/schemas/ContentType' }, { type: 'null' }] }
+        locale: { type: [string, 'null'], maxLength: 35 }
+    ScopedThresholds:
+      allOf:
+        - $ref: '#/components/schemas/PolicyScope'
+        - type: object
+          required: [thresholds]
+          properties:
+            thresholds: { type: array, minItems: 1, items: { $ref: '#/components/schemas/CategoryThreshold' } }
+    PolicyDraftRequest:
+      type: object
+      additionalProperties: false
+      required: [version, scopes]
+      properties:
+        version: { type: string, minLength: 1, maxLength: 80, pattern: '^[A-Za-z0-9._-]+$' }
+        description: { type: [string, 'null'], maxLength: 500 }
+        scopes: { type: array, minItems: 1, items: { $ref: '#/components/schemas/ScopedThresholds' } }
+    PolicyVersion:
+      allOf:
+        - $ref: '#/components/schemas/PolicyDraftRequest'
+        - type: object
+          required: [status, aggregateVersion, createdAt]
+          properties:
+            status: { $ref: '#/components/schemas/PolicyStatus' }
+            aggregateVersion: { type: integer, minimum: 0 }
+            createdAt: { type: string, format: date-time }
+            publishedAt: { type: [string, 'null'], format: date-time }
+    PolicyPage:
+      type: object
+      required: [items]
+      properties:
+        items: { type: array, items: { $ref: '#/components/schemas/PolicyVersion' } }
+        nextCursor: { type: [string, 'null'] }
+    PolicyValidation:
+      type: object
+      required: [valid, errors]
+      properties:
+        valid: { type: boolean }
+        errors: { type: array, items: { type: string } }
+    PolicyActivation:
+      type: object
+      required: [activationId, version, scope, aggregateVersion, activatedAt]
+      properties:
+        activationId: { type: string, format: uuid }
+        version: { type: string }
+        previousVersion: { type: [string, 'null'] }
+        scope: { $ref: '#/components/schemas/PolicyScope' }
+        aggregateVersion: { type: integer, minimum: 0 }
+        activatedAt: { type: string, format: date-time }
+    PolicyPreviewRequest:
+      type: object
+      required: [policyVersion, contentType, evidence]
+      properties:
+        policyVersion: { type: string }
+        contentType: { $ref: '#/components/schemas/ContentType' }
+        locale: { type: [string, 'null'] }
+        evidence: { type: object, additionalProperties: true }
+    PolicyPreviewResponse:
+      type: object
+      required: [decision, persisted]
+      properties:
+        decision: { $ref: '#/components/schemas/Decision' }
+        reason: { type: [string, 'null'] }
+        persisted: { type: boolean, const: false }
+    ReviewStatus:
+      type: string
+      enum: [OPEN, RESOLVED, ESCALATED]
+    ReviewTask:
+      type: object
+      required: [reviewTaskId, decisionId, status, aggregateVersion, createdAt]
+      properties:
+        reviewTaskId: { type: string, format: uuid }
+        decisionId: { type: string, format: uuid }
+        status: { $ref: '#/components/schemas/ReviewStatus' }
+        resolution: { anyOf: [{ $ref: '#/components/schemas/Decision' }, { type: 'null' }] }
+        note: { type: [string, 'null'], maxLength: 2000 }
+        assignedTo: { type: [string, 'null'] }
+        aggregateVersion: { type: integer, minimum: 0 }
+        createdAt: { type: string, format: date-time }
+        resolvedAt: { type: [string, 'null'], format: date-time }
+    ReviewResolutionRequest:
+      type: object
+      additionalProperties: false
+      required: [action]
+      properties:
+        action: { type: string, enum: [CONFIRM, OVERRIDE_ALLOW, OVERRIDE_BLOCK, ESCALATE] }
+        note: { type: [string, 'null'], maxLength: 2000 }
+    ReviewPage:
+      type: object
+      required: [items]
+      properties:
+        items: { type: array, items: { $ref: '#/components/schemas/ReviewTask' } }
+        nextCursor: { type: [string, 'null'] }

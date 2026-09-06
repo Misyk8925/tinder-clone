@@ -33,6 +33,7 @@ jobs:
       swipes-go: ${{ steps.filter.outputs.swipes-go }}
       photos: ${{ steps.filter.outputs.photos }}
       client: ${{ steps.filter.outputs.client }}
+      moderation: ${{ steps.filter.outputs.moderation }}
       java-matrix: ${{ steps.matrix.outputs.java }}
     steps:
       - uses: actions/checkout@v5
@@ -80,6 +81,8 @@ jobs:
               - 'services/photos/**'
             client:
               - 'clients/tinder-client/**'
+            moderation:
+              - 'services/moderation/**'
       - id: matrix
         env:
           ALL: ${{ github.event_name == 'workflow_dispatch' || steps.filter.outputs.ci == 'true' }}
@@ -230,6 +233,28 @@ jobs:
           python -m pip install -r requirements-dev.txt
           python -m pytest
 
+  moderation:
+    name: moderation
+    needs: detect
+    if: github.event_name == 'workflow_dispatch' || needs.detect.outputs.ci == 'true' || needs.detect.outputs.moderation == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    defaults:
+      run:
+        working-directory: services/moderation
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "24"
+          cache: gradle
+          cache-dependency-path: services/moderation/gradle/wrapper/gradle-wrapper.properties
+      - name: Test moderation
+        run: |
+          chmod +x gradlew
+          ./gradlew --no-daemon test acceptanceTest
+
   swipes-go:
     name: swipes-go
     needs: detect
@@ -287,6 +312,7 @@ jobs:
       - swipes-go
       - photos
       - client
+      - moderation
       - keycloak-theme
     if: always()
     runs-on: ubuntu-latest
