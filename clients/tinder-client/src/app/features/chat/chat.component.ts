@@ -10,6 +10,7 @@ import { firstValueFrom } from 'rxjs';
 import { MatchService, Message } from '../../core/services/match.service';
 import { ReportService } from '../../core/services/report.service';
 import { moderationFailureMessage } from '../../core/utils/moderation-errors';
+import { previewTextBlocked } from '../../core/preview/preview-moderation';
 import { ChatHistoryCache } from '../../core/services/chat-history.cache';
 import { markConversationRead } from '../matches/matches.component';
 import { KeycloakService } from '../../core/services/keycloak.service';
@@ -143,7 +144,7 @@ interface StompMessageEvent {
             aria-label="Message"
             (keydown.enter)="sendMessage()"
           />
-          <button class="send-btn" aria-label="Send message" (click)="sendMessage()" [disabled]="!messageText.trim() || wsState() !== 'connected'">
+          <button class="send-btn" aria-label="Send message" (click)="sendMessage()" [disabled]="!messageText.trim() || (!previewMode && wsState() !== 'connected')">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="m5 12 14-7-4 14-3-5z"/><path d="m12 14 7-9"/></svg>
           </button>
         </div>
@@ -934,9 +935,13 @@ export class ChatComponent implements OnInit, OnDestroy, AfterViewChecked {
     }
   }
 
+  readonly previewMode = environment.designPreview;
+
   sendMessage(): void {
     const text = this.messageText.trim();
-    if (!text || !this.stomp || this.wsState() !== 'connected') return;
+    if (!text) return;
+    const stomp = this.stomp;
+    if (!this.previewMode && (!stomp || this.wsState() !== 'connected')) return;
 
     const clientMessageId = crypto.randomUUID();
 
@@ -952,16 +957,27 @@ export class ChatComponent implements OnInit, OnDestroy, AfterViewChecked {
     this.messages.update(msgs => [...msgs, optimisticMsg]);
     this.shouldScroll = true;
     this.persistHistory();
+    this.messageText = '';
 
-    this.stomp.send('/app/chat.send', {
+    if (this.previewMode) {
+      if (previewTextBlocked(text)) {
+        this.handleStompMessage(JSON.stringify({
+          type: 'MODERATION_BLOCKED',
+          clientMessageId,
+          text: 'This message was blocked by moderation.'
+        }));
+      }
+      return;
+    }
+
+    if (!stomp) return;
+    stomp.send('/app/chat.send', {
       conversationId: this.conversationId(),
       clientMessageId,
       messageType: 'TEXT',
       text,
       attachments: []
     });
-
-    this.messageText = '';
   }
 
   async sendPhoto(e: Event): Promise<void> {

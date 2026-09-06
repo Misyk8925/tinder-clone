@@ -1,8 +1,9 @@
-import { HttpInterceptorFn, HttpResponse } from '@angular/common/http';
-import { delay, of } from 'rxjs';
+import { HttpErrorResponse, HttpInterceptorFn, HttpResponse } from '@angular/common/http';
+import { delay, of, throwError } from 'rxjs';
 import { environment } from '../../../environments/environment';
 import { Profile, profilePhotoId } from '../models/profile.model';
 import { DeckCard } from '../models/deck.model';
+import { previewTextBlocked } from '../preview/preview-moderation';
 
 const myProfile: Profile = {
   profileId: 'preview-me',
@@ -232,5 +233,35 @@ export const designPreviewInterceptor: HttpInterceptorFn = (request, next) => {
     return of(new HttpResponse({ status: 202, body: { status: 'accepted' } }));
   }
 
+  if ((request.method === 'POST' || request.method === 'PUT' || request.method === 'PATCH')
+    && url.includes('/api/v1/profiles')
+    && !url.includes('/photos')
+    && !url.includes('/report')) {
+    if (previewBodyBlocked(request.body)) {
+      return throwError(() => new HttpErrorResponse({
+        status: 422,
+        statusText: 'Unprocessable Entity',
+        url: request.url,
+        error: {
+          code: 'CONTENT_BLOCKED',
+          message: 'This content was blocked by moderation. Please choose different wording.'
+        }
+      }));
+    }
+    return of(new HttpResponse({ status: 200, body: { message: 'saved', id: myProfile.profileId } }));
+  }
+
   return next(request);
 };
+
+function previewBodyBlocked(body: unknown): boolean {
+  if (!body || typeof body !== 'object') {
+    return false;
+  }
+  const record = body as Record<string, unknown>;
+  return previewTextBlocked(
+    [record['name'], record['bio'], record['text']]
+      .filter(value => typeof value === 'string')
+      .join(' ')
+  );
+}
