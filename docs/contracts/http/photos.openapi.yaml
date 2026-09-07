@@ -3,20 +3,31 @@ info:
   title: Photos Service API
   version: 1.0.0
   description: >-
-    Internal media service used by Profiles and Match. It validates an upload,
-    renders four JPEG variants, stores them in S3, and issues public or
-    presigned URLs. It does not authenticate callers, own photo catalogues,
-    or publish domain events.
+    Internal media service used by Profiles, Match and Deck-Read. It validates an
+    upload, renders four JPEG variants, stores them in S3, and issues public or
+    presigned URLs. It does not own photo catalogues or publish domain events.
+
+
+    Authentication is service-to-service: every path except the health probes
+    requires the shared secret in `X-Internal-Auth`, and an unconfigured secret
+    rejects all media requests rather than serving them openly. This authenticates
+    the *caller*, not the owner — `owner_id` stays caller-chosen, so anything
+    holding the secret can act as any owner. Callers must therefore establish which
+    user they are acting for before calling in; Profiles, Match and Deck-Read do so
+    from the end user's bearer token.
 servers:
   - url: /
 tags:
   - name: Photos
+security:
+  - InternalAuth: []
 paths:
   /health:
     get:
       tags: [Photos]
       operationId: health
       x-requirements: [NFR-2]
+      security: []   # probes stay reachable without credentials
       responses:
         '200':
           description: Process is up.
@@ -29,6 +40,7 @@ paths:
       tags: [Photos]
       operationId: actuatorHealth
       x-requirements: [NFR-2]
+      security: []   # probes stay reachable without credentials
       responses:
         '200':
           description: Process is up.
@@ -152,6 +164,14 @@ paths:
         '400':
           $ref: '#/components/responses/InvalidImage'
 components:
+  securitySchemes:
+    InternalAuth:
+      type: apiKey
+      in: header
+      name: X-Internal-Auth
+      description: >-
+        Shared service-to-service secret. Requests without it are rejected with 401;
+        if the service has no secret configured it fails closed with 503.
   parameters:
     StorageId:
       name: storageId
@@ -171,6 +191,8 @@ components:
         enum: [photos, chat/photos]
         default: photos
   responses:
+    Unauthenticated:
+      description: Missing or incorrect X-Internal-Auth secret.
     InvalidImage:
       description: The upload or key arguments violate photo policy.
       content:

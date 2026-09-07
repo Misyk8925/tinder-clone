@@ -42,6 +42,20 @@ class DeckPhotoUrlRewriterTest {
     }
 
     @Test
+    @DisplayName("Given photos rejects the presign, when rewritten, then stored urls are kept and the deck still serves")
+    void keepsStoredUrlsWhenPresignIsRejected() {
+        String stored = "https://cdn.example.test/photos/%s/%s/original.jpg"
+                .formatted(PROFILE_ID, STORAGE_ID);
+        PhotosDownloadUrlClient photos = request -> Uni.createFrom().failure(
+                new jakarta.ws.rs.WebApplicationException(401));
+        DeckPhotoUrlRewriter rewriter = new DeckPhotoUrlRewriter(photos, true);
+
+        List<DeckCardDto> rewritten = rewriter.rewrite(List.of(card(stored))).await().indefinitely();
+
+        assertThat(rewritten.get(0).photos().get(0).url()).isEqualTo(stored);
+    }
+
+    @Test
     @DisplayName("Given photos signing is disabled, when rewritten, then stored urls are kept")
     void disabledKeepsStoredUrls() {
         String stored = "https://cdn.example.test/photos/%s/%s/original.jpg"

@@ -4,6 +4,7 @@ import com.tinder.deckread.dto.DeckCardDto;
 import io.smallrye.mutiny.Uni;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
+import jakarta.ws.rs.WebApplicationException;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.eclipse.microprofile.rest.client.inject.RestClient;
 import org.jboss.logging.Logger;
@@ -57,10 +58,40 @@ public class DeckPhotoUrlRewriter {
         }
         return photos.downloadUrls(new PhotosDownloadUrlClient.DownloadUrlsRequest(items))
                 .onFailure().recoverWithItem(error -> {
-                    LOG.warn("Photo presign failed; serving stored deck URLs", error);
+                    logPresignFailure(error);
                     return new PhotosDownloadUrlClient.DownloadUrlsResponse(List.of());
                 })
                 .map(response -> apply(cards, response));
+    }
+
+    /**
+     * Falling back to the stored locators keeps the deck serving through a transient photos
+     * outage, but those URLs are unsigned and will not load. A 401/403 means the internal
+     * secret is missing or wrong — a misconfiguration that never self-heals and would
+     * otherwise sit behind a warning while every deck card renders broken.
+     */
+    private static void logPresignFailure(Throwable error) {
+        if (isAuthFailure(error)) {
+            LOG.error("Photo presign rejected: check PHOTOS_INTERNAL_AUTH_SECRET matches the photos "
+                    + "service. Deck cards are being served with unsigned URLs and will not load.", error);
+            return;
+        }
+        LOG.warn("Photo presign failed; serving stored deck URLs", error);
+    }
+
+    private static boolean isAuthFailure(Throwable error) {
+        for (Throwable cause = error; cause != null; cause = cause.getCause()) {
+            if (cause instanceof WebApplicationException webApplicationException) {
+                int status = webApplicationException.getResponse().getStatus();
+                if (status == 401 || status == 403) {
+                    return true;
+                }
+            }
+            if (cause.getCause() == cause) {
+                break;
+            }
+        }
+        return false;
     }
 
     private static List<DeckCardDto> apply(

@@ -27,6 +27,9 @@ x-deck-read-environment: &deck-read-environment
   DECK_READ_MATERIALIZED_REQUIRED: ${DECK_READ_MATERIALIZED_REQUIRED:-true}
   DECK_READ_CURSOR_SECRET: ${DECK_READ_CURSOR_SECRET:?DECK_READ_CURSOR_SECRET is required}
   PHOTOS_SERVICE_URL: http://photos:8070
+  # Deck-read presigns deck card photos through the photos service, which rejects
+  # media requests without this secret.
+  PHOTOS_INTERNAL_AUTH_SECRET: ${PHOTOS_INTERNAL_AUTH_SECRET:?PHOTOS_INTERNAL_AUTH_SECRET is required}
   PROFILES_INTERNAL_URL: https://profiles:8011
   DECK_READ_AUTO_BACKFILL_ON_EMPTY: "true"
   DECK_READ_KEYSTORE_PATH: /certs/deck-read-service.p12
