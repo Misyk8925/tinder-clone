@@ -32,6 +32,7 @@
         <netty.version>4.1.136.Final</netty.version>
         <httpcore5.version>5.4.3</httpcore5.version>
         <postgresql.version>42.7.13</postgresql.version>
+        <tomcat.version>10.1.59</tomcat.version>
     </properties>
     <dependencies>
         <dependency>

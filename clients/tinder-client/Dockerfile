@@ -9,6 +9,9 @@ ARG NG_CONFIGURATION=production
 RUN npm run build -- --configuration ${NG_CONFIGURATION}
 
 FROM nginx:1.31.4-alpine-slim
+# Alpine publishes security patches to the repo before the base image is
+# rebuilt, so upgrade installed packages at build time.
+RUN apk --no-cache upgrade
 COPY --from=build /app/dist/tinder-client/browser /usr/share/nginx/html
 COPY nginx.conf /etc/nginx/conf.d/default.conf
 

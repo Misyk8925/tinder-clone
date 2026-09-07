@@ -21,7 +21,10 @@ RUN --mount=type=cache,id=m2-profiles,sharing=locked,target=/root/.m2 \
 
 FROM eclipse-temurin:21-jre-alpine-3.24
 
-RUN apk add --no-cache wget
+# Alpine publishes security patches to the repo before the base image is
+# rebuilt, so upgrade installed packages at build time.
+RUN apk --no-cache upgrade \
+    && apk add --no-cache wget
 
 WORKDIR /app
 COPY --from=build /workspace/profiles/target/*-SNAPSHOT.jar /app/app.jar

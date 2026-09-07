@@ -9,7 +9,11 @@ RUN CGO_ENABLED=0 GOOS=linux go build -trimpath -ldflags="-s -w" -o /out/swipes-
 
 FROM alpine:3.23
 
-RUN apk add --no-cache ca-certificates wget && addgroup -S app && adduser -S app -G app
+# Alpine publishes security patches to the repo before the base image is
+# rebuilt, so upgrade installed packages at build time.
+RUN apk --no-cache upgrade \
+    && apk add --no-cache ca-certificates wget \
+    && addgroup -S app && adduser -S app -G app
 USER app
 
 COPY --from=build /out/swipes-go /usr/local/bin/swipes-go

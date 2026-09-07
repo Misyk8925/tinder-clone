@@ -21,7 +21,10 @@ RUN --mount=type=cache,id=m2-deck,sharing=locked,target=/root/.m2 \
     find deck/target -maxdepth 1 -name "*.jar" ! -name "*-plain.jar" -exec mv {} deck/target/app.jar \;
 
 FROM eclipse-temurin:21-jre-alpine-3.24
-RUN addgroup -S appgroup && adduser -S appuser -G appgroup
+# Alpine publishes security patches to the repo before the base image is
+# rebuilt, so upgrade installed packages at build time.
+RUN apk --no-cache upgrade \
+    && addgroup -S appgroup && adduser -S appuser -G appgroup
 
 WORKDIR /app
 COPY --from=build /workspace/deck/target/app.jar app.jar

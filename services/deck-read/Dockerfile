@@ -20,7 +20,10 @@ RUN --mount=type=cache,id=m2-deck-read,sharing=locked,target=/root/.m2 \
     mvn -B -e -ntp -Dmaven.repo.local=/root/.m2/repository -f deck-read/pom.xml package -DskipTests -Dmaven.test.skip=true
 
 FROM eclipse-temurin:21-jre-alpine-3.24
-RUN addgroup -S appgroup && adduser -S appuser -G appgroup
+# Alpine publishes security patches to the repo before the base image is
+# rebuilt, so upgrade installed packages at build time.
+RUN apk --no-cache upgrade \
+    && addgroup -S appgroup && adduser -S appuser -G appgroup
 
 WORKDIR /app
 # Quarkus fast-jar layout: lib/, app/, quarkus/, quarkus-run.jar

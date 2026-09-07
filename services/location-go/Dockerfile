@@ -9,7 +9,10 @@ RUN CGO_ENABLED=0 GOOS=linux go build -trimpath -ldflags="-s -w" -o /out/locatio
 
 FROM alpine:3.24
 
-RUN apk add --no-cache wget \
+# Alpine publishes security patches to the repo before the base image is
+# rebuilt, so upgrade installed packages at build time.
+RUN apk --no-cache upgrade \
+    && apk add --no-cache wget \
     && addgroup -S app && adduser -S app -G app
 USER app
 
