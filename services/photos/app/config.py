@@ -25,6 +25,9 @@ class Settings(BaseSettings):
     model_config = SettingsConfigDict(extra="ignore")
 
     port: int = 8070
+    # Shared secret that profiles/match present in X-Internal-Auth. Empty means the
+    # service refuses every data request rather than serving them unauthenticated.
+    photos_internal_auth_secret: str = ""
     aws_s3_bucket: str = ""
     aws_region: str = "eu-north-1"
     aws_access_key_id: str = "placeholder-access-key"
@@ -37,6 +40,10 @@ class Settings(BaseSettings):
     photos_min_dimension_px: int = 300
     photos_max_dimension_px: int = 4096
     photos_allowed_content_types: str = "image/jpeg,image/png,image/webp"
+
+    @property
+    def internal_auth_secret(self) -> str:
+        return self.photos_internal_auth_secret.strip()
 
     @property
     def allowed_types(self) -> list[str]:

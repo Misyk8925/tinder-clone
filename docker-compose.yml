@@ -367,6 +367,7 @@ services:
       MANAGEMENT_TRACING_ENABLED: "false"
       LOCATION_SERVICE_URL: http://location:8065
       PHOTOS_SERVICE_URL: http://photos:8070
+      PHOTOS_INTERNAL_AUTH_SECRET: ${PHOTOS_INTERNAL_AUTH_SECRET:?PHOTOS_INTERNAL_AUTH_SECRET is required}
       MODERATION_ENABLED: "true"
       MODERATION_SERVICE_URL: http://moderation:8086
       MODERATION_CLIENT_USERNAME: ${MODERATION_CLIENT_USERNAME:?MODERATION_CLIENT_USERNAME is required}
@@ -630,6 +631,8 @@ services:
       AWS_S3_ENDPOINT: ${AWS_S3_ENDPOINT:-}
       CLOUDFRONT_DOMAIN: ${CLOUDFRONT_DOMAIN:?CLOUDFRONT_DOMAIN is required}
       CDN_ENABLED: ${CDN_ENABLED:-true}
+      # Media endpoints refuse callers without this shared secret.
+      PHOTOS_INTERNAL_AUTH_SECRET: ${PHOTOS_INTERNAL_AUTH_SECRET:?PHOTOS_INTERNAL_AUTH_SECRET is required}
     networks:
       - app
     mem_limit: 256m
@@ -663,6 +666,7 @@ services:
       EUREKA_CLIENT_ENABLED: "false"
       SPRING_CLOUD_DISCOVERY_ENABLED: "false"
       SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_JWK_SET_URI: ${KEYCLOAK_JWK_SET_URI:-http://keycloak:9080/realms/spring/protocol/openid-connect/certs}
+      GATEWAY_CORS_ALLOWED_ORIGINS: ${GATEWAY_CORS_ALLOWED_ORIGINS:-https://lunari.misyk.tech}
       PROFILES_SERVICE_URL: http://profiles:8010
       SWIPES_SERVICE_URL: http://swipes:8040
       CONSUMER_SERVICE_URL: http://consumer:8050
@@ -708,6 +712,11 @@ services:
       CLOUDFRONT_DOMAIN: ${CLOUDFRONT_DOMAIN:?CLOUDFRONT_DOMAIN is required}
       CDN_ENABLED: ${CDN_ENABLED:-true}
       PHOTOS_SERVICE_URL: http://photos:8070
+      PHOTOS_INTERNAL_AUTH_SECRET: ${PHOTOS_INTERNAL_AUTH_SECRET:?PHOTOS_INTERNAL_AUTH_SECRET is required}
+      # Match resolves the caller's own profile id from the profiles service; conversation
+      # access is decided from that, never from a client-supplied profile id.
+      PROFILES_SERVICE_URL: http://profiles:8010
+      MATCH_WS_ALLOWED_ORIGINS: ${MATCH_WS_ALLOWED_ORIGINS:-https://lunari.misyk.tech}
       MODERATION_ENABLED: "true"
       MODERATION_SERVICE_URL: http://moderation:8086
       MODERATION_CLIENT_USERNAME: ${MODERATION_CLIENT_USERNAME:?MODERATION_CLIENT_USERNAME is required}
@@ -758,6 +767,7 @@ services:
       SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:29092
       SPRING_DATA_REDIS_HOST: redis
       SPRING_DATA_REDIS_PORT: 6379
+      SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_JWK_SET_URI: ${KEYCLOAK_JWK_SET_URI:-http://keycloak:9080/realms/spring/protocol/openid-connect/certs}
       CONSUMER_KEYSTORE_PATH: file:/certs/consumer-service.p12
       CONSUMER_KEYSTORE_PASSWORD: ${MTLS_KEYSTORE_PASSWORD:?MTLS_KEYSTORE_PASSWORD is required}
       CONSUMER_TRUSTSTORE_PATH: file:/certs/truststore.jks

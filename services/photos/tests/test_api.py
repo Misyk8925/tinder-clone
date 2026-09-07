@@ -2,16 +2,85 @@ from uuid import UUID
 
 from fastapi.testclient import TestClient
 
+from app.config import Settings
 from app.main import create_app
 from app.storage import MemoryStorage
 from tests.image_fixtures import png_bytes
 
 OWNER = UUID("11111111-2222-3333-4444-555555555555")
+INTERNAL_SECRET = "test-internal-secret"
+
+
+def settings(**overrides) -> Settings:
+    return Settings(photos_internal_auth_secret=INTERNAL_SECRET, **overrides)
 
 
 def client() -> tuple[TestClient, MemoryStorage]:
+    """An authenticated client — the media endpoints reject unauthenticated callers."""
     storage = MemoryStorage()
-    return TestClient(create_app(storage=storage)), storage
+    api = TestClient(create_app(storage=storage, settings=settings()))
+    api.headers.update({"X-Internal-Auth": INTERNAL_SECRET})
+    return api, storage
+
+
+def test_given_no_internal_credentials_when_media_is_requested_then_it_is_rejected():
+    storage = MemoryStorage()
+    api = TestClient(create_app(storage=storage, settings=settings()))
+
+    response = api.get(
+        f"/api/v1/photos/some-storage-id/download-url", params={"owner_id": str(OWNER)}
+    )
+
+    assert response.status_code == 401
+
+
+def test_given_a_wrong_internal_secret_when_media_is_requested_then_it_is_rejected():
+    storage = MemoryStorage()
+    api = TestClient(create_app(storage=storage, settings=settings()))
+
+    response = api.delete(
+        f"/api/v1/photos/some-storage-id",
+        params={"owner_id": str(OWNER)},
+        headers={"X-Internal-Auth": "not-the-secret"},
+    )
+
+    assert response.status_code == 401
+
+
+def test_given_no_configured_secret_when_media_is_requested_then_the_service_fails_closed():
+    storage = MemoryStorage()
+    api = TestClient(create_app(storage=storage, settings=Settings(photos_internal_auth_secret="")))
+
+    response = api.get(
+        f"/api/v1/photos/some-storage-id/download-url",
+        params={"owner_id": str(OWNER)},
+        headers={"X-Internal-Auth": "anything"},
+    )
+
+    assert response.status_code == 503
+
+
+def test_given_no_credentials_when_health_is_requested_then_it_is_served():
+    storage = MemoryStorage()
+    api = TestClient(create_app(storage=storage, settings=settings()))
+
+    assert api.get("/health").status_code == 200
+    assert api.get("/actuator/health").status_code == 200
+
+
+def test_given_an_oversized_upload_when_posted_then_it_is_rejected_before_being_buffered():
+    storage = MemoryStorage()
+    api = TestClient(create_app(storage=storage, settings=settings(photos_max_size_bytes=1024)))
+    api.headers.update({"X-Internal-Auth": INTERNAL_SECRET})
+
+    response = api.post(
+        "/api/v1/photos",
+        data={"owner_id": str(OWNER)},
+        files={"file": ("photo.png", b"x" * 4096, "image/png")},
+    )
+
+    assert response.status_code == 400
+    assert response.json()["code"] == "INVALID_IMAGE"
 
 
 def test_given_a_valid_image_when_posted_then_the_service_returns_variant_urls():

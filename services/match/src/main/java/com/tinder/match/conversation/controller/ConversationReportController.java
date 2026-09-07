@@ -3,6 +3,7 @@ package com.tinder.match.conversation.controller;
 import com.tinder.match.conversation.ConversationService;
 import com.tinder.match.conversation.dto.ConversationWithMessagesDto;
 import com.tinder.match.moderation.ModerationClient;
+import com.tinder.match.security.CallerProfileResolver;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
@@ -27,6 +28,7 @@ public class ConversationReportController {
 
     private final ConversationService conversations;
     private final ModerationClient moderation;
+    private final CallerProfileResolver callerProfileResolver;
 
     @PostMapping("/{conversationId}/report")
     public ResponseEntity<Map<String, String>> report(
@@ -34,8 +36,11 @@ public class ConversationReportController {
             @Valid @RequestBody ReportConversationRequest request,
             @AuthenticationPrincipal Jwt jwt
     ) {
-        ConversationWithMessagesDto conversation = conversations.getConversation(conversationId);
-        String reporter = jwt == null ? "anonymous" : jwt.getSubject();
+        // Only a participant may report a conversation; this also stops the endpoint from
+        // being used to confirm whether an arbitrary conversation ID exists.
+        UUID reporterProfileId = callerProfileResolver.requireProfileId(jwt);
+        ConversationWithMessagesDto conversation = conversations.getConversation(conversationId, reporterProfileId);
+        String reporter = jwt.getSubject();
         String target = request.messageId() == null ? conversationId.toString() : request.messageId().toString();
         String text = "Reported conversation " + conversation.conversationId()
                 + " target=" + target + " (" + request.reason() + "): " + request.details();

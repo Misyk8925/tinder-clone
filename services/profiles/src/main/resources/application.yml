@@ -14,6 +14,7 @@ location:
 photos:
   service:
     url: ${PHOTOS_SERVICE_URL:http://localhost:8070}
+    internal-auth-secret: ${PHOTOS_INTERNAL_AUTH_SECRET:}
 
 moderation:
   enabled: ${MODERATION_ENABLED:false}
@@ -175,7 +176,7 @@ keycloak:
   realm: spring
   client-id: spring-app
   admin-username: ${KEYCLOAK_ADMIN_USERNAME:admin}
-  admin-password: ${KEYCLOAK_ADMIN_PASSWORD:admin@1234}
+  admin-password: ${KEYCLOAK_ADMIN_PASSWORD:}
 
 profiles:
   cache:

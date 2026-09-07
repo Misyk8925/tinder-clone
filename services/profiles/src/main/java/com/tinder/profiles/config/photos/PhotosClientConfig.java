@@ -22,10 +22,15 @@ public class PhotosClientConfig {
         ExchangeStrategies strategies = ExchangeStrategies.builder()
                 .codecs(codecs -> codecs.defaultCodecs().maxInMemorySize(MAX_IN_MEMORY_BYTES))
                 .build();
-        return WebClient.builder()
+        WebClient.Builder builder = WebClient.builder()
                 .baseUrl(properties.service().url())
                 .clientConnector(new ReactorClientHttpConnector(httpClient))
-                .exchangeStrategies(strategies)
-                .build();
+                .exchangeStrategies(strategies);
+
+        String internalAuthSecret = properties.service().internalAuthSecret();
+        if (internalAuthSecret != null && !internalAuthSecret.isBlank()) {
+            builder.defaultHeader("X-Internal-Auth", internalAuthSecret);
+        }
+        return builder.build();
     }
 }

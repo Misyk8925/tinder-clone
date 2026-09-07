@@ -1,12 +1,17 @@
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, File, Form, UploadFile
+from fastapi import APIRouter, Depends, File, Form, Request, UploadFile
 from pydantic import BaseModel, Field
 
+from app.auth import require_internal_auth
 from app.exceptions import PhotoValidationError
 from app.service import PhotoService
 
-router = APIRouter()
+# Every route below reads or mutates user media, so the whole router is authenticated.
+router = APIRouter(dependencies=[Depends(require_internal_auth)])
+
+# Health probes must stay reachable without credentials.
+health_router = APIRouter()
 
 
 class CleanupRequest(BaseModel):
@@ -51,14 +56,21 @@ def get_photo_service() -> PhotoService:
 
 @router.post("/api/v1/photos", status_code=201)
 async def upload_photo(
+    request: Request,
     owner_id: UUID = Form(...),
     namespace: str = Form("photos"),
     file: UploadFile = File(...),
     service: PhotoService = Depends(get_photo_service),
 ) -> dict:
-    image = await file.read()
+    # Read at most one byte past the policy limit rather than the whole upload: reading
+    # first and checking the size afterwards lets a single request pull an unbounded
+    # amount of data into memory.
+    max_size = request.app.state.max_upload_bytes
+    image = await file.read(max_size + 1)
     if not image:
         raise PhotoValidationError("Photo file is required")
+    if len(image) > max_size:
+        raise PhotoValidationError(f"Image too large (over {max_size} bytes)")
     return service.upload(owner_id, image, file.content_type, namespace)
 
 
@@ -110,7 +122,7 @@ def cleanup_orphaned(
     return CleanupResponse(deleted=deleted)
 
 
-@router.get("/health")
-@router.get("/actuator/health")
+@health_router.get("/health")
+@health_router.get("/actuator/health")
 def health() -> dict[str, str]:
     return {"status": "UP"}

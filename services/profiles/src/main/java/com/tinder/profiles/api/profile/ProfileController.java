@@ -20,6 +20,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.*;
@@ -32,6 +33,8 @@ import java.util.UUID;
 @RequestMapping("/api/v1/profiles")
 @RequiredArgsConstructor
 public class ProfileController {
+
+    private static final int MAX_BULK_DELETE = 500;
 
     private final ProfileQuery profileQuery;
     private final CreateProfileService createProfileUseCase;
@@ -55,10 +58,11 @@ public class ProfileController {
         }
     }
 
+    /** Public profile lookup. The owner's Keycloak user ID is withheld — see the mapper. */
     @GetMapping("/{id}")
     public ResponseEntity<GetProfileDto> getOne(@PathVariable UUID id) {
         log.info("getOne called with id: {}", id);
-        return ResponseEntity.ok(apiMapper.toGetProfileDto(profileQuery.getOne(id)));
+        return ResponseEntity.ok(apiMapper.toGetProfileDto(profileQuery.getOne(id), false));
     }
 
     @GetMapping("/me")
@@ -104,9 +108,19 @@ public class ProfileController {
         return ResponseEntity.noContent().build();
     }
 
+    /**
+     * Bulk removal of arbitrary profiles. This is an operator tool — without the role check any
+     * authenticated user could wipe other people's profiles — so it is restricted to admins.
+     */
     @DeleteMapping("/delete-many")
-    public void deleteMany(@RequestParam List<UUID> ids) {
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<Void> deleteMany(@RequestParam List<UUID> ids) {
+        if (ids == null || ids.isEmpty() || ids.size() > MAX_BULK_DELETE) {
+            return ResponseEntity.badRequest().build();
+        }
+        log.warn("Admin bulk profile delete requested for {} profiles", ids.size());
         deleteProfilesUseCase.handle(new DeleteProfilesCommand(ids));
+        return ResponseEntity.noContent().build();
     }
 
 }

@@ -33,6 +33,12 @@ spring:
       host: ${SPRING_DATA_REDIS_HOST:localhost}
       port: ${SPRING_DATA_REDIS_PORT:6379}
 
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          jwk-set-uri: ${KEYCLOAK_JWK_SET_URI:http://localhost:9080/realms/spring/protocol/openid-connect/certs}
+
   datasource:
       url: ${CONSUMER_DB_URL:jdbc:postgresql://127.0.0.1:54333/consumer_db}
       username: ${CONSUMER_DB_USER:consumer_app}

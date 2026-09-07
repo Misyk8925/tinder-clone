@@ -112,6 +112,15 @@ services:
       args:
         NG_CONFIGURATION: local
 
+  match:
+    environment:
+      # The local client is served from localhost:4200, so the chat socket must accept it.
+      MATCH_WS_ALLOWED_ORIGINS: http://localhost:4200
+
+  gateway:
+    environment:
+      GATEWAY_CORS_ALLOWED_ORIGINS: http://localhost:4200
+
   swipes:
     environment:
       # Browser tokens are issued at localhost:9080; in-network JWKS uses keycloak:9080.

@@ -23,7 +23,10 @@ public class EventListener {
                 e.conversationId(),
                 e.senderId()
         );
+        // Only the conversation's own topic — subscription to it is restricted to the two
+        // participants by ConversationSubscriptionInterceptor. There is deliberately no
+        // service-wide "/topic/messages" fan-out: it delivered every private message on the
+        // platform to any subscriber.
         messagingTemplate.convertAndSend("/topic/conversations/" + e.conversationId(), e);
-        messagingTemplate.convertAndSend("/topic/messages", e);
     }
 }

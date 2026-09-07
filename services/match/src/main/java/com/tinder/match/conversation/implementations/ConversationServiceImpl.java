@@ -84,10 +84,11 @@ public class ConversationServiceImpl implements ConversationService {
 
     @Override
     @Transactional
-    public ConversationWithMessagesDto getConversation(UUID conversationId) {
-        log.info("Get conversation requested conversationId={}", conversationId);
+    public ConversationWithMessagesDto getConversation(UUID conversationId, UUID callerProfileId) {
+        log.info("Get conversation requested conversationId={} callerProfileId={}", conversationId, callerProfileId);
         Conversation conversation = conversationRepository.findById(conversationId)
                 .orElseThrow(() -> new MessagingException("Conversation not found"));
+        requireParticipant(conversation, callerProfileId);
 
         List<Message> stored = messageRepository
                 .findByConversationConversationIdOrderByCreatedAtAsc(conversationId);
@@ -231,6 +232,9 @@ public class ConversationServiceImpl implements ConversationService {
 
     public List<ConversationDto> getMyChats(UUID profileId) {
         log.info("Get my chats requested profile id={}", profileId);
+        if (profileId == null) {
+            throw new MessagingException("Profile id is required");
+        }
         List<Conversation> conversations = conversationRepository.findAllByParticipant1IdOrParticipant2Id(profileId, profileId);
         log.info("Get my chats found {} conversations for profile id={}", conversations.size(), profileId);
         return conversations.stream()
@@ -239,15 +243,30 @@ public class ConversationServiceImpl implements ConversationService {
     }
 
     private void validateConversationAccess(Conversation conversation, UUID senderId) {
-        boolean isParticipant = senderId.equals(conversation.getParticipant1Id())
-                || senderId.equals(conversation.getParticipant2Id());
-
-        if (!isParticipant) {
-            throw new MessagingException("Sender is not a participant of this conversation");
-        }
+        requireParticipant(conversation, senderId);
 
         if (conversation.getStatus() != ConversationStatus.ACTIVE) {
             throw new MessagingException("Conversation is not active");
+        }
+    }
+
+    /**
+     * Rejects anyone who is not one of the two participants. The message deliberately does not
+     * distinguish "not a participant" from "no such conversation" so conversation IDs cannot be
+     * probed for existence.
+     */
+    private void requireParticipant(Conversation conversation, UUID profileId) {
+        boolean isParticipant = profileId != null
+                && (profileId.equals(conversation.getParticipant1Id())
+                    || profileId.equals(conversation.getParticipant2Id()));
+
+        if (!isParticipant) {
+            log.warn(
+                    "Rejected non-participant access to conversationId={} profileId={}",
+                    conversation.getConversationId(),
+                    profileId
+            );
+            throw new MessagingException("Conversation not found");
         }
     }
 

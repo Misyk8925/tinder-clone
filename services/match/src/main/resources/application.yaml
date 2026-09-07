@@ -42,6 +42,9 @@ spring:
           jwk-set-uri: ${KEYCLOAK_JWK_SET_URI:http://localhost:9080/realms/spring/protocol/openid-connect/certs}
 
 app:
+  websocket:
+    # Origins permitted to open the chat WebSocket. Never widen this to "*".
+    allowed-origins: ${MATCH_WS_ALLOWED_ORIGINS:http://localhost:4200,https://lunari.misyk.tech}
   kafka:
     error-handler:
       max-retries: 5
@@ -58,6 +61,11 @@ app:
 photos:
   service:
     url: ${PHOTOS_SERVICE_URL:http://localhost:8070}
+    internal-auth-secret: ${PHOTOS_INTERNAL_AUTH_SECRET:}
+
+profiles:
+  service:
+    url: ${PROFILES_SERVICE_URL:http://localhost:8010}
 
 moderation:
   enabled: ${MODERATION_ENABLED:false}

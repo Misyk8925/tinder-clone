@@ -1,7 +1,7 @@
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 
-from app.api import get_photo_service, router
+from app.api import get_photo_service, health_router, router
 from app.config import Settings, get_settings
 from app.exceptions import PhotoError
 from app.policy import PhotoPolicy
@@ -21,6 +21,9 @@ def create_app(storage: ObjectStorage | None = None, settings: Settings | None =
     photo_service = PhotoService(policy, resolved_storage)
 
     app = FastAPI(title="Photos Service", version="1.0.0")
+    app.state.internal_auth_secret = resolved_settings.internal_auth_secret
+    app.state.max_upload_bytes = resolved_settings.max_size_bytes
+    app.include_router(health_router)
     app.include_router(router)
     app.dependency_overrides[get_photo_service] = lambda: photo_service
 
