@@ -81,19 +81,10 @@ export class MatchService {
     );
   }
 
-  /**
-   * Load conversation history and register the caller's profile ID on the backend
-   * so the WS controller can map the JWT sub (Keycloak user ID) to their profile UUID.
-   * @param conversationId the conversation to load
-   * @param callerProfileId the current user's profile ID (used for JWT → profileId mapping)
-   */
-  getConversation(conversationId: string, callerProfileId?: string): Observable<Conversation> {
-    const params: Record<string, string> = {};
-    if (callerProfileId) params['callerProfileId'] = callerProfileId;
-
+  /** Load conversation history for the authenticated profile. */
+  getConversation(conversationId: string, _callerProfileId?: string): Observable<Conversation> {
     return this.http.get<ConversationWithMessagesResponse>(
-      `${environment.apiGatewayUrl}/rest/conversations/${conversationId}`,
-      { params }
+      `${environment.apiGatewayUrl}/rest/conversations/${conversationId}`
     ).pipe(
       map(r => ({
         id: r.conversationId,
@@ -111,9 +102,7 @@ export class MatchService {
     );
   }
 
-  getMyChats(profileId: string): Observable<ConversationDto[]> {
-    return this.http.get<ConversationDto[]>(`${environment.apiGatewayUrl}/rest/conversations/my-chats`, {
-      params: { profileId }
-    });
+  getMyChats(_profileId: string): Observable<ConversationDto[]> {
+    return this.http.get<ConversationDto[]>(`${environment.apiGatewayUrl}/rest/conversations/my-chats`);
   }
 }

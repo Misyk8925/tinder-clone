@@ -27,7 +27,7 @@ class DownloadUrlRequestItem(BaseModel):
 
 
 class DownloadUrlsRequest(BaseModel):
-    items: list[DownloadUrlRequestItem] = Field(default_factory=list)
+    items: list[DownloadUrlRequestItem] = Field(default_factory=list, max_length=100)
 
 
 class DownloadUrlResult(BaseModel):
@@ -56,7 +56,9 @@ async def upload_photo(
     file: UploadFile = File(...),
     service: PhotoService = Depends(get_photo_service),
 ) -> dict:
-    image = await file.read()
+    # Bound the in-memory read itself; validating only after an unbounded read
+    # lets an oversized multipart upload exhaust the worker's memory.
+    image = await file.read(service.max_upload_bytes + 1)
     if not image:
         raise PhotoValidationError("Photo file is required")
     return service.upload(owner_id, image, file.content_type, namespace)

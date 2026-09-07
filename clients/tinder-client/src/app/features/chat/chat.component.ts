@@ -1022,7 +1022,6 @@ export class ChatComponent implements OnInit, OnDestroy, AfterViewChecked {
        }
 
        const params = new URLSearchParams({
-         senderId: this.myId(),
          clientMessageId
        });
 

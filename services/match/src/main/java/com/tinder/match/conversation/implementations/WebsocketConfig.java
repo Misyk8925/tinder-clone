@@ -2,6 +2,7 @@ package com.tinder.match.conversation.implementations;
 
 import com.tinder.match.security.WebSocketJwtChannelInterceptor;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.messaging.simp.config.MessageBrokerRegistry;
 import org.springframework.messaging.simp.config.ChannelRegistration;
@@ -16,10 +17,13 @@ public class WebsocketConfig implements WebSocketMessageBrokerConfigurer {
 
     private final WebSocketJwtChannelInterceptor webSocketJwtChannelInterceptor;
 
+    @Value("${security.websocket.allowed-origins:http://localhost:4200,https://lunari.misyk.tech}")
+    private String[] allowedOrigins;
+
     @Override
     public void registerStompEndpoints(StompEndpointRegistry registry) {
         registry.addEndpoint("/ws")
-                .setAllowedOrigins("*");
+                .setAllowedOrigins(allowedOrigins);
     }
 
     @Override

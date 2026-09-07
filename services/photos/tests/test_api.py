@@ -2,6 +2,7 @@ from uuid import UUID
 
 from fastapi.testclient import TestClient
 
+from app.config import Settings
 from app.main import create_app
 from app.storage import MemoryStorage
 from tests.image_fixtures import png_bytes
@@ -155,3 +156,22 @@ def test_given_an_empty_file_when_posted_then_it_is_rejected():
     )
     assert response.status_code == 400
     assert "Photo file is required" in response.json()["message"]
+
+
+def test_given_an_oversized_upload_when_posted_then_the_read_is_bounded_and_rejected():
+    storage = MemoryStorage()
+    api = TestClient(create_app(storage=storage, settings=Settings(photos_max_size_bytes=8)))
+    response = api.post(
+        "/api/v1/photos",
+        data={"owner_id": str(OWNER)},
+        files={"file": ("large.png", b"x" * 32, "image/png")},
+    )
+    assert response.status_code == 400
+    assert "Image too large (9 bytes)" in response.json()["message"]
+
+
+def test_given_more_than_100_downloads_when_posted_then_the_batch_is_rejected():
+    api, _ = client()
+    item = {"ownerId": str(OWNER), "storageId": "photo", "size": "small"}
+    response = api.post("/api/v1/photos/download-urls", json={"items": [item] * 101})
+    assert response.status_code == 422

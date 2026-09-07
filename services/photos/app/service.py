@@ -12,6 +12,10 @@ class PhotoService:
         self._policy = policy
         self._storage = storage
 
+    @property
+    def max_upload_bytes(self) -> int:
+        return self._policy.max_size_bytes
+
     def upload(
         self,
         owner_id: UUID,
