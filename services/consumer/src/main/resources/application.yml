@@ -45,6 +45,10 @@ spring:
       password: ${CONSUMER_DB_PASSWORD:change_me_consumer_db_password}
       driver-class-name: org.postgresql.Driver
 
+profiles:
+  service:
+    url: ${PROFILES_SERVICE_URL:http://localhost:8010}
+
 server:
   port: 8050
 

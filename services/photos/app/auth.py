@@ -1,12 +1,23 @@
 """Service-to-service authentication for the photos API.
 
-The photos service holds every user's images: it can mint download URLs for and delete
-any owner's objects purely from an owner id in the request. It is not exposed through the
+The photos service holds every user's images: it can mint download URLs for and delete any
+owner's objects purely from an ``owner_id`` in the request. It is not exposed through the
 gateway, but "not routed from outside" is not an access control — anything that reaches the
 internal network would otherwise have full control of the media store.
 
 Callers (profiles, match) present a shared secret in ``X-Internal-Auth``. The secret is
 compared in constant time, and an empty configured secret never authenticates anything.
+
+Scope of this check — deliberately service-to-service, not end-user auth
+------------------------------------------------------------------------
+Authenticating the *caller* is not the same as authorising the *owner*. ``owner_id`` stays
+caller-chosen, so any holder of the shared secret can still act as any owner. That is the
+intended trust model: this service has no user tokens and cannot evaluate end-user identity.
+Ownership is enforced one layer up, where the user's token is available — profiles and match
+resolve the caller's own profile from their bearer token and only then call in here. Treat the
+secret as equivalent to full access to the media store: anything given it can act as every user.
+Do not expose this service to end-user traffic, and do not hand the secret to a component that
+has not already established which user it is acting for.
 """
 
 from hmac import compare_digest

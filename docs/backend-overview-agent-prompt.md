@@ -135,7 +135,7 @@ Core profile management. Handles CRUD for profiles, photo uploads to S3, geospat
 Stores swipe records, detects mutual matches, tracks who liked a user (premium feature), publishes match events. Acts as the authoritative store for swipe decisions.
 
 ### REST API (public, JWT required)
-- `GET /api/v1/swipes/liked-me` — Get profiles that liked the user. Header: `X-User-Id`. Requires premium or admin role.
+- `GET /api/v1/swipes/liked-me` — Get profiles that liked the user. Identity comes from the caller's bearer token (consumer resolves it via profiles `/me`). Requires premium or admin role.
 
 ### REST API (internal, mTLS port 8051)
 - `POST /between/batch?viewerId={id}` — Batch check: which profiles from a list have already been swiped on by `viewerId`. Called by Deck service. Requires client cert with CN = `deck-service`.
@@ -184,7 +184,7 @@ Stores swipe records, detects mutual matches, tracks who liked a user (premium f
 ### Security
 - Port 8051: mTLS with required client auth. Only clients presenting a certificate with CN = `deck-service` are accepted. Keystore: PKCS12. Truststore: JKS.
 - Port 8050: JWT OAuth2, role check on `/api/v1/swipes/liked-me`
-- `X-User-Id` header injected by Gateway, never trusted from client directly
+- Identity is derived from the verified JWT in each service; the Gateway strips any client-supplied `X-User-Id` so no service can be fooled by one
 
 ### Configuration
 - `outbox.publisher.batch-size: 50` — batch size for outbox polling
@@ -333,8 +333,8 @@ Single entry point for all client requests. Validates JWTs, enforces role-based 
 ### Filters
 - `RoleBasedRateLimitFilter` — Reads role from JWT, applies bucket4j-style rate limits per role per endpoint
 - `PremiumOrAdminFilter` — Blocks non-premium, non-admin requests on protected routes
-- `JwtAuthenticationFilter` — Validates JWT, injects `X-User-Id` header downstream
-- All downstream services trust the `X-User-Id` header injected by the gateway
+- `TrustedHeaderStrippingFilter` — Removes client-supplied identity headers before routing
+- Downstream services derive identity from the bearer token themselves, so it holds however the request arrived
 
 ### Configuration
 ```
@@ -354,7 +354,7 @@ Connect timeout: 5000ms
 ### Security
 - Spring Cloud Gateway WebFlux
 - OAuth2 Resource Server — validates JWT against Keycloak JWK Set URI
-- Never proxies raw tokens to downstream; uses `X-User-Id` header instead
+- Forwards the caller's bearer token downstream; services resolve identity from it rather than from a header
 
 ---
 
@@ -469,7 +469,7 @@ Handles user swipe actions (like/pass/super-like). Records swipe intent, publish
 
 ### Swipe Flow (happy path)
 1. Client sends `POST /api/v1/swipes` to Gateway
-2. Gateway validates JWT, injects `X-User-Id`, routes to Swipes-Demo
+2. Gateway validates JWT and routes to Swipes-Demo, which verifies the swiper profile belongs to the token
 3. Swipes-Demo validates swiped profile exists in local cache
 4. Swipes-Demo publishes `swipe-created` to Kafka
 5. Consumer receives event, writes `SwipeRecord` to DB in a transaction with `swipe_event_outbox` entry
@@ -626,7 +626,7 @@ gateway (depends: redis, profiles)
 
 ## NOTES FOR CODING AGENTS
 
-1. **User identity**: All services trust `X-User-Id` header from Gateway or JWT `sub` claim. Never accept user ID from request body.
+1. **User identity**: Every service resolves the acting profile from the verified JWT (via profiles `/me`, keyed by the `sub` claim). Never accept a user or profile ID from a request parameter, path, or body as identity.
 2. **Soft deletes**: Profiles are never physically deleted — `deleted_at` is set. All profile queries must filter on `deleted_at IS NULL`.
 3. **Profile ID vs User ID**: `profiles.user_id` maps to the Keycloak `sub` claim. `profiles.id` is the internal UUID used everywhere else.
 4. **Idempotency**: Consumer service swipe endpoint is idempotent via `SwipeRecord` unique composite PK. Message service is idempotent via `(sender_id, client_message_id)`.

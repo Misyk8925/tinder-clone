@@ -1,5 +1,6 @@
 package com.tinder.match.security;
 
+import com.tinder.match.conversation.ConversationNotAccessibleException;
 import com.tinder.match.conversation.implementations.ConversationPhotoStorageService;
 import com.tinder.match.conversation.implementations.ConversationServiceImpl;
 import com.tinder.match.conversation.model.Conversation;
@@ -85,7 +86,7 @@ class ConversationAccessControlTest {
         var conversationId = UUID.randomUUID();
 
         assertThatThrownBy(() -> conversationService.getConversation(conversationId, OUTSIDER))
-                .isInstanceOf(MessagingException.class)
+                .isInstanceOf(ConversationNotAccessibleException.class)
                 .hasMessage("Conversation not found");
     }
 
@@ -93,7 +94,25 @@ class ConversationAccessControlTest {
     @DisplayName("an unauthenticated read is refused")
     void nullCallerCannotReadConversation() {
         assertThatThrownBy(() -> conversationService.getConversation(UUID.randomUUID(), null))
-                .isInstanceOf(MessagingException.class);
+                .isInstanceOf(ConversationNotAccessibleException.class);
+    }
+
+    @Test
+    @DisplayName("a malformed message is a bad request, not a missing conversation")
+    void invalidPayloadIsNotReportedAsNotFound() {
+        var message = new com.tinder.match.conversation.dto.MessageDto(
+                UUID.randomUUID(),
+                UUID.randomUUID(),
+                com.tinder.match.conversation.model.MessageType.TEXT,
+                "   ",
+                List.of());
+
+        // Blank TEXT is a validation failure. It must stay a plain MessagingException so the
+        // advice maps it to 400 — reporting it as ConversationNotAccessibleException would tell
+        // a participant their own conversation had vanished.
+        assertThatThrownBy(() -> conversationService.sendMessage(PARTICIPANT_ONE, message))
+                .isInstanceOf(MessagingException.class)
+                .isNotInstanceOf(ConversationNotAccessibleException.class);
     }
 
     @Test

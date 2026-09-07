@@ -842,7 +842,7 @@ export class MatchesComponent implements OnInit, OnDestroy {
         this.myId = me.profileId;
         return forkJoin({
           matches: this.matchService.getMatches(me.profileId).pipe(catchError(() => of([] as Match[]))),
-          chats: this.matchService.getMyChats(me.profileId).pipe(catchError(() => of([] as ConversationDto[])))
+          chats: this.matchService.getMyChats().pipe(catchError(() => of([] as ConversationDto[])))
         }).pipe(
           switchMap(({ matches, chats }) => {
             const chattedPairs = new Set(

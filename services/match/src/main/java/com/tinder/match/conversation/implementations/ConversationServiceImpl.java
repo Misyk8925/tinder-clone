@@ -1,5 +1,6 @@
 package com.tinder.match.conversation.implementations;
 
+import com.tinder.match.conversation.ConversationNotAccessibleException;
 import com.tinder.match.conversation.ConversationService;
 import com.tinder.match.conversation.dto.ConversationDto;
 import com.tinder.match.conversation.dto.ConversationWithMessagesDto;
@@ -87,7 +88,7 @@ public class ConversationServiceImpl implements ConversationService {
     public ConversationWithMessagesDto getConversation(UUID conversationId, UUID callerProfileId) {
         log.info("Get conversation requested conversationId={} callerProfileId={}", conversationId, callerProfileId);
         Conversation conversation = conversationRepository.findById(conversationId)
-                .orElseThrow(() -> new MessagingException("Conversation not found"));
+                .orElseThrow(ConversationNotAccessibleException::new);
         requireParticipant(conversation, callerProfileId);
 
         List<Message> stored = messageRepository
@@ -132,7 +133,7 @@ public class ConversationServiceImpl implements ConversationService {
         }
 
         Conversation conversation = conversationRepository.findById(msg.conversationId())
-                .orElseThrow(() -> new MessagingException("Conversation not found"));
+                .orElseThrow(ConversationNotAccessibleException::new);
         log.debug(
                 "Send message loaded conversationId={} status={} participant1={} participant2={}",
                 conversation.getConversationId(),
@@ -195,7 +196,7 @@ public class ConversationServiceImpl implements ConversationService {
         }
 
         Conversation conversation = conversationRepository.findById(conversationId)
-                .orElseThrow(() -> new MessagingException("Conversation not found"));
+                .orElseThrow(ConversationNotAccessibleException::new);
         validateConversationAccess(conversation, senderId);
 
         Optional<Message> duplicate = messageRepository.findBySenderIdAndClientMessageId(senderId, clientMessageId);
@@ -266,7 +267,7 @@ public class ConversationServiceImpl implements ConversationService {
                     conversation.getConversationId(),
                     profileId
             );
-            throw new MessagingException("Conversation not found");
+            throw new ConversationNotAccessibleException();
         }
     }
 

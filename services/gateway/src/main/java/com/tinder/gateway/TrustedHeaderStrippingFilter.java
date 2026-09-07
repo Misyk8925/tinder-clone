@@ -10,14 +10,13 @@ import reactor.core.publisher.Mono;
 import java.util.List;
 
 /**
- * Removes identity headers that only the gateway may set, before anything else looks at the
- * request.
+ * Removes identity headers that a client must never be able to set, before anything else looks
+ * at the request.
  * <p>
- * Downstream services treat {@code X-User-Id} as a statement of who the caller is, injected by
- * {@link PremiumOrAdminFilter} after the JWT has been validated. If a client could send that
- * header itself, any route that does not happen to overwrite it would carry an identity the
- * caller chose. Stripping it on the way in makes the header mean exactly one thing: "the gateway
- * verified this".
+ * Services derive the caller's identity from the bearer token rather than from headers, so
+ * nothing downstream reads {@code X-User-Id} today. This filter keeps it that way: it guarantees
+ * the header cannot arrive from outside, so a service that starts trusting it later cannot be
+ * fooled by a caller who simply sent one.
  */
 @Component
 public class TrustedHeaderStrippingFilter implements GlobalFilter, Ordered {

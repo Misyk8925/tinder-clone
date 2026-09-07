@@ -768,6 +768,8 @@ services:
       SPRING_DATA_REDIS_HOST: redis
       SPRING_DATA_REDIS_PORT: 6379
       SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_JWK_SET_URI: ${KEYCLOAK_JWK_SET_URI:-http://keycloak:9080/realms/spring/protocol/openid-connect/certs}
+      # Consumer resolves the caller's own profile id here rather than trusting X-User-Id.
+      PROFILES_SERVICE_URL: http://profiles:8010
       CONSUMER_KEYSTORE_PATH: file:/certs/consumer-service.p12
       CONSUMER_KEYSTORE_PASSWORD: ${MTLS_KEYSTORE_PASSWORD:?MTLS_KEYSTORE_PASSWORD is required}
       CONSUMER_TRUSTSTORE_PATH: file:/certs/truststore.jks

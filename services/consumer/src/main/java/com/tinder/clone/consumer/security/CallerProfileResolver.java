@@ -1,8 +1,9 @@
-package com.tinder.match.security;
+package com.tinder.clone.consumer.security;
 
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpHeaders;
-import org.springframework.stereotype.Service;
+import org.springframework.security.oauth2.jwt.Jwt;
+import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientException;
 
@@ -13,24 +14,20 @@ import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * Resolves the Keycloak user ID (JWT {@code sub} claim) of the caller to the profile UUID
- * that conversations and matches are keyed by.
+ * Resolves the profile owned by the authenticated caller.
  * <p>
- * The mapping is <strong>never</strong> taken from the request: a caller-supplied profile ID
- * would let anyone claim another user's identity and then read or write that user's
- * conversations. Instead the profiles service is asked, with the caller's own bearer token,
- * which profile that token owns ({@code GET /api/v1/profiles/me}). The answer is therefore
- * only ever the caller's own profile.
+ * The gateway injects a verified {@code X-User-Id}, but that only holds for requests that
+ * actually came through the gateway. Anything able to reach this service directly could present
+ * a valid token together with someone else's profile id and read their likes. So the identity is
+ * established here instead: the profiles service is asked, with the caller's own bearer token,
+ * which profile that token owns. The answer can only ever be the caller's.
  * <p>
- * Successful lookups are cached briefly, keyed by the Keycloak user id, so the chat hot path
- * does not make one upstream call per message. The key is the {@code sub} of a verified token,
- * which is stable across every token that user holds — so the entry is per-user, not per-token.
- * The mapping is stable in practice, but a user who deletes and recreates their profile keeps
- * the old id until the entry expires, which is why the window is kept short.
+ * Lookups are cached briefly per Keycloak user id — the mapping cannot change for the life of a
+ * token, and this sits on a user-facing read.
  */
-@Service
+@Component
 @Slf4j
-public class UserProfileMappingService {
+public class CallerProfileResolver {
 
     private static final Duration CACHE_TTL = Duration.ofMinutes(1);
     private static final int MAX_CACHE_ENTRIES = 50_000;
@@ -38,33 +35,27 @@ public class UserProfileMappingService {
     private final RestClient profilesRestClient;
     private final ConcurrentHashMap<String, CachedProfileId> cache = new ConcurrentHashMap<>();
 
-    public UserProfileMappingService(RestClient profilesRestClient) {
+    public CallerProfileResolver(RestClient profilesRestClient) {
         this.profilesRestClient = profilesRestClient;
     }
 
-    /**
-     * Resolve the profile UUID owned by the authenticated caller.
-     *
-     * @param userId      JWT {@code sub} of the caller
-     * @param bearerToken the caller's raw access token, used to authenticate the upstream call
-     * @return the caller's profile UUID, or {@code null} when it cannot be established
-     */
-    public UUID resolve(String userId, String bearerToken) {
-        if (userId == null || userId.isBlank() || bearerToken == null || bearerToken.isBlank()) {
+    /** @return the caller's own profile id, or {@code null} when it cannot be established. */
+    public UUID resolve(Jwt jwt) {
+        if (jwt == null || jwt.getSubject() == null || jwt.getTokenValue() == null) {
             return null;
         }
 
-        CachedProfileId cached = cache.get(userId);
+        CachedProfileId cached = cache.get(jwt.getSubject());
         if (cached != null && cached.isFresh()) {
             return cached.profileId();
         }
 
-        UUID profileId = fetchProfileId(bearerToken);
+        UUID profileId = fetchProfileId(jwt.getTokenValue());
         if (profileId != null) {
             if (cache.size() >= MAX_CACHE_ENTRIES) {
                 cache.clear();
             }
-            cache.put(userId, new CachedProfileId(profileId, Instant.now().plus(CACHE_TTL)));
+            cache.put(jwt.getSubject(), new CachedProfileId(profileId, Instant.now().plus(CACHE_TTL)));
         }
         return profileId;
     }

@@ -82,18 +82,12 @@ export class MatchService {
   }
 
   /**
-   * Load conversation history and register the caller's profile ID on the backend
-   * so the WS controller can map the JWT sub (Keycloak user ID) to their profile UUID.
-   * @param conversationId the conversation to load
-   * @param callerProfileId the current user's profile ID (used for JWT → profileId mapping)
+   * Load conversation history. The backend identifies the caller from their token and returns
+   * 404 unless they are one of the participants, so no profile ID is sent.
    */
-  getConversation(conversationId: string, callerProfileId?: string): Observable<Conversation> {
-    const params: Record<string, string> = {};
-    if (callerProfileId) params['callerProfileId'] = callerProfileId;
-
+  getConversation(conversationId: string): Observable<Conversation> {
     return this.http.get<ConversationWithMessagesResponse>(
-      `${environment.apiGatewayUrl}/rest/conversations/${conversationId}`,
-      { params }
+      `${environment.apiGatewayUrl}/rest/conversations/${conversationId}`
     ).pipe(
       map(r => ({
         id: r.conversationId,
@@ -111,9 +105,8 @@ export class MatchService {
     );
   }
 
-  getMyChats(profileId: string): Observable<ConversationDto[]> {
-    return this.http.get<ConversationDto[]>(`${environment.apiGatewayUrl}/rest/conversations/my-chats`, {
-      params: { profileId }
-    });
+  /** Chats belonging to the authenticated caller, resolved server-side from their token. */
+  getMyChats(): Observable<ConversationDto[]> {
+    return this.http.get<ConversationDto[]>(`${environment.apiGatewayUrl}/rest/conversations/my-chats`);
   }
 }

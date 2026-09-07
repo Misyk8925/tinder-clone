@@ -31,8 +31,25 @@ public class WebsocketConfig implements WebSocketMessageBrokerConfigurer {
 
     @Override
     public void registerStompEndpoints(StompEndpointRegistry registry) {
+        // setAllowedOrigins, not setAllowedOriginPatterns: it takes exact origins and rejects a
+        // wildcard outright, so this cannot be widened to "*" by a careless config value.
         registry.addEndpoint("/ws")
-                .setAllowedOriginPatterns(allowedOrigins.toArray(String[]::new));
+                .setAllowedOrigins(requireExactOrigins(allowedOrigins));
+    }
+
+    /** Rejects wildcards at startup rather than silently accepting every origin. */
+    private static String[] requireExactOrigins(List<String> origins) {
+        if (origins == null || origins.isEmpty()) {
+            throw new IllegalStateException("app.websocket.allowed-origins must list at least one origin");
+        }
+        origins.stream()
+                .filter(origin -> origin.contains("*"))
+                .findAny()
+                .ifPresent(origin -> {
+                    throw new IllegalStateException(
+                            "app.websocket.allowed-origins must be exact origins, but got: " + origin);
+                });
+        return origins.toArray(String[]::new);
     }
 
     @Override
