@@ -61,6 +61,12 @@ management:
       show-details: always
       probes:
         enabled: true
+      # Boot binds health groups under management.endpoint.health.group.
+      # show-details is per-group and does not inherit the endpoint setting.
+      group:
+        readiness:
+          include: readinessState,db,kafka
+          show-details: always
   endpoints:
     web:
       exposure:
@@ -70,6 +76,3 @@ management:
       enabled: true
     kafka:
       enabled: false
-    group:
-      readiness:
-        include: readinessState,db,kafka

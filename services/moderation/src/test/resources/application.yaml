@@ -14,12 +14,19 @@ moderation:
   security:
     users: []
 
+# Health config mirrors src/main/resources/application.yaml so the readiness
+# wiring under test is the wiring that ships. Diverging here hid a startup
+# failure: a contributor named `readiness` clashes with the group of that name.
 management:
   endpoint:
     health:
       show-details: always
       probes:
-        enabled: false
+        enabled: true
+      group:
+        readiness:
+          include: readinessState,db,kafka
+          show-details: always
   health:
     kafka:
       enabled: false

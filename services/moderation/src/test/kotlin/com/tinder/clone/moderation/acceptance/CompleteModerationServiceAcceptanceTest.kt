@@ -26,7 +26,8 @@ import org.springframework.test.web.servlet.put
         "moderation.security.users[1].password-hash=\$2b\$10\$B8JziNtYQcAfaF4OUFXpxejHeLQ.jmCsma5ZRP65d6f.Eli5ADkJ.",
         "moderation.security.users[1].roles=VIEWER",
         "management.endpoint.health.show-details=always",
-        "management.endpoint.health.probes.enabled=false",
+        // Probes stay enabled here so the readiness group under test is the one that ships.
+        "management.endpoint.health.probes.enabled=true",
         "management.health.kafka.enabled=false",
     ]
 )
