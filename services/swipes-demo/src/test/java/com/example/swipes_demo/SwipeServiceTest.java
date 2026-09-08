@@ -43,12 +43,22 @@ class SwipeServiceTest {
                 .build();
     }
 
+    private Jwt premiumJwt() {
+        return Jwt.withTokenValue(BEARER_TOKEN)
+                .header("alg", "none")
+                .claim("sub", "user-id")
+                .claim("realm_access", java.util.Map.of("roles", java.util.List.of("USER_PREMIUM")))
+                .build();
+    }
+
     @Test
     void sendSwipeShouldRejectWhenProfilesDoNotExist() {
         String profile1Id = UUID.randomUUID().toString();
         String profile2Id = UUID.randomUUID().toString();
         SwipeDto dto = new SwipeDto(profile1Id, profile2Id, true, null);
 
+        when(profileCacheService.profileIdForToken(BEARER_TOKEN))
+                .thenReturn(Mono.just(UUID.fromString(profile1Id)));
         when(profileCacheService.existsAll(UUID.fromString(profile1Id), UUID.fromString(profile2Id), BEARER_TOKEN))
                 .thenReturn(Mono.just(false));
 
@@ -68,6 +78,8 @@ class SwipeServiceTest {
         String profile2Id = UUID.randomUUID().toString();
         SwipeDto dto = new SwipeDto(profile1Id, profile2Id, false, null);
 
+        when(profileCacheService.profileIdForToken(BEARER_TOKEN))
+                .thenReturn(Mono.just(UUID.fromString(profile1Id)));
         when(profileCacheService.existsAll(UUID.fromString(profile1Id), UUID.fromString(profile2Id), BEARER_TOKEN))
                 .thenReturn(Mono.just(true));
         when(swipeProducer.send(any())).thenReturn(Mono.empty());
@@ -97,6 +109,58 @@ class SwipeServiceTest {
         swipeService.sendSwipe(dto, false, null, true).block();
 
         verify(profileCacheService, never()).existsAll(any(), any(), any());
+        verify(swipeProducer).send(any());
+    }
+
+    @Test
+    void sendSwipeShouldRejectWhenProfile1IsNotOwnedByTheCaller() {
+        String victimProfileId = UUID.randomUUID().toString();
+        String targetProfileId = UUID.randomUUID().toString();
+        SwipeDto dto = new SwipeDto(victimProfileId, targetProfileId, true, null);
+
+        when(profileCacheService.profileIdForToken(BEARER_TOKEN))
+                .thenReturn(Mono.just(UUID.randomUUID()));
+
+        ResponseStatusException exception = assertThrows(
+                ResponseStatusException.class,
+                () -> swipeService.sendSwipe(dto, false, jwt()).block()
+        );
+
+        assertThat(exception.getStatusCode()).isEqualTo(HttpStatus.FORBIDDEN);
+        assertThat(exception.getReason()).isEqualTo("profile1Id does not belong to the authenticated user");
+        verify(swipeProducer, never()).send(any());
+    }
+
+    @Test
+    void sendSwipeShouldRejectSuperLikeWithoutPremiumRole() {
+        String profile1Id = UUID.randomUUID().toString();
+        String profile2Id = UUID.randomUUID().toString();
+        SwipeDto dto = new SwipeDto(profile1Id, profile2Id, true, null);
+
+        ResponseStatusException exception = assertThrows(
+                ResponseStatusException.class,
+                () -> swipeService.sendSwipe(dto, true, jwt(), false).block()
+        );
+
+        assertThat(exception.getStatusCode()).isEqualTo(HttpStatus.FORBIDDEN);
+        assertThat(exception.getReason()).isEqualTo("Super like requires a premium or admin account");
+        verify(swipeProducer, never()).send(any());
+    }
+
+    @Test
+    void sendSwipeShouldAllowSuperLikeForPremiumRole() {
+        String profile1Id = UUID.randomUUID().toString();
+        String profile2Id = UUID.randomUUID().toString();
+        SwipeDto dto = new SwipeDto(profile1Id, profile2Id, true, true);
+
+        when(profileCacheService.profileIdForToken(BEARER_TOKEN))
+                .thenReturn(Mono.just(UUID.fromString(profile1Id)));
+        when(profileCacheService.existsAll(UUID.fromString(profile1Id), UUID.fromString(profile2Id), BEARER_TOKEN))
+                .thenReturn(Mono.just(true));
+        when(swipeProducer.send(any())).thenReturn(Mono.empty());
+
+        swipeService.sendSwipe(dto, true, premiumJwt(), false).block();
+
         verify(swipeProducer).send(any());
     }
 

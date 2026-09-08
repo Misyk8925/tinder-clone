@@ -772,9 +772,9 @@ export class ChatComponent implements OnInit, OnDestroy, AfterViewChecked {
       this.shouldScroll = true;
     }
 
-    // Passing callerProfileId registers the JWT sub → profileId mapping on the backend,
-    // which the WS controller uses to validate STOMP send access.
-    this.matchService.getConversation(id, profileId).subscribe({
+    // The backend resolves the caller from their token and enforces participation itself,
+    // so the conversation id is all it needs.
+    this.matchService.getConversation(id).subscribe({
       next: (conv) => {
         this.loadOtherProfile(conv.participant1Id, conv.participant2Id, profileId);
         this.applyServerMessages(conv.messages ?? []);
@@ -1021,10 +1021,9 @@ export class ChatComponent implements OnInit, OnDestroy, AfterViewChecked {
          return;
        }
 
-       const params = new URLSearchParams({
-         senderId: this.myId(),
-         clientMessageId
-       });
+       // The sender is taken from the bearer token server-side; only the idempotency key
+       // is ours to supply.
+       const params = new URLSearchParams({ clientMessageId });
 
        const formData = new FormData();
        formData.append('file', file, file.name);

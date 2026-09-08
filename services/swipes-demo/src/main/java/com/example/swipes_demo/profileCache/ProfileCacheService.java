@@ -10,7 +10,13 @@ import org.springframework.stereotype.Service;
 import reactor.core.publisher.Mono;
 import reactor.core.scheduler.Schedulers;
 
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
+import java.time.Duration;
 import java.time.Instant;
+import java.util.HexFormat;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
@@ -24,6 +30,10 @@ import java.util.stream.Collectors;
 public class ProfileCacheService {
 
     private static final String PROFILE_EXISTS_SET_KEY = "profiles:exists";
+    private static final Duration OWNER_CACHE_TTL = Duration.ofMinutes(5);
+    private static final int MAX_OWNER_CACHE_ENTRIES = 50_000;
+
+    private final ConcurrentHashMap<String, CachedOwner> ownerCache = new ConcurrentHashMap<>();
 
     private final ProfileCacheRepository profileCacheRepository;
     private final ReactiveStringRedisTemplate reactiveStringRedisTemplate;
@@ -80,6 +90,48 @@ public class ProfileCacheService {
                 .remove(PROFILE_EXISTS_SET_KEY, profileId.toString())
                 .doOnError(error -> log.warn("Failed to evict profile id {} from Redis cache", profileId, error))
                 .block();
+    }
+
+    /**
+     * Resolves which profile the bearer of {@code bearerToken} owns, so a swipe can be checked
+     * against the caller's real identity instead of the profile id they claim in the request.
+     * <p>
+     * Answers are cached briefly, keyed by a digest of the token: a swipe is a hot path and the
+     * mapping cannot change for the life of a token.
+     */
+    public Mono<UUID> profileIdForToken(String bearerToken) {
+        if (bearerToken == null || bearerToken.isBlank()) {
+            return Mono.empty();
+        }
+
+        String cacheKey = tokenDigest(bearerToken);
+        CachedOwner cached = ownerCache.get(cacheKey);
+        if (cached != null && cached.isFresh()) {
+            return Mono.just(cached.profileId());
+        }
+
+        return profileServiceClient.profileIdForToken(bearerToken)
+                .doOnNext(profileId -> {
+                    if (ownerCache.size() >= MAX_OWNER_CACHE_ENTRIES) {
+                        ownerCache.clear();
+                    }
+                    ownerCache.put(cacheKey, new CachedOwner(profileId, Instant.now().plus(OWNER_CACHE_TTL)));
+                });
+    }
+
+    private static String tokenDigest(String bearerToken) {
+        try {
+            return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256")
+                    .digest(bearerToken.getBytes(StandardCharsets.UTF_8)));
+        } catch (NoSuchAlgorithmException e) {
+            throw new IllegalStateException("SHA-256 is required to cache profile ownership", e);
+        }
+    }
+
+    private record CachedOwner(UUID profileId, Instant expiresAt) {
+        boolean isFresh() {
+            return Instant.now().isBefore(expiresAt);
+        }
     }
 
     /**

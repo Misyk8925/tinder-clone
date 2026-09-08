@@ -77,6 +77,24 @@ public class ProfileServiceClient {
                 .onErrorReturn(Set.of());
     }
 
+    /**
+     * Resolves the profile owned by the bearer of {@code bearerToken} via
+     * {@code GET /me}. Because the answer is derived from the token, it is the one profile the
+     * caller is allowed to swipe as.
+     */
+    public Mono<UUID> profileIdForToken(String bearerToken) {
+        if (bearerToken == null || bearerToken.isBlank()) {
+            return Mono.empty();
+        }
+        return profilesWebClient.get()
+                .uri(uriBuilder -> uriBuilder.path("/me").build())
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + bearerToken)
+                .retrieve()
+                .bodyToMono(ProfileExistsDto.class)
+                .mapNotNull(ProfileExistsDto::profileId)
+                .doOnError(e -> log.warn("Unable to resolve owner profile for caller: {}", e.getMessage()));
+    }
+
     private String tokenFingerprint(String bearerToken) {
         if (bearerToken == null || bearerToken.isBlank()) {
             return "absent";

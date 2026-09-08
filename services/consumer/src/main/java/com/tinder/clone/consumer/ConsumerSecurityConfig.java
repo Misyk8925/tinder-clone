@@ -3,6 +3,7 @@ package com.tinder.clone.consumer;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
@@ -39,9 +40,15 @@ public class ConsumerSecurityConfig {
                 .authorizeHttpRequests(auth -> auth
                         // Require authenticated internal client for swipe batch endpoint
                         .requestMatchers("/between/batch").hasRole("INTERNAL_CLIENT")
-                        // Allow all other endpoints (e.g. actuator, health)
-                        .anyRequest().permitAll()
+                        // Health probes stay open so orchestration can reach them.
+                        .requestMatchers("/actuator/health", "/actuator/health/**").permitAll()
+                        // Everything else — notably /api/v1/swipes/liked-me, which returns who
+                        // liked a given profile — needs a real user token. It used to be open,
+                        // so anything able to reach this service could read any profile's likes
+                        // just by naming it in the X-User-Id header.
+                        .anyRequest().authenticated()
                 )
+                .oauth2ResourceServer(oauth2 -> oauth2.jwt(Customizer.withDefaults()))
                 .build();
     }
 

@@ -12,7 +12,12 @@ public interface ConversationService {
 
     ConversationDto createConversation(UUID firstParticipantId, UUID secondParticipantId);
 
-    ConversationWithMessagesDto getConversation(UUID conversationId);
+    /**
+     * Loads a conversation and its messages for {@code callerProfileId}, which must be one of
+     * the two participants. Callers never pass an identity of their own choosing — it comes
+     * from the authenticated principal.
+     */
+    ConversationWithMessagesDto getConversation(UUID conversationId, UUID callerProfileId);
 
     MessageDto sendMessage(UUID senderId, MessageDto msg);
 

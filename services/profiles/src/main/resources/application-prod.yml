@@ -28,3 +28,13 @@ internal:
       key-store-password: ${PROFILES_KEYSTORE_PASSWORD}
       trust-store: ${PROFILES_TRUSTSTORE_PATH}
       trust-store-password: ${PROFILES_TRUSTSTORE_PASSWORD}
+
+# No fallbacks in production. These credentials open the Keycloak master realm and the
+# photos media store; a baked-in default would silently ship a known-weak secret.
+keycloak:
+  admin-username: ${KEYCLOAK_ADMIN_USERNAME}
+  admin-password: ${KEYCLOAK_ADMIN_PASSWORD}
+
+photos:
+  service:
+    internal-auth-secret: ${PHOTOS_INTERNAL_AUTH_SECRET}

@@ -27,20 +27,17 @@ public class RoleBasedRateLimitFilter extends AbstractGatewayFilterFactory<RoleB
 
     private final ProxyManager<byte[]> proxyManager;
     private final SecurityService securityService;
-    private final GatewayJwtSubjectResolver jwtSubjectResolver;
 
     @Autowired
     public RoleBasedRateLimitFilter(
             RedisClient redisClient,
-            SecurityService securityService,
-            GatewayJwtSubjectResolver jwtSubjectResolver
+            SecurityService securityService
     ) {
         super(Config.class);
         this.proxyManager = LettuceBasedProxyManager
                 .builderFor(redisClient)
                 .build();
         this.securityService = securityService;
-        this.jwtSubjectResolver = jwtSubjectResolver;
     }
 
     @Override
@@ -51,6 +48,14 @@ public class RoleBasedRateLimitFilter extends AbstractGatewayFilterFactory<RoleB
                             // Route-scoped keys so Discover deck/profile GETs cannot empty the swipe bucket.
                             String key = routeId(exchange) + ":" + userId + "-" + role;
                             RoleLimit roleLimit = config.getLimitForRole(role);
+
+                            // A capacity of zero is how a route says "this role may not call me".
+                            // It must reject outright — falling back to a default allowance would
+                            // hand the role exactly the access the configuration denies it.
+                            if (roleLimit.getCapacity() <= 0) {
+                                exchange.getResponse().setStatusCode(HttpStatus.FORBIDDEN);
+                                return exchange.getResponse().setComplete();
+                            }
 
                             Bucket bucket = proxyManager.builder()
                                     .build(key.getBytes(), () -> getBucketConfiguration(roleLimit));
@@ -72,6 +77,13 @@ public class RoleBasedRateLimitFilter extends AbstractGatewayFilterFactory<RoleB
                 : "unknown";
     }
 
+    /**
+     * Builds the bucket key from the <em>verified</em> principal only.
+     * <p>
+     * Deriving it from an unverified token payload would make the limit meaningless: anyone can
+     * mint a syntactically valid JWT with a fresh {@code sub} and get a brand-new bucket for
+     * every request. Unauthenticated traffic is therefore keyed by IP instead.
+     */
     private Mono<String> resolveRateLimitKey(ServerWebExchange exchange) {
         return exchange.getPrincipal()
                 .filter(Authentication.class::isInstance)
@@ -83,9 +95,7 @@ public class RoleBasedRateLimitFilter extends AbstractGatewayFilterFactory<RoleB
                     }
                     return "user:" + authentication.getName();
                 })
-                .defaultIfEmpty(jwtSubjectResolver.resolve(exchange)
-                        .map(subject -> "user:" + subject)
-                        .orElse("ip:" + resolveIp(exchange)));
+                .defaultIfEmpty("ip:" + resolveIp(exchange));
     }
 
     private boolean isAuthenticated(Authentication authentication) {
@@ -138,7 +148,7 @@ public class RoleBasedRateLimitFilter extends AbstractGatewayFilterFactory<RoleB
     }
 
     private BucketConfiguration getBucketConfiguration(RoleLimit roleLimit) {
-        int capacity = roleLimit.getCapacity() > 0 ? roleLimit.getCapacity() : 10;
+        int capacity = roleLimit.getCapacity();
         int periodSec = roleLimit.getPeriodInSeconds() > 0 ? roleLimit.getPeriodInSeconds() : 60;
         return BucketConfiguration.builder()
                 .addLimit(Bandwidth.classic(capacity,

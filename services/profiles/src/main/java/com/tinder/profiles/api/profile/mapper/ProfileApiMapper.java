@@ -78,6 +78,15 @@ public class ProfileApiMapper {
     }
 
     public GetProfileDto toGetProfileDto(ProfileView view) {
+        return toGetProfileDto(view, true);
+    }
+
+    /**
+     * @param includeUserId whether to expose the Keycloak user ID. It identifies the account
+     *                      behind a profile, so it is only ever returned to the profile's own
+     *                      owner — never on a lookup of somebody else's profile.
+     */
+    public GetProfileDto toGetProfileDto(ProfileView view, boolean includeUserId) {
         if (view == null) {
             return null;
         }
@@ -101,7 +110,7 @@ public class ProfileApiMapper {
                 .toList();
         return new GetProfileDto(
                 view.profileId(),
-                view.userId(),
+                includeUserId ? view.userId() : null,
                 view.name(),
                 view.age(),
                 view.gender(),

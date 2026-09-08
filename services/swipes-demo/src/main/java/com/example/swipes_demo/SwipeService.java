@@ -9,6 +9,11 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
 import reactor.core.publisher.Mono;
 
+import java.util.Collection;
+import java.util.HashSet;
+import java.util.Locale;
+import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicLong;
 
@@ -27,10 +32,15 @@ public class SwipeService {
         return sendSwipe(dto, isPremiumOrAdmin, jwt, false);
     }
 
-    public Mono<Void> sendSwipe(SwipeDto dto, boolean isPremiumOrAdmin, Jwt jwt, boolean internalRequest) {
-        if (Boolean.TRUE.equals(dto.isSuper()) && !isPremiumOrAdmin) {
+    public Mono<Void> sendSwipe(SwipeDto dto, boolean superRoute, Jwt jwt, boolean internalRequest) {
+        // The gateway also gates /super with PremiumOrAdminFilter, but this service must not
+        // depend on being reached through it: re-check the entitlement from the caller's own
+        // token so a direct call cannot buy a super like for free.
+        boolean privileged = internalRequest || hasPremiumOrAdminRole(jwt);
+        if ((superRoute || Boolean.TRUE.equals(dto.isSuper())) && !privileged) {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Super like requires a premium or admin account");
         }
+        boolean isPremiumOrAdmin = superRoute || privileged;
 
         boolean trustedBenchmarkRequest = internalRequest && internalBypassProfileCheck;
         if (trustedBenchmarkRequest) {
@@ -48,11 +58,13 @@ public class SwipeService {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "profile1Id and profile2Id must be different");
         }
 
-        Mono<Boolean> profilesExist = internalRequest && internalBypassProfileCheck
+        // Deferred so the existence lookup only runs once ownership has been established.
+        Mono<Boolean> profilesExist = Mono.defer(() -> internalRequest && internalBypassProfileCheck
                 ? Mono.just(true)
-                : profileCacheService.existsAll(profile1Id, profile2Id, bearerToken);
+                : profileCacheService.existsAll(profile1Id, profile2Id, bearerToken));
 
-        return profilesExist
+        return requireOwnership(profile1Id, bearerToken, internalRequest)
+                .then(profilesExist)
                 .flatMap(exists -> {
                     if (!exists) {
                         return Mono.error(new ResponseStatusException(
@@ -63,6 +75,27 @@ public class SwipeService {
 
                     return enqueueSwipe(dto);
                 });
+    }
+
+    /**
+     * A swipe may only be recorded as the caller's own profile. Without this the swiper
+     * identity is whatever {@code profile1Id} the request body claims, which lets anyone
+     * like or pass on other people's behalf — and so manufacture matches for them.
+     * Trusted internal (benchmark) traffic is exempt; it carries no user token.
+     */
+    private Mono<Void> requireOwnership(UUID profile1Id, String bearerToken, boolean internalRequest) {
+        if (internalRequest) {
+            return Mono.empty();
+        }
+        return profileCacheService.profileIdForToken(bearerToken)
+                .switchIfEmpty(Mono.error(new ResponseStatusException(
+                        HttpStatus.SERVICE_UNAVAILABLE, "Profile ownership could not be verified")))
+                .flatMap(ownerId -> ownerId.equals(profile1Id)
+                        ? Mono.empty()
+                        : Mono.error(new ResponseStatusException(
+                                HttpStatus.FORBIDDEN,
+                                "profile1Id does not belong to the authenticated user")))
+                .then();
     }
 
     public Mono<Void> sendTrustedInternalSwipe(String body, boolean isPremiumOrAdmin) {
@@ -107,6 +140,29 @@ public class SwipeService {
 
     private String nextEventId() {
         return new UUID(System.currentTimeMillis(), eventSequence.incrementAndGet()).toString();
+    }
+
+    /** Reads Keycloak realm/resource roles off the verified token. */
+    @SuppressWarnings("unchecked")
+    private boolean hasPremiumOrAdminRole(Jwt jwt) {
+        if (jwt == null) {
+            return false;
+        }
+        Set<String> roles = new HashSet<>();
+        Map<String, Object> realmAccess = jwt.getClaimAsMap("realm_access");
+        if (realmAccess != null && realmAccess.get("roles") instanceof Collection<?> realmRoles) {
+            realmRoles.forEach(role -> roles.add(String.valueOf(role).toUpperCase(Locale.ROOT)));
+        }
+        Map<String, Object> resourceAccess = jwt.getClaimAsMap("resource_access");
+        if (resourceAccess != null) {
+            resourceAccess.values().forEach(claims -> {
+                if (claims instanceof Map<?, ?> claimsMap
+                        && claimsMap.get("roles") instanceof Collection<?> resourceRoles) {
+                    resourceRoles.forEach(role -> roles.add(String.valueOf(role).toUpperCase(Locale.ROOT)));
+                }
+            });
+        }
+        return roles.contains("USER_PREMIUM") || roles.contains("ADMIN");
     }
 
     private String extractBearerToken(Jwt jwt, boolean internalRequest) {

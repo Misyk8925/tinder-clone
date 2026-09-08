@@ -15,9 +15,14 @@ public class PhotosClientConfig {
         SimpleClientHttpRequestFactory factory = new SimpleClientHttpRequestFactory();
         factory.setConnectTimeout(Duration.ofSeconds(3));
         factory.setReadTimeout(Duration.ofSeconds(30));
-        return RestClient.builder()
+        RestClient.Builder builder = RestClient.builder()
                 .baseUrl(properties.getService().getUrl())
-                .requestFactory(factory)
-                .build();
+                .requestFactory(factory);
+
+        String internalAuthSecret = properties.getService().getInternalAuthSecret();
+        if (internalAuthSecret != null && !internalAuthSecret.isBlank()) {
+            builder.defaultHeader("X-Internal-Auth", internalAuthSecret);
+        }
+        return builder.build();
     }
 }

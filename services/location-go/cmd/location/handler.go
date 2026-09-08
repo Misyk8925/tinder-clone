@@ -2,12 +2,16 @@ package main
 
 import (
 	"encoding/json"
+	"io"
 	"log"
 	"net/http"
 	"strings"
 
 	"github.com/google/uuid"
 )
+
+// maxResolveBodyBytes bounds the JSON body accepted by /locations/resolve.
+const maxResolveBodyBytes = 64 << 10
 
 type Handler struct {
 	svc *LocationService
@@ -41,12 +45,14 @@ func (h *Handler) resolve(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Cap the body: a resolve request is a handful of fields, and decoding an unbounded
+	// stream lets one caller exhaust the service's memory.
+	defer r.Body.Close()
 	var req ResolveRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+	if err := json.NewDecoder(io.LimitReader(r.Body, maxResolveBodyBytes)).Decode(&req); err != nil {
 		writeError(w, http.StatusBadRequest, "invalid request body")
 		return
 	}
-	defer r.Body.Close()
 
 	hasCoords := req.Latitude != nil && req.Longitude != nil
 
