@@ -1,0 +1,44 @@
+name: Story
+description: An interview or product story — a failure mode, the boundary, and how we prove it.
+title: "Story: "
+labels: ["story"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Use this for a recruiter-facing story, not a bug. Keep it to one failure mode.
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: What goes wrong for the user or operator if we skip this design.
+    validations:
+      required: true
+  - type: textarea
+    id: path
+    attributes:
+      label: User-visible path
+      description: Where this shows up in Discover / swipe / match / chat.
+    validations:
+      required: true
+  - type: textarea
+    id: boundary
+    attributes:
+      label: Service boundary
+      description: Which process owns the write, which owns the read, which events move.
+    validations:
+      required: true
+  - type: input
+    id: code
+    attributes:
+      label: Code to open
+      placeholder: services/... and a test class
+    validations:
+      required: true
+  - type: textarea
+    id: tradeoff
+    attributes:
+      label: Trade-off
+      description: What we accepted instead of the simpler-looking design.
+    validations:
+      required: true

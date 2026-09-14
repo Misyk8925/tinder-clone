@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Interview demo kit
+    url: https://github.com/Misyk8925/tinder-clone/blob/main/docs/demo/README.md
+    about: Six-minute path, talk track, and live-stand preflight.
+  - name: Live stand
+    url: https://lunari.misyk.tech
+    about: Product UI (only after the live-stand preflight is green).
