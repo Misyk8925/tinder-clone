@@ -1,6 +1,20 @@
 # Lunari — Reliable Matching Platform
 
-A dating matching product that keeps discovery fast and match events correct when write, read, and side effects live in different services. The repository name is historical; the deployed product is Lunari.
+[![Policy](https://github.com/Misyk8925/tinder-clone/actions/workflows/policy.yml/badge.svg)](https://github.com/Misyk8925/tinder-clone/actions/workflows/policy.yml)
+[![Security](https://github.com/Misyk8925/tinder-clone/actions/workflows/security.yml/badge.svg)](https://github.com/Misyk8925/tinder-clone/actions/workflows/security.yml)
+![Java 21](https://img.shields.io/badge/Java-21-ED8B00?logo=openjdk&logoColor=white)
+![Spring Boot](https://img.shields.io/badge/Spring_Boot-6-6DB33F?logo=springboot&logoColor=white)
+![Quarkus](https://img.shields.io/badge/Quarkus-Deck_Read-4695EB?logo=quarkus&logoColor=white)
+![Apache Kafka](https://img.shields.io/badge/Kafka-outbox-231F20?logo=apachekafka&logoColor=white)
+
+A dating matching product that keeps discovery fast and match events correct when write, read, and side effects live in different services. The repository name is historical; the deployed product is Lunari. The client is a **phone-first PWA** (bottom tabs below 768px); desktop keeps a sidebar.
+
+<p align="center">
+  <img src="docs/demo/screenshots/mobile/discover.png" width="180" alt="Discover on a phone: full-screen card and bottom tabs" />
+  <img src="docs/demo/screenshots/mobile/matches.png" width="180" alt="Matches on a phone" />
+  <img src="docs/demo/screenshots/mobile/chat.png" width="180" alt="Chat on a phone" />
+  <img src="docs/demo/screenshots/mobile/profile.png" width="180" alt="Profile on a phone" />
+</p>
 
 **Stack:** Java 21, Spring Boot, Quarkus, Kafka, Redis, PostgreSQL/PostGIS, Keycloak; location and swipe-write in Go; photos in FastAPI; Angular client.
 
@@ -18,9 +32,13 @@ Probed 2026-09-14: both public hosts returned Cloudflare **522** (origin down). 
 
 ## What I would explain in an interview
 
-1. **CQRS deck.** `services/deck` builds and invalidates order. `services/deck-read` serves the read model and, on a miss, calls `ensure`. The Angular client reads **`/api/v2/deck`**. Boundary test: `DeckReadCqrsBoundaryAcceptanceTest`. Notes: [docs/demo/talk-track.md](docs/demo/talk-track.md), [docs/features/deck-read-cqrs](docs/features/deck-read-cqrs/README.md).
-2. **Transactional outbox.** Profile changes and swipe/match events are committed with an outbox row, then a batch publisher retries and dead-letters. Start at `ProfileOutboxBatchProcessor` and `SwipeOutboxEventDispatcher`.
-3. **Security boundaries.** Gateway JWT plus `RoleBasedRateLimitFilter` (per route and role). Internal profile and swipe-history calls use mTLS; Compose mounts are checked in CI (`scripts/validate-compose-mtls-mounts.rb`).
+GitHub tracks these as **stories** (issue template: `.github/ISSUE_TEMPLATE/story.yml`):
+
+1. **[#35 CQRS deck](https://github.com/Misyk8925/tinder-clone/issues/35).** `services/deck` builds and invalidates order. `services/deck-read` serves the read model and, on a miss, calls `ensure`. The Angular client reads **`/api/v2/deck`**. Boundary test: `DeckReadCqrsBoundaryAcceptanceTest`. Notes: [docs/demo/talk-track.md](docs/demo/talk-track.md), [docs/features/deck-read-cqrs](docs/features/deck-read-cqrs/README.md).
+2. **[#36 Transactional outbox](https://github.com/Misyk8925/tinder-clone/issues/36).** Profile changes and swipe/match events are committed with an outbox row, then a batch publisher retries and dead-letters. Start at `ProfileOutboxBatchProcessor` and `SwipeOutboxEventDispatcher`.
+3. **[#37 Security boundaries](https://github.com/Misyk8925/tinder-clone/issues/37).** Gateway JWT plus `RoleBasedRateLimitFilter` (per route and role). Internal profile and swipe-history calls use mTLS; Compose mounts are checked in CI (`scripts/validate-compose-mtls-mounts.rb`).
+
+Full write-ups: [docs/demo/stories.md](docs/demo/stories.md).
 
 ## Current scope / not in the demo
 

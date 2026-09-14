@@ -4,6 +4,8 @@ A six-minute **live-origin** recording is the recruiter backup once `https://lun
 
 Until then, this change includes a **design-preview** UI walkthrough captured 2026-09-14 against `npm run start:preview` on `http://127.0.0.1:4200/`. That client uses in-memory fixtures (`designPreviewInterceptor`). It proves the Discover / Likes / Messages / Chat / Profile surfaces, not Kafka, outbox, or mTLS.
 
+Phone-width stills (390px, bottom tabs): [screenshots/mobile/](screenshots/mobile/). Desktop stills stay in [screenshots/](screenshots/).
+
 | Item | Value |
 |---|---|
 | Preview walkthrough | Attached to the pull request as `lunari_preview_ui_walkthrough.mp4` (~1:40). Sequence: Discover (Mila) → Likes → Messages → chat with Mila → Profile (Michael, 27) → Discover. |

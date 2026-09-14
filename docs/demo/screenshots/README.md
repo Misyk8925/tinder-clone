@@ -1,14 +1,21 @@
 # Demo stills
 
-These are UI stills from the Angular **design-preview** configuration (`npm run start:preview` in `clients/tinder-client`). They show the product surfaces used in [script.md](../script.md). They are fixtures, not proof that Kafka or the outbox ran.
+These are UI stills from the Angular **design-preview** configuration (`npm run start:preview` in `clients/tinder-client`). They are fixtures, not proof that Kafka or the outbox ran.
+
+**Phone-first** stills (`mobile/`, 390px wide) are what belong on the GitHub README. Desktop stills in this folder are the sidebar layout.
 
 | File | Surface |
 |---|---|
-| [architecture.png](architecture.png) | Service diagram (same image as `docs/Screenshot 2026-03-09 at 21.17.26.png`) |
-| [discover.png](discover.png) | Discover card (Mila fixture) |
-| [matches.png](matches.png) | Matches list |
-| [chat.png](chat.png) | Chat with Mila |
-| [profile.png](profile.png) | Own profile |
-| [likes.png](likes.png) | Likes You (preview treats the session as premium) |
+| [mobile/discover.png](mobile/discover.png) | Discover card + bottom tabs |
+| [mobile/likes.png](mobile/likes.png) | Likes You |
+| [mobile/matches.png](mobile/matches.png) | Messages list |
+| [mobile/chat.png](mobile/chat.png) | Chat with Mila (nav hidden, full-screen thread) |
+| [mobile/profile.png](mobile/profile.png) | Own profile |
+| [architecture.png](architecture.png) | Service diagram |
+| [discover.png](discover.png) | Desktop Discover |
+| [matches.png](matches.png) | Desktop Messages |
+| [chat.png](chat.png) | Desktop chat |
+| [profile.png](profile.png) | Desktop profile |
+| [likes.png](likes.png) | Desktop Likes You |
 
 After the public origin is up, replace these with stills from `https://lunari.misyk.tech` if you want recruiter screenshots of the real stack.

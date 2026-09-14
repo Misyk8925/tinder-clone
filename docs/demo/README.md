@@ -9,9 +9,11 @@ Use this folder, not the full feature tree, as the starting point.
 | [live-stand.md](live-stand.md) | Production URLs, preflight, operational traps |
 | [script.md](script.md) | Six-minute walkthrough (Russian and English) |
 | [talk-track.md](talk-track.md) | Three Java stories: problem, code, trade-off, test |
+| [stories.md](stories.md) | Same stories as GitHub issues #35–#37 |
 | [seed-notes.md](seed-notes.md) | How to fill a deck through events, never SQL |
 | [cv-blurb.md](cv-blurb.md) | CV / LinkedIn wording and likely questions |
-| [screenshots/](screenshots/) | UI stills plus the architecture diagram |
+| [screenshots/](screenshots/) | Desktop stills |
+| [screenshots/mobile/](screenshots/mobile/) | Phone-width stills (bottom tabs) |
 | [recording.md](recording.md) | Backup video status and how to publish a recruiter link |
 
 ## What to show
@@ -20,12 +22,14 @@ One path: two prepared accounts → Discover (`GET /api/v2/deck`) → mutual lik
 
 Three stories if the interviewer goes deep: Deck Read CQRS, transactional outbox, gateway / mTLS / role-aware limits.
 
-Product surfaces (design-preview fixtures, not the live origin):
+Product surfaces (design-preview fixtures, not the live origin). **Phone layout first:**
 
-![Discover](screenshots/discover.png)
-![Messages](screenshots/matches.png)
-![Chat](screenshots/chat.png)
-![Profile](screenshots/profile.png)
+<p align="center">
+  <img src="screenshots/mobile/discover.png" width="180" alt="Mobile Discover" />
+  <img src="screenshots/mobile/matches.png" width="180" alt="Mobile Messages" />
+  <img src="screenshots/mobile/chat.png" width="180" alt="Mobile chat" />
+  <img src="screenshots/mobile/profile.png" width="180" alt="Mobile profile" />
+</p>
 
 ## What not to present as finished
 
@@ -34,6 +38,10 @@ Product surfaces (design-preview fixtures, not the live origin):
 - Moderation Phase 5.
 - Eureka / Config Server (legacy, off in production).
 - Profiles inserted with SQL (deck-read stays `202 BUILDING`).
+
+## GitHub About
+
+Settings → General: website `https://lunari.misyk.tech`; topics `java`, `spring-boot`, `quarkus`, `apache-kafka`, `cqrs`, `keycloak`, `matching`, `microservices`.
 
 ## Compact delivery record
 

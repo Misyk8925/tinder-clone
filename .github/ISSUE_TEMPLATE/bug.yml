@@ -1,0 +1,33 @@
+name: Bug
+description: Something the product already promised, but does not do.
+title: "Bug: "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: Prefer a Given/When/Then and a route (`GET /api/v2/deck`, Discover, chat).
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual
+    validations:
+      required: true
+  - type: dropdown
+    id: surface
+    attributes:
+      label: Surface
+      options:
+        - Discover / deck
+        - Swipe / match
+        - Chat
+        - Profile / photos
+        - Auth / gateway
+        - Other
+    validations:
+      required: true
