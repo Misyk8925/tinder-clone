@@ -41,7 +41,17 @@ Product surfaces (design-preview fixtures, not the live origin). **Phone layout 
 
 ## GitHub About
 
-Settings → General: website `https://lunari.misyk.tech`; topics `java`, `spring-boot`, `quarkus`, `apache-kafka`, `cqrs`, `keycloak`, `matching`, `microservices`.
+The cloud-agent GitHub token is an integration: `PATCH /repos/...` and topics return **403**, and a browser session is not logged in as the owner. Run this on your machine (one command):
+
+```bash
+gh auth login   # if needed
+./scripts/set-github-about.sh
+```
+
+That sets description, website `https://lunari.misyk.tech`, and topics `java`, `spring-boot`, `quarkus`, `apache-kafka`, `cqrs`, `keycloak`, `matching`, `microservices`, `redis`, `postgresql`.
+
+Then pin issues [#35](https://github.com/Misyk8925/tinder-clone/issues/35), [#36](https://github.com/Misyk8925/tinder-clone/issues/36), [#37](https://github.com/Misyk8925/tinder-clone/issues/37) on the Issues page (also 403 for the integration).
+
 
 ## Compact delivery record
 
