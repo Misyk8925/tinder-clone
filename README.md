@@ -1,6 +1,35 @@
-# Tinder Clone — Reliable Matching Platform
+# Lunari — Reliable Matching Platform
 
-This project explores how a dating product can keep the matching journey responsive and correct as responsibilities are split across independently deployable services. It is not a technology showcase: the work is centered on dependable user-facing flows, explicit service boundaries, and recoverable asynchronous processing.
+A dating matching product that keeps discovery fast and match events correct when write, read, and side effects live in different services. The repository name is historical; the deployed product is Lunari.
+
+**Stack:** Java 21, Spring Boot, Quarkus, Kafka, Redis, PostgreSQL/PostGIS, Keycloak; location and swipe-write in Go; photos in FastAPI; Angular client.
+
+**Six-minute path:** two prepared accounts → Discover (`GET /api/v2/deck`) → mutual like → match → text chat.
+
+| Surface | Where |
+|---|---|
+| Live stand | https://lunari.misyk.tech — only after the [live-stand preflight](docs/demo/live-stand.md) is green that day |
+| Identity | https://auth.misyk.tech · realm `spring` |
+| Backup recording | Owner-hosted unlisted YouTube/Loom (paste here before sending to recruiters). Script: [docs/demo/script.md](docs/demo/script.md) |
+| Interview kit | [docs/demo](docs/demo/README.md) |
+| Local fallback | `docker-compose.yml` + `docker-compose.local.yml` |
+
+Probed 2026-09-14: both public hosts returned Cloudflare **522** (origin down). Do not send the live URL while that is true.
+
+## What I would explain in an interview
+
+1. **CQRS deck.** `services/deck` builds and invalidates order. `services/deck-read` serves the read model and, on a miss, calls `ensure`. The Angular client reads **`/api/v2/deck`**. Boundary test: `DeckReadCqrsBoundaryAcceptanceTest`. Notes: [docs/demo/talk-track.md](docs/demo/talk-track.md), [docs/features/deck-read-cqrs](docs/features/deck-read-cqrs/README.md).
+2. **Transactional outbox.** Profile changes and swipe/match events are committed with an outbox row, then a batch publisher retries and dead-letters. Start at `ProfileOutboxBatchProcessor` and `SwipeOutboxEventDispatcher`.
+3. **Security boundaries.** Gateway JWT plus `RoleBasedRateLimitFilter` (per route and role). Internal profile and swipe-history calls use mTLS; Compose mounts are checked in CI (`scripts/validate-compose-mtls-mounts.rb`).
+
+## Current scope / not in the demo
+
+- **In the demo:** profile, location-aware Discover, swipe, match, text chat. Premium / likes-you only if the account already has `USER_PREMIUM`.
+- **In the repo, not claimed as finished:** ranking admin / experiments (`ADMIN` vs `USER_ADMIN` still open), popularity ranker on a live deck, moderation Phase 5.
+- **Legacy, off in production:** Eureka and Config Server. Services resolve peers with static `*_SERVICE_URL`.
+- **Do not SQL-seed profiles.** Missing `profile.created` leaves Deck Read at `202 BUILDING`. See [docs/demo/seed-notes.md](docs/demo/seed-notes.md).
+
+CI watches security (CodeQL, Trivy, dependency-review) and policy/contracts (Redis, DB roles, mTLS mounts, Deck Read specs). It does **not** run `mvn test` / `go test` / `pytest` / `ng build`. Those suites run locally, often with Testcontainers.
 
 ## Goals
 
@@ -19,21 +48,23 @@ This project explores how a dating product can keep the matching journey respons
 
 ---
 
-## 📐 Architecture
+## Architecture
 
 ![Architecture Diagram](docs/Screenshot%202026-03-09%20at%2021.17.26.png)
+
+The browser talks only to the gateway. Discover is a read-model problem (Deck Read), not a live join across Profiles and swipe history. Deck rebuilds and reverse-index invalidation stay on the write side so a cache miss can call `ensure` instead of becoming a correctness bug. Swipe persistence and match creation are paired with outbox rows so a Kafka blip does not drop a mutual like. Photos, location, and billing are separate because they fail and scale differently. User JWTs never replace mTLS on internal profile-id fanout.
 
 ### Kafka Topics
 
 | Topic | Producer | Consumer(s) |
 |-------|----------|-------------|
-| `swipe-created` | Swipes Service | Consumer Service |
-| `profile.created` / `profile.updated` / `profile.deleted` | Profiles Service | Consumer Service, Deck Service |
-| `match.created` | Consumer Service (Outbox) | Match Service |
+| `swipe-created` | Swipes Service (`swipes-go` in Compose) | Consumer Service |
+| `profile.created` / `profile.updated` / `profile.deleted` | Profiles Service (outbox) | Consumer Service, Deck Service, Deck Read |
+| `match.created` | Consumer Service (outbox) | Match Service |
 
 ---
 
-## 🗂️ Responsibility map
+## Responsibility map
 
 | Area | Responsibility |
 |------|----------------|
@@ -41,22 +72,22 @@ This project explores how a dating product can keep the matching journey respons
 | **Profiles + Location + Photos** | Owns profile data, preferences, and location resolution. Photo bytes, variants and S3 storage live in the Photos service. |
 | **Photos** | Validates uploads, renders JPEG variants, stores objects in S3, and issues download URLs. Used by Profiles and Match. |
 | **Deck + Deck-Read** | Builds a ranked discovery deck asynchronously and serves its read model to the client. |
-| **Swipes + Consumer** | Records decisions, detects reciprocal likes, and publishes durable swipe/match events. |
+| **Swipes + Consumer** | Records decisions (`swipes-go` on the Compose path), detects reciprocal likes, and publishes durable swipe/match events. |
 | **Match** | Owns conversations created from confirmed matches. |
 | **Subscriptions** | Connects payment completion to premium entitlement changes. |
 | **Contracts** | Keeps shared API DTOs and event schemas explicit between service boundaries. |
 
-> Deck-Read and Swipes both default to port 8040 — that's fine, they run as separate containers/processes and are never both bound to the same host port at once.
+> Deck-Read and Swipes both default to port 8040 — that is fine, they run as separate containers and are never bound to the same host port at once.
 
 ---
 
-## 🚀 Quick Start
+## Quick Start
 
 ### Prerequisites
 - Java 21+, Maven 3.9+, Go 1.22+, Node/Angular CLI, Docker
 
 ### Local stack (recommended)
-The root `docker-compose.yml` is the production-shaped stack; `docker-compose.local.yml` overlays it for local dev (repo-local self-signed mTLS certs, host-exposed Kafka/location ports, relaxed OIDC issuer check).
+The root `docker-compose.yml` is the production-shaped stack; `docker-compose.local.yml` overlays it for local dev (repo-local self-signed mTLS certs, host-exposed Kafka/location ports, relaxed OIDC issuer check). Compose starts **swipes-go**, not the Java `swipes-demo` service.
 
 ```bash
 # 1. Generate local mTLS certs (writes to ./certs, password "changeit")
@@ -73,26 +104,29 @@ This starts: PostgreSQL (PostGIS), Keycloak (+ its own Postgres), Redis, Kafka/Z
 
 Per-service DB credentials are required: `PROFILES_DB_*`, `MATCH_DB_*`, `CONSUMER_DB_*`, `SUBSCRIPTIONS_DB_*`, `SWIPES_DB_*`, `LOCATION_DB_*`.
 
+After a `--no-deps` recreate of `deck-read-api`, restart `gateway` or Discover returns 500 (stale Netty DNS).
+
 ### Running services individually (hybrid: infra in Docker, services on host)
+
+Prefer the full Compose stack for a demo. Hybrid is for local debugging only. Production-shaped swipe write is **swipes-go**. `swipes-demo` is the Java rollback overlay (`docker-compose.swipes-java-rollback.yml`).
+
 ```bash
 docker compose -f docker-compose.yml -f docker-compose.local.yml up -d postgres keycloak-postgres keycloak redis zookeeper kafka
 
-(cd services/config-server2  && mvn spring-boot:run) &   # optional, local-only
-(cd services/discovery       && mvn spring-boot:run) &   # optional, local-only
 (cd services/location-go     && go run ./cmd/location) &
 (cd services/photos          && uvicorn app.main:app --host 0.0.0.0 --port 8070) &
 (cd services/profiles        && mvn spring-boot:run) &
 (cd services/deck            && mvn spring-boot:run) &
 (cd services/deck-read       && mvn quarkus:dev) &
-(cd services/swipes-demo     && mvn spring-boot:run) &
+(cd services/swipes-go       && go run ./cmd/swipes-go) &
 (cd services/consumer        && mvn spring-boot:run) &
 (cd services/match           && mvn spring-boot:run) &
 (cd services/subscriptions   && mvn spring-boot:run) &
 (cd services/gateway         && mvn spring-boot:run) &
-(cd clients/tinder-client    && ng serve) &
+(cd clients/tinder-client    && npm start) &
 ```
 
-Eureka/Config Server are legacy: in prod, every service resolves peers via static `*_SERVICE_URL` env vars (`EUREKA_CLIENT_ENABLED=false`). They're only useful for local dev without the compose overlay.
+`services/config-server2` and `services/discovery` are optional local-only leftovers. Production sets `EUREKA_CLIENT_ENABLED=false` and static `*_SERVICE_URL` values.
 
 ### Troubleshooting Docker Maven cache (`*.lastUpdated` errors)
 If a Docker build fails with errors like `FileNotFoundException ... .pom.lastUpdated`, clean the affected BuildKit Maven cache id and rebuild.
@@ -110,16 +144,16 @@ If your `buildx` version does not support prune by id, use broader cleanup for c
 
 ---
 
-## 🔐 Security
+## Security
 
-All services validate JWT tokens issued by **Keycloak** (`http://localhost:9080`, realm `spring`).
+All services validate JWT tokens issued by **Keycloak** (`http://localhost:9080` locally, `https://auth.misyk.tech` in production, realm `spring`).
 Service-to-service calls that carry sensitive data (Deck ⇄ Profiles internal, Deck-Read ⇄ Profiles internal, Deck ⇄ Consumer, Subscriptions gRPC) go over **mTLS** using per-service PKCS12 keystores and a shared truststore under `certs/` (local) or `/etc/dokploy/certs/tinderclone/` (prod).
-After a Stripe payment, Subscriptions Service calls Profiles gRPC `UpdatePremiumUser` → assigns `USER_PREMIUM` role in Keycloak.
+After a Stripe payment, Subscriptions Service calls Profiles gRPC `UpdatePremiumUser` → assigns `USER_PREMIUM` role in Keycloak. Localhost cannot receive Stripe webhooks; use `POST /api/v1/billing/sync` there.
 The Gateway enforces role-based rate limiting (`RoleBasedRateLimitFilter`) per route, differentiated by `anon` / `basic` / `premium` / `admin`.
 
 ---
 
-## 🗄️ Infrastructure (`docker-compose.yml`)
+## Infrastructure (`docker-compose.yml`)
 
 | Service | Port | Purpose |
 |---------|------|---------|
@@ -137,7 +171,7 @@ The Gateway enforces role-based rate limiting (`RoleBasedRateLimitFilter`) per r
 
 ---
 
-## 📋 Key Endpoints
+## Key Endpoints
 
 ### Profiles Service `:8010`
 ```
@@ -178,9 +212,10 @@ Profiles and Match call this service. Clients keep using the existing Profiles a
 
 ### Deck-Read Service `:8040` (client-facing deck reads, Quarkus)
 ```
-GET  /api/v1/deck                       - Get viewer's deck (viewer id from JWT sub)
+GET  /api/v1/deck                       - Viewer's deck (legacy path)
+GET  /api/v2/deck                       - Viewer's deck (Angular client; JWT sub)
 ```
-The Gateway routes `GET /api/v1/deck` directly to this service.
+The Gateway routes both paths to this service. Prefer **v2** when talking about the product.
 
 ### Deck Service `:8030` (write side / admin)
 ```
@@ -191,10 +226,10 @@ DELETE /api/v1/admin/deck?viewerId=                  - Invalidate cache
 POST   /api/v1/internal/deck/ensure                  - Ensure-on-miss (called by Deck-Read)
 ```
 
-### Swipes Service `:8040`
+### Swipes Service `:8040` (`swipes-go` in Compose)
 ```
-POST   /api/v1/swipes               - Record swipe → Kafka
-POST   /api/v1/swipes/super         - Record super-like (premium/admin only) → Kafka
+POST   /api/v1/swipes               - Record swipe
+POST   /api/v1/swipes/super         - Record super-like (premium/admin only)
 ```
 
 ### Consumer Service `:8050` (8051 internal mTLS)
@@ -212,12 +247,13 @@ GET    /ws, /ws/**                  - WebSocket chat
 ```
 POST   /api/v1/billing/checkout-session  - Create Stripe checkout session
 POST   /api/v1/billing/portal-session    - Create Stripe portal session
+POST   /api/v1/billing/sync              - Reconcile entitlement when webhooks cannot reach the host
 POST   /api/v1/webhook                   - Stripe webhook (-> gRPC premium upgrade)
 ```
 
 ---
 
-## 🧪 Testing
+## Testing
 
 ```bash
 cd services/<java-service-name>
@@ -234,38 +270,40 @@ python -m pytest
 
 Testcontainers (PostgreSQL, Redis, Kafka), EmbeddedKafka, Quarkus Dev Services (deck-read), reactor-test (`StepVerifier`).
 
+GitHub Actions: [`.github/workflows/security.yml`](.github/workflows/security.yml) and [`.github/workflows/policy.yml`](.github/workflows/policy.yml) only. A green policy check is not a green service test suite.
+
 ---
 
-## 🩺 Health
+## Health
 
 ```bash
 curl http://localhost:8222/actuator/health   # Gateway
 curl http://localhost:8040/q/health          # Deck-Read (Quarkus)
 curl http://localhost:8065/health            # Location (Go)
-open http://localhost:8761                   # Eureka (local dev only)
 ```
 
 ---
 
-## 📁 Structure
+## Structure
 
 ```
 tinder-clone/
 ├── services/
-│   ├── config-server2/   discovery/     gateway/
-│   ├── profiles/         location-go/
-│   ├── deck/              deck-read/     swipes-demo/   swipes-go/
-│   ├── consumer/         match/          subscriptions/
-│   └── tinder-contracts/  # shared DTOs & Kafka event schemas
+│   ├── gateway/          profiles/       location-go/    photos/
+│   ├── deck/             deck-read/      swipes-go/      swipes-demo/   # demo = Java rollback
+│   ├── consumer/         match/          subscriptions/  moderation/
+│   ├── tinder-contracts/ # shared DTOs & Kafka event schemas
+│   ├── config-server2/   discovery/      # local-only leftovers
 ├── clients/
 │   └── tinder-client/    # Angular frontend
-├── docs/                 # OpenAPI spec, architecture notes, diagrams
+├── docs/                 # demo kit, OpenAPI, architecture notes
+│   └── demo/             # interview script, talk track, seed notes
 ├── certs/                # local mTLS cert generation
-├── docker-compose.yml        # prod-shaped stack
+├── docker-compose.yml        # prod-shaped stack (swipes-go)
 ├── docker-compose.local.yml  # local dev overlay
-└── .env.prod.example
+└── .env.prod.example         # placeholders only; never commit a filled .env
 ```
 
 ---
 
-*Author: Michael · 2025–2026 | Swagger UI: `http://localhost:8010/swagger-ui.html`*
+*Author: Michael · 2025–2026 | Interview kit: [docs/demo](docs/demo/README.md)*

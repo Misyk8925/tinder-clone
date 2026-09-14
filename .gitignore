@@ -5,6 +5,11 @@
 .env
 .DS_Store
 target/
+node_modules/
+dist/
+# Operator SPA is optional and often copied locally; never commit its install tree.
+clients/tinder-admin/node_modules/
+clients/tinder-admin/dist/
 /clients/tinder-client/design-qa-*.png
 /clients/tinder-client/design-qa-*.jpg
 /services/consumer/load-tests/seed-100m-valid-swipes.sh
