@@ -10,7 +10,7 @@ A dating matching product that keeps discovery fast and match events correct whe
 |---|---|
 | Live stand | https://lunari.misyk.tech — only after the [live-stand preflight](docs/demo/live-stand.md) is green that day |
 | Identity | https://auth.misyk.tech · realm `spring` |
-| Backup recording | Owner-hosted unlisted YouTube/Loom (paste here before sending to recruiters). Script: [docs/demo/script.md](docs/demo/script.md) |
+| Backup recording | Design-preview UI walkthrough is attached to the PR (Discover → Likes → Messages → Chat → Profile). Script: [docs/demo/script.md](docs/demo/script.md). Before sending the repo to recruiters, record the live origin and paste an unlisted YouTube/Loom URL here. |
 | Interview kit | [docs/demo](docs/demo/README.md) |
 | Local fallback | `docker-compose.yml` + `docker-compose.local.yml` |
 

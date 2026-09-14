@@ -12,12 +12,20 @@ Use this folder, not the full feature tree, as the starting point.
 | [seed-notes.md](seed-notes.md) | How to fill a deck through events, never SQL |
 | [cv-blurb.md](cv-blurb.md) | CV / LinkedIn wording and likely questions |
 | [screenshots/](screenshots/) | UI stills plus the architecture diagram |
+| [recording.md](recording.md) | Backup video status and how to publish a recruiter link |
 
 ## What to show
 
 One path: two prepared accounts → Discover (`GET /api/v2/deck`) → mutual like → match → text chat.
 
 Three stories if the interviewer goes deep: Deck Read CQRS, transactional outbox, gateway / mTLS / role-aware limits.
+
+Product surfaces (design-preview fixtures, not the live origin):
+
+![Discover](screenshots/discover.png)
+![Messages](screenshots/matches.png)
+![Chat](screenshots/chat.png)
+![Profile](screenshots/profile.png)
 
 ## What not to present as finished
 
@@ -56,7 +64,7 @@ This kit is a documentation and hygiene change. No HTTP, event, or database cont
 | C.6 Promotion check | Done | One slice; live-stand outage recorded as operational fact |
 | P1–P3 rows | Mode-omit | Compressed mode |
 | P4.1 Slice plan | Done | This file |
-| P4.2 Primary evidence | Done | Probe log in `live-stand.md`; UI stills when preview is captured |
+| P4.2 Primary evidence | Done | Probe 522 in `live-stand.md`; stills in `screenshots/`; preview walkthrough `lunari_preview_ui_walkthrough.mp4` |
 | P4.3 Implementation | Done | `docs/demo/*`, root README, `.gitignore` |
 | P4.4 Test levels | Done | See C.4. Specialist N/A |
 | P4.5 Error-path evidence | N/A | Documentation only; live 522 is recorded, not fixed here |

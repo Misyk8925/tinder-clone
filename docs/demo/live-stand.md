@@ -83,4 +83,4 @@ docker compose -f docker-compose.yml -f docker-compose.local.yml up -d --build
 
 Compose runs **swipes-go**, not `swipes-demo`. After `--no-deps` recreate of `deck-read-api`, restart `gateway`.
 
-The Angular design-preview configuration (`npm run start:preview` in `clients/tinder-client`) can show Discover / Matches / Chat / Profile without the stack. Use it for screenshots and a UI backup, not as proof that Kafka or outbox work.
+The Angular design-preview configuration (`npm run start:preview` in `clients/tinder-client`) can show Discover / Matches / Chat / Profile without the stack. Use it for screenshots and a UI backup, not as proof that Kafka or outbox work. A captured preview walkthrough is documented in [recording.md](recording.md).
