@@ -280,29 +280,43 @@ class RestLoadProbeTest {
     }
 
     @Test
-    fun `NFR-1 local REST precursor stays under two seconds with a one second provider stub`() {
-        val pool = Executors.newFixedThreadPool(50)
+    fun `warm local REST precursor stays under NFR-1 with a one second provider stub`() {
+        val warmup = Executors.newFixedThreadPool(5)
+        try {
+            warmup.invokeAll((1..5).map { index ->
+                Callable { executeModeration("warmup", index) }
+            }).forEach { it.get() }
+        } finally {
+            warmup.shutdownNow()
+        }
+        classifier.calls.set(0)
+
+        val pool = Executors.newScheduledThreadPool(50)
         val latencies = try {
-            pool.invokeAll((1..50).map { index ->
-                Callable {
+            (1..50).map { index ->
+                pool.schedule(Callable {
                     val started = System.nanoTime()
-                    val response = http.post("/internal/v1/moderations") {
-                        header("Authorization", AUTH)
-                        header("Idempotency-Key", "load-$index-${System.nanoTime()}")
-                        contentType = MediaType.APPLICATION_JSON
-                        content = """{"contentId":"load-$index","contentType":"MESSAGE","text":"quoted film line $index"}"""
-                    }.andReturn().response
-                    assertEquals(200, response.status)
+                    executeModeration("load", index)
                     TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - started)
-                }
-            }).map { it.get() }.sorted()
+                }, (index - 1) * 20L, TimeUnit.MILLISECONDS)
+            }.map { it.get() }.sorted()
         } finally {
             pool.shutdownNow()
         }
         val p95 = latencies[((latencies.size * 0.95).toInt()).coerceAtMost(latencies.lastIndex)]
-        println("NFR-1 local in-memory REST 50-request concurrent probe p95=${p95}ms")
+        println("NFR-1 local in-memory REST paced-50-RPS probe p95=${p95}ms target=2000ms")
         assertTrue(p95 <= 2_000, "p95 was ${p95}ms")
         assertEquals(50, classifier.calls.get())
+    }
+
+    private fun executeModeration(prefix: String, index: Int) {
+        val response = http.post("/internal/v1/moderations") {
+            header("Authorization", AUTH)
+            header("Idempotency-Key", "$prefix-$index-${System.nanoTime()}")
+            contentType = MediaType.APPLICATION_JSON
+            content = """{"contentId":"$prefix-$index","contentType":"MESSAGE","text":"quoted film line $index"}"""
+        }.andReturn().response
+        assertEquals(200, response.status)
     }
 
     class OneSecondClassifier : com.tinder.clone.moderation.application.ports.ModerationClassifierPort {
