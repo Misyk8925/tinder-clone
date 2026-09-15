@@ -13,6 +13,7 @@ export interface Agent {
   appeal: number;
   arm: Arm;
   likesReceived: number;
+  likesFrom: Record<Arm, number>;
   impressions: number;
   liked: Set<number>;
 }

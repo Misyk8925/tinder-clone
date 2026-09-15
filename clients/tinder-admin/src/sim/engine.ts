@@ -189,6 +189,7 @@ export class MatchingEngine {
 
       viewer.liked.add(candidate.id);
       candidate.likesReceived += 1;
+      candidate.likesFrom[viewer.arm] += 1;
       events.push({ type: 'like', from: viewer.id, to: candidate.id, arm: viewer.arm });
       if (candidate.liked.has(viewer.id)) {
         events.push({ type: 'match', from: viewer.id, to: candidate.id, arm: viewer.arm });

@@ -33,6 +33,7 @@ export function generateCity(config: Partial<CityConfig> = {}): Agent[] {
       appeal: Math.min(3.2, lognormal(rand, 0, 0.55)),
       arm: hashArm(id),
       likesReceived: 0,
+      likesFrom: { baseline: 0, popularity: 0 },
       impressions: 0,
       liked: new Set(),
     });

@@ -14,40 +14,48 @@ app.innerHTML = `
     <aside class="hud">
       <div>
         <div class="kicker">Lunari</div>
-        <h1>Matching observatory</h1>
-        <p class="lede">A local city of agents. Amber is today's deck score (age + distance). Cyan multiplies that by log(1+likes) and keeps 12% newcomers in reach.</p>
+        <h1>Кто набирает матчи</h1>
+        <p class="lede">Один город, две колоды. Слева людям показывают ближних. Справа поднимают тех, кого уже лайкают. Точка крупнее — больше лайков. Зелёная вспышка — матч.</p>
       </div>
       <div class="arms">
         <div class="arm baseline">
-          <div class="name">Baseline</div>
-          <div class="rate" id="baseline-rate">0.0</div>
-          <div class="meta" id="baseline-meta">0 matches · 0 swipes</div>
+          <div class="name">Обычная дека</div>
+          <div class="hint">возраст и расстояние</div>
+          <div class="rate" id="baseline-rate">0</div>
+          <div class="unit">матчей на 100 свайпов</div>
+          <div class="meta" id="baseline-meta">0 матчей · 0 свайпов</div>
         </div>
         <div class="arm popularity">
-          <div class="name">Popularity</div>
-          <div class="rate" id="popularity-rate">0.0</div>
-          <div class="meta" id="popularity-meta">0 matches · 0 swipes</div>
+          <div class="name">По лайкам</div>
+          <div class="hint">кого уже выбирают</div>
+          <div class="rate" id="popularity-rate">0</div>
+          <div class="unit">матчей на 100 свайпов</div>
+          <div class="meta" id="popularity-meta">0 матчей · 0 свайпов</div>
         </div>
       </div>
       <div class="controls">
-        <button class="primary" id="play" type="button">Play</button>
-        <button id="reset" type="button">Reset</button>
-        <select id="speed" aria-label="Speed">
-          <option value="8">slow</option>
-          <option value="28" selected>live</option>
-          <option value="90">fast</option>
-          <option value="400">night</option>
+        <button class="primary" id="play" type="button">Старт</button>
+        <button id="reset" type="button">Сначала</button>
+        <select id="speed" aria-label="Скорость">
+          <option value="8">медленно</option>
+          <option value="28" selected>живо</option>
+          <option value="90">быстро</option>
         </select>
       </div>
-      <p class="note">No AWS, no Kafka, no Compose. Scoring copies <code>AgeCompatibilityStrategy</code> and <code>LocationProximityStrategy</code>. Production ranking is unchanged.</p>
+      <p class="ticker" id="ticker">Нажми Старт — люди начнут свайпать.</p>
     </aside>
     <div class="stage">
-      <canvas id="city"></canvas>
-      <div class="legend">
-        <span><i class="swatch" style="background:#f6b53f"></i>baseline</span>
-        <span><i class="swatch" style="background:#5ee0ff"></i>popularity</span>
-        <span><i class="swatch" style="background:#9cce2b"></i>match</span>
+      <div class="pane-labels">
+        <div class="pane-label">
+          <strong>Обычная дека</strong>
+          <span>крупные точки = кому повезло в этой колоде</span>
+        </div>
+        <div class="pane-label">
+          <strong>По лайкам</strong>
+          <span>те же люди, другой порядок в ленте</span>
+        </div>
       </div>
+      <canvas id="city"></canvas>
     </div>
   </div>
 `;
@@ -56,6 +64,7 @@ const canvas = must(document.querySelector<HTMLCanvasElement>('#city'), '#city')
 const playBtn = must(document.querySelector<HTMLButtonElement>('#play'), '#play');
 const resetBtn = must(document.querySelector<HTMLButtonElement>('#reset'), '#reset');
 const speedSel = must(document.querySelector<HTMLSelectElement>('#speed'), '#speed');
+const ticker = must(document.querySelector<HTMLParagraphElement>('#ticker'), '#ticker');
 
 function must<T>(el: T | null, name: string): T {
   if (!el) {
@@ -77,8 +86,11 @@ function boot(): void {
   engine = new MatchingEngine(agents, viewers, DEFAULT_CITY);
   stats = emptyArmStats();
   done = false;
+  renderer.reset();
   renderer.resize();
   renderer.draw(engine.agents, performance.now());
+  ticker.textContent = 'Нажми Старт — люди начнут свайпать.';
+  ticker.classList.remove('match');
   paintHud();
 }
 
@@ -88,8 +100,19 @@ function paintHud(): void {
     const rateEl = document.getElementById(`${arm}-rate`);
     const metaEl = document.getElementById(`${arm}-meta`);
     if (rateEl) rateEl.textContent = rate.toFixed(1);
-    if (metaEl) metaEl.textContent = `${stats[arm].matches} matches · ${stats[arm].swipes} swipes`;
+    if (metaEl) metaEl.textContent = `${stats[arm].matches} матчей · ${stats[arm].swipes} свайпов`;
   });
+}
+
+function narrate(arm: Arm, kind: 'like' | 'match'): void {
+  const side = arm === 'popularity' ? 'справа' : 'слева';
+  if (kind === 'match') {
+    ticker.textContent = `Матч ${side}. Оба лайкнули друг друга.`;
+    ticker.classList.add('match');
+    return;
+  }
+  ticker.textContent = `Лайк ${side}. Точка стала крупнее.`;
+  ticker.classList.remove('match');
 }
 
 function applyEvents(now: number): boolean {
@@ -100,12 +123,14 @@ function applyEvents(now: number): boolean {
     }
     if (event.type === 'like') {
       stats[event.arm].likes += 1;
+      narrate(event.arm, 'like');
     }
     if (event.type === 'match') {
       stats[event.arm].matches += 1;
+      narrate(event.arm, 'match');
     }
   }
-  renderer.ingest(engine.agents, events, now);
+  renderer.ingest(events, now);
   return finished;
 }
 
@@ -118,7 +143,8 @@ function frame(now: number): void {
     }
     if (done) {
       playing = false;
-      playBtn.textContent = 'Done';
+      playBtn.textContent = 'Готово';
+      ticker.textContent = 'Ночь закончилась. Сравни, где точки крупнее и где больше матчей.';
     }
   }
   renderer.draw(engine.agents, now);
@@ -131,12 +157,12 @@ playBtn.addEventListener('click', () => {
     boot();
   }
   playing = !playing;
-  playBtn.textContent = playing ? 'Pause' : 'Play';
+  playBtn.textContent = playing ? 'Пауза' : 'Старт';
 });
 
 resetBtn.addEventListener('click', () => {
   playing = false;
-  playBtn.textContent = 'Play';
+  playBtn.textContent = 'Старт';
   boot();
 });
 

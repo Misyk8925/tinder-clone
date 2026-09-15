@@ -15,5 +15,5 @@ npm test
 npm run dev
 ```
 
-Play starts the night. Dots brighten as likes land; green pulses are mutual matches.
+Play starts the night. Left city is today's deck. Right city is likes. Dots grow; green is a match.
 Production scoring is untouched.

@@ -1,16 +1,14 @@
 # Matching observatory (local)
 
-A stack-free city of agents that ranks the same way `services/deck` does today
-(`AgeCompatibilityStrategy` + `LocationProximityStrategy`) and compares it to a
-`log(1+likes)` popularity arm with a 12% newcomer quota.
-
-No AWS, no Kafka, no Compose. Open `clients/tinder-admin` and press Play.
+A stack-free city of agents. The screen is two maps of the same people: left is today's
+deck (age + distance), right is `log(1+likes)`. Dots grow with likes; green is a match.
+No spaghetti arcs. Open `clients/tinder-admin` and press Старт.
 
 ## Compact delivery record
 
 | Field | Value |
 |---|---|
-| Outcome | Operator SPA shows a live city: likes, matches, and matches/100 swipes for `baseline` vs `popularity` |
+| Outcome | Two labeled maps of one city: ordinary deck vs likes; dots grow; green = match |
 | Out of scope | AWS stand, Keycloak, seeding `profile.created`, embeddings ranker, changing deck production scoring, ADMIN vs USER_ADMIN |
 | Affected contract | none |
 | Observable evidence | Vitest acceptance in `clients/tinder-admin/src/sim/*.spec.ts`; `npm run build`; browser Play → two arms and rising match pulses |

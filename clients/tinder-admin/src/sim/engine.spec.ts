@@ -18,6 +18,7 @@ function agent(partial: Partial<Agent> & Pick<Agent, 'id'>): Agent {
     appeal: 1,
     arm: 'baseline',
     likesReceived: 0,
+    likesFrom: { baseline: 0, popularity: 0 },
     impressions: 0,
     liked: new Set(),
     ...partial,
@@ -126,6 +127,34 @@ describe('matching observatory city', () => {
     expect(stats.baseline.swipes).toBeGreaterThan(200);
     expect(stats.popularity.swipes).toBeGreaterThan(200);
     expect(popularityRate).toBeGreaterThan(baselineRate);
+  });
+
+  it('Given a popularity viewer likes a candidate, when the like is recorded, then only that arm\'s heat increases', () => {
+    const agents = generateCity({ seed: 2, population: 80, viewers: 20, deckSize: 8, searchCap: 40, rounds: 1 });
+    const viewers = pickViewers(agents, 20, 2).filter((agent) => agent.arm === 'popularity');
+    const engine = new MatchingEngine(agents, viewers.slice(0, 8), {
+      seed: 2,
+      population: 80,
+      viewers: 8,
+      deckSize: 8,
+      searchCap: 40,
+      newcomerQuota: 0.12,
+      newcomerMaxImpressions: 3,
+      rounds: 1,
+    });
+    let liked = false;
+    for (let i = 0; i < 4000 && !liked; i++) {
+      const { events, done } = engine.tick();
+      if (done) break;
+      for (const event of events) {
+        if (event.type !== 'like') continue;
+        const candidate = engine.byId.get(event.to);
+        expect(candidate?.likesFrom.popularity).toBeGreaterThan(0);
+        expect(candidate?.likesFrom.baseline).toBe(0);
+        liked = true;
+      }
+    }
+    expect(liked).toBe(true);
   });
 
   it('Given two nearby appealing agents, when like probability is computed, then it stays inside (0, 1)', () => {
