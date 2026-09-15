@@ -32,19 +32,18 @@ A dating matching product that keeps discovery fast and match events correct whe
 | Identity | https://auth.misyk.tech · realm `spring` |
 | Backup recording | Design-preview UI walkthrough is attached to the PR (Discover → Likes → Messages → Chat → Profile). Script: [docs/demo/script.md](docs/demo/script.md). Before sending the repo to recruiters, record the live origin and paste an unlisted YouTube/Loom URL here. |
 | Interview kit | [docs/demo](docs/demo/README.md) · decisions: [docs/demo/decisions.md](docs/demo/decisions.md) |
+| Stories | [GitHub issues labeled `story`](https://github.com/Misyk8925/tinder-clone/issues?q=is%3Aissue+label%3Astory) |
 | Local demo | `./scripts/demo-up.sh` — no Stripe, no S3, certs generated if missing |
 
 Probed 2026-09-14: both public hosts returned Cloudflare **522** (origin down). Do not send the live URL while that is true.
 
 ## What I would explain in an interview
 
-GitHub tracks these as **stories** (issue template: `.github/ISSUE_TEMPLATE/story.yml`):
+Stories live only as GitHub issues (label `story`, template `.github/ISSUE_TEMPLATE/story.yml`). This README does not repeat them.
 
-1. **[#35 CQRS deck](https://github.com/Misyk8925/tinder-clone/issues/35).** `services/deck` builds and invalidates order. `services/deck-read` serves the read model and, on a miss, calls `ensure`. The Angular client reads **`/api/v2/deck`**. Boundary test: `DeckReadCqrsBoundaryAcceptanceTest`.
-2. **[#36 Transactional outbox](https://github.com/Misyk8925/tinder-clone/issues/36).** Profile changes and swipe/match events are committed with an outbox row, then a batch publisher retries and dead-letters. Start at `ProfileOutboxBatchProcessor` and `SwipeOutboxEventDispatcher`.
-3. **[#37 Security boundaries](https://github.com/Misyk8925/tinder-clone/issues/37).** Gateway JWT plus `RoleBasedRateLimitFilter` (per route and role). Internal profile and swipe-history calls use mTLS; Compose mounts are checked in CI (`scripts/validate-compose-mtls-mounts.rb`).
+[Open stories](https://github.com/Misyk8925/tinder-clone/issues?q=is%3Aissue+label%3Astory)
 
-Why those three (rejected alternatives included): [docs/demo/decisions.md](docs/demo/decisions.md). Spoken version: [docs/demo/talk-track.md](docs/demo/talk-track.md). Issue write-ups: [docs/demo/stories.md](docs/demo/stories.md). Feature tree: [docs/features/deck-read-cqrs](docs/features/deck-read-cqrs/README.md).
+Pin those issues on the Issues page so they sit above bugs (owner UI; integration tokens get **403**). Spoken prep and rejected alternatives stay in the interview kit: [docs/demo/talk-track.md](docs/demo/talk-track.md), [docs/demo/decisions.md](docs/demo/decisions.md).
 
 ## Current scope / not in the demo
 

@@ -1,6 +1,6 @@
 # Interview talk track
 
-Three stories. Each is four to six minutes. Start from a product failure, then point at one class and one test.
+Three stories. Each is four to six minutes. Start from a product failure, then point at one class and one test. The public copies are GitHub issues labeled [`story`](https://github.com/Misyk8925/tinder-clone/issues?q=is%3Aissue+label%3Astory); this file is spoken prep, not a second catalog.
 
 The written interview sheet (rejected alternatives, not just the spoken path) is [decisions.md](decisions.md).
 

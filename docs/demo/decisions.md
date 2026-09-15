@@ -1,6 +1,6 @@
 # Decisions and trade-offs
 
-This is the interview artifact. The spoken version is [talk-track.md](talk-track.md). Issues [#35](https://github.com/Misyk8925/tinder-clone/issues/35)–[#37](https://github.com/Misyk8925/tinder-clone/issues/37) are the same three stories filed as GitHub issues.
+This is the interview artifact. The spoken version is [talk-track.md](talk-track.md). Recruiter-facing stories are **only** GitHub issues labeled [`story`](https://github.com/Misyk8925/tinder-clone/issues?q=is%3Aissue+label%3Astory) — not a second list in the README.
 
 Each section is: the failure we were designing for, the cheaper thing we rejected, what shipped, and what you pay for it.
 

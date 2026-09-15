@@ -49,6 +49,6 @@ Per-service Maven/Go/pytest. Testcontainers for Postgres, Redis, Kafka. Quarkus 
 ## Recruiter packet (send in this order)
 
 1. This blurb + live URL or recording.
-2. Root README (first screen only).
+2. Root README (first screen only) and [Issues labeled `story`](https://github.com/Misyk8925/tinder-clone/issues?q=is%3Aissue+label%3Astory).
 3. [talk-track.md](talk-track.md) if they ask for a technical screen.
 4. One deep link: outbox processor or `DeckReadCqrsBoundaryAcceptanceTest`.

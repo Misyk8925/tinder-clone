@@ -17,6 +17,6 @@ That is the same copy as the first lines of the root README:
 | Website | https://lunari.misyk.tech |
 | Topics | `java` `spring-boot` `quarkus` `apache-kafka` `cqrs` `keycloak` `matching` `microservices` `redis` `postgresql` |
 
-Then pin issues [#35](https://github.com/Misyk8925/tinder-clone/issues/35), [#36](https://github.com/Misyk8925/tinder-clone/issues/36), [#37](https://github.com/Misyk8925/tinder-clone/issues/37) on the Issues page (also 403 for the integration).
+Then pin the issues labeled [`story`](https://github.com/Misyk8925/tinder-clone/issues?q=is%3Aissue+label%3Astory) on the Issues page (also 403 for the integration). Stories are not listed in the README.
 
 Until that runs, GitHub.com still shows an empty About on `main`. Recruiters who only open the repo home see whatever is on **default branch**, not this PR.

@@ -9,19 +9,19 @@ Use this folder, not the full feature tree, as the starting point.
 | [live-stand.md](live-stand.md) | Production URLs, preflight, operational traps |
 | [script.md](script.md) | Six-minute walkthrough (Russian and English) |
 | [decisions.md](decisions.md) | Why outbox, CQRS deck, mTLS, Quarkus on deck-read — rejected alternatives |
-| [talk-track.md](talk-track.md) | Spoken version of those three stories |
-| [stories.md](stories.md) | Same stories as GitHub issues #35–#37 |
+| [talk-track.md](talk-track.md) | Spoken prep (not the public story catalog) |
 | [seed-notes.md](seed-notes.md) | How to fill a deck through events, never SQL |
 | [cv-blurb.md](cv-blurb.md) | CV / LinkedIn wording and likely questions |
 | [screenshots/](screenshots/) | Desktop stills |
 | [screenshots/mobile/](screenshots/mobile/) | Phone-width stills (bottom tabs) |
 | [recording.md](recording.md) | Backup video status and how to publish a recruiter link |
+| GitHub stories | [Issues labeled `story`](https://github.com/Misyk8925/tinder-clone/issues?q=is%3Aissue+label%3Astory) — the only recruiter-facing story list |
 
 ## What to show
 
 One path: two prepared accounts → Discover (`GET /api/v2/deck`) → mutual like → match → text chat.
 
-Three stories if the interviewer goes deep: Deck Read CQRS, transactional outbox, gateway / mTLS / role-aware limits. Written answers: [decisions.md](decisions.md).
+Three stories if the interviewer goes deep: open [Issues labeled `story`](https://github.com/Misyk8925/tinder-clone/issues?q=is%3Aissue+label%3Astory). Written answers for you, not a second catalog: [decisions.md](decisions.md).
 
 Product surfaces (design-preview fixtures, not the live origin). **Phone layout first:**
 

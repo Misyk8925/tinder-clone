@@ -1,5 +1,8 @@
 blank_issues_enabled: false
 contact_links:
+  - name: Interview stories
+    url: https://github.com/Misyk8925/tinder-clone/issues?q=is%3Aissue+label%3Astory
+    about: Recruiter-facing stories. One failure mode per issue. Not bugs.
   - name: Interview demo kit
     url: https://github.com/Misyk8925/tinder-clone/blob/main/docs/demo/README.md
     about: Six-minute path, talk track, and live-stand preflight.
