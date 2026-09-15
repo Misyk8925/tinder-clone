@@ -6,8 +6,10 @@ import { Router } from '@angular/router';
 import { DeckCard, DeckPage, isBuildingDeck } from '../../core/models/deck.model';
 import { ProfileService } from '../../core/services/profile.service';
 import { SwipeService } from '../../core/services/swipe.service';
+import { MatchService } from '../../core/services/match.service';
 import { SwipeCardComponent } from '../../shared/components/swipe-card/swipe-card.component';
 import { ReportService } from '../../core/services/report.service';
+import { Profile } from '../../core/models/profile.model';
 
 @Component({
   selector: 'app-discover',
@@ -97,19 +99,36 @@ import { ReportService } from '../../core/services/report.service';
       @if (matchedProfile()) {
         <div class="overlay" (click)="dismissMatch()">
           <section class="dialog match-dialog" (click)="$event.stopPropagation()" aria-modal="true" role="dialog" aria-labelledby="match-title">
-            <span class="dialog-icon"><lucide-icon name="heart-handshake" [size]="34" strokeWidth="1.7" /></span>
-            <p class="eyebrow">A mutual connection</p>
-            <h2 id="match-title">You matched with {{ matchedProfile()!.name }}</h2>
-            <p>Start with something you noticed in their profile.</p>
-            <div class="match-photo">
-              @if (matchedProfile()!.photos.length) {
-                <img [src]="matchedProfile()!.photos[0].url" [alt]="matchedProfile()!.name" />
-              } @else {
-                <span>{{ matchedProfile()!.name[0] }}</span>
-              }
+            <p class="eyebrow">It's a match</p>
+            <div class="match-faces" aria-hidden="true">
+              <div class="match-photo me">
+                @if (myPhotoUrl()) {
+                  <img [src]="myPhotoUrl()!" alt="" />
+                } @else {
+                  <span>{{ myInitial() }}</span>
+                }
+              </div>
+              <lucide-icon class="match-heart" name="heart" [size]="22" fill="currentColor" />
+              <div class="match-photo them">
+                @if (matchedProfile()!.photos.length) {
+                  <img [src]="matchedProfile()!.photos[0].url" [alt]="matchedProfile()!.name" />
+                } @else {
+                  <span>{{ matchedProfile()!.name[0] }}</span>
+                }
+              </div>
             </div>
-            <button type="button" class="primary-button wide" (click)="goToMatches()">Send a message</button>
-            <button type="button" class="secondary-button" (click)="dismissMatch()">Keep discovering</button>
+            <h2 id="match-title">You and {{ matchedProfile()!.name }} liked each other</h2>
+            <p>Say something about their profile before the moment cools off.</p>
+            <button
+              type="button"
+              class="primary-button wide"
+              (click)="goToMatchChat()"
+              [disabled]="openingMatchChat()"
+              [attr.aria-busy]="openingMatchChat()"
+            >
+              {{ openingMatchChat() ? 'Opening chat…' : 'Send a message' }}
+            </button>
+            <button type="button" class="secondary-button" (click)="dismissMatch()" [disabled]="openingMatchChat()">Keep discovering</button>
           </section>
         </div>
       }
@@ -311,7 +330,15 @@ import { ReportService } from '../../core/services/report.service';
 
     .primary-button { border: 0; color: var(--text-primary); background: var(--brand); }
     .primary-button.wide { width: 100%; }
+    .primary-button:disabled,
+    .secondary-button:disabled { opacity: 0.65; cursor: wait; }
     .secondary-button { width: 100%; border: 0; color: var(--text-secondary); background: transparent; }
+
+    .match-dialog { animation: match-pop 280ms ease-out; }
+    @keyframes match-pop {
+      from { transform: scale(0.92); opacity: 0; }
+      to { transform: scale(1); opacity: 1; }
+    }
 
     .overlay {
       position: fixed;
@@ -341,9 +368,18 @@ import { ReportService } from '../../core/services/report.service';
     .dialog-icon.premium { color: var(--text-primary); }
     .eyebrow { color: var(--brand-strong) !important; font-size: 12px !important; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; }
 
+    .match-faces {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+    }
+
+    .match-heart { color: var(--brand); }
+
     .match-photo {
-      width: 112px;
-      height: 112px;
+      width: 96px;
+      height: 96px;
       display: grid;
       place-items: center;
       overflow: hidden;
@@ -400,6 +436,7 @@ export class DiscoverComponent implements OnInit, OnDestroy {
   private profileService = inject(ProfileService);
   private reports = inject(ReportService);
   private swipeService = inject(SwipeService);
+  private matchService = inject(MatchService);
   private router = inject(Router);
 
   profiles = signal<DeckCard[]>([]);
@@ -407,12 +444,16 @@ export class DiscoverComponent implements OnInit, OnDestroy {
   leavingId = signal<string | null>(null);
   loading = signal(true);
   matchedProfile = signal<DeckCard | null>(null);
+  openingMatchChat = signal(false);
+  myPhotoUrl = signal<string | null>(null);
   retrying = signal(false);
   showPremiumModal = signal(false);
   toast = signal<string | null>(null);
   private toastTimer: ReturnType<typeof setTimeout> | null = null;
+  private matchWatchTimers: ReturnType<typeof setTimeout>[] = [];
   private nextSuperLike = false;
   private myProfileId: string | null = null;
+  private myNameInitial = 'Y';
   private generation: number | null = null;
   private nextCursor: string | null = null;
   private pollStartedAt = 0;
@@ -445,7 +486,7 @@ export class DiscoverComponent implements OnInit, OnDestroy {
 
   ngOnInit(): void {
     this.profileService.getMe().subscribe({
-      next: profile => { this.myProfileId = profile.profileId; },
+      next: profile => this.rememberMe(profile),
       error: (error: HttpErrorResponse) => {
         if (error.status === 429) this.showToast('Too many requests. Please wait a moment.');
         else this.router.navigate(['/profile/edit']);
@@ -457,6 +498,7 @@ export class DiscoverComponent implements OnInit, OnDestroy {
   ngOnDestroy(): void {
     if (this.pollTimer) clearTimeout(this.pollTimer);
     if (this.toastTimer) clearTimeout(this.toastTimer);
+    this.clearMatchWatch();
   }
 
   loadDeck(refresh = false): void {
@@ -500,7 +542,12 @@ export class DiscoverComponent implements OnInit, OnDestroy {
       decision: direction === 'right',
       isSuper
     }).subscribe({
-      next: () => this.finishDeparture(profile),
+      next: () => {
+        this.finishDeparture(profile);
+        if (direction === 'right') {
+          this.watchForMatch(profile);
+        }
+      },
       error: (error: HttpErrorResponse) => {
         if (isSuper && error.status === 403) {
           this.restoreRejectedSwipe(profile);
@@ -558,10 +605,70 @@ export class DiscoverComponent implements OnInit, OnDestroy {
     this.requestPage(undefined, true);
   }
   dismissPremiumModal(): void { this.showPremiumModal.set(false); }
-  dismissMatch(): void { this.matchedProfile.set(null); }
+  dismissMatch(): void {
+    if (this.openingMatchChat()) return;
+    this.matchedProfile.set(null);
+  }
   goToFilters(): void { this.router.navigate(['/profile/edit']); }
   goToPremium(): void { this.dismissPremiumModal(); this.router.navigate(['/profile']); }
-  goToMatches(): void { this.dismissMatch(); this.router.navigate(['/matches']); }
+  myInitial(): string { return this.myNameInitial; }
+
+  goToMatchChat(): void {
+    const other = this.matchedProfile();
+    const me = this.myProfileId;
+    if (!other || !me) {
+      this.matchedProfile.set(null);
+      this.router.navigate(['/matches']);
+      return;
+    }
+    if (this.openingMatchChat()) return;
+    this.openingMatchChat.set(true);
+    this.matchService.createConversation(me, other.profileId).subscribe({
+      next: conversation => this.router.navigate(['/chat', conversation.id]),
+      error: () => {
+        this.openingMatchChat.set(false);
+        this.matchedProfile.set(null);
+        this.router.navigate(['/matches']);
+      }
+    });
+  }
+
+  private rememberMe(profile: Profile): void {
+    this.myProfileId = profile.profileId;
+    this.myNameInitial = (profile.name || 'Y').slice(0, 1);
+    const primary = profile.photos.find(photo => photo.isPrimary) ?? profile.photos[0];
+    this.myPhotoUrl.set(primary?.url ?? null);
+  }
+
+  private watchForMatch(profile: DeckCard): void {
+    this.clearMatchWatch();
+    [0, 400, 1200, 3000].forEach(delay => {
+      this.matchWatchTimers.push(setTimeout(() => this.checkForMatch(profile), delay));
+    });
+  }
+
+  private checkForMatch(profile: DeckCard): void {
+    if (!this.myProfileId || this.matchedProfile()) {
+      return;
+    }
+    this.matchService.getMatches(this.myProfileId).subscribe({
+      next: matches => {
+        const hit = matches.some(match =>
+          match.profile1Id === profile.profileId || match.profile2Id === profile.profileId
+        );
+        if (hit) {
+          this.clearMatchWatch();
+          this.matchedProfile.set(profile);
+        }
+      },
+      error: () => undefined
+    });
+  }
+
+  private clearMatchWatch(): void {
+    this.matchWatchTimers.forEach(timer => clearTimeout(timer));
+    this.matchWatchTimers = [];
+  }
 
   private showToast(message: string): void {
     if (this.toastTimer) clearTimeout(this.toastTimer);
