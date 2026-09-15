@@ -10,4 +10,4 @@ These are the three interview stories. Each is also a GitHub issue so a recruite
 
 New stories use [`.github/ISSUE_TEMPLATE/story.yml`](../../.github/ISSUE_TEMPLATE/story.yml). Bugs use `bug.yml`. Do not file ranking admin or moderation as demo-ready stories.
 
-Spoken version: [talk-track.md](talk-track.md).
+Spoken version: [talk-track.md](talk-track.md). Written “why we rejected the cheaper thing”: [decisions.md](decisions.md).

@@ -2,6 +2,8 @@
 
 Three stories. Each is four to six minutes. Start from a product failure, then point at one class and one test.
 
+The written interview sheet (rejected alternatives, not just the spoken path) is [decisions.md](decisions.md).
+
 ---
 
 ## 1. CQRS for the discovery deck
@@ -69,7 +71,7 @@ Three stories. Each is four to six minutes. Start from a product failure, then p
 
 **Why so many services?** Each one owns a failure mode: deck build, deck read, swipe write, match projection, chat, photos, billing. Shared types live in `services/tinder-contracts`.
 
-**Why Quarkus only on Deck Read?** That hop is the Discover SLO. The write side stayed Spring.
+**Why Quarkus only on Deck Read?** That hop is the Discover SLO. The write side stayed Spring. Full write-up: [decisions.md](decisions.md).
 
 **Why Go swipes?** Compose production path is `services/swipes-go`. `services/swipes-demo` is the Java original and the rollback overlay, not what you start for a demo.
 

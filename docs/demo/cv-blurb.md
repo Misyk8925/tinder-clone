@@ -29,6 +29,8 @@ If asked about size: “A monorepo with explicit boundaries and `services/tinder
 
 ## Likely questions
 
+Longer answers with rejected alternatives: [decisions.md](decisions.md).
+
 **Why not one Spring monolith?**
 Discover reads and match side effects have different SLO and failure modes. A monolith can still have modules; here the deploy and cache failure domains are actually split. The cost is contracts and outbox, which we then had to take seriously.
 
