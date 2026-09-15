@@ -36,8 +36,8 @@ Failed iterations and plan corrections:
   with AsyncAPI nullability; expired lockout immediately relocked; cookie security defaulted
   off. Each was corrected and covered by a focused check.
 
-Final local result without provider keys: 87 regression/component checks passed,
-23 acceptance checks passed, 5 Docker-dependent Testcontainers checks skipped/blocked,
+Final local result without provider keys: 89 regression/component checks passed,
+24 acceptance checks passed, 6 Docker-dependent Testcontainers checks skipped/blocked,
 contract validation passed, bootJar built, keyless curl smoke passed, and browser smoke passed.
 
 ## 2026-09-15 — late review follow-up

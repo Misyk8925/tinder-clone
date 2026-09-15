@@ -45,7 +45,7 @@
   configuration, 5-attempt/15-minute lockout, secure session cookies, audit records, and
   sensitive-log policy have executable evidence.
 - After an explicit JIT/auth warm-up, a paced 50-RPS HTTP probe with a 1-second provider
-  stub passed twice; latest p95 was 1072 ms. It covers HTTP/Basic auth/serialization with
+  stub passed repeatedly; latest p95 was 1085 ms. It covers HTTP/Basic auth/serialization with
   in-memory persistence; production-like PostgreSQL measurement remains unavailable.
 - Browser smoke at 400 px verified login, dashboard, decisions, reviews, and policies.
 - Blank OpenAI/Gemini keys use a non-semantic fallback: both clean and keyword-matched
@@ -59,7 +59,7 @@
 | P4.2 Primary evidence/red | Done | Existing FR-2/18/19 and NFR rows were incomplete before this work. |
 | P4.3 Implementation | Done | Kafka/outbox, failure handling, security, retention, readiness, and keyless fallback. |
 | P4.4 Unit | Done | Provider HOLD, lockout, retention, health, cookie and messaging tests. |
-| P4.4 Component | Done | 87 tests passed; 5 Testcontainers cases skipped because Docker is unavailable. |
+| P4.4 Component | Done | 89 tests passed; 6 Testcontainers cases skipped because Docker is unavailable. |
 | P4.4 Integration | Blocked | Live PostgreSQL/Kafka Testcontainers require Docker; prior PostgreSQL evidence remains recorded below. |
 | P4.4 Contract | Done | `python3 scripts/validate_contracts.py`: 19 HTTP, 5 event, 7 table surfaces. |
 | P4.4 System/e2e | Done | Keyless bootJar smoke plus browser smoke at 400 px. |

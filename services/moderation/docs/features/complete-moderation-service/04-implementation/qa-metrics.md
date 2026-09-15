@@ -9,7 +9,7 @@
 
 | Requirement / contract error | Scenario | Status | Evidence / reason |
 |---|---|---|---|
-| FR-1–19 | acceptance plus focused unit/component tests | Passed locally | 23/23 acceptance; async semantics are additionally covered by `ModerationMessagingTest`. |
+| FR-1–19 | acceptance plus focused unit/component tests | Passed locally | 24/24 acceptance; async semantics are additionally covered by `ModerationMessagingTest`. |
 | HTTP/event error rows | acceptance + failure injection | Passed locally | Includes 429, durable-store 503, provider HOLD, retry/DLQ and schema rejection. |
 
 **Traceability:** 34 / 34 requirements and contract error rows mapped; live provider/broker evidence is separate and blocked.
@@ -18,8 +18,8 @@
 
 | Suite | Passed | Failed | Skipped | Blocked | Duration | Evidence / blocker |
 |---|---:|---:|---:|---:|---:|---|
-| Regression/component | 87 | 0 | 5 | 5 infrastructure-dependent | local clean run | `./gradlew clean test`; skipped rows require Docker/Testcontainers. |
-| Acceptance | 23 | 0 | 0 | 0 | 6.923 s | `./gradlew acceptanceTest`. |
+| Regression/component | 89 | 0 | 6 | 6 infrastructure-dependent | local clean run | `./gradlew clean test`; skipped rows require Docker/Testcontainers. |
+| Acceptance | 24 | 0 | 0 | 0 | local clean run | `./gradlew acceptanceTest`. |
 | Contract | 31 structural surfaces | 0 | 0 | 0 | <1 s | 19 HTTP + 5 event + 7 table checks. |
 | Keyless runtime/browser | health + 2 decisions + 5 pages | 0 | 0 | 0 | local | clean and keyword-matched text safely `HOLD`; 400 px admin smoke passed. |
 | Live provider/broker/database | 0 | 0 | 0 | 3 | — | Credentials and Docker were not supplied; not counted as passed. |
@@ -35,7 +35,7 @@ concurrency checks give more signal than mutation of wrappers.
 
 | NFR / risk | Approved target | Test or probe | Environment | Result | Evidence / blocker |
 |---|---|---|---|---|---|
-| NFR-1 | p95 <= 2 s at 50 RPS | warm 1-second provider stub | local MockMvc/in-memory | Partial: latest 1072 ms | Two warmed paced HTTP/auth/serialization runs passed; PostgreSQL-backed run is blocked without Docker. |
+| NFR-1 | p95 <= 2 s at 50 RPS | warm 1-second provider stub | local MockMvc/in-memory | Partial: latest 1085 ms | Repeated warmed paced HTTP/auth/serialization runs passed; PostgreSQL-backed run is blocked without Docker. |
 | NFR-2 | provider timeout 1500 ms, then HOLD | delayed HTTP fixture + retrying failure | local | Passed | adapter stops before 2.3 s; use case retries then returns `HOLD`. |
 | NFR-3 | 20 messages / 16 KiB | boundary tests | local | Passed | preprocessor boundary tests. |
 | NFR-4 | request <= 1 MiB | HTTP filter + acceptance | local | Passed | oversized body returns stable 413 before providers. |
