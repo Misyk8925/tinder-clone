@@ -14,7 +14,7 @@
 | Migration safety | Testcontainers PostgreSQL + Flyway | empty schema and restart pass | Passed previously; current rerun blocked (Docker unavailable) |
 | Config/secrets | focused tests and source scan | no committed secrets/default production password | Passed; only empty environment defaults |
 | Dependency vulnerability/license | resolved dependency report | no known critical/high unresolved; licences reviewed | Blocked: dependency graph resolves, but no vulnerability/licence scanner is installed |
-| Performance | reproducible local load probe | NFR-1 | Passed: 50 concurrent requests, 1 s stub, p95 <= 2 s |
+| Performance | reproducible local load probe | NFR-1 | Partial: HTTP/in-memory probe; PostgreSQL-backed 50-RPS run blocked without Docker |
 
 ## Migration evidence
 
@@ -26,4 +26,4 @@
 
 | Operation | NFR | Baseline | Current result | Workload |
 |---|---|---|---|---|
-| `POST /internal/v1/moderations` | p95 <= 2 s | none | Passed | 50 concurrent requests with 1 s provider stub |
+| `POST /internal/v1/moderations` | p95 <= 2 s | none | Blocked for release | Local HTTP/in-memory precursor uses 50 concurrent requests with 1 s provider stub; JDBC run unavailable |

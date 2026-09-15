@@ -21,7 +21,7 @@
 | Regression/component | 87 | 0 | 5 | 5 infrastructure-dependent | local clean run | `./gradlew clean test`; skipped rows require Docker/Testcontainers. |
 | Acceptance | 23 | 0 | 0 | 0 | 6.923 s | `./gradlew acceptanceTest`. |
 | Contract | 31 structural surfaces | 0 | 0 | 0 | <1 s | 19 HTTP + 5 event + 7 table checks. |
-| Keyless runtime/browser | health + 2 decisions + 5 pages | 0 | 0 | 0 | local | clean `ALLOW`, fixture hate `BLOCK`; 400 px admin smoke passed. |
+| Keyless runtime/browser | health + 2 decisions + 5 pages | 0 | 0 | 0 | local | clean and keyword-matched text safely `HOLD`; 400 px admin smoke passed. |
 | Live provider/broker/database | 0 | 0 | 0 | 3 | — | Credentials and Docker were not supplied; not counted as passed. |
 
 **Repeat failures / suspected flakes:** none; red acceptance failures are deterministic missing behaviour.
@@ -35,15 +35,15 @@ concurrency checks give more signal than mutation of wrappers.
 
 | NFR / risk | Approved target | Test or probe | Environment | Result | Evidence / blocker |
 |---|---|---|---|---|---|
-| NFR-1 | p95 <= 2 s at 50 concurrent requests | 1-second provider stub | local JVM | Passed: 1002 ms | `RestLoadProbeTest`; 50 samples. |
+| NFR-1 | p95 <= 2 s at 50 RPS | 1-second provider stub | local MockMvc/in-memory | Partial | HTTP/auth/serialization probe runs; PostgreSQL-backed 50-RPS proof is blocked without Docker. |
 | NFR-2 | provider timeout 1500 ms, then HOLD | delayed HTTP fixture + retrying failure | local | Passed | adapter stops before 2.3 s; use case retries then returns `HOLD`. |
 | NFR-3 | 20 messages / 16 KiB | boundary tests | local | Passed | preprocessor boundary tests. |
 | NFR-4 | request <= 1 MiB | HTTP filter + acceptance | local | Passed | oversized body returns stable 413 before providers. |
 | NFR-5 | one decision/event for 20 duplicates | in-memory concurrency + PostgreSQL test | local | Partial | in-memory passed; PostgreSQL rerun blocked without Docker. |
 | NFR-6 | state survives restart | PostgreSQL integration | prior local Docker run | Passed previously | `JdbcPersistenceIntegrationTest`; current rerun blocked. |
 | NFR-7 | no sensitive log/DLQ values | captured log + poison payload | local | Passed | marker values absent. |
-| NFR-8/9 | BCrypt/cookies; 5 failures/15 min | config/browser + injected clock | local | Passed | prod/non-local Secure default; local override only. |
-| NFR-10 | audit every policy/review mutation | store/API tests | local | Passed | actor/action/target/outcome asserted. |
+| NFR-8/9 | BCrypt/cookies; 5 failures/15 min | config/browser + injected clock/concurrency | local | Partial | In-memory passed; atomic PostgreSQL lockout proof is present but blocked without Docker. |
+| NFR-10 | audit every policy/review mutation | store/API tests | local | Passed | Successful and rejected/unauthorized mutations assert actor/action/target/outcome. |
 | NFR-11 | raw content purged after 90 days | repository + deterministic cleanup | local | Partial | deterministic test passed; PostgreSQL image-only case blocked without Docker. |
 | NFR-12 | five-attempt retry/DLQ | error-handler config + DLQ tests | local | Partial | deterministic path passed; live broker retry blocked without Docker. |
 

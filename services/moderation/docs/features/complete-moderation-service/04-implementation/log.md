@@ -39,3 +39,22 @@ Failed iterations and plan corrections:
 Final local result without provider keys: 87 regression/component checks passed,
 23 acceptance checks passed, 5 Docker-dependent Testcontainers checks skipped/blocked,
 contract validation passed, bootJar built, keyless curl smoke passed, and browser smoke passed.
+
+## 2026-09-15 — late review follow-up
+
+A second fresh-context review completed after the initial handoff. It identified contract
+and evidence gaps that materially changed the result:
+
+- Kafka-disabled JDBC mode selected a no-op outbox, losing events permanently. JDBC now
+  always writes the outbox; only the publisher depends on Kafka being enabled.
+- The keyword fallback violated the approved neutral-preprocessing guarantee. Keyless mode
+  now reports unsupported classifier evidence and returns `HOLD` for both matched and
+  unmatched text.
+- Login failure increments were non-atomic. The store now exposes one atomic operation;
+  PostgreSQL uses `INSERT ... ON CONFLICT ... RETURNING`.
+- Kafka commands now validate the v1 schema version and field constraints.
+- Failed/forbidden policy and review mutations now write failure audit outcomes.
+- The previous performance check bypassed HTTP and JDBC. It now drives the HTTP boundary,
+  but the release NFR remains explicitly blocked until the PostgreSQL-backed 50-RPS run.
+- Real Kafka retry/offset/restart evidence also remains blocked without Docker and is no
+  longer represented as complete.

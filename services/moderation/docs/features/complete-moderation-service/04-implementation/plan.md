@@ -46,8 +46,8 @@
   sensitive-log policy have executable evidence.
 - A 50-request concurrent probe with a 1-second provider stub enforces p95 <= 2 seconds.
 - Browser smoke at 400 px verified login, dashboard, decisions, reviews, and policies.
-- Blank OpenAI/Gemini keys use the local fallback: clean profile text returns `ALLOW`;
-  the fixture hate phrase returns `BLOCK`.
+- Blank OpenAI/Gemini keys use a non-semantic fallback: both clean and keyword-matched
+  text return auditable `HOLD`; words/regex alone never create `BLOCK` or fabricated `ALLOW`.
 
 ## Phase ledger — full-feature-delivery / slices 4–5
 
@@ -61,11 +61,11 @@
 | P4.4 Integration | Blocked | Live PostgreSQL/Kafka Testcontainers require Docker; prior PostgreSQL evidence remains recorded below. |
 | P4.4 Contract | Done | `python3 scripts/validate_contracts.py`: 19 HTTP, 5 event, 7 table surfaces. |
 | P4.4 System/e2e | Done | Keyless bootJar smoke plus browser smoke at 400 px. |
-| P4.4 Specialist | Done | p95, timeout, PII logs/DLQ, retention, lockout, cookies, idempotency. |
+| P4.4 Specialist | Partial | In-memory REST p95, timeout, PII logs/DLQ, retention, lockout, cookies and idempotency passed; JDBC 50-RPS proof needs Docker. |
 | P4.5 Error paths | Done | Provider timeout, storage 503, poison/schema event, publish retry, dependency-down readiness. |
 | P4.6 Fresh-context review | Done | Independent review found eight defects; all were fixed with regression evidence. |
 | P4.7 Targeted defect review | Done | CSRF login plus eight final-review findings recorded in `log.md`; no open confirmed defect. |
-| P4.8 Quality gates | Done | Build, acceptance, contracts and local performance passed; Docker checks are explicitly blocked. |
+| P4.8 Quality gates | Partial | Build, acceptance, contracts and in-memory REST performance passed; Docker-backed performance/Kafka checks are explicitly blocked. |
 | P4.9 Handoff | N/A | Same implementation context completed both slices. |
 | P4.10 Combined-diff review | Done | Fresh-context final review covered transactionality, Kafka, security, retention and keyless operation. |
 
