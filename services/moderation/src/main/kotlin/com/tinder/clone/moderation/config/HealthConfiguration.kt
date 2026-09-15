@@ -7,6 +7,16 @@ import org.springframework.context.annotation.Configuration
 
 @Configuration
 class HealthConfiguration {
-    @Bean fun dbHealthIndicator() = HealthIndicator { Health.up().withDetail("store", "postgresql").build() }
-    @Bean fun kafkaHealthIndicator() = HealthIndicator { Health.up().withDetail("transport", "configured-boundary").build() }
+    @Bean
+    fun dbHealthIndicator() = HealthIndicator {
+        Health.up().withDetail("store", "postgresql").build()
+    }
+
+    @Bean
+    fun kafkaHealthIndicator(kafka: ModerationKafkaProperties) = HealthIndicator {
+        Health.up()
+            .withDetail("transport", "configured-boundary")
+            .withDetail("enabled", kafka.enabled)
+            .build()
+    }
 }

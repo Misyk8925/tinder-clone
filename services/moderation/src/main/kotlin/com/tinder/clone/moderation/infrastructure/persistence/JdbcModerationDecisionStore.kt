@@ -22,6 +22,7 @@ import tools.jackson.core.type.TypeReference
 import tools.jackson.databind.ObjectMapper
 import java.text.Normalizer
 import java.time.Duration
+import java.time.Instant
 import java.time.OffsetDateTime
 import java.time.ZoneOffset
 import java.util.UUID
@@ -31,7 +32,9 @@ class DurableStorageException(cause: Throwable) : RuntimeException("Durable stor
 open class JdbcModerationDecisionStore(
     private val jdbc: JdbcTemplate,
     private val objectMapper: ObjectMapper,
-    private val rawContentRetention: Duration = Duration.ofDays(90)
+    private val rawContentRetention: Duration = Duration.ofDays(90),
+    private val outbox: com.tinder.clone.moderation.application.ports.ModerationOutboxPort =
+        com.tinder.clone.moderation.application.ports.NoOpModerationOutbox()
 ) : ModerationDecisionStore {
     override fun findByIdempotencyKey(key: String): StoredModerationDecision? = storageCall {
         jdbc.query(
@@ -47,11 +50,13 @@ open class JdbcModerationDecisionStore(
         try {
             jdbc.update(
                 """INSERT INTO moderation_decision
-                   (decision_id, idempotency_key, request_hash, content_id, content_type, author_id,
+                   (decision_id, idempotency_key, request_hash, source_message_id, content_id, content_type, author_id,
                     locale, country, normalized_text, image_urls_json, context_json, decision, reason,
                     confidence, policy_version, evidence_json, created_at, raw_content_expires_at)
-                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?::jsonb, ?::jsonb, ?, ?, ?, ?, ?::jsonb, ?, ?)""",
-                response.decisionId, decision.idempotencyKey, decision.requestHash, request.contentId,
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?::jsonb, ?::jsonb, ?, ?, ?, ?, ?::jsonb, ?, ?)""",
+                response.decisionId, decision.idempotencyKey, decision.requestHash,
+                runCatching { UUID.fromString(decision.idempotencyKey) }.getOrNull(),
+                request.contentId,
                 request.contentType.name, request.authorId, request.locale, request.country,
                 request.text?.let { Normalizer.normalize(it, Normalizer.Form.NFKC) },
                 objectMapper.writeValueAsString(request.imageUrls),
@@ -68,6 +73,11 @@ open class JdbcModerationDecisionStore(
                     reviewId, response.decisionId, response.createdAt.atOffset(ZoneOffset.UTC)
                 )
             }
+            outbox.enqueueCompleted(
+                request,
+                response,
+                runCatching { UUID.fromString(decision.idempotencyKey) }.getOrNull()
+            )
             DecisionSaveResult.Created(decision)
         } catch (_: DuplicateKeyException) {
             val existing = findByIdempotencyKey(decision.idempotencyKey)
@@ -138,7 +148,18 @@ open class JdbcModerationDecisionStore(
             UUID.randomUUID(), actor, id.toString(),
             objectMapper.writeValueAsString(mapOf("action" to action.name, "resolution" to resolution)), resolvedAt
         )
-        getReview(id)!!
+        val updated = getReview(id)!!
+        outbox.enqueueReviewChanged(updated.reviewTaskId, updated.decisionId, updated.status.name, updated.resolution, updated.aggregateVersion)
+        updated
+    }
+
+    override fun purgeExpiredRawContent(now: Instant): Int = storageCall {
+        jdbc.update(
+            """UPDATE moderation_decision
+               SET normalized_text = NULL, context_json = '[]'::jsonb
+               WHERE raw_content_expires_at <= ? AND normalized_text IS NOT NULL""",
+            now.atOffset(ZoneOffset.UTC)
+        )
     }
 
     private fun java.sql.ResultSet.toStored(): StoredModerationDecision {

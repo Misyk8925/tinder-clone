@@ -305,6 +305,32 @@ class ModerateContentUsecaseTest {
         assertEquals(0, classifierPort.calls)
     }
 
+    @Test
+    fun `provider timeout retries then HOLDs instead of allowing`() {
+        val classifier = object : ModerationClassifierPort {
+            var calls = 0
+            override fun classify(content: ModerationContent): ClassificationResult {
+                calls += 1
+                throw com.tinder.clone.moderation.infrastructure.provider.ProviderException("openai", "timed out")
+            }
+        }
+        val usecase = ModerateContentUsecase(
+            classifier,
+            CountingLlmPort(),
+            ModerationDomainService(testPolicy()),
+            EvidenceBuilder(),
+            PreModerationProcessor()
+        )
+
+        val result = assertIs<ModerationResult.Evaluated>(
+            usecase.handle(ContentCmd("content-hold", ContentType.MESSAGE, "hello"))
+        )
+        val hold = assertIs<Decision.Hold>(result.decision)
+        assertEquals(com.tinder.clone.moderation.domain.model.Reason.PROVIDER_UNAVAILABLE, hold.reason)
+        assertEquals(2, classifier.calls)
+        assertEquals("openai", result.evidence.classifierResult.provider)
+    }
+
     private class CountingClassifierPort : ModerationClassifierPort {
         var calls = 0
         var lastContent: ModerationContent? = null

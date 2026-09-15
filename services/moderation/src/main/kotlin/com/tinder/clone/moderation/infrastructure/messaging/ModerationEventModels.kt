@@ -39,3 +39,27 @@ data class ModerationCompletedEvent(
     val reviewTaskId: UUID?,
     val evidence: Map<String, Any?>
 )
+
+data class ReviewChangedEvent(
+    val schemaVersion: Int = 1,
+    val messageId: UUID,
+    val correlationId: String,
+    val occurredAt: Instant,
+    val reviewTaskId: UUID,
+    val decisionId: UUID,
+    val status: String,
+    val resolution: String?,
+    val aggregateVersion: Long
+)
+
+data class PolicyChangedEvent(
+    val schemaVersion: Int = 1,
+    val messageId: UUID,
+    val correlationId: String,
+    val occurredAt: Instant,
+    val policyVersion: String,
+    val changeType: String,
+    val contentType: String?,
+    val locale: String?,
+    val previousVersion: String?
+)

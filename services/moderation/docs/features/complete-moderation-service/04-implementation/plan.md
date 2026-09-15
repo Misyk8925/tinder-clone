@@ -7,57 +7,60 @@
 | 1 | Context-aware synchronous moderation through REST with OpenAI classifier and Gemini adjudication adapters | FR-1/3/4/5/6/7 | approved contracts | HITL | code/test green; live smoke blocked on keys |
 | 2 | Durable idempotent decisions and versioned Policy API | FR-8/9/10/11/12 | migration | HITL | code/test green; PostgreSQL round-trip/restart/concurrency green |
 | 3 | Review workflow, simple auth, audit, and internal admin GUI | FR-13/14/15/16/17 | slice 2 | HITL | code/test green; acceptance fixture coverage added |
-| 4 | Kafka consumer, outbox, retries, DLQ, health, and metrics | FR-2/18/19 | slices 2–3 | HITL | todo |
+| 4 | Kafka consumer, outbox, retries, DLQ, health, and metrics | FR-2/18/19 | slices 2–3 | HITL | in progress |
 | 5 | NFR, failure, migration, security, browser, and final combined evidence | all NFR/error rows | slices 1–4 | HITL | todo |
 
-## Current slice: 2
+## Current slice: 4
 
 **Observable result**
 
-- Repeated moderation requests return one durable decision.
-- Policy drafts can be validated, published, activated, and rolled back without restarting the service.
+- A versioned command is consumed at-least-once, produces one durable decision, and a result event is written to the outbox.
+- Five unsuccessful command attempts publish `ModerationCommandRejected` to the DLQ without raw content.
+- Unpublished outbox rows survive a publisher retry/restart and are published exactly once logically.
+- Readiness exposes `db` and `kafka`; `moderation.decisions` is registered before the first request.
 
 **Mode**
 
-- HITL: this slice activates the approved initial PostgreSQL migration and immutable policy lifecycle.
+- HITL: Kafka topic names stay configurable; live broker smoke is optional. Deterministic tests use in-process fakes so the slice can be proven without provider keys or Docker Kafka.
 
 **Blocking dependencies**
 
-- A local PostgreSQL/Testcontainers runtime is required for migration and restart proof.
+- Slices 2–3 persistence/review/policy APIs.
+- A real Kafka broker is not required for the primary evidence; Testcontainers Kafka remains optional if Docker is present.
 
 **Files to touch**
 
-- Persistence entities/repositories, transaction service, policy resolver, Policy API, idempotency integration, and tests.
+- Outbox port/repository/publisher, command consumer and DLQ, Kafka listener error handler, health/metrics registration, policy/review outbox enqueue, tests.
 
 **New modules/dependencies**
 
-- Spring JDBC/JPA or a smaller JDBC adapter, Flyway, PostgreSQL driver, and Testcontainers PostgreSQL.
+- None. Reuse Spring Kafka already on the classpath; do not add an embedded-Kafka module solely for CI without Docker.
 
 **Migrations**
 
-- Execute `V1__moderation_service.sql` unchanged or revise the contract first if implementation proves a gap.
+- None. Slice 4 uses the existing `moderation_outbox` table.
 
 **Config / secrets**
 
-- Database URL, username, and password from environment; no committed credentials.
+- `moderation.kafka.enabled` remains false by default. No provider keys.
 
 **Primary evidence**
 
-- FR-8/9/10/11/12 acceptance scenarios plus migration and concurrency integration tests.
+- FR-2/18/19 acceptance plus command/outbox/DLQ unit tests and NFR-12 retry/DLQ coverage.
 
 **Changed risks and test levels**
 
-- Lost/duplicated decisions → database integration and 20-way concurrency tests.
-- Mutable published policy → state-transition unit and database tests.
-- Migration incompatibility → empty-schema Testcontainers gate.
+- Lost/duplicated result events → outbox unit + 20-way duplicate execution test.
+- Poison commands → DLQ payload test (hash + diagnostic bound, no raw text).
+- False-green health → readiness still lists kafka/db contributors.
 
 **Manual check**
 
-- Confirm database migration evidence before proceeding to GUI/review work.
+- Live Kafka broker and provider keys remain optional; report Blocked, not passed.
 
 **Biggest risk**
 
-- A race between idempotency lookup and insert creating inconsistent responses.
+- In-memory retry counts that reset on redelivery, or DLQ payloads that leak conversation text.
 
 ## Slice 2/3 evidence update
 

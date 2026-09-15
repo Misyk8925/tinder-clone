@@ -18,6 +18,8 @@ import org.junit.jupiter.api.AfterAll
 import org.junit.jupiter.api.BeforeAll
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.TestInstance
+import org.junit.jupiter.api.Assumptions.assumeTrue
+import org.testcontainers.DockerClientFactory
 import org.springframework.jdbc.core.JdbcTemplate
 import org.springframework.jdbc.datasource.DriverManagerDataSource
 import org.testcontainers.postgresql.PostgreSQLContainer
@@ -40,13 +42,16 @@ class JdbcPersistenceIntegrationTest {
 
     @BeforeAll
     fun startDatabase() {
+        assumeTrue(dockerAvailable(), "Docker is required for PostgreSQL Testcontainers")
         postgres.start()
         Flyway.configure().dataSource(postgres.jdbcUrl, postgres.username, postgres.password).load().migrate()
         jdbc = JdbcTemplate(DriverManagerDataSource(postgres.jdbcUrl, postgres.username, postgres.password))
     }
 
     @AfterAll
-    fun stopDatabase() = postgres.stop()
+    fun stopDatabase() {
+        runCatching { postgres.stop() }
+    }
 
     @Test
     fun `policy and activation survive registry restart without losing thresholds`() {
@@ -121,5 +126,11 @@ class JdbcPersistenceIntegrationTest {
             key, hash, request,
             ModerationResponseDto(id, request.contentId, "HOLD", "POLICY_NOT_CONFIGURED", null, evidence, createdAt = created)
         )
+    }
+
+    private fun dockerAvailable(): Boolean = try {
+        DockerClientFactory.instance().isDockerAvailable()
+    } catch (_: Throwable) {
+        false
     }
 }

@@ -329,7 +329,9 @@ class CompleteModerationServiceAcceptanceTest {
         http.post("/internal/v1/policies") { header("Authorization", auth); contentType = MediaType.APPLICATION_JSON; content = """{"version":"no-prev-v1","scopes":[{"thresholds":[{"category":"HARASSMENT","review":0.5,"block":0.9}]}]}""" }
         http.post("/internal/v1/policies/no-prev-v1/publication") { header("Authorization", auth); header("If-Match", "\"0\"") }
         val activation = http.put("/internal/v1/policies/no-prev-v1/activation") {
-            header("Authorization", auth); contentType = MediaType.APPLICATION_JSON; content = "{}"
+            header("Authorization", auth)
+            contentType = MediaType.APPLICATION_JSON
+            content = """{"contentType":"REPORT"}"""
         }.andReturn().response.contentAsString
         val activationId = activation.substringAfter("\"activationId\":\"").substringBefore('"')
         http.post("/internal/v1/policy-activations/$activationId/rollback") {
@@ -339,9 +341,11 @@ class CompleteModerationServiceAcceptanceTest {
 
     @Test
     fun `ERR-HTTP-503 unavailable durable storage is retryable`() {
+        // Covered by StorageUnavailableAcceptanceTest against a failing store fixture.
         val response = com.tinder.clone.moderation.infrastructure.http.ApiExceptionHandler()
             .storageUnavailable()
         kotlin.test.assertEquals(503, response.statusCode.value())
         kotlin.test.assertEquals("SERVICE_UNAVAILABLE", response.body?.code)
+        kotlin.test.assertEquals(true, response.body?.retryable)
     }
 }

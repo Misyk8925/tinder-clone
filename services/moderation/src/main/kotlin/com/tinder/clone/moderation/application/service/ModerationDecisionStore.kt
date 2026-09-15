@@ -43,12 +43,17 @@ interface ModerationDecisionStore {
     fun listReviews(status: ReviewStatus? = null): List<ReviewTask>
     fun getReview(id: UUID): ReviewTask?
     fun resolveReview(id: UUID, expectedVersion: Long, action: ReviewAction, note: String?, actor: String): ReviewTask
+    fun purgeExpiredRawContent(now: Instant): Int = 0
 }
 
-class InMemoryModerationDecisionStore : ModerationDecisionStore {
+class InMemoryModerationDecisionStore(
+    private val outbox: com.tinder.clone.moderation.application.ports.ModerationOutboxPort =
+        com.tinder.clone.moderation.application.ports.NoOpModerationOutbox()
+) : ModerationDecisionStore {
     private val byKey = ConcurrentHashMap<String, StoredModerationDecision>()
     private val byId = ConcurrentHashMap<UUID, ModerationResponseDto>()
     private val reviews = ConcurrentHashMap<UUID, ReviewTask>()
+    private val audits = mutableListOf<com.tinder.clone.moderation.application.policy.AuditEntry>()
 
     override fun findByIdempotencyKey(key: String) = byKey[key]
 
@@ -60,6 +65,11 @@ class InMemoryModerationDecisionStore : ModerationDecisionStore {
         decision.response.reviewTaskId?.let { reviewId ->
             reviews[reviewId] = ReviewTask(reviewId, decision.response.decisionId, ReviewStatus.OPEN, createdAt = decision.response.createdAt)
         }
+        outbox.enqueueCompleted(
+            decision.request,
+            decision.response,
+            runCatching { UUID.fromString(decision.idempotencyKey) }.getOrNull()
+        )
         return DecisionSaveResult.Created(decision)
     }
 
@@ -68,6 +78,7 @@ class InMemoryModerationDecisionStore : ModerationDecisionStore {
     override fun listReviews(status: ReviewStatus?) = reviews.values
         .filter { status == null || it.status == status }.sortedBy { it.createdAt }
     override fun getReview(id: UUID) = reviews[id]
+    fun auditLog() = audits.toList()
 
     @Synchronized
     override fun resolveReview(id: UUID, expectedVersion: Long, action: ReviewAction, note: String?, actor: String): ReviewTask {
@@ -89,6 +100,10 @@ class InMemoryModerationDecisionStore : ModerationDecisionStore {
             resolvedAt = Instant.now()
         )
         reviews[id] = updated
+        audits += com.tinder.clone.moderation.application.policy.AuditEntry(
+            actor, "RESOLVE_REVIEW", "REVIEW_TASK", id.toString(), "SUCCESS", updated.resolvedAt ?: Instant.now()
+        )
+        outbox.enqueueReviewChanged(updated.reviewTaskId, updated.decisionId, updated.status.name, updated.resolution, updated.aggregateVersion)
         return updated
     }
 }

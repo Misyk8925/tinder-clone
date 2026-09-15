@@ -56,24 +56,33 @@ class ModerationConfiguration {
 
     @Bean
     @ConditionalOnProperty(prefix = "moderation.persistence", name = ["mode"], havingValue = "memory")
-    fun inMemoryPolicyStateStore(): PolicyStateStore = InMemoryPolicyStateStore()
+    fun inMemoryPolicyStateStore(outbox: ModerationOutboxPort): PolicyStateStore =
+        InMemoryPolicyStateStore(outbox)
 
     @Bean
     @ConditionalOnProperty(prefix = "moderation.persistence", name = ["mode"], havingValue = "jdbc", matchIfMissing = true)
-    fun jdbcPolicyStateStore(jdbc: JdbcTemplate, objectMapper: ObjectMapper): PolicyStateStore =
-        JdbcPolicyStateStore(jdbc, objectMapper)
+    fun jdbcPolicyStateStore(
+        jdbc: JdbcTemplate,
+        objectMapper: ObjectMapper,
+        outbox: ModerationOutboxPort
+    ): PolicyStateStore = JdbcPolicyStateStore(jdbc, objectMapper, outbox)
 
     @Bean
     @ConditionalOnProperty(prefix = "moderation.persistence", name = ["mode"], havingValue = "memory")
-    fun inMemoryModerationDecisionStore(): ModerationDecisionStore = InMemoryModerationDecisionStore()
+    fun inMemoryModerationDecisionStore(outbox: ModerationOutboxPort): ModerationDecisionStore =
+        InMemoryModerationDecisionStore(outbox)
 
     @Bean
     @ConditionalOnProperty(prefix = "moderation.persistence", name = ["mode"], havingValue = "jdbc", matchIfMissing = true)
-    fun jdbcModerationDecisionStore(jdbc: JdbcTemplate, objectMapper: ObjectMapper): ModerationDecisionStore =
-        JdbcModerationDecisionStore(jdbc, objectMapper)
+    fun jdbcModerationDecisionStore(
+        jdbc: JdbcTemplate,
+        objectMapper: ObjectMapper,
+        outbox: ModerationOutboxPort
+    ): ModerationDecisionStore = JdbcModerationDecisionStore(jdbc, objectMapper, outbox = outbox)
 
     @Bean
-    fun runtimePolicyRegistry(store: PolicyStateStore): RuntimePolicyRegistry = RuntimePolicyRegistry(store = store)
+    fun runtimePolicyRegistry(store: PolicyStateStore, clock: java.time.Clock): RuntimePolicyRegistry =
+        RuntimePolicyRegistry(clock, store)
 
     @Bean
     fun preModerationProcessor(traffic: ModerationTrafficProperties): PreModerationProcessor =
@@ -101,13 +110,11 @@ class ModerationConfiguration {
         input: ModerateContentInputPort,
         objectMapper: ObjectMapper,
         store: ModerationDecisionStore,
-        meterRegistry: MeterRegistry,
-        outbox: ModerationOutboxPort
+        meterRegistry: MeterRegistry
     ): ModerationExecutionService = ModerationExecutionService(
         input,
         objectMapper,
         store,
-        meterRegistry = meterRegistry,
-        outbox = outbox
+        meterRegistry = meterRegistry
     )
 }

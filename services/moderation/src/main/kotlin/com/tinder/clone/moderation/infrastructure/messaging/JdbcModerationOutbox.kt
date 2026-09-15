@@ -2,20 +2,19 @@ package com.tinder.clone.moderation.infrastructure.messaging
 
 import com.tinder.clone.moderation.application.ports.ModerationOutboxPort
 import com.tinder.clone.moderation.config.ModerationKafkaProperties
+import com.tinder.clone.moderation.domain.model.ContentType
 import com.tinder.clone.moderation.infrastructure.http.ModerationRequestDto
 import com.tinder.clone.moderation.infrastructure.http.ModerationResponseDto
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
-import org.springframework.jdbc.core.JdbcTemplate
 import org.springframework.stereotype.Component
 import tools.jackson.databind.ObjectMapper
 import java.time.Clock
-import java.time.ZoneOffset
 import java.util.UUID
 
 @Component
 @ConditionalOnProperty(prefix = "moderation.kafka", name = ["enabled"], havingValue = "true")
 class JdbcModerationOutbox(
-    private val jdbc: JdbcTemplate,
+    private val records: OutboxRecordRepository,
     private val objectMapper: ObjectMapper,
     private val kafka: ModerationKafkaProperties,
     private val clock: Clock = Clock.systemUTC()
@@ -43,18 +42,94 @@ class JdbcModerationOutbox(
                 "policyVersion" to response.evidence.policyVersion
             )
         )
-        jdbc.update(
-            """INSERT INTO moderation_outbox
-               (outbox_id, aggregate_type, aggregate_id, topic, message_key, payload_json,
-                created_at, attempt_count, next_attempt_at)
-               VALUES (?, 'ModerationDecision', ?, ?, ?, ?::jsonb, ?, 0, ?)""",
-            UUID.randomUUID(),
-            response.decisionId.toString(),
-            kafka.resultsTopic,
-            request.contentId,
-            objectMapper.writeValueAsString(payload),
-            occurredAt.atOffset(ZoneOffset.UTC),
-            occurredAt.atOffset(ZoneOffset.UTC)
+        insert(
+            aggregateType = "ModerationDecision",
+            aggregateId = response.decisionId.toString(),
+            topic = kafka.resultsTopic,
+            messageKey = request.contentId,
+            payload = payload,
+            at = occurredAt
+        )
+        response.reviewTaskId?.let { reviewId ->
+            enqueueReviewChanged(reviewId, response.decisionId, "OPEN", null, 0)
+        }
+    }
+
+    override fun enqueueReviewChanged(
+        reviewTaskId: UUID,
+        decisionId: UUID,
+        status: String,
+        resolution: String?,
+        aggregateVersion: Long
+    ) {
+        val occurredAt = clock.instant()
+        val payload = ReviewChangedEvent(
+            messageId = UUID.randomUUID(),
+            correlationId = reviewTaskId.toString(),
+            occurredAt = occurredAt,
+            reviewTaskId = reviewTaskId,
+            decisionId = decisionId,
+            status = status,
+            resolution = resolution,
+            aggregateVersion = aggregateVersion
+        )
+        insert(
+            aggregateType = "ReviewTask",
+            aggregateId = reviewTaskId.toString(),
+            topic = kafka.reviewsTopic,
+            messageKey = reviewTaskId.toString(),
+            payload = payload,
+            at = occurredAt
+        )
+    }
+
+    override fun enqueuePolicyChanged(
+        policyVersion: String,
+        changeType: String,
+        contentType: ContentType?,
+        locale: String?,
+        previousVersion: String?
+    ) {
+        val occurredAt = clock.instant()
+        val payload = PolicyChangedEvent(
+            messageId = UUID.randomUUID(),
+            correlationId = policyVersion,
+            occurredAt = occurredAt,
+            policyVersion = policyVersion,
+            changeType = changeType,
+            contentType = contentType?.name,
+            locale = locale,
+            previousVersion = previousVersion
+        )
+        insert(
+            aggregateType = "Policy",
+            aggregateId = policyVersion,
+            topic = kafka.policiesTopic,
+            messageKey = policyVersion,
+            payload = payload,
+            at = occurredAt
+        )
+    }
+
+    private fun insert(
+        aggregateType: String,
+        aggregateId: String,
+        topic: String,
+        messageKey: String,
+        payload: Any,
+        at: java.time.Instant
+    ) {
+        records.insert(
+            OutboxRecord(
+                id = UUID.randomUUID(),
+                aggregateType = aggregateType,
+                aggregateId = aggregateId,
+                topic = topic,
+                messageKey = messageKey,
+                payload = objectMapper.writeValueAsString(payload),
+                createdAt = at,
+                nextAttemptAt = at
+            )
         )
     }
 }

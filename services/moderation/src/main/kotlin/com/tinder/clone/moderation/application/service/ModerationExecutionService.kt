@@ -2,8 +2,6 @@ package com.tinder.clone.moderation.application.service
 
 import com.tinder.clone.moderation.application.commands.input.ContentCmd
 import com.tinder.clone.moderation.application.commands.output.ModerationResult
-import com.tinder.clone.moderation.application.ports.ModerationOutboxPort
-import com.tinder.clone.moderation.application.ports.NoOpModerationOutbox
 import com.tinder.clone.moderation.application.ports.input.ModerateContentInputPort
 import com.tinder.clone.moderation.domain.model.ContextMessage
 import com.tinder.clone.moderation.domain.model.Decision
@@ -18,6 +16,7 @@ import java.time.Clock
 import java.time.Instant
 import java.util.UUID
 import io.micrometer.core.instrument.MeterRegistry
+import io.micrometer.core.instrument.Counter
 
 class IdempotencyConflictException : RuntimeException("Idempotency key payload differs")
 
@@ -32,9 +31,10 @@ class ModerationExecutionService(
     private val objectMapper: ObjectMapper,
     private val store: ModerationDecisionStore = InMemoryModerationDecisionStore(),
     private val clock: Clock = Clock.systemUTC(),
-    private val meterRegistry: MeterRegistry? = null,
-    private val outbox: ModerationOutboxPort = NoOpModerationOutbox()
+    private val meterRegistry: MeterRegistry? = null
 ) {
+    private val decisionsCounter: Counter? = meterRegistry?.counter("moderation.decisions")
+
     fun execute(key: String, request: ModerationRequestDto): ModerationExecutionOutcome {
         val hash = sha256(objectMapper.writeValueAsBytes(request))
         store.findByIdempotencyKey(key)?.let { stored ->
@@ -47,12 +47,7 @@ class ModerationExecutionService(
                 val candidate = StoredModerationDecision(key, hash, request, response)
                 when (val saved = store.saveOrGet(candidate)) {
                     is DecisionSaveResult.Created -> {
-                        meterRegistry?.counter("moderation.decisions")?.increment()
-                        outbox.enqueueCompleted(
-                            request,
-                            saved.decision.response,
-                            runCatching { UUID.fromString(key) }.getOrNull()
-                        )
+                        decisionsCounter?.increment()
                         ModerationExecutionOutcome.Evaluated(saved.decision.response)
                     }
                     is DecisionSaveResult.Existing -> {

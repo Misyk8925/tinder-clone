@@ -18,7 +18,9 @@ import java.util.UUID
 
 open class JdbcPolicyStateStore(
     private val jdbc: JdbcTemplate,
-    private val objectMapper: ObjectMapper
+    private val objectMapper: ObjectMapper,
+    private val outbox: com.tinder.clone.moderation.application.ports.ModerationOutboxPort =
+        com.tinder.clone.moderation.application.ports.NoOpModerationOutbox()
 ) : PolicyStateStore {
     private data class PolicyPayload(val scopes: List<PolicyScopeDefinition> = emptyList())
 
@@ -69,10 +71,18 @@ open class JdbcPolicyStateStore(
             if (document.status == PolicyStatus.PUBLISHED) "PUBLISH_POLICY" else "UPDATE_POLICY",
             "POLICY", document.version, document.publishedAt ?: Instant.now()
         )
+        if (document.status == PolicyStatus.PUBLISHED) {
+            outbox.enqueuePolicyChanged(document.version, "PUBLISHED", null, null, null)
+        }
     }
 
     @Transactional
-    override fun upsertActivation(activation: PolicyActivation, expectedVersion: Long?, actor: String) {
+    override fun upsertActivation(
+        activation: PolicyActivation,
+        expectedVersion: Long?,
+        actor: String,
+        action: String
+    ) {
         if (expectedVersion == null) {
             try {
                 jdbc.update(
@@ -84,7 +94,8 @@ open class JdbcPolicyStateStore(
                     activation.version, activation.previousVersion, activation.aggregateVersion, actor,
                     activation.activatedAt.atOffset(java.time.ZoneOffset.UTC)
                 )
-                audit(actor, "ACTIVATE_POLICY", "POLICY_ACTIVATION", activation.activationId.toString(), activation.activatedAt)
+                audit(actor, action, "POLICY_ACTIVATION", activation.activationId.toString(), activation.activatedAt)
+                enqueueActivation(activation, action)
                 return
             } catch (_: DuplicateKeyException) {
                 throw PolicyLifecycleException("VERSION_CONFLICT", "Activation changed")
@@ -99,7 +110,18 @@ open class JdbcPolicyStateStore(
             actor, activation.activatedAt.atOffset(java.time.ZoneOffset.UTC), activation.activationId, expectedVersion
         )
         if (changed != 1) throw PolicyLifecycleException("VERSION_CONFLICT", "Activation changed")
-        audit(actor, "UPDATE_POLICY_ACTIVATION", "POLICY_ACTIVATION", activation.activationId.toString(), activation.activatedAt)
+        audit(actor, action, "POLICY_ACTIVATION", activation.activationId.toString(), activation.activatedAt)
+        enqueueActivation(activation, action)
+    }
+
+    private fun enqueueActivation(activation: PolicyActivation, action: String) {
+        outbox.enqueuePolicyChanged(
+            activation.version,
+            if (action == "ROLLBACK_POLICY") "ROLLED_BACK" else "ACTIVATED",
+            activation.contentType,
+            activation.locale,
+            activation.previousVersion
+        )
     }
 
     private fun audit(actor: String, action: String, targetType: String, targetId: String, at: Instant) {
