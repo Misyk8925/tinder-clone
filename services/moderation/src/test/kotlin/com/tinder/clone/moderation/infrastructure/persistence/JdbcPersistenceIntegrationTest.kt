@@ -108,6 +108,26 @@ class JdbcPersistenceIntegrationTest {
         }
     }
 
+    @Test
+    fun `expired image-only raw content and context are purged while evidence remains`() {
+        val store = JdbcModerationDecisionStore(jdbc, mapper)
+        val candidate = decision("retention-image-key", "c".repeat(64)).let {
+            it.copy(request = it.request.copy(text = null))
+        }
+        store.saveOrGet(candidate)
+
+        assertEquals(1, store.purgeExpiredRawContent(Instant.parse("2027-01-01T00:00:00Z")))
+        val raw = jdbc.queryForMap(
+            """SELECT normalized_text, image_urls_json::text images, context_json::text context,
+                      evidence_json::text evidence
+               FROM moderation_decision WHERE idempotency_key = 'retention-image-key'"""
+        )
+        assertEquals(null, raw["normalized_text"])
+        assertEquals("[]", raw["images"])
+        assertEquals("[]", raw["context"])
+        assertNotNull(raw["evidence"])
+    }
+
     private fun decision(key: String, hash: String, id: UUID = UUID.randomUUID()): StoredModerationDecision {
         val created = Instant.parse("2026-09-06T10:01:00Z")
         val request = ModerationRequestDto(

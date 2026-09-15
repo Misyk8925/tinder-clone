@@ -25,7 +25,7 @@ class ModerationCommandDlq(
             "failureCode" to "COMMAND_FAILED",
             "attempts" to attempts,
             "payloadSha256" to sha256(payload),
-            "diagnostic" to error.message?.take(MAX_DIAGNOSTIC)
+            "diagnostic" to "Processing failed: ${error::class.simpleName ?: "Exception"}"
         )
         publisher.send(
             kafka.commandsDlqTopic,
@@ -53,6 +53,5 @@ class ModerationCommandDlq(
 
     companion object {
         const val MAX_ATTEMPTS = 5
-        const val MAX_DIAGNOSTIC = 500
     }
 }

@@ -30,7 +30,7 @@ server:
         name: MODERATIONSESSION
         http-only: true
         same-site: lax
-        secure: ${MODERATION_COOKIE_SECURE:false}
+        secure: ${MODERATION_COOKIE_SECURE:true}
 
 moderation:
   persistence:

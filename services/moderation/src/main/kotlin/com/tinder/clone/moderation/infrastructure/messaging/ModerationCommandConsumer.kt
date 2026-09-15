@@ -29,6 +29,9 @@ class ModerationCommandConsumer(
 
     fun process(payload: String) {
         val event = objectMapper.readValue(payload, ModerationRequestedEvent::class.java)
+        require(event.schemaVersion == 1) {
+            "Unsupported moderation command schema version"
+        }
         val request = ModerationRequestDto(
             contentId = event.contentId,
             contentType = event.contentType,

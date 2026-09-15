@@ -14,7 +14,6 @@ import com.tinder.clone.moderation.infrastructure.http.EvidenceDto
 import com.tinder.clone.moderation.infrastructure.http.ModerationRequestDto
 import com.tinder.clone.moderation.infrastructure.http.ModerationResponseDto
 import org.springframework.dao.DataAccessException
-import org.springframework.dao.DuplicateKeyException
 import org.springframework.jdbc.core.JdbcTemplate
 import org.springframework.jdbc.core.RowMapper
 import org.springframework.transaction.annotation.Transactional
@@ -47,13 +46,13 @@ open class JdbcModerationDecisionStore(
     override fun saveOrGet(decision: StoredModerationDecision): DecisionSaveResult = storageCall {
         val request = decision.request
         val response = decision.response
-        try {
-            jdbc.update(
+        val inserted = jdbc.update(
                 """INSERT INTO moderation_decision
                    (decision_id, idempotency_key, request_hash, source_message_id, content_id, content_type, author_id,
                     locale, country, normalized_text, image_urls_json, context_json, decision, reason,
                     confidence, policy_version, evidence_json, created_at, raw_content_expires_at)
-                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?::jsonb, ?::jsonb, ?, ?, ?, ?, ?::jsonb, ?, ?)""",
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?::jsonb, ?::jsonb, ?, ?, ?, ?, ?::jsonb, ?, ?)
+                   ON CONFLICT (idempotency_key) DO NOTHING""",
                 response.decisionId, decision.idempotencyKey, decision.requestHash,
                 runCatching { UUID.fromString(decision.idempotencyKey) }.getOrNull(),
                 request.contentId,
@@ -64,7 +63,8 @@ open class JdbcModerationDecisionStore(
                 response.reason, response.confidence, response.evidence.policyVersion,
                 objectMapper.writeValueAsString(response.evidence), response.createdAt.atOffset(ZoneOffset.UTC),
                 response.createdAt.plus(rawContentRetention).atOffset(ZoneOffset.UTC)
-            )
+        )
+        if (inserted == 1) {
             response.reviewTaskId?.let { reviewId ->
                 jdbc.update(
                     """INSERT INTO moderation_review_task
@@ -79,7 +79,7 @@ open class JdbcModerationDecisionStore(
                 runCatching { UUID.fromString(decision.idempotencyKey) }.getOrNull()
             )
             DecisionSaveResult.Created(decision)
-        } catch (_: DuplicateKeyException) {
+        } else {
             val existing = findByIdempotencyKey(decision.idempotencyKey)
                 ?: throw DurableStorageException(IllegalStateException("Duplicate decision was not readable"))
             if (existing.requestHash != decision.requestHash) throw IdempotencyConflictException()
@@ -156,8 +156,9 @@ open class JdbcModerationDecisionStore(
     override fun purgeExpiredRawContent(now: Instant): Int = storageCall {
         jdbc.update(
             """UPDATE moderation_decision
-               SET normalized_text = NULL, context_json = '[]'::jsonb
-               WHERE raw_content_expires_at <= ? AND normalized_text IS NOT NULL""",
+               SET normalized_text = NULL, image_urls_json = '[]'::jsonb, context_json = '[]'::jsonb
+               WHERE raw_content_expires_at <= ?
+                 AND (normalized_text IS NOT NULL OR image_urls_json <> '[]'::jsonb OR context_json <> '[]'::jsonb)""",
             now.atOffset(ZoneOffset.UTC)
         )
     }

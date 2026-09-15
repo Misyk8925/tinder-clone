@@ -81,6 +81,8 @@ class LoginLockoutTest {
         assertTrue(attempts.isLocked("policy-admin"))
         clock.instant = Instant.parse("2026-09-15T12:15:01Z")
         kotlin.test.assertFalse(attempts.isLocked("policy-admin"))
+        attempts.recordFailure("policy-admin")
+        kotlin.test.assertFalse(attempts.isLocked("policy-admin"))
     }
 
     private class MutableClock(var instant: Instant) : Clock() {
@@ -185,6 +187,7 @@ class AdminBrowserAndSecurityAcceptanceTest {
         }
         val login = http.get("/login").andReturn().response
         assertEquals(200, login.status)
+        assertTrue(login.contentAsString.contains("name=\"_csrf\""))
         val authenticated = http.post("/login") {
             param("username", "policy-admin")
             param("password", "test-only")

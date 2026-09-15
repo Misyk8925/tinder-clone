@@ -17,6 +17,8 @@ identifiers. Deployment may prefix topic names but cannot change their semantic 
 
 - A command consumer inserts the source `messageId` with the decision transaction.
 - Re-delivery of the same `messageId` reuses the stored result and does not create a new decision.
+- `ModerationCompleted.requestMessageId` is the source command id for Kafka commands and is
+  `null` for synchronous REST requests that also produce a result event.
 - The producer partitions commands and results by `contentId`. Ordering is guaranteed only
   inside one partition and is useful only for events carrying the same content key.
 - Review events use `reviewTaskId`; policy events use `policyVersion`.

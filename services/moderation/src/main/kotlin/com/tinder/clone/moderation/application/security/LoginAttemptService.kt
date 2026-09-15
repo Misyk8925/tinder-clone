@@ -42,7 +42,8 @@ class LoginAttemptService(
         if (username.isBlank()) return
         val current = store.load(username)
         if (current.lockedUntil?.isAfter(clock.instant()) == true) return
-        val failed = current.failedAttempts + 1
+        val previousFailures = if (current.lockedUntil != null) 0 else current.failedAttempts
+        val failed = previousFailures + 1
         val lockedUntil = if (failed >= threshold) clock.instant().plus(lockDuration) else null
         store.save(username, LoginAttemptState(failed, lockedUntil))
     }

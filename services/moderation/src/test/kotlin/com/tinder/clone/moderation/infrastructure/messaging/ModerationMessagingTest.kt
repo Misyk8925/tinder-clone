@@ -85,7 +85,34 @@ class ModerationMessagingTest {
         assertTrue(payload.contains("payloadSha256"))
         assertFalse(payload.contains(secret))
         assertFalse(payload.contains("conversationContext"))
-        assertTrue(payload.contains("\"diagnostic\":\"classifier timeout\""))
+        assertTrue(payload.contains("\"diagnostic\":\"Processing failed: RuntimeException\""))
+    }
+
+    @Test
+    fun `DLQ diagnostic never includes malformed payload tokens`() {
+        val published = mutableListOf<String>()
+        val dlq = ModerationCommandDlq(
+            EventPublisher { _, _, payload -> published += payload },
+            mapper,
+            kafka,
+            clock
+        )
+        val secret = "SECRET_MALFORMED_PAYLOAD_XYZ"
+        dlq.publish("{\"messageId\":\"broken\",\"text\":\"$secret", RuntimeException("Unexpected token $secret"))
+        assertFalse(published.single().contains(secret))
+    }
+
+    @Test
+    fun `v1 consumer rejects commands with another schema version`() {
+        val executions = ModerationExecutionService(
+            input = AllowingUseCase(),
+            objectMapper = mapper,
+            store = InMemoryModerationDecisionStore()
+        )
+        val consumer = ModerationCommandConsumer(executions, mapper)
+        val payload = commandJson(UUID.randomUUID(), "hello").replace("\"schemaVersion\":1", "\"schemaVersion\":2")
+        assertFailsWith<IllegalArgumentException> { consumer.process(payload) }
+        assertTrue(executions.list().isEmpty())
     }
 
     @Test
