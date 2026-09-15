@@ -7,6 +7,7 @@ body:
     attributes:
       value: |
         Use this for a recruiter-facing story, not a bug. Keep it to one failure mode.
+        Stories are shown only as GitHub issues (label `story`). Do not copy them into the README.
   - type: textarea
     id: problem
     attributes:

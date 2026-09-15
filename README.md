@@ -1,5 +1,11 @@
 # Lunari — Reliable Matching Platform
 
+Matching platform: CQRS deck reads, transactional outbox, mTLS service boundaries, role-aware gateway limits.
+
+**Website:** https://lunari.misyk.tech · **Topics:** `java` `spring-boot` `quarkus` `apache-kafka` `cqrs` `keycloak` `matching` `microservices` `redis` `postgresql`
+
+GitHub’s About box stays empty until the owner runs [`./scripts/set-github-about.sh`](scripts/set-github-about.sh) (integration tokens get **403** on `PATCH /repos`). Same copy: [docs/github-about.md](docs/github-about.md).
+
 [![Policy](https://github.com/Misyk8925/tinder-clone/actions/workflows/policy.yml/badge.svg)](https://github.com/Misyk8925/tinder-clone/actions/workflows/policy.yml)
 [![Security](https://github.com/Misyk8925/tinder-clone/actions/workflows/security.yml/badge.svg)](https://github.com/Misyk8925/tinder-clone/actions/workflows/security.yml)
 ![Java 21](https://img.shields.io/badge/Java-21-ED8B00?logo=openjdk&logoColor=white)
@@ -25,20 +31,19 @@ A dating matching product that keeps discovery fast and match events correct whe
 | Live stand | https://lunari.misyk.tech — only after the [live-stand preflight](docs/demo/live-stand.md) is green that day |
 | Identity | https://auth.misyk.tech · realm `spring` |
 | Backup recording | Design-preview UI walkthrough is attached to the PR (Discover → Likes → Messages → Chat → Profile). Script: [docs/demo/script.md](docs/demo/script.md). Before sending the repo to recruiters, record the live origin and paste an unlisted YouTube/Loom URL here. |
-| Interview kit | [docs/demo](docs/demo/README.md) |
-| Local fallback | `docker-compose.yml` + `docker-compose.local.yml` |
+| Interview kit | [docs/demo](docs/demo/README.md) · decisions: [docs/demo/decisions.md](docs/demo/decisions.md) |
+| Stories | [GitHub issues labeled `story`](https://github.com/Misyk8925/tinder-clone/issues?q=is%3Aissue+label%3Astory) |
+| Local demo | `./scripts/demo-up.sh` — no Stripe, no S3, certs generated if missing |
 
 Probed 2026-09-14: both public hosts returned Cloudflare **522** (origin down). Do not send the live URL while that is true.
 
 ## What I would explain in an interview
 
-GitHub tracks these as **stories** (issue template: `.github/ISSUE_TEMPLATE/story.yml`):
+Stories live only as GitHub issues (label `story`, template `.github/ISSUE_TEMPLATE/story.yml`). This README does not repeat them.
 
-1. **[#35 CQRS deck](https://github.com/Misyk8925/tinder-clone/issues/35).** `services/deck` builds and invalidates order. `services/deck-read` serves the read model and, on a miss, calls `ensure`. The Angular client reads **`/api/v2/deck`**. Boundary test: `DeckReadCqrsBoundaryAcceptanceTest`. Notes: [docs/demo/talk-track.md](docs/demo/talk-track.md), [docs/features/deck-read-cqrs](docs/features/deck-read-cqrs/README.md).
-2. **[#36 Transactional outbox](https://github.com/Misyk8925/tinder-clone/issues/36).** Profile changes and swipe/match events are committed with an outbox row, then a batch publisher retries and dead-letters. Start at `ProfileOutboxBatchProcessor` and `SwipeOutboxEventDispatcher`.
-3. **[#37 Security boundaries](https://github.com/Misyk8925/tinder-clone/issues/37).** Gateway JWT plus `RoleBasedRateLimitFilter` (per route and role). Internal profile and swipe-history calls use mTLS; Compose mounts are checked in CI (`scripts/validate-compose-mtls-mounts.rb`).
+[Open stories](https://github.com/Misyk8925/tinder-clone/issues?q=is%3Aissue+label%3Astory)
 
-Full write-ups: [docs/demo/stories.md](docs/demo/stories.md).
+Pin those issues on the Issues page so they sit above bugs (owner UI; integration tokens get **403**). Spoken prep and rejected alternatives stay in the interview kit: [docs/demo/talk-track.md](docs/demo/talk-track.md), [docs/demo/decisions.md](docs/demo/decisions.md).
 
 ## Current scope / not in the demo
 
@@ -47,7 +52,7 @@ Full write-ups: [docs/demo/stories.md](docs/demo/stories.md).
 - **Legacy, off in production:** Eureka and Config Server. Services resolve peers with static `*_SERVICE_URL`.
 - **Do not SQL-seed profiles.** Missing `profile.created` leaves Deck Read at `202 BUILDING`. See [docs/demo/seed-notes.md](docs/demo/seed-notes.md).
 
-CI watches security (CodeQL, Trivy, dependency-review) and policy/contracts (Redis, DB roles, mTLS mounts, Deck Read specs). It does **not** run `mvn test` / `go test` / `pytest` / `ng build`. Those suites run locally, often with Testcontainers.
+CI watches security (CodeQL, Trivy, dependency-review) and policy/contracts (Redis, DB roles, mTLS mounts, Deck Read specs, demo `.env`). It does **not** run `mvn test` / `go test` / `pytest` / `ng build`. Those suites run locally, often with Testcontainers.
 
 ## Goals
 
@@ -79,6 +84,12 @@ The browser talks only to the gateway. Discover is a read-model problem (Deck Re
 | `swipe-created` | Swipes Service (`swipes-go` in Compose) | Consumer Service |
 | `profile.created` / `profile.updated` / `profile.deleted` | Profiles Service (outbox) | Consumer Service, Deck Service, Deck Read |
 | `match.created` | Consumer Service (outbox) | Match Service |
+| `deck.built.v1` | Deck Service | Deck Read |
+| `moderation.commands.v1` | Moderation (HTTP intake / command path) | Moderation (`contentId`; DLQ after retries) |
+| `moderation.results.v1` | Moderation (transactional outbox) | Downstream consumers when wired |
+| `moderation.reviews.v1` | Moderation (outbox) | Review / ops consumers when wired |
+| `moderation.policies.v1` | Moderation (outbox) | Moderation replicas |
+| `moderation.commands.dlq.v1` | Moderation command consumer | Ops |
 
 ---
 
@@ -88,10 +99,11 @@ The browser talks only to the gateway. Discover is a read-model problem (Deck Re
 |------|----------------|
 | **Gateway** | One client entry point; authenticates requests and applies role-aware rate limits. |
 | **Profiles + Location + Photos** | Owns profile data, preferences, and location resolution. Photo bytes, variants and S3 storage live in the Photos service. |
-| **Photos** | Validates uploads, renders JPEG variants, stores objects in S3, and issues download URLs. Used by Profiles and Match. |
+| **Photos** | Validates uploads, renders JPEG variants, stores objects in S3 in production (in-process MemoryStorage on `./scripts/demo-up.sh`), and issues download URLs. Used by Profiles and Match. |
 | **Deck + Deck-Read** | Builds a ranked discovery deck asynchronously and serves its read model to the client. |
 | **Swipes + Consumer** | Records decisions (`swipes-go` on the Compose path), detects reciprocal likes, and publishes durable swipe/match events. |
 | **Match** | Owns conversations created from confirmed matches. |
+| **Moderation** | In-repo service (`services/moderation`, Compose `:8086`). Classifies content, versions policies, and publishes commands/results/reviews/policies on Kafka. Profiles and Match call it when `MODERATION_ENABLED=true`. **Phase 4 is in the repo; Phase 5 (live providers / release) is not claimed as finished and is not on the six-minute demo path.** |
 | **Subscriptions** | Connects payment completion to premium entitlement changes. |
 | **Contracts** | Keeps shared API DTOs and event schemas explicit between service boundaries. |
 
@@ -102,31 +114,49 @@ The browser talks only to the gateway. Discover is a read-model problem (Deck Re
 ## Quick Start
 
 ### Prerequisites
-- Java 21+, Maven 3.9+, Go 1.22+, Node/Angular CLI, Docker
+- Docker, and a JDK with `keytool` (Java 21+) for the first mTLS cert generation only.
 
-### Local stack (recommended)
-The root `docker-compose.yml` is the production-shaped stack; `docker-compose.local.yml` overlays it for local dev (repo-local self-signed mTLS certs, host-exposed Kafka/location ports, relaxed OIDC issuer check). Compose starts **swipes-go**, not the Java `swipes-demo` service.
+### Local demo (recommended — no Stripe, no S3)
+
+`.env.prod.example` is for production-shaped secrets. Do not fill Stripe or AWS to try the product. The demo overlay uses committed local dummies, in-memory photo storage, and placeholder Stripe so subscriptions can boot without calling Stripe.
 
 ```bash
-# 1. Generate local mTLS certs (writes to ./certs, password "changeit")
+./scripts/demo-up.sh
+```
+
+That generates `docker/certs/` if missing (password `changeit`) and runs:
+
+```bash
+docker compose --env-file .env.demo \
+  -f docker-compose.yml -f docker-compose.local.yml -f docker-compose.demo.yml \
+  up -d --build
+```
+
+Then open http://localhost:4200. Keycloak is http://localhost:9080 (admin / `demo-keycloak-admin`, realm `spring`). Register two users, create profiles, Discover → swipe → match → chat.
+
+Photos stay in process memory (lost on restart; card URLs are not CloudFront). Billing stays off until you set real Stripe keys in a private `.env`. Do not use `.env.demo` on a public host. Do not SQL-seed profiles ([seed-notes.md](docs/demo/seed-notes.md)).
+
+Check interpolation without starting containers:
+
+```bash
+./scripts/demo-up.sh --check
+```
+
+Compose starts **swipes-go**, not the Java `swipes-demo` service. After a `--no-deps` recreate of `deck-read-api`, restart `gateway` or Discover returns 500 (stale Netty DNS).
+
+### Production-shaped local stack
+
+Real S3, Stripe, Keycloak client secret, and BCrypt hashes. Copy `.env.prod.example` to `.env`, fill secrets, generate certs, then:
+
+```bash
 ./certs/generate-docker-certs.sh
-
-# 2. Copy env template and fill in secrets — Compose auto-loads ./.env
-cp .env.prod.example .env
-
-# 3. Bring up the full stack with the local overlay
+cp .env.prod.example .env   # then replace every replace-with-* value
 docker compose -f docker-compose.yml -f docker-compose.local.yml up -d --build
 ```
 
-This starts: PostgreSQL (PostGIS), Keycloak (+ its own Postgres), Redis, Kafka/Zookeeper, Nexus, and every backend service plus the Angular client behind the gateway.
-
-Per-service DB credentials are required: `PROFILES_DB_*`, `MATCH_DB_*`, `CONSUMER_DB_*`, `SUBSCRIPTIONS_DB_*`, `SWIPES_DB_*`, `LOCATION_DB_*`.
-
-After a `--no-deps` recreate of `deck-read-api`, restart `gateway` or Discover returns 500 (stale Netty DNS).
-
 ### Running services individually (hybrid: infra in Docker, services on host)
 
-Prefer the full Compose stack for a demo. Hybrid is for local debugging only. Production-shaped swipe write is **swipes-go**. `swipes-demo` is the Java rollback overlay (`docker-compose.swipes-java-rollback.yml`).
+Prefer `./scripts/demo-up.sh` for a demo. Hybrid is for local debugging only. Production-shaped swipe write is **swipes-go**. `swipes-demo` is the Java rollback overlay (`docker-compose.swipes-java-rollback.yml`).
 
 ```bash
 docker compose -f docker-compose.yml -f docker-compose.local.yml up -d postgres keycloak-postgres keycloak redis zookeeper kafka
@@ -227,6 +257,16 @@ POST /api/v1/photos/cleanup-orphaned
 GET  /health
 ```
 Profiles and Match call this service. Clients keep using the existing Profiles and Match photo endpoints.
+
+### Moderation Service `:8086` (internal)
+
+In Compose. Not on the six-minute demo path.
+
+```
+POST /internal/v1/moderations           - Profiles/Match intake
+```
+
+Kafka: `moderation.commands.v1`, `moderation.results.v1`, `moderation.reviews.v1`, `moderation.policies.v1`, `moderation.commands.dlq.v1`. Feature tree: `services/moderation/docs/features/complete-moderation-service/`. Phase 5 (live OpenAI/Gemini, production retention) is unfinished.
 
 ### Deck-Read Service `:8040` (client-facing deck reads, Quarkus)
 ```

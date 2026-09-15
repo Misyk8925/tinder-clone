@@ -21,5 +21,5 @@ gh repo edit "$repo" \
   --add-topic redis \
   --add-topic postgresql
 
-echo "Pinned issues are UI-only. Pin #35 #36 #37 on the repo Issues page."
+echo "Pinned issues are UI-only. Pin issues labeled story on the repo Issues page."
 gh repo view "$repo" --json description,homepageUrl,repositoryTopics

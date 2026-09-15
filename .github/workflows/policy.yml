@@ -30,6 +30,8 @@ jobs:
         run: ruby scripts/validate-compose-database-roles.rb
       - name: Validate Compose mTLS mounts
         run: ruby scripts/validate-compose-mtls-mounts.rb
+      - name: Validate local demo env
+        run: ruby scripts/validate-demo-env.rb
 
   deck-read-contracts:
     name: deck-read-contracts

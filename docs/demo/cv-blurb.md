@@ -29,6 +29,8 @@ If asked about size: “A monorepo with explicit boundaries and `services/tinder
 
 ## Likely questions
 
+Longer answers with rejected alternatives: [decisions.md](decisions.md).
+
 **Why not one Spring monolith?**
 Discover reads and match side effects have different SLO and failure modes. A monolith can still have modules; here the deploy and cache failure domains are actually split. The cost is contracts and outbox, which we then had to take seriously.
 
@@ -47,6 +49,6 @@ Per-service Maven/Go/pytest. Testcontainers for Postgres, Redis, Kafka. Quarkus 
 ## Recruiter packet (send in this order)
 
 1. This blurb + live URL or recording.
-2. Root README (first screen only).
+2. Root README (first screen only) and [Issues labeled `story`](https://github.com/Misyk8925/tinder-clone/issues?q=is%3Aissue+label%3Astory).
 3. [talk-track.md](talk-track.md) if they ask for a technical screen.
 4. One deep link: outbox processor or `DeckReadCqrsBoundaryAcceptanceTest`.
