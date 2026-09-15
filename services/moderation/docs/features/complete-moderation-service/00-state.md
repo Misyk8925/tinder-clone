@@ -1,7 +1,7 @@
 # Workflow state: complete-moderation-service
 
-Current phase: **4 — Implementation**
-Last updated: 2026-09-06
+Current phase: **4 complete — release handoff**
+Last updated: 2026-09-15
 
 ## Approvals
 
@@ -10,7 +10,7 @@ Last updated: 2026-09-06
 | 1 — Concept | [`concept.ru.md`](concept.ru.md) | Michael | 2026-09-06 |
 | 2 — Contracts | `02-contracts/` (draft; no separate gate) | drafted | 2026-09-06 |
 | 3 — Contracts + behaviour | `02-contracts/` + `03-behaviour/` | Michael | 2026-09-06 |
-| 4 — Implementation | all applicable acceptance and risk-selected checks green | — | — |
+| 4 — Implementation | all applicable acceptance and risk-selected checks green | local evidence | 2026-09-15 |
 | 5 — Release | `05-release/checklist.md` | — | — |
 
 ## Pre-gate checks
@@ -24,10 +24,10 @@ about existing code. `./gradlew test` passed before the concept was written.
 
 | ID | Raised in phase | Risk | Likelihood | Impact | Mitigation / plan | Status | Owner | Closed in phase |
 |---|---|---|---|---|---|---|---|---|
-| R-1 | 1 | A real provider smoke test requires credentials and network access. | High | Medium | Keep deterministic stub contract tests mandatory; report live smoke separately when credentials exist. | Open | Owner | — |
-| R-2 | 1 | Context may contain personal or sensitive conversation data. | Medium | High | Limit context size and fields, redact logs, authorize evidence access, and define retention before release. | Open | Implementation | — |
+| R-1 | 1 | A real provider smoke test requires credentials and network access. | High | Medium | Deterministic provider fixtures and explicit keyless fallback are green; live smoke remains a release check. | Mitigated for local/keyless scope | Owner | 4 |
+| R-2 | 1 | Context may contain personal or sensitive conversation data. | Medium | High | Size limits, no-log/DLQ tests and 90-day cleanup implemented; legal approval remains a release gate. | Mitigated in code; release-gated | Owner | 4 |
 | R-3 | 1 | Configured local credentials are weaker than centralized identity. | Medium | High | Restrict service to the internal network, require BCrypt hashes, secure cookies, CSRF, lockout, and credential rotation. | Accepted for this scope | Owner | — |
-| R-4 | 1 | Contract details of surrounding services are outside this repository. | Medium | Medium | Define versioned inbound/outbound contracts and prove them locally; integrate sibling services separately. | Open | Integration owner | — |
+| R-4 | 1 | Contract details of surrounding services are outside this repository. | Medium | Medium | V1 HTTP/event contracts are validated locally; sibling integration remains explicitly outside this feature. | Accepted for feature scope | Owner (approved concept) | 4 |
 
 ## Bugs
 
@@ -38,9 +38,9 @@ about existing code. `./gradlew test` passed before the concept was written.
 
 | # | Question | Status |
 |---|---|---|
-| 1 | Which real classifier/LLM model and account will be used in each environment? | Deferred to provider configuration; ports remain vendor-neutral. |
-| 2 | What production retention period is legally approved for raw content and evidence? | Default in concept is 90 days; owner review required before release. |
-| 3 | Which Kafka topic names and ACL principals are used by the surrounding system? | Resolve during integration; module contracts will use configurable names. |
+| 1 | Which real classifier/LLM model and account will be used in each environment? | Release-blocked until environment owner configures it; keyless fallback is tested. |
+| 2 | What production retention period is legally approved for raw content and evidence? | Release-blocked; code default is 90 days. |
+| 3 | Which Kafka topic names and ACL principals are used by the surrounding system? | Release-blocked; names remain configurable. |
 
 ## Decisions log
 
@@ -56,4 +56,6 @@ about existing code. `./gradlew test` passed before the concept was written.
 
 ## Next action
 
-Provide optional provider keys for a live smoke, or continue with slice 2 deterministic PostgreSQL implementation and keep live smoke blocked.
+Run release checks in an authorized environment with PostgreSQL/Kafka, approved retention,
+configured provider credentials/models, and deployment topic ACLs. Production deployment
+was not requested in this task.
