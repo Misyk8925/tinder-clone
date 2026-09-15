@@ -1,5 +1,7 @@
 import type { Agent, Arm, SimEvent } from '../sim/types';
 
+export type MapFocus = Partial<Record<Arm, { viewer: number; candidate: number }>>;
+
 interface Pulse {
   ids: number[];
   arm: Arm;
@@ -58,7 +60,7 @@ export class CityRenderer {
     }
   }
 
-  draw(agents: Agent[], now: number): void {
+  draw(agents: Agent[], now: number, focus: MapFocus = {}): void {
     const { ctx } = this;
     const w = this.canvas.clientWidth;
     const h = this.canvas.clientHeight;
@@ -68,8 +70,8 @@ export class CityRenderer {
 
     const left: Pane = { x: 0, y: 0, w: (w - GAP) / 2, h };
     const right: Pane = { x: left.w + GAP, y: 0, w: w - left.w - GAP, h };
-    this.drawPane(agents, left, 'baseline', '#f6b53f', now);
-    this.drawPane(agents, right, 'popularity', '#5ee0ff', now);
+    this.drawPane(agents, left, 'baseline', '#f6b53f', now, focus);
+    this.drawPane(agents, right, 'popularity', '#5ee0ff', now, focus);
 
     ctx.fillStyle = 'rgba(255,255,255,0.08)';
     ctx.fillRect(left.w + GAP / 2 - 0.5, 12, 1, h - 24);
@@ -80,7 +82,14 @@ export class CityRenderer {
     });
   }
 
-  private drawPane(agents: Agent[], pane: Pane, arm: Arm, color: string, now: number): void {
+  private drawPane(
+    agents: Agent[],
+    pane: Pane,
+    arm: Arm,
+    color: string,
+    now: number,
+    focus: MapFocus,
+  ): void {
     const { ctx } = this;
     ctx.save();
     ctx.beginPath();
@@ -120,6 +129,28 @@ export class CityRenderer {
           ctx.arc(p.x, p.y, 3.2 + t * 2, 0, Math.PI * 2);
         }
         ctx.fill();
+      }
+    }
+
+    const live = focus[arm];
+    if (live) {
+      const viewer = agents[live.viewer];
+      const candidate = agents[live.candidate];
+      if (viewer) {
+        const p = project(viewer);
+        ctx.beginPath();
+        ctx.strokeStyle = 'rgba(255,255,255,0.85)';
+        ctx.lineWidth = 2;
+        ctx.arc(p.x, p.y, 8, 0, Math.PI * 2);
+        ctx.stroke();
+      }
+      if (candidate) {
+        const p = project(candidate);
+        ctx.beginPath();
+        ctx.strokeStyle = color;
+        ctx.lineWidth = 2.4;
+        ctx.arc(p.x, p.y, 10, 0, Math.PI * 2);
+        ctx.stroke();
       }
     }
     ctx.restore();

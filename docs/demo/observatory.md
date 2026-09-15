@@ -8,7 +8,7 @@ No spaghetti arcs. Open `clients/tinder-admin` and press Старт.
 
 | Field | Value |
 |---|---|
-| Outcome | Two labeled maps of one city: ordinary deck vs likes; dots grow; green = match |
+| Outcome | Two maps plus live swipe cards and a match overlay; AWS is the same camera on a real deck |
 | Out of scope | AWS stand, Keycloak, seeding `profile.created`, embeddings ranker, changing deck production scoring, ADMIN vs USER_ADMIN |
 | Affected contract | none |
 | Observable evidence | Vitest acceptance in `clients/tinder-admin/src/sim/*.spec.ts`; `npm run build`; browser Play → two arms and rising match pulses |

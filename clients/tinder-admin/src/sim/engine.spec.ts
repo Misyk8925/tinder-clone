@@ -21,6 +21,9 @@ function agent(partial: Partial<Agent> & Pick<Agent, 'id'>): Agent {
     likesFrom: { baseline: 0, popularity: 0 },
     impressions: 0,
     liked: new Set(),
+    name: 'Ada',
+    district: 'Neubau',
+    hue: 120,
     ...partial,
   };
 }
@@ -90,6 +93,8 @@ describe('matching observatory city', () => {
     expect(baseline).toBeGreaterThan(80);
     expect(baseline).toBeLessThan(120);
     expect(generateCity({ seed: 1, population: 200 })[7].lat).toBe(city[7].lat);
+    expect(city[7].name).toBe(generateCity({ seed: 1, population: 200 })[7].name);
+    expect(city[7].name.length).toBeGreaterThan(1);
   });
 
   it('Given a seeded city of 400 agents, when 80 viewers each swipe a 12-card deck, then popularity records more matches per 100 swipes than baseline', () => {

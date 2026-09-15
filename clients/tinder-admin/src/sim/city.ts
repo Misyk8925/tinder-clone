@@ -2,6 +2,17 @@ import { hashArm, mulberry32 } from './rng';
 import { localKm } from './scoring';
 import { DEFAULT_CITY, VIENNA, type Agent, type CityConfig } from './types';
 
+const NAMES = [
+  'Mira', 'Leo', 'Anja', 'Nico', 'Sofi', 'Omar', 'Lina', 'Jonas', 'Eva', 'Ilya',
+  'Nora', 'Kai', 'Yara', 'Theo', 'Mina', 'Adam', 'Lu', 'Sasha', 'Iris', 'Max',
+  'Vera', 'Joel', 'Aya', 'Ben', 'Nina', 'Rafi', 'Elsa', 'Hugo', 'Zara', 'Piotr',
+];
+
+const DISTRICTS = [
+  'Innere Stadt', 'Leopoldstadt', 'Neubau', 'Josefstadt', 'Alsergrund',
+  'Wieden', 'Mariahilf', 'Margareten', 'Favoriten', 'Ottakring',
+];
+
 function lognormal(rand: () => number, mu: number, sigma: number): number {
   const u1 = Math.max(rand(), 1e-12);
   const u2 = rand();
@@ -36,6 +47,9 @@ export function generateCity(config: Partial<CityConfig> = {}): Agent[] {
       likesFrom: { baseline: 0, popularity: 0 },
       impressions: 0,
       liked: new Set(),
+      name: NAMES[id % NAMES.length],
+      district: DISTRICTS[id % DISTRICTS.length],
+      hue: (id * 47) % 360,
     });
   }
 

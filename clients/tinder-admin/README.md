@@ -15,5 +15,4 @@ npm test
 npm run dev
 ```
 
-Play starts the night. Left city is today's deck. Right city is likes. Dots grow; green is a match.
-Production scoring is untouched.
+Play starts a night of live cards. Match overlay is why AWS would matter: same UI, real photos and Kafka decks.

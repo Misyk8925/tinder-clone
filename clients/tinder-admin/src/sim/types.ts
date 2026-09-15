@@ -16,6 +16,9 @@ export interface Agent {
   likesFrom: Record<Arm, number>;
   impressions: number;
   liked: Set<number>;
+  name: string;
+  district: string;
+  hue: number;
 }
 
 export interface CityConfig {
