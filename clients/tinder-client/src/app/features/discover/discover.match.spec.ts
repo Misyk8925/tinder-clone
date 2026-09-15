@@ -111,6 +111,8 @@ describe('Feature: Discover shows It’s a match after a mutual like', () => {
     expect(fixture.nativeElement.textContent).toContain("It's a match");
     expect(fixture.nativeElement.querySelector('.match-faces')).not.toBeNull();
     expect(fixture.nativeElement.querySelector('.primary-button.wide')?.textContent).toContain('Send a message');
+    const faces = [...fixture.nativeElement.querySelectorAll('.match-photo img')] as HTMLImageElement[];
+    expect(faces.map(img => img.getAttribute('src'))).toEqual(['/me.png', '/them.png']);
   });
 
   it('Scenario: Given a successful like, when the match is not in the first poll, then the overlay waits until it appears', () => {

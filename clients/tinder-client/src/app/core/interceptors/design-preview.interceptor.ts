@@ -15,7 +15,7 @@ const INITIAL_MY_PROFILE: Profile = {
   isActive: true,
   isDeleted: false,
   preferences: { minAge: 22, maxAge: 34, gender: 'all', maxRange: 50 },
-  photos: [{ photoID: 'preview-me-photo', url: '/assets/profiles/mila-discover.png', position: 0, isPrimary: true }],
+  photos: [{ photoID: 'preview-me-photo', url: '/assets/profiles/michael-preview.png', position: 0, isPrimary: true }],
   hobbies: ['HIKING', 'MUSIC', 'COOKING']
 };
 
