@@ -24,10 +24,11 @@ Mode: `compressed-small-change`. Tracker: this file. Language: English (client c
 
 ## C.4 Test levels and commands
 
-- Component / acceptance: `cd clients/tinder-client && npm test -- --run src/app/features/discover`
+- Component / acceptance: `cd clients/tinder-client && npm test -- --watch=false --include=src/app/features/discover` (14 passed)
+- Full client: `cd clients/tinder-client && npm test -- --watch=false` (99 passed)
 - Production build: `cd clients/tinder-client && npm run build`
-- Preview smoke: `npm run start:preview`, like Mila, overlay then Send a message.
-- Integration / Kafka / live two-account: N/A in this Cloud environment (no Compose stack).
+- Preview smoke: `npm run start:preview`, like Mila → overlay → Send a message; pass does not overlay; Matches still lists chats.
+- Integration / Kafka / live two-account: N/A in this Cloud environment (Compose stack not started).
 
 ## C.5 Rollback
 
@@ -58,13 +59,13 @@ Still one slice. No owner decision, no boundary change. Do not promote.
 | P4.4 Test levels | Done | Component yes; integration N/A (no Kafka here); e2e = preview smoke |
 | P4.5 Error paths | Done | Chat create failure → `/matches`; match poll errors ignored |
 | P4.6 Fresh-context review | Done | Self-review after writing tests separately from overlay CSS |
-| P4.7 Targeted defect review | Done | No confirmed defects in this pass. Lead: poll window 3s may miss a slow live match — accepted for this slice |
-| P4.8 Quality gates | Done | `npm test` + `npm run build` on tinder-client |
+| P4.7 Targeted defect review | Done | No confirmed defects. Leads: 3s poll may miss a slow live match; preview me photo is the same file as Mila so both overlay faces match |
+| P4.8 Quality gates | Done | `npm test -- --watch=false` 99 passed; `npm run build` |
 | P4.9 Handoff | N/A | Same context continued |
 | P5.1 Build | Done | `npm run build` |
 | P5.2 Security scan | N/A | No new authz surface; same match GET the Matches page already calls |
 | P5.3 Deploy | N/A | Not authorized |
-| P5.4 Smoke | Done | Design-preview like → overlay (when run) |
+| P5.4 Smoke | Done | Preview like Mila → overlay → `/chat/preview-new-chat`; pass → no overlay |
 | P5.5 Rollback note | Done | C.5 |
 | P5.6 Monitoring | N/A | Not yet observed — no production deploy |
 | P5.7 Docs | Done | `docs/demo/script.md` |
