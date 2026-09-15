@@ -20,5 +20,5 @@ acceptance, implementation, and release artifacts.
 
 ## Current phase
 
-**Phase 4 complete — release handoff.** Slices 1–5 are implemented and locally
-validated; production deployment and live credential/infrastructure checks remain gated.
+**Phase 4 — slice 5 blocked.** Functional/keyless behaviour and the warmed local HTTP
+50-RPS precursor pass, but PostgreSQL/Kafka evidence is unavailable without Docker.

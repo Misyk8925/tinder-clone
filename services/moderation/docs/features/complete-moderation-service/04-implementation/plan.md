@@ -8,7 +8,7 @@
 | 2 | Durable idempotent decisions and versioned Policy API | FR-8/9/10/11/12 | migration | HITL | code/test green; PostgreSQL round-trip/restart/concurrency green |
 | 3 | Review workflow, simple auth, audit, and internal admin GUI | FR-13/14/15/16/17 | slice 2 | HITL | code/test green; acceptance fixture coverage added |
 | 4 | Kafka consumer, outbox, retries, DLQ, health, and metrics | FR-2/18/19 | slices 2–3 | HITL | complete; live broker check blocked without Docker |
-| 5 | NFR, failure, migration, security, browser, and final combined evidence | all NFR/error rows | slices 1–4 | HITL | complete; production release remains gated |
+| 5 | NFR, failure, migration, security, browser, and final combined evidence | all NFR/error rows | slices 1–4 | HITL | blocked: PostgreSQL/Kafka integration unavailable without Docker |
 
 ## Completed slice 4
 
@@ -37,14 +37,16 @@
 - `ModerationMessagingTest` proves command deduplication, retry persistence, event
   payload privacy, schema rejection, and DLQ privacy without a broker or provider keys.
 
-## Completed slice 5
+## Slice 5 — blocked
 
 - Provider exceptions retry twice and become durable `HOLD/PROVIDER_UNAVAILABLE`, never
   `ALLOW` or a client-validation error.
 - The 1 MiB HTTP envelope, 1500 ms provider timeout, 90-day raw-content cleanup, BCrypt
   configuration, 5-attempt/15-minute lockout, secure session cookies, audit records, and
   sensitive-log policy have executable evidence.
-- A 50-request concurrent probe with a 1-second provider stub enforces p95 <= 2 seconds.
+- After an explicit JIT/auth warm-up, a paced 50-RPS HTTP probe with a 1-second provider
+  stub passed twice; latest p95 was 1072 ms. It covers HTTP/Basic auth/serialization with
+  in-memory persistence; production-like PostgreSQL measurement remains unavailable.
 - Browser smoke at 400 px verified login, dashboard, decisions, reviews, and policies.
 - Blank OpenAI/Gemini keys use a non-semantic fallback: both clean and keyword-matched
   text return auditable `HOLD`; words/regex alone never create `BLOCK` or fabricated `ALLOW`.
@@ -61,13 +63,13 @@
 | P4.4 Integration | Blocked | Live PostgreSQL/Kafka Testcontainers require Docker; prior PostgreSQL evidence remains recorded below. |
 | P4.4 Contract | Done | `python3 scripts/validate_contracts.py`: 19 HTTP, 5 event, 7 table surfaces. |
 | P4.4 System/e2e | Done | Keyless bootJar smoke plus browser smoke at 400 px. |
-| P4.4 Specialist | Partial | In-memory REST p95, timeout, PII logs/DLQ, retention, lockout, cookies and idempotency passed; JDBC 50-RPS proof needs Docker. |
+| P4.4 Specialist | Partial | Local HTTP p95, timeout, PII logs/DLQ, retention, lockout, cookies and idempotency passed; JDBC 50-RPS proof needs Docker. |
 | P4.5 Error paths | Done | Provider timeout, storage 503, poison/schema event, publish retry, dependency-down readiness. |
 | P4.6 Fresh-context review | Done | Independent review found eight defects; all were fixed with regression evidence. |
 | P4.7 Targeted defect review | Done | CSRF login plus eight final-review findings recorded in `log.md`; no open confirmed defect. |
-| P4.8 Quality gates | Partial | Build, acceptance, contracts and in-memory REST performance passed; Docker-backed performance/Kafka checks are explicitly blocked. |
+| P4.8 Quality gates | Partial | Build, acceptance, contracts and warm local HTTP p95 pass; Docker-backed Kafka/PostgreSQL checks are unavailable. |
 | P4.9 Handoff | N/A | Same implementation context completed both slices. |
-| P4.10 Combined-diff review | Done | Fresh-context final review covered transactionality, Kafka, security, retention and keyless operation. |
+| P4.10 Combined-diff review | Done | Two fresh-context reviews found and drove fixes; the remaining NFR/infrastructure gaps are explicit blockers. |
 
 ## Slice 2/3 evidence update
 

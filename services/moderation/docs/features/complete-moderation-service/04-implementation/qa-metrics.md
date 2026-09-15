@@ -35,7 +35,7 @@ concurrency checks give more signal than mutation of wrappers.
 
 | NFR / risk | Approved target | Test or probe | Environment | Result | Evidence / blocker |
 |---|---|---|---|---|---|
-| NFR-1 | p95 <= 2 s at 50 RPS | 1-second provider stub | local MockMvc/in-memory | Partial | HTTP/auth/serialization probe runs; PostgreSQL-backed 50-RPS proof is blocked without Docker. |
+| NFR-1 | p95 <= 2 s at 50 RPS | warm 1-second provider stub | local MockMvc/in-memory | Partial: latest 1072 ms | Two warmed paced HTTP/auth/serialization runs passed; PostgreSQL-backed run is blocked without Docker. |
 | NFR-2 | provider timeout 1500 ms, then HOLD | delayed HTTP fixture + retrying failure | local | Passed | adapter stops before 2.3 s; use case retries then returns `HOLD`. |
 | NFR-3 | 20 messages / 16 KiB | boundary tests | local | Passed | preprocessor boundary tests. |
 | NFR-4 | request <= 1 MiB | HTTP filter + acceptance | local | Passed | oversized body returns stable 413 before providers. |
@@ -56,6 +56,6 @@ concurrency checks give more signal than mutation of wrappers.
 
 ## 5. Release outcome
 
-Phase 4 is complete locally. Production deployment was not requested. Release remains
-gated on approved retention, deployment Kafka names/ACLs, live infrastructure smoke,
-provider credentials/models, and the unavailable dependency/security scanners.
+Phase 4 remains blocked by unavailable PostgreSQL/Kafka integration evidence. Production
+deployment was not requested. Release also remains gated on approved retention, deployment
+Kafka names/ACLs, provider credentials/models, and scanners.

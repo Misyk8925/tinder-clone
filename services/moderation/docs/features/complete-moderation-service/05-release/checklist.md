@@ -12,7 +12,7 @@ claim that the service was deployed.
 | P5.5 Rollback | Done | Revert the feature commits; V1–V3 are additive and must not be destructively rolled back after data is written. |
 | P5.6 Monitoring | Not yet observed | No deployment or observation window. |
 | P5.7 Docs/runbook | Done | Contracts, implementation plan/log, QA metrics, health/metrics and this handoff are current. |
-| P5.8 Open risk / blocker | Blocked | Production retention approval, provider account/model, Kafka names/ACLs, scanners and live infrastructure smoke remain. |
+| P5.8 Open risk / blocker | Blocked | PostgreSQL-backed NFR-1 and Kafka integration are unavailable; retention approval, provider account/model, Kafka names/ACLs, scanners and live infrastructure smoke remain. |
 
 Release only after:
 

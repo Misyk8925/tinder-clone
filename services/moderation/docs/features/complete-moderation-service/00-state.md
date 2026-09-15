@@ -1,6 +1,6 @@
 # Workflow state: complete-moderation-service
 
-Current phase: **4 complete — release handoff**
+Current phase: **4 — blocked in slice 5**
 Last updated: 2026-09-15
 
 ## Approvals
@@ -10,7 +10,7 @@ Last updated: 2026-09-15
 | 1 — Concept | [`concept.ru.md`](concept.ru.md) | Michael | 2026-09-06 |
 | 2 — Contracts | `02-contracts/` (draft; no separate gate) | drafted | 2026-09-06 |
 | 3 — Contracts + behaviour | `02-contracts/` + `03-behaviour/` | Michael | 2026-09-06 |
-| 4 — Implementation | all applicable acceptance and risk-selected checks green | local evidence | 2026-09-15 |
+| 4 — Implementation | all applicable acceptance and risk-selected checks green | blocked: NFR-1 and Docker integration | — |
 | 5 — Release | `05-release/checklist.md` | — | — |
 
 ## Pre-gate checks
@@ -56,6 +56,6 @@ about existing code. `./gradlew test` passed before the concept was written.
 
 ## Next action
 
-Run release checks in an authorized environment with PostgreSQL/Kafka, approved retention,
-configured provider credentials/models, and deployment topic ACLs. Production deployment
-was not requested in this task.
+Rerun PostgreSQL/Kafka integration and the PostgreSQL-backed 50-RPS probe in a
+Docker-capable environment. Release also needs approved retention, configured provider
+credentials/models and deployment topic ACLs. Production deployment was not requested.
