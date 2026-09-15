@@ -142,7 +142,7 @@ class RuntimePolicyRegistry(
             aggregateVersion = (previous?.aggregateVersion ?: -1) + 1,
             activatedAt = clock.instant()
         ).also {
-            store.upsertActivation(it, previous?.aggregateVersion, actor)
+            store.upsertActivation(it, previous?.aggregateVersion, actor, "ACTIVATE_POLICY")
             activations[key] = it
         }
     }
@@ -161,7 +161,7 @@ class RuntimePolicyRegistry(
             aggregateVersion = current.aggregateVersion + 1,
             activatedAt = clock.instant()
         ).also {
-            store.upsertActivation(it, expectedVersion, actor)
+            store.upsertActivation(it, expectedVersion, actor, "ROLLBACK_POLICY")
             activations[entry.key] = it
         }
     }

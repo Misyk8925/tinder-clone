@@ -116,6 +116,39 @@ class ProviderAdaptersTest {
         }
     }
 
+    @Test
+    fun `OpenAI adapter times out at 1500ms instead of waiting for a slow provider`() {
+        withDelayedServer(delayMs = 2500) { baseUrl ->
+            val started = System.nanoTime()
+            val error = kotlin.test.assertFailsWith<ProviderException> {
+                OpenAiModerationAdapter(
+                    OpenAiModerationProperties("test-key", baseUrl, "omni-moderation-latest", Duration.ofMillis(200), Duration.ofMillis(1500)),
+                    jacksonObjectMapper()
+                ).classify(ModerationContent("content", ContentType.MESSAGE, "hello"))
+            }
+            val elapsedMs = (System.nanoTime() - started) / 1_000_000
+            assertEquals("openai", error.provider)
+            assertTrue(elapsedMs < 2300, "timeout took ${elapsedMs}ms")
+        }
+    }
+
+    private fun withDelayedServer(delayMs: Long, block: (String) -> Unit) {
+        val server = HttpServer.create(InetSocketAddress(0), 0)
+        server.createContext("/") { exchange ->
+            Thread.sleep(delayMs)
+            val bytes = """{"id":"modr-test","model":"omni","results":[]}""".toByteArray()
+            exchange.responseHeaders.add("Content-Type", "application/json")
+            exchange.sendResponseHeaders(200, bytes.size.toLong())
+            exchange.responseBody.use { it.write(bytes) }
+        }
+        server.start()
+        try {
+            block("http://127.0.0.1:${server.address.port}")
+        } finally {
+            server.stop(0)
+        }
+    }
+
     private fun withServer(response: String, capture: (String) -> Unit, block: (String) -> Unit) {
         val server = HttpServer.create(InetSocketAddress(0), 0)
         server.createContext("/") { exchange ->

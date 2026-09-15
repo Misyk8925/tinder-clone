@@ -1,6 +1,7 @@
 package com.tinder.clone.moderation.infrastructure.http
 
 import com.tinder.clone.moderation.application.policy.RuntimePolicyRegistry
+import com.tinder.clone.moderation.application.ports.MutationAuditPort
 import jakarta.validation.Valid
 import org.springframework.http.HttpStatus
 import org.springframework.web.bind.annotation.GetMapping
@@ -17,11 +18,16 @@ import java.security.Principal
 
 @RestController
 @RequestMapping("/internal/v1")
-class PolicyController(private val policies: RuntimePolicyRegistry) {
+class PolicyController(
+    private val policies: RuntimePolicyRegistry,
+    private val audit: MutationAuditPort
+) {
     @PostMapping("/policies")
     @ResponseStatus(HttpStatus.CREATED)
     fun create(@Valid @RequestBody request: PolicyDraftRequestDto, principal: Principal): PolicyVersionDto =
-        policies.create(request.version, request.description, request.toDefinitions(), principal.name).toDto()
+        auditFailure(principal.name, "CREATE_POLICY", "POLICY", request.version) {
+            policies.create(request.version, request.description, request.toDefinitions(), principal.name).toDto()
+        }
 
     @GetMapping("/policies")
     fun list(): Map<String, Any?> = mapOf("items" to policies.list().map { it.toDto() }, "nextCursor" to null)
@@ -36,14 +42,16 @@ class PolicyController(private val policies: RuntimePolicyRegistry) {
         @Valid @RequestBody request: PolicyDraftRequestDto,
         principal: Principal
     ): PolicyVersionDto {
-        require(version == request.version) { "Path and body policy versions must match" }
-        return policies.replaceDraft(
-            version,
-            parseVersion(ifMatch),
-            request.description,
-            request.toDefinitions(),
-            principal.name
-        ).toDto()
+        return auditFailure(principal.name, "UPDATE_POLICY", "POLICY", version) {
+            require(version == request.version) { "Path and body policy versions must match" }
+            policies.replaceDraft(
+                version,
+                parseVersion(ifMatch),
+                request.description,
+                request.toDefinitions(),
+                principal.name
+            ).toDto()
+        }
     }
 
     @PostMapping("/policies/{version}/validation")
@@ -57,21 +65,32 @@ class PolicyController(private val policies: RuntimePolicyRegistry) {
         @PathVariable version: String,
         @RequestHeader("If-Match") ifMatch: String,
         principal: Principal
-    ): PolicyVersionDto = policies.publish(version, parseVersion(ifMatch), principal.name).toDto()
+    ): PolicyVersionDto = auditFailure(principal.name, "PUBLISH_POLICY", "POLICY", version) {
+        policies.publish(version, parseVersion(ifMatch), principal.name).toDto()
+    }
 
     @PutMapping("/policies/{version}/activation")
     fun activate(
         @PathVariable version: String,
         @RequestBody scope: PolicyScopeDto,
         principal: Principal
-    ): PolicyActivationDto = policies.activate(version, scope.contentType, scope.locale, principal.name).toDto()
+    ): PolicyActivationDto = auditFailure(principal.name, "ACTIVATE_POLICY", "POLICY", version) {
+        policies.activate(version, scope.contentType, scope.locale, principal.name).toDto()
+    }
 
     @PostMapping("/policy-activations/{activationId}/rollback")
     fun rollback(
         @PathVariable activationId: UUID,
         @RequestHeader("If-Match") ifMatch: String,
         principal: Principal
-    ): PolicyActivationDto = policies.rollback(activationId, parseVersion(ifMatch), principal.name).toDto()
+    ): PolicyActivationDto = auditFailure(
+        principal.name,
+        "ROLLBACK_POLICY",
+        "POLICY_ACTIVATION",
+        activationId.toString()
+    ) {
+        policies.rollback(activationId, parseVersion(ifMatch), principal.name).toDto()
+    }
 
     @PostMapping("/policy-previews")
     fun preview(@RequestBody request: PolicyPreviewRequestDto): Map<String, Any?> {
@@ -84,4 +103,24 @@ class PolicyController(private val policies: RuntimePolicyRegistry) {
 
     private fun parseVersion(header: String): Long = header.removeSurrounding("\"").toLongOrNull()
         ?: throw IllegalArgumentException("If-Match must be a quoted numeric version")
+
+    private fun <T> auditFailure(
+        actor: String,
+        action: String,
+        targetType: String,
+        targetId: String,
+        block: () -> T
+    ): T = try {
+        block()
+    } catch (error: RuntimeException) {
+        runCatching {
+            audit.recordFailure(actor, action, targetType, targetId, failureCode(error))
+        }
+        throw error
+    }
+
+    private fun failureCode(error: RuntimeException): String = when (error) {
+        is com.tinder.clone.moderation.application.policy.PolicyLifecycleException -> error.code
+        else -> "FAILED"
+    }
 }

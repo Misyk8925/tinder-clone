@@ -7,57 +7,69 @@
 | 1 | Context-aware synchronous moderation through REST with OpenAI classifier and Gemini adjudication adapters | FR-1/3/4/5/6/7 | approved contracts | HITL | code/test green; live smoke blocked on keys |
 | 2 | Durable idempotent decisions and versioned Policy API | FR-8/9/10/11/12 | migration | HITL | code/test green; PostgreSQL round-trip/restart/concurrency green |
 | 3 | Review workflow, simple auth, audit, and internal admin GUI | FR-13/14/15/16/17 | slice 2 | HITL | code/test green; acceptance fixture coverage added |
-| 4 | Kafka consumer, outbox, retries, DLQ, health, and metrics | FR-2/18/19 | slices 2–3 | HITL | todo |
-| 5 | NFR, failure, migration, security, browser, and final combined evidence | all NFR/error rows | slices 1–4 | HITL | todo |
+| 4 | Kafka consumer, outbox, retries, DLQ, health, and metrics | FR-2/18/19 | slices 2–3 | HITL | complete; live broker check blocked without Docker |
+| 5 | NFR, failure, migration, security, browser, and final combined evidence | all NFR/error rows | slices 1–4 | HITL | blocked: PostgreSQL/Kafka integration unavailable without Docker |
 
-## Current slice: 2
+## Completed slice 4
 
 **Observable result**
 
-- Repeated moderation requests return one durable decision.
-- Policy drafts can be validated, published, activated, and rolled back without restarting the service.
+- A versioned command is consumed at-least-once, produces one durable decision, and a result event is written to the outbox.
+- Five unsuccessful command attempts publish `ModerationCommandRejected` to the DLQ without raw content.
+- Unpublished outbox rows survive a publisher retry/restart and are published exactly once logically.
+- Readiness exposes `db` and `kafka`; `moderation.decisions` is registered before the first request.
 
 **Mode**
 
-- HITL: this slice activates the approved initial PostgreSQL migration and immutable policy lifecycle.
+- HITL: Kafka topic names stay configurable; live broker smoke is optional. Deterministic tests use in-process fakes so the slice can be proven without provider keys or Docker Kafka.
 
 **Blocking dependencies**
 
-- A local PostgreSQL/Testcontainers runtime is required for migration and restart proof.
+- Slices 2–3 persistence/review/policy APIs.
+- A real Kafka broker is not required for the primary evidence; Testcontainers Kafka remains optional if Docker is present.
 
-**Files to touch**
+- Result, review, and policy events are inserted through the transactional persistence
+  adapters. Publisher failure leaves a due outbox row for retry.
+- Kafka's error handler performs four retries after the first delivery and publishes a
+  hash-only DLQ event on the fifth failure. V1 rejects other schema versions.
+- Readiness probes real PostgreSQL/Kafka dependencies when enabled and reports the
+  in-memory/disabled modes explicitly.
+- `ModerationMessagingTest` proves command deduplication, retry persistence, event
+  payload privacy, schema rejection, and DLQ privacy without a broker or provider keys.
 
-- Persistence entities/repositories, transaction service, policy resolver, Policy API, idempotency integration, and tests.
+## Slice 5 — blocked
 
-**New modules/dependencies**
+- Provider exceptions retry twice and become durable `HOLD/PROVIDER_UNAVAILABLE`, never
+  `ALLOW` or a client-validation error.
+- The 1 MiB HTTP envelope, 1500 ms provider timeout, 90-day raw-content cleanup, BCrypt
+  configuration, 5-attempt/15-minute lockout, secure session cookies, audit records, and
+  sensitive-log policy have executable evidence.
+- After an explicit JIT/auth warm-up, a paced 50-RPS HTTP probe with a 1-second provider
+  stub passed repeatedly; latest p95 was 1085 ms. It covers HTTP/Basic auth/serialization with
+  in-memory persistence; production-like PostgreSQL measurement remains unavailable.
+- Browser smoke at 400 px verified login, dashboard, decisions, reviews, and policies.
+- Blank OpenAI/Gemini keys use a non-semantic fallback: both clean and keyword-matched
+  text return auditable `HOLD`; words/regex alone never create `BLOCK` or fabricated `ALLOW`.
 
-- Spring JDBC/JPA or a smaller JDBC adapter, Flyway, PostgreSQL driver, and Testcontainers PostgreSQL.
+## Phase ledger — full-feature-delivery / slices 4–5
 
-**Migrations**
-
-- Execute `V1__moderation_service.sql` unchanged or revise the contract first if implementation proves a gap.
-
-**Config / secrets**
-
-- Database URL, username, and password from environment; no committed credentials.
-
-**Primary evidence**
-
-- FR-8/9/10/11/12 acceptance scenarios plus migration and concurrency integration tests.
-
-**Changed risks and test levels**
-
-- Lost/duplicated decisions → database integration and 20-way concurrency tests.
-- Mutable published policy → state-transition unit and database tests.
-- Migration incompatibility → empty-schema Testcontainers gate.
-
-**Manual check**
-
-- Confirm database migration evidence before proceeding to GUI/review work.
-
-**Biggest risk**
-
-- A race between idempotency lookup and insert creating inconsistent responses.
+| Sub-step | Status | Evidence or reason |
+|---|---|---|
+| P4.1 Slice plan | Done | Observable async and final-evidence slices above; no migration added. |
+| P4.2 Primary evidence/red | Done | Existing FR-2/18/19 and NFR rows were incomplete before this work. |
+| P4.3 Implementation | Done | Kafka/outbox, failure handling, security, retention, readiness, and keyless fallback. |
+| P4.4 Unit | Done | Provider HOLD, lockout, retention, health, cookie and messaging tests. |
+| P4.4 Component | Done | 89 tests passed; 6 Testcontainers cases skipped because Docker is unavailable. |
+| P4.4 Integration | Blocked | Live PostgreSQL/Kafka Testcontainers require Docker; prior PostgreSQL evidence remains recorded below. |
+| P4.4 Contract | Done | `python3 scripts/validate_contracts.py`: 19 HTTP, 5 event, 7 table surfaces. |
+| P4.4 System/e2e | Done | Keyless bootJar smoke plus browser smoke at 400 px. |
+| P4.4 Specialist | Partial | Local HTTP p95, timeout, PII logs/DLQ, retention, lockout, cookies and idempotency passed; JDBC 50-RPS proof needs Docker. |
+| P4.5 Error paths | Done | Provider timeout, storage 503, poison/schema event, publish retry, dependency-down readiness. |
+| P4.6 Fresh-context review | Done | Independent review found eight defects; all were fixed with regression evidence. |
+| P4.7 Targeted defect review | Done | CSRF login plus eight final-review findings recorded in `log.md`; no open confirmed defect. |
+| P4.8 Quality gates | Partial | Build, acceptance, contracts and warm local HTTP p95 pass; Docker-backed Kafka/PostgreSQL checks are unavailable. |
+| P4.9 Handoff | N/A | Same implementation context completed both slices. |
+| P4.10 Combined-diff review | Done | Two fresh-context reviews found and drove fixes; the remaining NFR/infrastructure gaps are explicit blockers. |
 
 ## Slice 2/3 evidence update
 

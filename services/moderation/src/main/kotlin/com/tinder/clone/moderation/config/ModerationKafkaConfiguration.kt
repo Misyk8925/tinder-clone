@@ -1,5 +1,7 @@
 package com.tinder.clone.moderation.config
 
+import com.tinder.clone.moderation.infrastructure.messaging.EventPublisher
+import com.tinder.clone.moderation.infrastructure.messaging.ModerationCommandDlq
 import org.apache.kafka.clients.consumer.ConsumerConfig
 import org.apache.kafka.clients.producer.ProducerConfig
 import org.apache.kafka.common.serialization.StringDeserializer
@@ -15,6 +17,10 @@ import org.springframework.kafka.core.DefaultKafkaConsumerFactory
 import org.springframework.kafka.core.DefaultKafkaProducerFactory
 import org.springframework.kafka.core.KafkaTemplate
 import org.springframework.kafka.core.ProducerFactory
+import org.springframework.kafka.listener.DefaultErrorHandler
+import org.springframework.util.backoff.FixedBackOff
+import tools.jackson.databind.ObjectMapper
+import java.time.Clock
 
 @Configuration
 @EnableKafka
@@ -39,6 +45,18 @@ class ModerationKafkaConfiguration(
         KafkaTemplate(factory)
 
     @Bean
+    fun kafkaEventPublisher(kafkaTemplate: KafkaTemplate<String, String>): EventPublisher =
+        EventPublisher { topic, key, payload -> kafkaTemplate.send(topic, key, payload).get() }
+
+    @Bean
+    fun moderationCommandDlq(
+        publisher: EventPublisher,
+        objectMapper: ObjectMapper,
+        kafka: ModerationKafkaProperties,
+        clock: Clock
+    ) = ModerationCommandDlq(publisher, objectMapper, kafka, clock)
+
+    @Bean
     fun moderationConsumerFactory(): ConsumerFactory<String, String> =
         DefaultKafkaConsumerFactory(
             mapOf(
@@ -52,10 +70,20 @@ class ModerationKafkaConfiguration(
 
     @Bean
     fun kafkaListenerContainerFactory(
-        consumerFactory: ConsumerFactory<String, String>
+        consumerFactory: ConsumerFactory<String, String>,
+        dlq: ModerationCommandDlq
     ): ConcurrentKafkaListenerContainerFactory<String, String> {
         val factory = ConcurrentKafkaListenerContainerFactory<String, String>()
         factory.setConsumerFactory(consumerFactory)
+        // FixedBackOff maxAttempts is additional retries after the first delivery.
+        factory.setCommonErrorHandler(
+            DefaultErrorHandler(
+                { record, exception ->
+                    dlq.publish(record.value()?.toString().orEmpty(), exception, ModerationCommandDlq.MAX_ATTEMPTS)
+                },
+                FixedBackOff(100L, (ModerationCommandDlq.MAX_ATTEMPTS - 1).toLong())
+            )
+        )
         return factory
     }
 }

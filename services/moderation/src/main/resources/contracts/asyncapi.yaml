@@ -133,9 +133,9 @@ components:
       allOf:
         - $ref: '#/components/schemas/EventEnvelope'
         - type: object
-          required: [requestMessageId, decisionId, contentId, decision, policyVersion]
+          required: [decisionId, contentId, decision, policyVersion]
           properties:
-            requestMessageId: { type: string, format: uuid }
+            requestMessageId: { type: [string, 'null'], format: uuid }
             decisionId: { type: string, format: uuid }
             contentId: { type: string }
             decision: { type: string, enum: [ALLOW, FLAG, BLOCK, HOLD] }

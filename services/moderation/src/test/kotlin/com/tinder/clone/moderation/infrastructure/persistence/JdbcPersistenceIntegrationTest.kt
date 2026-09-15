@@ -18,6 +18,8 @@ import org.junit.jupiter.api.AfterAll
 import org.junit.jupiter.api.BeforeAll
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.TestInstance
+import org.junit.jupiter.api.Assumptions.assumeTrue
+import org.testcontainers.DockerClientFactory
 import org.springframework.jdbc.core.JdbcTemplate
 import org.springframework.jdbc.datasource.DriverManagerDataSource
 import org.testcontainers.postgresql.PostgreSQLContainer
@@ -40,13 +42,16 @@ class JdbcPersistenceIntegrationTest {
 
     @BeforeAll
     fun startDatabase() {
+        assumeTrue(dockerAvailable(), "Docker is required for PostgreSQL Testcontainers")
         postgres.start()
         Flyway.configure().dataSource(postgres.jdbcUrl, postgres.username, postgres.password).load().migrate()
         jdbc = JdbcTemplate(DriverManagerDataSource(postgres.jdbcUrl, postgres.username, postgres.password))
     }
 
     @AfterAll
-    fun stopDatabase() = postgres.stop()
+    fun stopDatabase() {
+        runCatching { postgres.stop() }
+    }
 
     @Test
     fun `policy and activation survive registry restart without losing thresholds`() {
@@ -103,6 +108,47 @@ class JdbcPersistenceIntegrationTest {
         }
     }
 
+    @Test
+    fun `expired image-only raw content and context are purged while evidence remains`() {
+        val store = JdbcModerationDecisionStore(jdbc, mapper)
+        val candidate = decision("retention-image-key", "c".repeat(64)).let {
+            it.copy(request = it.request.copy(text = null))
+        }
+        store.saveOrGet(candidate)
+
+        assertEquals(1, store.purgeExpiredRawContent(Instant.parse("2027-01-01T00:00:00Z")))
+        val raw = jdbc.queryForMap(
+            """SELECT normalized_text, image_urls_json::text images, context_json::text context,
+                      evidence_json::text evidence
+               FROM moderation_decision WHERE idempotency_key = 'retention-image-key'"""
+        )
+        assertEquals(null, raw["normalized_text"])
+        assertEquals("[]", raw["images"])
+        assertEquals("[]", raw["context"])
+        assertNotNull(raw["evidence"])
+    }
+
+    @Test
+    fun `five concurrent login failures atomically lock the account`() {
+        val clock = Clock.fixed(Instant.parse("2026-09-15T12:00:00Z"), ZoneOffset.UTC)
+        val attempts = com.tinder.clone.moderation.application.security.LoginAttemptService(
+            JdbcLoginAttemptStore(jdbc),
+            clock
+        )
+        val pool = Executors.newFixedThreadPool(5)
+        try {
+            pool.invokeAll((1..5).map {
+                Callable { attempts.recordFailure("concurrent-login-user") }
+            }).forEach { it.get() }
+        } finally {
+            pool.shutdownNow()
+        }
+
+        val state = JdbcLoginAttemptStore(jdbc).load("concurrent-login-user")
+        assertEquals(5, state.failedAttempts)
+        assertEquals(Instant.parse("2026-09-15T12:15:00Z"), state.lockedUntil)
+    }
+
     private fun decision(key: String, hash: String, id: UUID = UUID.randomUUID()): StoredModerationDecision {
         val created = Instant.parse("2026-09-06T10:01:00Z")
         val request = ModerationRequestDto(
@@ -121,5 +167,11 @@ class JdbcPersistenceIntegrationTest {
             key, hash, request,
             ModerationResponseDto(id, request.contentId, "HOLD", "POLICY_NOT_CONFIGURED", null, evidence, createdAt = created)
         )
+    }
+
+    private fun dockerAvailable(): Boolean = try {
+        DockerClientFactory.instance().isDockerAvailable()
+    } catch (_: Throwable) {
+        false
     }
 }
