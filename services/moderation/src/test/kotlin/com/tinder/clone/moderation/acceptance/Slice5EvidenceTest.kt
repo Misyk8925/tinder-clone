@@ -274,6 +274,7 @@ class RestLoadProbeTest {
             pool.shutdownNow()
         }
         val p95 = latencies[((latencies.size * 0.95).toInt()).coerceAtMost(latencies.lastIndex)]
+        println("NFR-1 local 50-request concurrent probe p95=${p95}ms")
         assertTrue(p95 <= 2_000, "p95 was ${p95}ms")
         assertEquals(50, classifier.calls.get())
     }

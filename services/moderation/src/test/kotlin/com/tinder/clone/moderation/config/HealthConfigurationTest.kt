@@ -6,6 +6,7 @@ import org.springframework.boot.health.contributor.Status
 import org.springframework.jdbc.core.JdbcTemplate
 import org.springframework.jdbc.datasource.DriverManagerDataSource
 import kotlin.test.assertEquals
+import kotlin.test.assertNotNull
 
 class HealthConfigurationTest {
     private val configuration = HealthConfiguration()
@@ -22,7 +23,7 @@ class HealthConfigurationTest {
             "jdbc"
         )
 
-        assertEquals(Status.DOWN, indicator.health().status)
+        assertEquals(Status.DOWN, assertNotNull(indicator.health()).status)
     }
 
     @Test
@@ -32,6 +33,6 @@ class HealthConfigurationTest {
             "127.0.0.1:1"
         )
 
-        assertEquals(Status.DOWN, indicator.health().status)
+        assertEquals(Status.DOWN, assertNotNull(indicator.health()).status)
     }
 }

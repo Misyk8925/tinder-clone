@@ -9,7 +9,7 @@ import org.springframework.context.annotation.Configuration
 import org.springframework.jdbc.core.JdbcTemplate
 import org.apache.kafka.clients.admin.AdminClient
 import org.apache.kafka.clients.admin.AdminClientConfig
-import java.time.Duration
+import java.util.concurrent.TimeUnit
 
 @Configuration
 class HealthConfiguration {
@@ -46,7 +46,7 @@ class HealthConfiguration {
                         AdminClientConfig.REQUEST_TIMEOUT_MS_CONFIG to 1000
                     )
                 ).use { admin ->
-                    admin.describeCluster().nodes().get(Duration.ofSeconds(1))
+                    admin.describeCluster().nodes().get(1, TimeUnit.SECONDS)
                 }
                 Health.up().withDetail("transport", "kafka").withDetail("enabled", true).build()
             } catch (error: Exception) {
