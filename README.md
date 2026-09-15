@@ -44,6 +44,7 @@ Full write-ups: [docs/demo/stories.md](docs/demo/stories.md).
 
 - **In the demo:** profile, location-aware Discover, swipe, match, text chat. Premium / likes-you only if the account already has `USER_PREMIUM`.
 - **In the repo, not claimed as finished:** ranking admin / experiments (`ADMIN` vs `USER_ADMIN` still open), popularity ranker on a live deck, moderation Phase 5.
+- **Local observatory (no AWS):** `clients/tinder-admin` runs a seeded city in the browser and compares today's deck score with a `log(1+likes)` arm. See [docs/demo/observatory.md](docs/demo/observatory.md).
 - **Legacy, off in production:** Eureka and Config Server. Services resolve peers with static `*_SERVICE_URL`.
 - **Do not SQL-seed profiles.** Missing `profile.created` leaves Deck Read at `202 BUILDING`. See [docs/demo/seed-notes.md](docs/demo/seed-notes.md).
 

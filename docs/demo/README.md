@@ -15,6 +15,7 @@ Use this folder, not the full feature tree, as the starting point.
 | [screenshots/](screenshots/) | Desktop stills |
 | [screenshots/mobile/](screenshots/mobile/) | Phone-width stills (bottom tabs) |
 | [recording.md](recording.md) | Backup video status and how to publish a recruiter link |
+| [observatory.md](observatory.md) | Local matching city: baseline vs popularity, no AWS |
 
 ## What to show
 
