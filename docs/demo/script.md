@@ -31,6 +31,8 @@ Do not sign up live. Do not open Stripe. Do not open admin.
 
 Свайпнуть вправо (like). Не объяснять ranker.
 
+Если сразу всплыло **It's a match** — это взаимный лайк: клиент после свайпа ещё раз читает `GET /match/{me}`, потому что тело свайпа пустое, а матч появляется из outbox. «Send a message» открывает чат.
+
 Запасная фраза, если колода пустая: «Пара уже разобрана или read-model ещё догоняет событие профиля. Открою готовый матч.» → Matches.
 
 Запасная фраза, если 202 / “preparing”: «Write-side ещё кладёт порядок в Redis, клиент честно ждёт. Это лучше, чем отдать пустой список.»
@@ -41,7 +43,7 @@ Do not sign up live. Do not open Stripe. Do not open admin.
 
 «Свайп пишется в swipes-go. Consumer ищет взаимность. Match и swipe-события уходят не best-effort в Kafka, а через transactional outbox: строка в той же транзакции, потом batch publisher, retry, dead-letter.»
 
-Открыть появившийся матч.
+Если оверлей уже на экране — «Send a message». Иначе открыть появившийся матч в Matches.
 
 ### 4:00–5:15 — чат
 
@@ -81,6 +83,8 @@ Open Discover. Wait for a card.
 
 Swipe right.
 
+If **It's a match** appears, that is a mutual like. The swipe response is empty; Discover re-reads `GET /match/{me}` and opens chat from Send a message.
+
 If the deck is empty: “This pair is already consumed, or the projection has not caught `profile.created`. I’ll open a prepared match.”
 
 If the UI stays on “preparing”: “The write side is still materialising order. Returning 202 is better than a silent empty deck.”
@@ -114,6 +118,6 @@ Record this same path. Face is optional. End with 30 seconds on one class:
 - `ProfileOutboxBatchProcessor` or `SwipeOutboxEventDispatcher`, or
 - `DeckReadCqrsBoundaryAcceptanceTest`
 
-If the public origin is down, record Angular design-preview (`npm run start:preview`) for the UI, then cut to those two files. Say clearly that preview is a fixture client, not the Kafka path.
+If the public origin is down, record Angular design-preview (`npm run start:preview`) for the UI, then cut to those two files. In preview, like Mila: the fixture already lists her as a match, so the overlay appears. Say clearly that preview is a fixture client, not the Kafka path. Two live accounts on a real stand are what make the overlay wait on the outbox.
 
 Publish an unlisted YouTube or Loom link and put it in the root README before sending the repo to recruiters. The pull request walkthrough is only an internal backup.
