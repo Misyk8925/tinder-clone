@@ -18,7 +18,7 @@
 
 | Suite | Passed | Failed | Skipped | Blocked | Duration | Evidence / blocker |
 |---|---:|---:|---:|---:|---:|---|
-| Regression/component | 92 | 0 | 5 | 5 infrastructure-dependent | 9.335 s | `./gradlew clean test`; skipped rows require Docker/Testcontainers. |
+| Regression/component | 87 | 0 | 5 | 5 infrastructure-dependent | local clean run | `./gradlew clean test`; skipped rows require Docker/Testcontainers. |
 | Acceptance | 23 | 0 | 0 | 0 | 6.923 s | `./gradlew acceptanceTest`. |
 | Contract | 31 structural surfaces | 0 | 0 | 0 | <1 s | 19 HTTP + 5 event + 7 table checks. |
 | Keyless runtime/browser | health + 2 decisions + 5 pages | 0 | 0 | 0 | local | clean `ALLOW`, fixture hate `BLOCK`; 400 px admin smoke passed. |
@@ -35,7 +35,7 @@ concurrency checks give more signal than mutation of wrappers.
 
 | NFR / risk | Approved target | Test or probe | Environment | Result | Evidence / blocker |
 |---|---|---|---|---|---|
-| NFR-1 | p95 <= 2 s at 50 concurrent requests | 1-second provider stub | local JVM | Passed | `RestLoadProbeTest`; 50 samples, exact p95 printed in test report. |
+| NFR-1 | p95 <= 2 s at 50 concurrent requests | 1-second provider stub | local JVM | Passed: 1002 ms | `RestLoadProbeTest`; 50 samples. |
 | NFR-2 | provider timeout 1500 ms, then HOLD | delayed HTTP fixture + retrying failure | local | Passed | adapter stops before 2.3 s; use case retries then returns `HOLD`. |
 | NFR-3 | 20 messages / 16 KiB | boundary tests | local | Passed | preprocessor boundary tests. |
 | NFR-4 | request <= 1 MiB | HTTP filter + acceptance | local | Passed | oversized body returns stable 413 before providers. |

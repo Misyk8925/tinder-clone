@@ -57,7 +57,7 @@
 | P4.2 Primary evidence/red | Done | Existing FR-2/18/19 and NFR rows were incomplete before this work. |
 | P4.3 Implementation | Done | Kafka/outbox, failure handling, security, retention, readiness, and keyless fallback. |
 | P4.4 Unit | Done | Provider HOLD, lockout, retention, health, cookie and messaging tests. |
-| P4.4 Component | Done | 92 tests passed; 5 Testcontainers cases skipped because Docker is unavailable. |
+| P4.4 Component | Done | 87 tests passed; 5 Testcontainers cases skipped because Docker is unavailable. |
 | P4.4 Integration | Blocked | Live PostgreSQL/Kafka Testcontainers require Docker; prior PostgreSQL evidence remains recorded below. |
 | P4.4 Contract | Done | `python3 scripts/validate_contracts.py`: 19 HTTP, 5 event, 7 table surfaces. |
 | P4.4 System/e2e | Done | Keyless bootJar smoke plus browser smoke at 400 px. |
