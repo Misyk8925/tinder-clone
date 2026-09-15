@@ -12,7 +12,12 @@ import java.time.Clock
 import java.util.UUID
 
 @Component
-@ConditionalOnProperty(prefix = "moderation.kafka", name = ["enabled"], havingValue = "true")
+@ConditionalOnProperty(
+    prefix = "moderation.persistence",
+    name = ["mode"],
+    havingValue = "jdbc",
+    matchIfMissing = true
+)
 class JdbcModerationOutbox(
     private val records: OutboxRecordRepository,
     private val objectMapper: ObjectMapper,

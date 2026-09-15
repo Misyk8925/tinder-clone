@@ -10,7 +10,12 @@ import java.time.ZoneOffset
 import java.util.UUID
 
 @Component
-@ConditionalOnProperty(prefix = "moderation.kafka", name = ["enabled"], havingValue = "true")
+@ConditionalOnProperty(
+    prefix = "moderation.persistence",
+    name = ["mode"],
+    havingValue = "jdbc",
+    matchIfMissing = true
+)
 class JdbcOutboxRecordRepository(
     private val jdbc: JdbcTemplate
 ) : OutboxRecordRepository {

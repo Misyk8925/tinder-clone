@@ -4,6 +4,7 @@ import com.tinder.clone.moderation.application.service.ModerationExecutionOutcom
 import com.tinder.clone.moderation.application.service.ModerationExecutionService
 import com.tinder.clone.moderation.infrastructure.http.ContextMessageDto
 import com.tinder.clone.moderation.infrastructure.http.ModerationRequestDto
+import jakarta.validation.Validator
 import org.slf4j.LoggerFactory
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
 import org.springframework.kafka.annotation.KafkaListener
@@ -14,7 +15,8 @@ import tools.jackson.databind.ObjectMapper
 @ConditionalOnProperty(prefix = "moderation.kafka", name = ["enabled"], havingValue = "true")
 class ModerationCommandConsumer(
     private val executions: ModerationExecutionService,
-    private val objectMapper: ObjectMapper
+    private val objectMapper: ObjectMapper,
+    private val validator: Validator
 ) {
     private val log = LoggerFactory.getLogger(javaClass)
 
@@ -44,6 +46,17 @@ class ModerationCommandConsumer(
                 ContextMessageDto(it.contentId, it.authorId, it.text)
             }
         )
+        require(event.correlationId.length in 1..128) {
+            "Invalid moderation command correlation id"
+        }
+        require(
+            validator.validate(request).isEmpty() &&
+                event.text.orEmpty().length <= 65_536 &&
+                event.country?.matches(Regex("^[A-Z]{2}$")) != false &&
+                event.imageUrls.all { url -> runCatching { java.net.URI(url).isAbsolute }.getOrDefault(false) }
+        ) {
+            "Moderation command violates the v1 event contract"
+        }
         when (val result = executions.execute(event.messageId.toString(), request)) {
             is ModerationExecutionOutcome.Evaluated ->
                 log.info("Moderation command {} evaluated as {}", event.messageId, result.response.decision)

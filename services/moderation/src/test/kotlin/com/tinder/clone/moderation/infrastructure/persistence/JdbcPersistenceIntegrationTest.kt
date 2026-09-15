@@ -128,6 +128,27 @@ class JdbcPersistenceIntegrationTest {
         assertNotNull(raw["evidence"])
     }
 
+    @Test
+    fun `five concurrent login failures atomically lock the account`() {
+        val clock = Clock.fixed(Instant.parse("2026-09-15T12:00:00Z"), ZoneOffset.UTC)
+        val attempts = com.tinder.clone.moderation.application.security.LoginAttemptService(
+            JdbcLoginAttemptStore(jdbc),
+            clock
+        )
+        val pool = Executors.newFixedThreadPool(5)
+        try {
+            pool.invokeAll((1..5).map {
+                Callable { attempts.recordFailure("concurrent-login-user") }
+            }).forEach { it.get() }
+        } finally {
+            pool.shutdownNow()
+        }
+
+        val state = JdbcLoginAttemptStore(jdbc).load("concurrent-login-user")
+        assertEquals(5, state.failedAttempts)
+        assertEquals(Instant.parse("2026-09-15T12:15:00Z"), state.lockedUntil)
+    }
+
     private fun decision(key: String, hash: String, id: UUID = UUID.randomUUID()): StoredModerationDecision {
         val created = Instant.parse("2026-09-06T10:01:00Z")
         val request = ModerationRequestDto(

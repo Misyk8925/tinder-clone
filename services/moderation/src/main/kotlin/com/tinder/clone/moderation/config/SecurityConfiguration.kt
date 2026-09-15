@@ -2,6 +2,7 @@ package com.tinder.clone.moderation.config
 
 import com.tinder.clone.moderation.application.security.InMemoryLoginAttemptStore
 import com.tinder.clone.moderation.application.security.LoginAttemptService
+import com.tinder.clone.moderation.application.ports.MutationAuditPort
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
@@ -61,8 +62,27 @@ class SecurityConfiguration {
     }
 
     @Bean
-    fun securityFilterChain(http: HttpSecurity): SecurityFilterChain {
-        val jsonEntryPoint = AuthenticationEntryPoint { _, response, _ ->
+    fun securityFilterChain(http: HttpSecurity, audit: MutationAuditPort): SecurityFilterChain {
+        fun auditDenied(request: jakarta.servlet.http.HttpServletRequest, outcome: String) {
+            if (
+                request.method in setOf("POST", "PUT", "PATCH", "DELETE") &&
+                (request.requestURI.contains("/policies") ||
+                    request.requestURI.contains("/policy-activations") ||
+                    request.requestURI.contains("/review-tasks"))
+            ) {
+                runCatching {
+                    audit.recordFailure(
+                        request.userPrincipal?.name ?: "anonymous",
+                        "${request.method}_MUTATION",
+                        "HTTP_REQUEST",
+                        request.requestURI,
+                        outcome
+                    )
+                }
+            }
+        }
+        val jsonEntryPoint = AuthenticationEntryPoint { request, response, _ ->
+            auditDenied(request, "UNAUTHENTICATED")
             response.status = 401
             response.contentType = MediaType.APPLICATION_JSON_VALUE
             response.writer.write("""{"code":"UNAUTHENTICATED","message":"Authentication required","retryable":false}""")
@@ -89,7 +109,8 @@ class SecurityConfiguration {
             .csrf { csrf -> csrf.ignoringRequestMatchers("/internal/**") }
             .exceptionHandling { handling ->
                 handling.authenticationEntryPoint(entryPoint)
-                handling.accessDeniedHandler { _, response, _ ->
+                handling.accessDeniedHandler { request, response, _ ->
+                    auditDenied(request, "FORBIDDEN")
                     response.status = 403
                     response.contentType = MediaType.APPLICATION_JSON_VALUE
                     response.writer.write("""{"code":"FORBIDDEN","message":"Insufficient role","retryable":false}""")

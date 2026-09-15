@@ -4,6 +4,8 @@ import com.tinder.clone.moderation.application.ports.LlmPort
 import com.tinder.clone.moderation.application.ports.ModerationClassifierPort
 import com.tinder.clone.moderation.application.ports.ModerationOutboxPort
 import com.tinder.clone.moderation.application.ports.NoOpModerationOutbox
+import com.tinder.clone.moderation.application.ports.MutationAuditPort
+import com.tinder.clone.moderation.application.ports.NoOpMutationAudit
 import com.tinder.clone.moderation.application.ports.input.ModerateContentInputPort
 import com.tinder.clone.moderation.application.service.EvidenceBuilder
 import com.tinder.clone.moderation.application.service.PreModerationProcessor
@@ -51,8 +53,12 @@ class ModerationConfiguration {
         if (properties.apiKey.isBlank()) FallbackLlmAdapter() else GeminiLlmAdapter(properties, objectMapper)
 
     @Bean
-    @ConditionalOnProperty(prefix = "moderation.kafka", name = ["enabled"], havingValue = "false", matchIfMissing = true)
+    @ConditionalOnProperty(prefix = "moderation.persistence", name = ["mode"], havingValue = "memory")
     fun noOpModerationOutbox(): ModerationOutboxPort = NoOpModerationOutbox()
+
+    @Bean
+    @ConditionalOnProperty(prefix = "moderation.persistence", name = ["mode"], havingValue = "memory")
+    fun noOpMutationAudit(): MutationAuditPort = NoOpMutationAudit()
 
     @Bean
     @ConditionalOnProperty(prefix = "moderation.persistence", name = ["mode"], havingValue = "memory")

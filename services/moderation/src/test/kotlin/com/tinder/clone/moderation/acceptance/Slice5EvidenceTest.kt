@@ -10,7 +10,11 @@ import org.junit.jupiter.api.Test
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
+import org.springframework.boot.test.context.TestConfiguration
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc
+import org.springframework.context.annotation.Bean
+import org.springframework.context.annotation.Import
+import org.springframework.context.annotation.Primary
 import org.springframework.http.MediaType
 import org.springframework.test.web.servlet.MockMvc
 import org.springframework.test.web.servlet.get
@@ -47,7 +51,7 @@ class FallbackWithoutKeysAcceptanceTest {
     private lateinit var http: MockMvc
 
     @Test
-    fun `blank provider keys still allow clean text and block obvious hate`() {
+    fun `blank provider keys HOLD clean and keyword-matched text without semantic decisions`() {
         http.post("/internal/v1/moderations") {
             header("Authorization", AUTH)
             header("Idempotency-Key", "fallback-clean-42")
@@ -55,7 +59,8 @@ class FallbackWithoutKeysAcceptanceTest {
             content = """{"contentId":"bio-clean","contentType":"PROFILE_DESCRIPTION","text":"Coffee and a long walk"}"""
         }.andExpect {
             status { isOk() }
-            jsonPath("$.decision") { value("ALLOW") }
+            jsonPath("$.decision") { value("HOLD") }
+            jsonPath("$.reason") { value("CLASSIFIER_CATEGORY_UNSUPPORTED") }
             jsonPath("$.evidence.provider") { value("fallback") }
         }
         http.post("/internal/v1/moderations") {
@@ -65,7 +70,8 @@ class FallbackWithoutKeysAcceptanceTest {
             content = """{"contentId":"bio-hate","contentType":"PROFILE_DESCRIPTION","text":"I hate all outsiders and they should die"}"""
         }.andExpect {
             status { isOk() }
-            jsonPath("$.decision") { value("BLOCK") }
+            jsonPath("$.decision") { value("HOLD") }
+            jsonPath("$.reason") { value("CLASSIFIER_CATEGORY_UNSUPPORTED") }
         }
     }
 }
@@ -83,6 +89,20 @@ class LoginLockoutTest {
         kotlin.test.assertFalse(attempts.isLocked("policy-admin"))
         attempts.recordFailure("policy-admin")
         kotlin.test.assertFalse(attempts.isLocked("policy-admin"))
+    }
+
+    @Test
+    fun `five concurrent failed logins cannot lose increments`() {
+        val clock = MutableClock(Instant.parse("2026-09-15T12:00:00Z"))
+        val attempts = LoginAttemptService(InMemoryLoginAttemptStore(), clock, 5, Duration.ofMinutes(15))
+        val pool = Executors.newFixedThreadPool(5)
+        try {
+            pool.invokeAll((1..5).map { Callable { attempts.recordFailure("policy-admin") } })
+                .forEach { it.get() }
+        } finally {
+            pool.shutdownNow()
+        }
+        assertTrue(attempts.isLocked("policy-admin"))
     }
 
     private class MutableClock(var instant: Instant) : Clock() {
@@ -236,37 +256,43 @@ class PolicyAuditTest {
     }
 }
 
+@SpringBootTest(
+    properties = [
+        "moderation.security.users[0].username=policy-admin",
+        "moderation.security.users[0].password-hash=\$2b\$10\$M54tN0U6On./PPN3kwO36OSimTyRteHIJwtVwEI9oakcoFw1V3Glu",
+        "moderation.security.users[0].roles=VIEWER,MODERATOR,POLICY_ADMIN"
+    ]
+)
+@AutoConfigureMockMvc
+@Import(RestLoadProbeTest.LoadProvider::class)
 class RestLoadProbeTest {
+    @Autowired
+    private lateinit var http: MockMvc
+
+    @Autowired
+    private lateinit var classifier: OneSecondClassifier
+
+    @TestConfiguration
+    class LoadProvider {
+        @Bean
+        @Primary
+        fun classifier() = OneSecondClassifier()
+    }
+
     @Test
-    fun `NFR-1 p95 REST latency stays under two seconds with a one second provider stub`() {
-        val classifier = OneSecondClassifier()
-        val usecase = com.tinder.clone.moderation.application.usecase.ModerateContentUsecase(
-            classifier,
-            com.tinder.clone.moderation.infrastructure.provider.FallbackLlmAdapter(),
-            com.tinder.clone.moderation.domain.ModerationDomainService(
-                com.tinder.clone.moderation.application.policy.RuntimePolicyRegistry()
-            ),
-            com.tinder.clone.moderation.application.service.EvidenceBuilder(),
-            com.tinder.clone.moderation.application.service.PreModerationProcessor()
-        )
-        val service = com.tinder.clone.moderation.application.service.ModerationExecutionService(
-            usecase,
-            tools.jackson.module.kotlin.jacksonObjectMapper(),
-            com.tinder.clone.moderation.application.service.InMemoryModerationDecisionStore()
-        )
+    fun `NFR-1 local REST precursor stays under two seconds with a one second provider stub`() {
         val pool = Executors.newFixedThreadPool(50)
         val latencies = try {
             pool.invokeAll((1..50).map { index ->
                 Callable {
                     val started = System.nanoTime()
-                    service.execute(
-                        "load-$index-${System.nanoTime()}",
-                        com.tinder.clone.moderation.infrastructure.http.ModerationRequestDto(
-                            "load-$index",
-                            com.tinder.clone.moderation.domain.model.ContentType.MESSAGE,
-                            "quoted film line $index"
-                        )
-                    )
+                    val response = http.post("/internal/v1/moderations") {
+                        header("Authorization", AUTH)
+                        header("Idempotency-Key", "load-$index-${System.nanoTime()}")
+                        contentType = MediaType.APPLICATION_JSON
+                        content = """{"contentId":"load-$index","contentType":"MESSAGE","text":"quoted film line $index"}"""
+                    }.andReturn().response
+                    assertEquals(200, response.status)
                     TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - started)
                 }
             }).map { it.get() }.sorted()
@@ -274,12 +300,12 @@ class RestLoadProbeTest {
             pool.shutdownNow()
         }
         val p95 = latencies[((latencies.size * 0.95).toInt()).coerceAtMost(latencies.lastIndex)]
-        println("NFR-1 local 50-request concurrent probe p95=${p95}ms")
+        println("NFR-1 local in-memory REST 50-request concurrent probe p95=${p95}ms")
         assertTrue(p95 <= 2_000, "p95 was ${p95}ms")
         assertEquals(50, classifier.calls.get())
     }
 
-    private class OneSecondClassifier : com.tinder.clone.moderation.application.ports.ModerationClassifierPort {
+    class OneSecondClassifier : com.tinder.clone.moderation.application.ports.ModerationClassifierPort {
         val calls = java.util.concurrent.atomic.AtomicInteger()
         private val delegate = com.tinder.clone.moderation.infrastructure.provider.FallbackClassifier()
         override fun classify(content: com.tinder.clone.moderation.domain.model.ModerationContent):

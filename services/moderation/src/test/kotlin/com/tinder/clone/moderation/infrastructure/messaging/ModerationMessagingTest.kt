@@ -28,6 +28,7 @@ class ModerationMessagingTest {
     private val mapper = jacksonObjectMapper()
     private val clock = Clock.fixed(Instant.parse("2026-09-15T12:00:00Z"), ZoneOffset.UTC)
     private val kafka = ModerationKafkaProperties(enabled = true)
+    private val validator = jakarta.validation.Validation.buildDefaultValidatorFactory().validator
 
     @Test
     fun `command consumer evaluates a versioned event using the message id as the idempotency key`() {
@@ -36,7 +37,7 @@ class ModerationMessagingTest {
             objectMapper = mapper,
             store = InMemoryModerationDecisionStore()
         )
-        val consumer = ModerationCommandConsumer(executions, mapper)
+        val consumer = ModerationCommandConsumer(executions, mapper, validator)
         val messageId = UUID.fromString("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa")
         val payload = commandJson(messageId, "This quoted sentence needs context")
         consumer.process(payload)
@@ -58,7 +59,7 @@ class ModerationMessagingTest {
             objectMapper = mapper,
             store = InMemoryModerationDecisionStore()
         )
-        val consumer = ModerationCommandConsumer(executions, mapper)
+        val consumer = ModerationCommandConsumer(executions, mapper, validator)
         assertFailsWith<CommandNotEvaluatedException> {
             consumer.process(commandJson(UUID.randomUUID(), "x"))
         }
@@ -109,8 +110,22 @@ class ModerationMessagingTest {
             objectMapper = mapper,
             store = InMemoryModerationDecisionStore()
         )
-        val consumer = ModerationCommandConsumer(executions, mapper)
+        val consumer = ModerationCommandConsumer(executions, mapper, validator)
         val payload = commandJson(UUID.randomUUID(), "hello").replace("\"schemaVersion\":1", "\"schemaVersion\":2")
+        assertFailsWith<IllegalArgumentException> { consumer.process(payload) }
+        assertTrue(executions.list().isEmpty())
+    }
+
+    @Test
+    fun `v1 consumer rejects structurally invalid event fields before moderation`() {
+        val executions = ModerationExecutionService(
+            input = AllowingUseCase(),
+            objectMapper = mapper,
+            store = InMemoryModerationDecisionStore()
+        )
+        val consumer = ModerationCommandConsumer(executions, mapper, validator)
+        val payload = commandJson(UUID.randomUUID(), "hello")
+            .replace("\"correlationId\":\"message-42\"", "\"correlationId\":\"${"x".repeat(129)}\"")
         assertFailsWith<IllegalArgumentException> { consumer.process(payload) }
         assertTrue(executions.list().isEmpty())
     }

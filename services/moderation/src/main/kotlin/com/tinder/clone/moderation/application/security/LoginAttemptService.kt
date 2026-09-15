@@ -12,15 +12,35 @@ data class LoginAttemptState(
 
 interface LoginAttemptStore {
     fun load(username: String): LoginAttemptState
-    fun save(username: String, state: LoginAttemptState)
+    fun recordFailure(
+        username: String,
+        now: Instant,
+        threshold: Int,
+        lockDuration: Duration
+    ): LoginAttemptState
     fun clear(username: String)
 }
 
 class InMemoryLoginAttemptStore : LoginAttemptStore {
     private val states = ConcurrentHashMap<String, LoginAttemptState>()
     override fun load(username: String) = states[username] ?: LoginAttemptState()
-    override fun save(username: String, state: LoginAttemptState) {
-        states[username] = state
+    @Synchronized
+    override fun recordFailure(
+        username: String,
+        now: Instant,
+        threshold: Int,
+        lockDuration: Duration
+    ): LoginAttemptState {
+        val current = states[username] ?: LoginAttemptState()
+        if (current.lockedUntil?.isAfter(now) == true) return current
+        val previousFailures = if (current.lockedUntil != null) 0 else current.failedAttempts
+        val failed = previousFailures + 1
+        val updated = LoginAttemptState(
+            failed,
+            if (failed >= threshold) now.plus(lockDuration) else null
+        )
+        states[username] = updated
+        return updated
     }
     override fun clear(username: String) {
         states.remove(username)
@@ -40,12 +60,7 @@ class LoginAttemptService(
 
     fun recordFailure(username: String) {
         if (username.isBlank()) return
-        val current = store.load(username)
-        if (current.lockedUntil?.isAfter(clock.instant()) == true) return
-        val previousFailures = if (current.lockedUntil != null) 0 else current.failedAttempts
-        val failed = previousFailures + 1
-        val lockedUntil = if (failed >= threshold) clock.instant().plus(lockDuration) else null
-        store.save(username, LoginAttemptState(failed, lockedUntil))
+        store.recordFailure(username, clock.instant(), threshold, lockDuration)
     }
 
     fun recordSuccess(username: String) {

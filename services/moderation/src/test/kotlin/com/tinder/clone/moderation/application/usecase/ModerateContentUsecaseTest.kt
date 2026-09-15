@@ -20,6 +20,7 @@ import com.tinder.clone.moderation.domain.model.ContentType
 import com.tinder.clone.moderation.domain.model.ContextMessage
 import com.tinder.clone.moderation.domain.model.ModerationCategory
 import com.tinder.clone.moderation.domain.model.ModerationContent
+import com.tinder.clone.moderation.domain.model.Reason
 import com.tinder.clone.moderation.domain.policy.ModerationPolicy
 import com.tinder.clone.moderation.domain.policy.VerifiedScamIndicatorRule
 import com.tinder.clone.moderation.domain.policy.Rule
@@ -253,7 +254,7 @@ class ModerateContentUsecaseTest {
     }
 
     @Test
-    fun `fallback classifier plus default tinder thresholds blocks hate bios and harassment messages`() {
+    fun `keyless fallback HOLDs both matched and unmatched text without keyword decisions`() {
         val usecase = ModerateContentUsecase(
             FallbackClassifier(),
             FallbackLlmAdapter(),
@@ -271,18 +272,14 @@ class ModerateContentUsecaseTest {
                 )
             )
         )
-        val hateMessage = assertIs<ModerationResult.Evaluated>(
-            usecase.handle(ContentCmd("message:hate", ContentType.MESSAGE, "kill yourself"))
-        )
         val cleanBio = assertIs<ModerationResult.Evaluated>(
             usecase.handle(
                 ContentCmd("profile:clean", ContentType.PROFILE_DESCRIPTION, "Coffee and a long walk")
             )
         )
 
-        assertIs<Decision.Block>(hateBio.decision)
-        assertIs<Decision.Block>(hateMessage.decision)
-        assertEquals(Decision.Allow, cleanBio.decision)
+        assertEquals(Reason.CLASSIFIER_CATEGORY_UNSUPPORTED, assertIs<Decision.Hold>(hateBio.decision).reason)
+        assertEquals(Reason.CLASSIFIER_CATEGORY_UNSUPPORTED, assertIs<Decision.Hold>(cleanBio.decision).reason)
     }
 
     @Test
