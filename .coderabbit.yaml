@@ -1,0 +1,56 @@
+# yaml-language-server: $schema=https://coderabbit.ai/integrations/schema.v2.json
+language: en-US
+reviews:
+  profile: chill
+  request_changes_workflow: false
+  high_level_summary: true
+  poem: false
+  review_status: true
+  collapse_walkthrough: false
+  path_filters:
+    - "!**/*.png"
+    - "!**/*.jpg"
+    - "!**/*.jpeg"
+    - "!**/*.gif"
+    - "!**/*.webp"
+    - "!**/*.ico"
+    - "!**/*.p12"
+    - "!**/*.jks"
+  path_instructions:
+    - path: "services/**"
+      instructions: |
+        Backend services are independently deployable. Prefer the smallest affected service.
+        Before suggesting DTO or endpoint changes, inspect actual consumers and preserve shared contracts.
+        Flag production credentials, tokens, and cloud access keys. Tests must use fixtures only.
+        Do not treat Testcontainers, Kafka, Redis, PostgreSQL, or Quarkus Dev Services tests as passing without their runtime.
+    - path: "services/moderation/**"
+      instructions: |
+        Keyless or unavailable classifiers must HOLD, never BLOCK.
+        Keep Kafka command consumption, transactional outbox writes, retries, DLQ, and health/metrics durable.
+        CSRF protection and login lockout must stay atomic and fail closed.
+    - path: "services/tinder-contracts/**"
+      instructions: Shared Maven contracts. Inspect consumers before changing DTOs or endpoints.
+    - path: "services/location-go/**"
+      instructions: Go service. Validate with `go test ./...` from this directory.
+    - path: "services/swipes-go/**"
+      instructions: Go service. Validate with `go test ./...` from this directory.
+    - path: "services/photos/**"
+      instructions: Python service. Validate with pytest after `pip install -r requirements-dev.txt`.
+    - path: "clients/tinder-client/**"
+      instructions: |
+        Angular client. Preserve phone-width viewport behavior for deck and matching flows.
+        Validate with `npm ci` and `npm run build` when client code changes.
+    - path: ".github/workflows/**"
+      instructions: Keep required status checks `redis-policy` and `deck-read-contracts` working.
+  auto_review:
+    enabled: true
+    drafts: false
+    auto_incremental_review: true
+    base_branches:
+      - main
+chat:
+  auto_reply: true
+knowledge_base:
+  opt_out: false
+  web_search:
+    enabled: true
