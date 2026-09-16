@@ -1,0 +1,41 @@
+@startuml lunari-matching-path
+' Story picture only. Do not pass this file to ArchUnit:
+' gateway, deck-read, profiles, swipes-go live in different JARs.
+
+title Lunari matching path
+skinparam componentStyle rectangle
+
+actor Browser
+[Gateway] as gw
+[Deck Read] as dr
+[Deck] as deck
+[Profiles] as profiles
+[Swipes Go] as swipes
+[Consumer] as consumer
+[Match] as match
+
+Browser --> gw : JWT
+gw --> dr : GET /api/v2/deck
+gw --> swipes : POST /api/v1/swipes
+dr --> deck : ensure on miss
+dr --> profiles : hydrate cards (mTLS)
+swipes --> consumer : swipe-created
+profiles --> deck : profile.* outbox
+consumer --> match : match.created outbox
+
+note bottom of dr
+  Read model. Must not own Deck ranking
+  or Deck Redis write keys.
+end note
+
+note bottom of profiles
+  Profile row and outbox row
+  in one transaction.
+end note
+
+note bottom of gw
+  User JWT stops here.
+  Internal fanout is mTLS.
+end note
+
+@enduml
