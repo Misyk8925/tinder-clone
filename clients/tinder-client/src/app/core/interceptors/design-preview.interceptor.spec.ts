@@ -83,4 +83,17 @@ describe('design preview interceptor content events', () => {
 
     expect(me.bio).toBe('A good conversation and a long walk are a strong start.');
   });
+
+  it('Scenario: Given preview fixtures, when /me and the deck load, then my photo is not the person I like', async () => {
+    const me = await firstValueFrom(
+      http.get<{ photos: { url: string }[] }>('https://preview.test/api/v1/profiles/me')
+    );
+    const deck = await firstValueFrom(
+      http.get<{ items: { photos: { url: string }[] }[] }>('https://preview.test/api/v2/deck')
+    );
+
+    expect(me.photos[0].url).toContain('michael-preview');
+    expect(deck.items[0].photos[0].url).toContain('mila-discover');
+    expect(me.photos[0].url).not.toBe(deck.items[0].photos[0].url);
+  });
 });
