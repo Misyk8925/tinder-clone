@@ -16,10 +16,17 @@ application --> domain
 api --> application
 infrastructure --> application
 infrastructure --> domain
+infrastructure --> config
 config --> api
 config --> application
 config --> infrastructure
 config --> domain
+
+note bottom of config
+  Wiring beans live here.
+  Adapters also inject config.props.
+  Domain and application must not.
+end note
 
 note top of domain
   No Spring / Jakarta / Lombok on types.
