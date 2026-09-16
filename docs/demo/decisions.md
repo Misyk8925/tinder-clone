@@ -60,7 +60,7 @@ Each section is: the failure we were designing for, the cheaper thing we rejecte
 
 | Choice | Rejected | Why |
 |---|---|---|
-| Static `*_SERVICE_URL` in production | Eureka / Config Server | Those are leftover local wiring; they are off in Compose prod. |
+| Static `*_SERVICE_URL` in production | Eureka / Config Server | Leftover local wiring; those services are removed from the repo. Peers are Compose environment URLs. |
 | Gateway as the only browser entry | Client talking to many origins | JWT, CORS, and rate limits stay in one place. |
 | Photos as its own FastAPI service | Profiles writing S3 bytes | Upload policy, variants, and object storage fail independently of profile JSON. |
 | Moderation as its own service (Phase 4 in repo) | Inline checks in Profiles/Match | Classifier, policy versions, and review tasks are a different consistency domain. Not on the six-minute demo path; Phase 5 (live providers / release) is unfinished. |
@@ -74,3 +74,4 @@ Each section is: the failure we were designing for, the cheaper thing we rejecte
 - Popularity ranker on production Discover.
 - Moderation Phase 5 (OpenAI/Gemini as if they were wired and retention-approved).
 - “CI is green, therefore the product runs.” CI is policy + security, not `mvn test`.
+- Eureka / Config Server (removed). If asked about discovery: static URLs in Compose.

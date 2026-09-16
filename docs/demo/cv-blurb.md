@@ -25,7 +25,7 @@ One-line headline:
 - “CI is all green so production is proven.” CI is security + policy + contracts.
 - Claiming ranking experiments or moderation as production-ready.
 
-If asked about size: “A monorepo with explicit boundaries and `services/tinder-contracts`. Eureka is leftover local wiring; production uses static service URLs.”
+If asked about size: “A monorepo with explicit boundaries and `services/tinder-contracts`. Peers are static `*_SERVICE_URL` in Compose. Eureka/Config Server were leftover and are gone.”
 
 ## Likely questions
 
@@ -35,7 +35,7 @@ Longer answers with rejected alternatives: [decisions.md](decisions.md).
 Discover reads and match side effects have different SLO and failure modes. A monolith can still have modules; here the deploy and cache failure domains are actually split. The cost is contracts and outbox, which we then had to take seriously.
 
 **What would you delete?**
-Eureka/Config Server in production (already off). Ranking admin until `ADMIN` vs `USER_ADMIN` is decided. A live moderation provider until retention and credentials are explicit.
+Eureka/Config Server (already removed). Ranking admin until `ADMIN` vs `USER_ADMIN` is decided. A live moderation provider until retention and credentials are explicit.
 
 **What broke in production?**
 Issuer mismatch: browser tokens carry `https://auth.misyk.tech/realms/spring` while in-cluster discovery advertised `http://keycloak:9080`. Deck Read rejected valid tokens. Gateway also cached a dead Deck Read IP after a `--no-deps` recreate. Both are written up under `docs/features/`.
