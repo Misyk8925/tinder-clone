@@ -32,6 +32,8 @@ jobs:
         run: ruby scripts/validate-compose-mtls-mounts.rb
       - name: Validate local demo env
         run: ruby scripts/validate-demo-env.rb
+      - name: Validate Netty pin
+        run: ruby scripts/validate-netty-version.rb
 
   deck-read-contracts:
     name: deck-read-contracts

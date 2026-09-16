@@ -1,6 +1,10 @@
 # Service Refactor & Separation Plan
 
-> **Status:** Proposal / design doc. No code has been changed by this document.
+> **Historical.** Do not treat this as the current architecture or as interview prep.
+> Deck Read and Location are already separate services. Start at the root README and
+> [docs/demo/learn.md](../demo/learn.md).
+>
+> **Original status when written:** Proposal / design doc. No code has been changed by this document.
 > **Goal:** (1) Refactor the "big" services so that **communication, API, logic, and domain**
 > are cleanly separated, and (2) extract **deck-read** and **location** into their own
 > independently-scalable services.

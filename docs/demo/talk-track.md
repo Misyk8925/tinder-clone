@@ -69,7 +69,9 @@ The written interview sheet (rejected alternatives, not just the spoken path) is
 
 ## Short answers
 
-**Why so many services?** Each one owns a failure mode: deck build, deck read, swipe write, match projection, chat, photos, billing. Shared types live in `services/tinder-contracts`.
+**Why so many services?** Each one owns a failure mode: deck build, deck read, swipe write, match projection, chat, photos, billing. Shared types live in `services/tinder-contracts`. You do not need to walk every folder — [learn.md](learn.md) is the twelve-file map.
+
+**Where is Eureka?** It isn't. Peers are static `*_SERVICE_URL` in Compose. The old Config Server and discovery modules were leftover local wiring and were removed so nobody has to explain a disabled server.
 
 **Why Quarkus only on Deck Read?** That hop is the Discover SLO. The write side stayed Spring. Full write-up: [decisions.md](decisions.md).
 

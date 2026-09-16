@@ -24,7 +24,7 @@
         <jackson.version>2.18.8</jackson.version>
         <kafka.version>3.9.2</kafka.version>
         <micrometer.version>1.15.12</micrometer.version>
-        <netty.version>4.1.136.Final</netty.version>
+        <netty.version>4.1.137.Final</netty.version>
 
         <tinder-contracts.version>1.0.0</tinder-contracts.version>
 

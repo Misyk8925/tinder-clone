@@ -1,5 +1,9 @@
 # Backend Architecture Overview — Coding Agent Reference Prompt
 
+> **Agent-internal, not product docs.** Facts here drift (it still mentions Eureka/Config Server
+> and `swipes-demo` as if they were the live path). Humans should start at the root README and
+> [docs/demo/learn.md](demo/learn.md). Do not present this file in an interview.
+
 You are working on a **Tinder-clone** microservices backend. This document describes the full system architecture, all services, their APIs, data models, connection types, caching, database indexes, and cross-service communication. Use this as your primary context when writing or modifying backend code.
 
 ---
@@ -606,8 +610,7 @@ gateway (depends: redis, profiles)
 
 ## DISABLED / OPTIONAL SERVICES
 
-- **Discovery Service** (`/services/discovery`): Eureka-based service discovery. Disabled in docker-compose. Services currently use static hostnames.
-- **Config Server** (`/services/config-server2`): Spring Cloud Config Server. Disabled. Services use local `application.yaml` files.
+- **Discovery / Config Server:** removed from the repository. Peers use static `*_SERVICE_URL`.
 - **ELK Stack** (elk network in docker-compose): Commented out. Services have Logstash encoder ready but ELK not running.
 
 ---

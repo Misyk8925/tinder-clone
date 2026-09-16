@@ -35,9 +35,6 @@ public abstract class AbstractProfilesIntegrationTest extends AbstractPostgresIn
         registry.add("spring.kafka.bootstrap-servers", () -> KAFKA_BOOTSTRAP_SERVERS);
         registry.add("spring.kafka.producer.bootstrap-servers", () -> KAFKA_BOOTSTRAP_SERVERS);
         registry.add("spring.kafka.consumer.bootstrap-servers", () -> KAFKA_BOOTSTRAP_SERVERS);
-
-        registry.add("eureka.client.enabled", () -> "false");
-        registry.add("spring.cloud.discovery.enabled", () -> "false");
     }
 
     @Autowired

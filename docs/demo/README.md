@@ -2,10 +2,11 @@
 
 Materials for showing this repository in a Java backend interview. The product name in production is Lunari.
 
-Use this folder, not the full feature tree, as the starting point.
+Use this folder, not the full feature tree, as the starting point. If the repo feels too large to explain, start at [learn.md](learn.md).
 
 | Artifact | Purpose |
 |---|---|
+| [learn.md](learn.md) | Tutorial: what to read, twelve files to open, what to leave shut |
 | [live-stand.md](live-stand.md) | Production URLs, preflight, operational traps |
 | [script.md](script.md) | Six-minute walkthrough (Russian and English) |
 | [decisions.md](decisions.md) | Why outbox, CQRS deck, mTLS, Quarkus on deck-read — rejected alternatives |
@@ -21,7 +22,7 @@ Use this folder, not the full feature tree, as the starting point.
 
 One path: two prepared accounts → Discover (`GET /api/v2/deck`) → mutual like → match → text chat.
 
-Three stories if the interviewer goes deep: open [Issues labeled `story`](https://github.com/Misyk8925/tinder-clone/issues?q=is%3Aissue+label%3Astory). Written answers for you, not a second catalog: [decisions.md](decisions.md).
+Three stories if the interviewer goes deep: open [Issues labeled `story`](https://github.com/Misyk8925/tinder-clone/issues?q=is%3Aissue+label%3Astory). Written answers for you, not a second catalog: [decisions.md](decisions.md). If the tree feels too big: [learn.md](learn.md).
 
 Product surfaces (design-preview fixtures, not the live origin). **Phone layout first:**
 
@@ -37,7 +38,6 @@ Product surfaces (design-preview fixtures, not the live origin). **Phone layout 
 - Ranking admin and A/B experiments (`ADMIN` vs `USER_ADMIN` is still an owner decision).
 - Popularity ranker on a live deck.
 - Moderation Phase 5 (the service **is** in Compose and in the root README maps; live providers / release are not).
-- Eureka / Config Server (legacy, off in production).
 - Profiles inserted with SQL (deck-read stays `202 BUILDING`).
 
 ## GitHub About

@@ -68,7 +68,6 @@ spring:
   config:
     import:
       - "optional:file:services/profiles/.env.properties"
-      - "optional:configserver:"   # suppress Spring Cloud Config check when no server is available
   kafka:
     bootstrap-servers: localhost:9092
     producer:

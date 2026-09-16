@@ -31,7 +31,7 @@ A dating matching product that keeps discovery fast and match events correct whe
 | Live stand | https://lunari.misyk.tech — only after the [live-stand preflight](docs/demo/live-stand.md) is green that day |
 | Identity | https://auth.misyk.tech · realm `spring` |
 | Backup recording | Design-preview UI walkthrough is attached to the PR (Discover → Likes → Messages → Chat → Profile). Script: [docs/demo/script.md](docs/demo/script.md). Before sending the repo to recruiters, record the live origin and paste an unlisted YouTube/Loom URL here. |
-| Interview kit | [docs/demo](docs/demo/README.md) · decisions: [docs/demo/decisions.md](docs/demo/decisions.md) |
+| Interview kit | [docs/demo](docs/demo/README.md) · learn path: [docs/demo/learn.md](docs/demo/learn.md) · decisions: [docs/demo/decisions.md](docs/demo/decisions.md) |
 | Stories | [GitHub issues labeled `story`](https://github.com/Misyk8925/tinder-clone/issues?q=is%3Aissue+label%3Astory) |
 | Local demo | `./scripts/demo-up.sh` — no Stripe, no S3, certs generated if missing |
 
@@ -43,13 +43,13 @@ Stories live only as GitHub issues (label `story`, template `.github/ISSUE_TEMPL
 
 [Open stories](https://github.com/Misyk8925/tinder-clone/issues?q=is%3Aissue+label%3Astory)
 
-Pin those issues on the Issues page so they sit above bugs (owner UI; integration tokens get **403**). Spoken prep and rejected alternatives stay in the interview kit: [docs/demo/talk-track.md](docs/demo/talk-track.md), [docs/demo/decisions.md](docs/demo/decisions.md).
+Pin those issues on the Issues page so they sit above bugs (owner UI; integration tokens get **403**). What to actually open, in order: [docs/demo/learn.md](docs/demo/learn.md). Spoken prep and rejected alternatives: [docs/demo/talk-track.md](docs/demo/talk-track.md), [docs/demo/decisions.md](docs/demo/decisions.md).
 
 ## Current scope / not in the demo
 
 - **In the demo:** profile, location-aware Discover, swipe, match, text chat. Premium / likes-you only if the account already has `USER_PREMIUM`.
 - **In the repo, not claimed as finished:** ranking admin / experiments (`ADMIN` vs `USER_ADMIN` still open), popularity ranker on a live deck, moderation Phase 5.
-- **Legacy, off in production:** Eureka and Config Server. Services resolve peers with static `*_SERVICE_URL`.
+- **Peers:** static `*_SERVICE_URL`. Eureka and Config Server were leftover local wiring and are **gone** from the repo.
 - **Do not SQL-seed profiles.** Missing `profile.created` leaves Deck Read at `202 BUILDING`. See [docs/demo/seed-notes.md](docs/demo/seed-notes.md).
 
 CI watches security (CodeQL, Trivy, dependency-review) and policy/contracts (Redis, DB roles, mTLS mounts, Deck Read specs, demo `.env`). It does **not** run `mvn test` / `go test` / `pytest` / `ng build`. Those suites run locally, often with Testcontainers.
@@ -174,7 +174,7 @@ docker compose -f docker-compose.yml -f docker-compose.local.yml up -d postgres 
 (cd clients/tinder-client    && npm start) &
 ```
 
-`services/config-server2` and `services/discovery` are optional local-only leftovers. Production sets `EUREKA_CLIENT_ENABLED=false` and static `*_SERVICE_URL` values.
+Peers resolve with static `*_SERVICE_URL` (Compose environment). There is no Eureka or Config Server in this repository.
 
 ### Troubleshooting Docker Maven cache (`*.lastUpdated` errors)
 If a Docker build fails with errors like `FileNotFoundException ... .pom.lastUpdated`, clean the affected BuildKit Maven cache id and rebuild.
@@ -214,8 +214,7 @@ The Gateway enforces role-based rate limiting (`RoleBasedRateLimitFilter`) per r
 | Nexus3 | 8081 | Maven artifact repository |
 
 > ELK services are present in `docker-compose.yml` but fully commented out.
-> Config Server and Discovery (Eureka) are also commented out in the prod compose — services resolve peers via static URLs instead.
-> LocalStack is not part of the current compose stack.
+> LocalStack is not part of the current compose stack. Peers use static `*_SERVICE_URL`.
 
 ---
 
@@ -349,13 +348,12 @@ tinder-clone/
 ├── services/
 │   ├── gateway/          profiles/       location-go/    photos/
 │   ├── deck/             deck-read/      swipes-go/      swipes-demo/   # demo = Java rollback
-│   ├── consumer/         match/          subscriptions/  moderation/
+│   ├── consumer/         match/          subscriptions/  moderation/  # moderation: in stack, not a demo story
 │   ├── tinder-contracts/ # shared DTOs & Kafka event schemas
-│   ├── config-server2/   discovery/      # local-only leftovers
 ├── clients/
 │   └── tinder-client/    # Angular frontend
 ├── docs/                 # demo kit, OpenAPI, architecture notes
-│   └── demo/             # interview script, talk track, seed notes
+│   └── demo/             # interview kit: learn.md first, then script / decisions
 ├── certs/                # local mTLS cert generation
 ├── docker-compose.yml        # prod-shaped stack (swipes-go)
 ├── docker-compose.local.yml  # local dev overlay

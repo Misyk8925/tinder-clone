@@ -1,7 +1,8 @@
 # Swipes Go
 
-High-throughput candidate replacement for `swipes-demo`. The service uses direct
-`fasthttp` routing and practical technical packages under `internal/`:
+Production and demo swipe-write path (Compose). `services/swipes-demo` is the Java original kept as a rollback overlay, not what you start for a screening.
+
+The service uses direct `fasthttp` routing and practical technical packages under `internal/`:
 
 - `router`: HTTP routes, status mapping, health and metrics
 - `service`: swipe validation, ownership and authorization rules
