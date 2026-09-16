@@ -18,15 +18,17 @@ class PlantUmlArchitectureTest {
 
     private static final Path REPOSITORY = Path.of("").toAbsolutePath().normalize().getParent().getParent();
 
-    private final JavaClasses classes = new ClassFileImporter()
-            .withImportOption(ImportOption.Predefined.DO_NOT_INCLUDE_TESTS)
-            .importPackages("com.tinder.match");
-
     @Test
     @DisplayName("Given match, conversation and moderation packages, when bytecode is imported, then chat may call moderation and match stays separate from chat")
     void matchConversationAndModerationFollowCommittedDiagram() throws Exception {
         Path diagram = REPOSITORY.resolve("docs/architecture/match-modules.puml");
         assertThat(diagram).exists();
+        JavaClasses imported = new ClassFileImporter()
+                .withImportOption(ImportOption.Predefined.DO_NOT_INCLUDE_TESTS)
+                .importPackages(
+                        "com.tinder.match.match",
+                        "com.tinder.match.conversation",
+                        "com.tinder.match.moderation");
         classes()
                 .should(adhereToPlantUmlDiagram(
                         diagram.toUri().toURL(),
@@ -35,6 +37,6 @@ class PlantUmlArchitectureTest {
                                 "com.tinder.match.conversation..",
                                 "com.tinder.match.moderation..")))
                 .because("docs/architecture/match-modules.puml: conversation → moderation; no match ↔ conversation")
-                .check(classes);
+                .check(imported);
     }
 }

@@ -18,15 +18,14 @@ class PlantUmlArchitectureTest {
 
     private static final Path REPOSITORY = Path.of("").toAbsolutePath().normalize().getParent().getParent();
 
-    private final JavaClasses classes = new ClassFileImporter()
-            .withImportOption(ImportOption.Predefined.DO_NOT_INCLUDE_TESTS)
-            .importPackages("com.tinder.deck");
-
     @Test
     @DisplayName("Given controller and service packages, when bytecode is imported, then HTTP calls the pipeline and not the reverse")
     void controllerMayCallService() throws Exception {
         Path diagram = REPOSITORY.resolve("docs/architecture/deck-http.puml");
         assertThat(diagram).exists();
+        JavaClasses imported = new ClassFileImporter()
+                .withImportOption(ImportOption.Predefined.DO_NOT_INCLUDE_TESTS)
+                .importPackages("com.tinder.deck.controller", "com.tinder.deck.service");
         classes()
                 .should(adhereToPlantUmlDiagram(
                         diagram.toUri().toURL(),
@@ -34,6 +33,6 @@ class PlantUmlArchitectureTest {
                                 "com.tinder.deck.controller..",
                                 "com.tinder.deck.service..")))
                 .because("docs/architecture/deck-http.puml")
-                .check(classes);
+                .check(imported);
     }
 }

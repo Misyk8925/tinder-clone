@@ -7,6 +7,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 import java.nio.file.Path;
+import java.util.Arrays;
 
 import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.classes;
 import static com.tngtech.archunit.library.plantuml.rules.PlantUmlArchCondition.Configuration.consideringOnlyDependenciesInAnyPackage;
@@ -14,26 +15,30 @@ import static com.tngtech.archunit.library.plantuml.rules.PlantUmlArchCondition.
 import static org.assertj.core.api.Assertions.assertThat;
 
 /**
- * UML is the law for package arrows. This test reads
- * {@code docs/architecture/profiles-layers.puml} and fails if bytecode
- * grows a dependency the diagram does not allow.
+ * UML is the law for package arrows. This test reads the committed {@code .puml}
+ * and fails if bytecode grows a dependency the diagram does not allow.
  *
- * <p>Matching-path.puml is not an input here (no shared classpath across services).
+ * <p>Only diagram packages are imported. ArchUnit still requires every imported
+ * class that touches those packages to sit on a component; kafka/security/moderation
+ * cycles stay out by not being imported.
+ *
+ * <p>{@code matching-path.puml} is not an input here (no shared classpath across services).
  */
-@DisplayName("Profiles layers PlantUML")
+@DisplayName("Profiles PlantUML")
 class PlantUmlArchitectureTest {
 
-    private static final Path SERVICE = Path.of("").toAbsolutePath().normalize();
-    private static final Path REPOSITORY = SERVICE.getParent().getParent();
-
-    private final JavaClasses classes = new ClassFileImporter()
-            .withImportOption(ImportOption.Predefined.DO_NOT_INCLUDE_TESTS)
-            .importPackages("com.tinder.profiles");
+    private static final Path REPOSITORY = Path.of("").toAbsolutePath().normalize().getParent().getParent();
 
     @Test
     @DisplayName("Given the committed layer diagram, when Profiles bytecode is imported, then dependencies follow the arrows")
     void bytecodeFollowsCommittedLayerDiagram() {
-        checkDiagram(REPOSITORY.resolve("docs/architecture/profiles-layers.puml"), "com.tinder.profiles..");
+        checkDiagram(
+                REPOSITORY.resolve("docs/architecture/profiles-layers.puml"),
+                "com.tinder.profiles.domain",
+                "com.tinder.profiles.application",
+                "com.tinder.profiles.api",
+                "com.tinder.profiles.infrastructure",
+                "com.tinder.profiles.config");
     }
 
     @Test
@@ -41,19 +46,25 @@ class PlantUmlArchitectureTest {
     void featureModulesFollowCommittedDiagram() {
         checkDiagram(
                 REPOSITORY.resolve("docs/architecture/profiles-features.puml"),
-                "com.tinder.profiles.application.profile..",
-                "com.tinder.profiles.application.photos..");
+                "com.tinder.profiles.application.profile",
+                "com.tinder.profiles.application.photos");
     }
 
     private void checkDiagram(Path diagram, String... packages) {
         assertThat(diagram).exists();
+        JavaClasses imported = new ClassFileImporter()
+                .withImportOption(ImportOption.Predefined.DO_NOT_INCLUDE_TESTS)
+                .importPackages(packages);
+        String[] identifiers = Arrays.stream(packages).map(pkg -> pkg + "..").toArray(String[]::new);
         try {
             classes()
                     .should(adhereToPlantUmlDiagram(
                             diagram.toUri().toURL(),
-                            consideringOnlyDependenciesInAnyPackage(packages)))
+                            consideringOnlyDependenciesInAnyPackage(
+                                    identifiers[0],
+                                    Arrays.copyOfRange(identifiers, 1, identifiers.length))))
                     .because(diagram.getFileName() + " is the allowed-arrow catalog")
-                    .check(classes);
+                    .check(imported);
         } catch (java.net.MalformedURLException e) {
             throw new IllegalStateException(diagram.toString(), e);
         }
