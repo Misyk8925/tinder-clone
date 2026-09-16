@@ -1,0 +1,38 @@
+# Local demo overlay used by scripts/demo-up.sh.
+# No real Stripe, S3, or CloudFront. Not for deployment.
+#
+#   docker compose --env-file .env.demo \
+#     -f docker-compose.yml -f docker-compose.local.yml -f docker-compose.demo.yml up -d --build
+services:
+  photos:
+    environment:
+      # Empty bucket selects in-process MemoryStorage (services/photos/app/main.py).
+      AWS_S3_BUCKET: ""
+      AWS_S3_ENDPOINT: ""
+      CDN_ENABLED: "false"
+      CLOUDFRONT_DOMAIN: "http://photos:8070"
+
+  profiles:
+    environment:
+      CDN_ENABLED: "false"
+      MODERATION_CLIENT_PASSWORD: demo-moderation-client
+
+  match:
+    environment:
+      CDN_ENABLED: "false"
+      MODERATION_CLIENT_PASSWORD: demo-moderation-client
+
+  subscriptions:
+    environment:
+      STRIPE_SECRET_KEY: placeholder
+      STRIPE_WEBHOOK_SECRET: placeholder
+      STRIPE_PRICE_ID: placeholder
+
+  moderation:
+    environment:
+      MODERATION_ADMIN_USERNAME: policy-admin
+      # plaintext: demo-moderation-admin  (BCrypt; $$ is Compose's escape for $)
+      MODERATION_ADMIN_PASSWORD_HASH: "$$2b$$10$$ofRsAcbIhPSxhH.EfxnHz.j2uqtreBOAQVtp.qQgf9946.9S21NXi"
+      MODERATION_CLIENT_USERNAME: moderation-client
+      # plaintext: demo-moderation-client
+      MODERATION_CLIENT_PASSWORD_HASH: "$$2b$$10$$j579Sa0RD77VnrLc3xJaXOiKJbnS079t0zQ3ciYYHI4RGF0/e70BK"
