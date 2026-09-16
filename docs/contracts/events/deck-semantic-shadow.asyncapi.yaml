@@ -1,0 +1,64 @@
+asyncapi: 2.6.0
+info:
+  title: Deck semantic shadow index refresh
+  version: 1.0.0-draft
+  description: Existing Profiles event payloads consumed only on the synthetic stand.
+defaultContentType: application/json
+servers:
+  kafka:
+    url: kafka:9092
+    protocol: kafka
+channels:
+  profile.updated:
+    description: Existing profile change signal; payload and producer are unchanged.
+    x-producer: Profiles
+    x-consumers: [Deck semantic shadow indexer]
+    subscribe:
+      message:
+        $ref: '#/components/messages/ProfileUpdated'
+    bindings:
+      kafka:
+        topic: profile.updated
+        bindingVersion: 0.4.0
+  profile.deleted:
+    description: Existing soft-deletion signal; payload and producer are unchanged.
+    x-producer: Profiles
+    x-consumers: [Deck semantic shadow indexer]
+    subscribe:
+      message:
+        $ref: '#/components/messages/ProfileDeleted'
+    bindings:
+      kafka:
+        topic: profile.deleted
+        bindingVersion: 0.4.0
+components:
+  messages:
+    ProfileUpdated:
+      name: ProfileUpdatedEvent
+      contentType: application/json
+      payload:
+        type: object
+        additionalProperties: true
+        required: [eventId, profileId, changeType, changedFields, timestamp]
+        properties:
+          eventId: {type: string, format: uuid}
+          profileId: {type: string, format: uuid}
+          changeType: {type: string}
+          changedFields: {type: array, uniqueItems: true, items: {type: string}}
+          timestamp: {type: string, format: date-time}
+          metadata: {type: [string, 'null']}
+      x-delivery: at-least-once
+      x-idempotency: Refetch the current synthetic source revision and upsert only if newer than indexed sourceRevision.
+    ProfileDeleted:
+      name: ProfileDeletedEvent
+      contentType: application/json
+      payload:
+        type: object
+        additionalProperties: true
+        required: [eventId, profileId, timestamp]
+        properties:
+          eventId: {type: string, format: uuid}
+          profileId: {type: string, format: uuid}
+          timestamp: {type: string, format: date-time}
+      x-delivery: at-least-once
+      x-idempotency: Tombstone the profile in the synthetic source before deleting the index document; duplicate deletes are no-ops.

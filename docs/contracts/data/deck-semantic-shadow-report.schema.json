@@ -1,0 +1,65 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://misyk.tech/schemas/deck-semantic-shadow-report-v1.json",
+  "title": "Synthetic semantic Deck shadow report",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["runId", "seed", "populationSize", "modelVersion", "textFormatVersion", "startedAt", "status", "summary", "viewers"],
+  "properties": {
+    "runId": {"type": "string", "format": "uuid"},
+    "seed": {"type": "integer"},
+    "populationSize": {"type": "integer", "const": 100000},
+    "modelVersion": {"type": "string", "minLength": 1},
+    "textFormatVersion": {"type": "string", "minLength": 1},
+    "startedAt": {"type": "string", "format": "date-time"},
+    "status": {"enum": ["completed", "stopped_budget", "stopped_duration", "failed"]},
+    "summary": {
+      "type": "object", "additionalProperties": false,
+      "required": ["viewersCompared", "fallbacks", "hardFilterViolations", "top20OverlapMean", "newEligibleCandidates", "warmRetrievalP50Ms", "warmRetrievalP95Ms", "coldStartMs", "topKRecall", "actualCostUsd"],
+      "properties": {
+        "viewersCompared": {"type": "integer", "minimum": 0},
+        "fallbacks": {"type": "integer", "minimum": 0},
+        "hardFilterViolations": {"type": "integer", "minimum": 0},
+        "top20OverlapMean": {"type": "number", "minimum": 0, "maximum": 1},
+        "newEligibleCandidates": {"type": "integer", "minimum": 0},
+        "warmRetrievalP50Ms": {"type": ["number", "null"], "minimum": 0},
+        "warmRetrievalP95Ms": {"type": ["number", "null"], "minimum": 0},
+        "coldStartMs": {"type": ["number", "null"], "minimum": 0},
+        "topKRecall": {"type": ["number", "null"], "minimum": 0, "maximum": 1},
+        "actualCostUsd": {"type": ["number", "null"], "minimum": 0}
+      }
+    },
+    "viewers": {"type": "array", "items": {"$ref": "#/$defs/viewer"}}
+  },
+  "$defs": {
+    "viewer": {
+      "type": "object", "additionalProperties": false,
+      "required": ["viewerId", "status", "candidates"],
+      "properties": {
+        "viewerId": {"type": "string", "format": "uuid"},
+        "status": {"enum": ["compared", "fallback_timeout", "fallback_provider", "fallback_missing_data", "fallback_budget"]},
+        "candidates": {"type": "array", "items": {"$ref": "#/$defs/candidate"}}
+      }
+    },
+    "candidate": {
+      "type": "object", "additionalProperties": false,
+      "required": ["profileId", "baselinePosition", "shadowPosition", "positionDelta", "baselineScore", "forwardSimilarity", "reverseSimilarity", "semanticScore", "finalScore", "matchedHobbies", "filterDecisions", "retrievalLatencyMs", "modelVersion", "textFormatVersion"],
+      "properties": {
+        "profileId": {"type": "string", "format": "uuid"},
+        "baselinePosition": {"type": ["integer", "null"], "minimum": 1},
+        "shadowPosition": {"type": "integer", "minimum": 1},
+        "positionDelta": {"type": ["integer", "null"]},
+        "baselineScore": {"type": ["number", "null"]},
+        "forwardSimilarity": {"type": "number"},
+        "reverseSimilarity": {"type": "number"},
+        "semanticScore": {"type": "number"},
+        "finalScore": {"type": "number"},
+        "matchedHobbies": {"type": "array", "items": {"type": "string"}},
+        "filterDecisions": {"type": "object", "additionalProperties": {"enum": ["pass", "reject", "unavailable"]}},
+        "retrievalLatencyMs": {"type": "number", "minimum": 0},
+        "modelVersion": {"type": "string"},
+        "textFormatVersion": {"type": "string"}
+      }
+    }
+  }
+}

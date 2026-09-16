@@ -1,0 +1,26 @@
+{
+  "settings": {"index.knn": true},
+  "mappings": {
+    "dynamic": "strict",
+    "properties": {
+      "profileId": {"type": "keyword"},
+      "sourceRevision": {"type": "long"},
+      "modelVersion": {"type": "keyword"},
+      "textFormatVersion": {"type": "keyword"},
+      "age": {"type": "integer"},
+      "gender": {"type": "keyword"},
+      "minAge": {"type": "integer"},
+      "maxAge": {"type": "integer"},
+      "preferredGender": {"type": "keyword"},
+      "maxRangeKm": {"type": "integer"},
+      "location": {"type": "geo_point"},
+      "active": {"type": "boolean"},
+      "deleted": {"type": "boolean"},
+      "visible": {"type": "boolean"},
+      "moderationAllowed": {"type": "boolean"},
+      "hobbies": {"type": "keyword"},
+      "identityVector": {"type": "knn_vector", "dimension": 512, "method": {"name": "hnsw", "engine": "faiss", "space_type": "cosinesimil", "parameters": {"ef_construction": 128, "m": 16}}},
+      "preferenceVector": {"type": "knn_vector", "dimension": 512, "method": {"name": "hnsw", "engine": "faiss", "space_type": "cosinesimil", "parameters": {"ef_construction": 128, "m": 16}}}
+    }
+  }
+}

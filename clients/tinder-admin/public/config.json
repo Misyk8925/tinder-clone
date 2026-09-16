@@ -1,0 +1,7 @@
+{
+  "keycloak": {
+    "url": "http://localhost:9080",
+    "realm": "spring",
+    "clientId": "tinder-admin"
+  }
+}
