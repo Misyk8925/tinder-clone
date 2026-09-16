@@ -26,8 +26,7 @@ class ModerationExecutionOutboxTest {
         val service = ModerationExecutionService(
             input = AllowingUseCase(),
             objectMapper = jacksonObjectMapper(),
-            store = InMemoryModerationDecisionStore(),
-            outbox = outbox
+            store = InMemoryModerationDecisionStore(outbox)
         )
 
         val request = ModerationRequestDto("bio-1", ContentType.PROFILE_DESCRIPTION, "hello")
@@ -36,6 +35,26 @@ class ModerationExecutionOutboxTest {
 
         assertTrue(first is ModerationExecutionOutcome.Evaluated)
         assertTrue(replay is ModerationExecutionOutcome.Evaluated)
+        assertEquals(1, outbox.calls)
+    }
+
+    @Test
+    fun `twenty concurrent duplicate executions enqueue one result event`() {
+        val outbox = RecordingOutbox()
+        val service = ModerationExecutionService(
+            input = AllowingUseCase(),
+            objectMapper = jacksonObjectMapper(),
+            store = InMemoryModerationDecisionStore(outbox)
+        )
+        val request = ModerationRequestDto("bio-dup", ContentType.PROFILE_DESCRIPTION, "hello")
+        val pool = java.util.concurrent.Executors.newFixedThreadPool(20)
+        try {
+            pool.invokeAll((1..20).map {
+                java.util.concurrent.Callable { service.execute("dup-key-20", request) }
+            })
+        } finally {
+            pool.shutdownNow()
+        }
         assertEquals(1, outbox.calls)
     }
 
@@ -58,5 +77,21 @@ class ModerationExecutionOutboxTest {
         ) {
             calls += 1
         }
+
+        override fun enqueueReviewChanged(
+            reviewTaskId: UUID,
+            decisionId: UUID,
+            status: String,
+            resolution: String?,
+            aggregateVersion: Long
+        ) = Unit
+
+        override fun enqueuePolicyChanged(
+            policyVersion: String,
+            changeType: String,
+            contentType: ContentType?,
+            locale: String?,
+            previousVersion: String?
+        ) = Unit
     }
 }

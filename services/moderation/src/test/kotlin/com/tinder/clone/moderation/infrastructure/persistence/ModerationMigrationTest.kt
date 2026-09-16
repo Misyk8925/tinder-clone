@@ -1,7 +1,9 @@
 package com.tinder.clone.moderation.infrastructure.persistence
 
 import org.flywaydb.core.Flyway
+import org.junit.jupiter.api.Assumptions.assumeTrue
 import org.junit.jupiter.api.Test
+import org.testcontainers.DockerClientFactory
 import org.testcontainers.postgresql.PostgreSQLContainer
 import java.sql.DriverManager
 import kotlin.test.assertEquals
@@ -9,6 +11,7 @@ import kotlin.test.assertEquals
 class ModerationMigrationTest {
     @Test
     fun `migrations create the complete moderation schema on PostgreSQL`() {
+        assumeTrue(dockerAvailable(), "Docker is required for PostgreSQL Testcontainers")
         PostgreSQLContainer("postgres:17-alpine").use { postgres ->
             postgres.start()
             val result = Flyway.configure()
@@ -28,5 +31,11 @@ class ModerationMigrationTest {
                 }
             }
         }
+    }
+
+    private fun dockerAvailable(): Boolean = try {
+        DockerClientFactory.instance().isDockerAvailable()
+    } catch (_: Throwable) {
+        false
     }
 }
