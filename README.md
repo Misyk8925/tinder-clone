@@ -73,6 +73,8 @@ CI watches security (CodeQL, Trivy, dependency-review) and policy/contracts (Red
 
 ## Architecture
 
+Interview map (one picture, one checked layer diagram, a row per module): [docs/architecture](docs/architecture/README.md).
+
 ![Architecture Diagram](docs/Screenshot%202026-03-09%20at%2021.17.26.png)
 
 The browser talks only to the gateway. Discover is a read-model problem (Deck Read), not a live join across Profiles and swipe history. Deck rebuilds and reverse-index invalidation stay on the write side so a cache miss can call `ensure` instead of becoming a correctness bug. Swipe persistence and match creation are paired with outbox rows so a Kafka blip does not drop a mutual like. Photos, location, and billing are separate because they fail and scale differently. User JWTs never replace mTLS on internal profile-id fanout.

@@ -1,0 +1,15 @@
+@startuml deck-read-modules
+' HTTP vs query. ArchUnit checks only these two packages.
+' messaging <-> service is a cycle (materializers call
+' DeckMaterializationService; ViewerMutationStore imports
+' messaging events) and stays off this diagram.
+
+title Deck Read HTTP vs query
+skinparam componentStyle rectangle
+
+[resource] <<com.tinder.deckread.resource..>>
+[service] <<com.tinder.deckread.service..>>
+
+resource --> service
+
+@enduml

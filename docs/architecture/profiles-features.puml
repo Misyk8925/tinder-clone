@@ -1,0 +1,21 @@
+@startuml profiles-features
+' Application feature modules inside Profiles.
+' ArchUnit: PlantUmlArchitectureTest.featureModulesFollowCommittedDiagram
+' Only photos → profile is a real DAG. profile ↔ moderation is a cycle
+' (usecases call ProfileContentModerator; moderator imports profile/photos
+' exceptions). That cycle stays off this diagram.
+
+title Profiles application features
+skinparam componentStyle rectangle
+
+[profile] <<com.tinder.profiles.application.profile..>>
+[photos] <<com.tinder.profiles.application.photos..>>
+
+photos --> profile
+
+note bottom
+  application.moderation sits beside profile.
+  Do not ArchUnit it with these two packages.
+end note
+
+@enduml

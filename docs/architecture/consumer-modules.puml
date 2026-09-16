@@ -1,0 +1,18 @@
+@startuml consumer-modules
+' Picture only. Root package mixes controller and config;
+' kafka and outbox both talk to service. Not an ArchUnit input.
+
+title Consumer packages (documentation)
+skinparam componentStyle rectangle
+
+[kafka] as kaf
+[service] as svc
+[outbox] as ob
+[repository] as repo
+
+kaf --> svc
+svc --> ob
+svc --> repo
+ob --> kaf
+
+@enduml
