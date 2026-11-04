@@ -66,7 +66,7 @@ class DeckReadCqrsBoundaryAcceptanceTest {
                 .contains("%prod.deck-read.auto-backfill-on-empty=${DECK_READ_AUTO_BACKFILL_ON_EMPTY:true}")
                 .contains("%test.deck-read.auto-backfill-on-empty=false")
                 .contains("quarkus.rest-client.profiles-backfill.url")
-                .contains("%prod.quarkus.tls.profiles-backfill.hostname-verification-algorithm=NONE");
+                .contains("%prod.quarkus.tls.profiles-backfill.hostname-verification-algorithm=HTTPS");
     }
 
     @Test

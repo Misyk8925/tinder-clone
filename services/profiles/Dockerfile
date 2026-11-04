@@ -20,6 +20,9 @@ RUN --mount=type=cache,id=m2-profiles,sharing=locked,target=/root/.m2 \
     mvn -B -e -ntp -Dmaven.repo.local=/root/.m2/repository -f profiles/pom.xml package -DskipTests -Dmaven.test.skip=true
 
 FROM eclipse-temurin:21-jre-alpine-3.24
+# CI passes a per-run value so the OS upgrade below is never served from the
+# layer cache; local builds keep the default and cache normally.
+ARG APK_REFRESH=local
 
 # Alpine publishes security patches to the repo before the base image is
 # rebuilt, so upgrade installed packages at build time.

@@ -29,10 +29,10 @@ public class RedisConfig {
         // Replace Hibernate persistent collections with plain ones on write; otherwise the
         // cached JSON embeds org.hibernate.collection types that cannot be deserialized
         // outside a Hibernate session.
-        com.fasterxml.jackson.datatype.hibernate6.Hibernate6Module hibernateModule =
-                new com.fasterxml.jackson.datatype.hibernate6.Hibernate6Module();
+        com.fasterxml.jackson.datatype.hibernate7.Hibernate7Module hibernateModule =
+                new com.fasterxml.jackson.datatype.hibernate7.Hibernate7Module();
         hibernateModule.configure(
-                com.fasterxml.jackson.datatype.hibernate6.Hibernate6Module.Feature.REPLACE_PERSISTENT_COLLECTIONS, true);
+                com.fasterxml.jackson.datatype.hibernate7.Hibernate7Module.Feature.REPLACE_PERSISTENT_COLLECTIONS, true);
         mapper.registerModule(hibernateModule);
 
         // Enable default typing for polymorphic serialization

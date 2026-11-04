@@ -304,6 +304,10 @@ jobs:
           # Trivy's --input mode expects a Docker image archive (manifest.json),
           # not an OCI layout archive (index.json).
           outputs: type=docker,dest=/tmp/${{ matrix.service }}.tar
+          # Invalidate the runtime `apk upgrade` layer every run; otherwise the GHA
+          # cache replays an old layer and the scan reports already-fixed OS CVEs.
+          build-args: |
+            APK_REFRESH=${{ github.run_id }}-${{ github.run_attempt }}
           cache-from: type=gha,scope=trivy-${{ matrix.service }}
           cache-to: type=gha,mode=max,scope=trivy-${{ matrix.service }}
       - name: Scan image
