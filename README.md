@@ -9,7 +9,7 @@ GitHub’s About box stays empty until the owner runs [`./scripts/set-github-abo
 [![Policy](https://github.com/Misyk8925/tinder-clone/actions/workflows/policy.yml/badge.svg)](https://github.com/Misyk8925/tinder-clone/actions/workflows/policy.yml)
 [![Security](https://github.com/Misyk8925/tinder-clone/actions/workflows/security.yml/badge.svg)](https://github.com/Misyk8925/tinder-clone/actions/workflows/security.yml)
 ![Java 21](https://img.shields.io/badge/Java-21-ED8B00?logo=openjdk&logoColor=white)
-![Spring Boot](https://img.shields.io/badge/Spring_Boot-6-6DB33F?logo=springboot&logoColor=white)
+![Spring Boot](https://img.shields.io/badge/Spring_Boot-4-6DB33F?logo=springboot&logoColor=white)
 ![Quarkus](https://img.shields.io/badge/Quarkus-Deck_Read-4695EB?logo=quarkus&logoColor=white)
 ![Apache Kafka](https://img.shields.io/badge/Kafka-outbox-231F20?logo=apachekafka&logoColor=white)
 
@@ -30,7 +30,7 @@ A dating matching product that keeps discovery fast and match events correct whe
 |---|---|
 | Live stand | https://lunari.misyk.tech — only after the [live-stand preflight](docs/demo/live-stand.md) is green that day |
 | Identity | https://auth.misyk.tech · realm `spring` |
-| Backup recording | Design-preview UI walkthrough is attached to the PR (Discover → Likes → Messages → Chat → Profile). Script: [docs/demo/script.md](docs/demo/script.md). Before sending the repo to recruiters, record the live origin and paste an unlisted YouTube/Loom URL here. |
+| Backup recording | [Phone-width UI walkthrough](docs/demo/preview-walkthrough.gif) (24 s GIF, design-preview fixtures: Discover → like → Likes → Messages → Chat → Profile). It shows the product surface, not Kafka or the outbox. For a live-stack recording, follow [docs/demo/script.md](docs/demo/script.md) and add the unlisted link here. |
 | Interview kit | [docs/demo](docs/demo/README.md) · learn path: [docs/demo/learn.md](docs/demo/learn.md) · decisions: [docs/demo/decisions.md](docs/demo/decisions.md) |
 | Stories | [GitHub issues labeled `story`](https://github.com/Misyk8925/tinder-clone/issues?q=is%3Aissue+label%3Astory) |
 | Local demo | `./scripts/demo-up.sh` — no Stripe, no S3, certs generated if missing |

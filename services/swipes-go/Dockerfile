@@ -1,4 +1,4 @@
-FROM golang:1.25.13-alpine AS build
+FROM golang:1.27.3-alpine AS build
 
 WORKDIR /src
 COPY go.mod go.sum* ./
@@ -7,7 +7,7 @@ RUN go mod download
 COPY . .
 RUN CGO_ENABLED=0 GOOS=linux go build -trimpath -ldflags="-s -w" -o /out/swipes-go ./cmd/swipes-go
 
-FROM alpine:3.23
+FROM alpine:3.24
 
 # Alpine publishes security patches to the repo before the base image is
 # rebuilt, so upgrade installed packages at build time.

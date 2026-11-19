@@ -2,7 +2,8 @@
 # frozen_string_literal: true
 
 # Trivy image scans fail on CRITICAL CVE-2026-75595 in netty-handler 4.1.136.Final.
-# Spring Boot services override that library via <netty.version>. Keep the pin at or
+# Spring Boot 4 services take Netty 4.2 from the Boot BOM and no longer pin it; any
+# service that still overrides <netty.version> (Deck Read on Quarkus) must stay at or
 # above the first fixed 4.1 release so the scan cannot regress to 4.1.136.
 
 require "pathname"

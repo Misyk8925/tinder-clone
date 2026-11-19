@@ -45,6 +45,13 @@ internal:
       trust-store-password: ${PROFILES_TRUSTSTORE_PASSWORD:changeit}
       trust-store-type: JKS
 spring:
+  # Boot 4 defaults HTTP JSON to Jackson 3. Keep the Boot 3 (Jackson 2) wire
+  # format so outbox payloads and API responses stay identical for consumers.
+  http:
+    converters:
+      preferred-json-mapper: jackson2
+    codecs:
+      preferred-json-mapper: jackson2
   grpc:
     server:
       port: 9010

@@ -2,13 +2,13 @@
 
 A six-minute **live-origin** recording is the recruiter backup once `https://lunari.misyk.tech` is up. Follow [script.md](script.md). Publish unlisted YouTube or Loom and paste the URL into the root README.
 
-Until then, this change includes a **design-preview** UI walkthrough captured 2026-09-14 against `npm run start:preview` on `http://127.0.0.1:4200/`. That client uses in-memory fixtures (`designPreviewInterceptor`). It proves the Discover / Likes / Messages / Chat / Profile surfaces, not Kafka, outbox, or mTLS.
+Until then, the repository includes a **design-preview** UI walkthrough captured 2026-11-04 against `npm run start:preview`. That client uses in-memory fixtures (`designPreviewInterceptor`). It proves the Discover / Likes / Messages / Chat / Profile surfaces, not Kafka, outbox, or mTLS.
 
 Phone-width stills (390px, bottom tabs): [screenshots/mobile/](screenshots/mobile/). Desktop stills stay in [screenshots/](screenshots/).
 
 | Item | Value |
 |---|---|
-| Preview walkthrough | Attached to the pull request as `lunari_preview_ui_walkthrough.mp4` (~1:40). Sequence: Discover (Mila) → Likes → Messages → chat with Mila → Profile (Michael, 27) → Discover. |
+| Preview walkthrough | [preview-walkthrough.gif](preview-walkthrough.gif) in this folder (24 s, 390px phone width, recorded with Playwright against `npm run start:preview`). Sequence: Discover (Mila) → Like → Likes → Messages → chat with Mila → Profile → Discover. A longer cut (~1:40) is attached to the original pull request as `lunari_preview_ui_walkthrough.mp4`. |
 | Stills | [screenshots/](screenshots/) |
 | Live origin at capture time | Cloudflare 522 on lunari and auth — see [live-stand.md](live-stand.md) |
 

@@ -26,7 +26,7 @@ public class TrustedHeaderStrippingFilter implements GlobalFilter, Ordered {
     @Override
     public Mono<Void> filter(ServerWebExchange exchange, GatewayFilterChain chain) {
         boolean hasSpoofedHeader = GATEWAY_OWNED_HEADERS.stream()
-                .anyMatch(header -> exchange.getRequest().getHeaders().containsKey(header));
+                .anyMatch(header -> exchange.getRequest().getHeaders().containsHeader(header));
 
         if (!hasSpoofedHeader) {
             return chain.filter(exchange);

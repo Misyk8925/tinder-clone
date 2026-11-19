@@ -6,7 +6,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.apache.catalina.connector.Connector;
 import org.apache.tomcat.util.net.SSLHostConfig;
 import org.apache.tomcat.util.net.SSLHostConfigCertificate;
-import org.springframework.boot.web.embedded.tomcat.TomcatServletWebServerFactory;
+import org.springframework.boot.tomcat.servlet.TomcatServletWebServerFactory;
 import org.springframework.boot.web.server.WebServerFactoryCustomizer;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -39,7 +39,7 @@ public class InternalMtlsServerConfig {
                 return;
             }
             try {
-                factory.addAdditionalTomcatConnectors(buildMtlsConnector());
+                factory.addAdditionalConnectors(buildMtlsConnector());
                 log.info("Internal mTLS connector started on port {}", properties.port());
             } catch (Exception e) {
                 throw new IllegalStateException("Failed to configure internal mTLS connector", e);

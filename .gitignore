@@ -39,3 +39,6 @@ __pycache__/
 .pytest_cache/
 .venv/
 services/photos/.venv/
+
+# IDE plugin state (Amplicode)
+/amplicode.xml
