@@ -1,0 +1,24 @@
+@startuml deck-modules
+' Technical packages inside Deck. kafka <-> service is a cycle, so this
+' file is a picture only — do not pass it to ArchUnit.
+
+title Deck packages (documentation)
+skinparam componentStyle rectangle
+
+[controller] as ctrl
+[service / pipeline] as svc
+[adapters] as ad
+[kafka] as kaf
+
+ctrl --> svc
+ctrl --> ad
+svc --> ad
+svc --> kaf
+kaf --> svc
+
+note bottom of kaf
+  Consumers call DeckService; DeckService publishes
+  deck.built. That cycle is real. Not an ArchUnit input.
+end note
+
+@enduml

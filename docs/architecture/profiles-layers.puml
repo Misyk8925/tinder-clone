@@ -1,0 +1,36 @@
+@startuml profiles-layers
+' Law for package arrows inside Profiles.
+' ArchUnit: PlantUmlArchitectureTest loads this file.
+' Stereotype = package identifier ArchUnit matches.
+
+title Profiles layers
+skinparam componentStyle rectangle
+
+[domain] <<com.tinder.profiles.domain..>>
+[application] <<com.tinder.profiles.application..>>
+[api] <<com.tinder.profiles.api..>>
+[infrastructure] <<com.tinder.profiles.infrastructure..>>
+[config] <<com.tinder.profiles.config..>>
+
+application --> domain
+api --> application
+infrastructure --> application
+infrastructure --> domain
+infrastructure --> config
+config --> api
+config --> application
+config --> infrastructure
+config --> domain
+
+note bottom of config
+  Wiring beans live here.
+  Adapters also inject config.props.
+  Domain and application must not.
+end note
+
+note top of domain
+  No Spring / Jakarta / Lombok on types.
+  That rule stays in CleanArchitectureTest.
+end note
+
+@enduml

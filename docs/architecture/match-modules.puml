@@ -1,0 +1,23 @@
+@startuml match-modules
+' Feature modules inside Match.
+' ArchUnit: PlantUmlArchitectureTest in services/match.
+' security <-> conversation is a cycle, so security is not on this diagram.
+
+title Match feature modules
+skinparam componentStyle rectangle
+
+[match] <<com.tinder.match.match..>>
+[conversation] <<com.tinder.match.conversation..>>
+[moderation] <<com.tinder.match.moderation..>>
+
+conversation --> moderation
+
+note bottom
+  No arrow match <-> conversation: a match record
+  must not import chat, and chat must not import
+  the match aggregate.
+  security talks both ways with conversation —
+  that stays out of this file.
+end note
+
+@enduml

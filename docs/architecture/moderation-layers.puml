@@ -1,0 +1,29 @@
+@startuml moderation-layers
+' Intended hexagonal packages inside Moderation (Kotlin).
+' Picture only. Bytecode currently has domain → application
+' (ModerationResult / ClassificationResult) and application →
+' infrastructure (HTTP DTOs, ProviderException). ArchUnit would fail.
+' Do not pass this file to adhereToPlantUmlDiagram.
+
+title Moderation layers (documentation)
+skinparam componentStyle rectangle
+
+[domain]
+[application]
+[infrastructure]
+[config]
+
+application --> domain
+infrastructure --> application
+infrastructure --> domain
+config --> application
+config --> domain
+config --> infrastructure
+
+note bottom
+  Intended arrows. Not an ArchUnit input until
+  domain stops importing application commands
+  and application stops importing infrastructure.
+end note
+
+@enduml

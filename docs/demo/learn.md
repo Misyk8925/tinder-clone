@@ -34,7 +34,9 @@ Spoken six minutes: [script.md](script.md). Why those three boundaries exist: [d
 | 1 | `clients/tinder-client/src/app/core/services/profile.service.ts` | Клиент зовёт `/api/v2/deck`. |
 | 2 | `services/gateway/src/main/resources/application.yml` | Маршруты на статическом `*_SERVICE_URL`, не через service discovery. |
 | 3 | `services/gateway/src/main/java/com/tinder/gateway/RoleBasedRateLimitFilter.java` | Лимит ключуется как `routeId + user + role`. Capacity `0` — это deny. |
-| 4 | `services/deck-read/src/test/java/com/tinder/deckread/architecture/DeckReadCqrsBoundaryAcceptanceTest.java` | Read-side не имеет права владеть алгоритмом Deck и его Redis-ключами. |
+| 4 | `docs/architecture/README.md` + `matching-path.puml` | Картинка matching-пути. ArchUnit её не гоняет (разные JAR). |
+| 4b | `docs/architecture/README.md` таблица **Inside a service** + `profiles-layers.puml` / `profiles-features.puml` / `match-modules.puml` / `deck-http.puml` | Модули *внутри* сервиса. ArchUnit только где пакеты — DAG; циклы названы и не проверяются. |
+| 4c | `services/deck-read/src/test/java/com/tinder/deckread/architecture/DeckReadCqrsBoundaryAcceptanceTest.java` | Read-side не имеет права владеть алгоритмом Deck и его Redis-ключами. |
 | 5 | `docs/features/deck-read-cqrs/README.md` | Граница write/read для Discover. |
 | 6 | `services/profiles/src/main/java/com/tinder/profiles/infrastructure/messaging/outbox/ProfileOutboxService.java` | Событие профиля пишется в той же транзакции, что и строка. |
 | 7 | `services/profiles/src/main/java/com/tinder/profiles/infrastructure/messaging/outbox/ProfileOutboxBatchProcessor.java` | Батч: claim → publish → retry → dead-letter, без тихого drop. |

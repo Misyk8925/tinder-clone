@@ -1,0 +1,13 @@
+@startuml deck-http
+' HTTP vs build pipeline. ArchUnit ignores kafka (cycle with service).
+' PlantUmlArchitectureTest in services/deck.
+
+title Deck HTTP vs pipeline
+skinparam componentStyle rectangle
+
+[controller] <<com.tinder.deck.controller..>>
+[service] <<com.tinder.deck.service..>>
+
+controller --> service
+
+@enduml
