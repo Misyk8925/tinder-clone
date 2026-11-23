@@ -2,8 +2,10 @@ package com.tinder.clone.moderation.config
 
 import com.tinder.clone.moderation.application.security.InMemoryLoginAttemptStore
 import com.tinder.clone.moderation.application.security.LoginAttemptService
+import com.tinder.clone.moderation.application.security.LoginAttemptStore
 import com.tinder.clone.moderation.application.ports.MutationAuditPort
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
 import org.springframework.http.MediaType
@@ -25,13 +27,16 @@ import java.util.LinkedHashMap
 
 @Configuration
 class SecurityConfiguration {
+    // In jdbc mode JdbcLoginAttemptStore is the only store. @ConditionalOnMissingBean
+    // keyed on the inferred InMemoryLoginAttemptStore return type, so both beans were
+    // registered and LoginAttemptService failed to start with two candidates.
     @Bean
-    @ConditionalOnMissingBean
-    fun loginAttemptStore() = InMemoryLoginAttemptStore()
+    @ConditionalOnProperty(prefix = "moderation.persistence", name = ["mode"], havingValue = "memory")
+    fun loginAttemptStore(): LoginAttemptStore = InMemoryLoginAttemptStore()
 
     @Bean
     fun loginAttemptService(
-        store: com.tinder.clone.moderation.application.security.LoginAttemptStore,
+        store: LoginAttemptStore,
         clock: Clock,
         properties: ModerationSecurityProperties
     ) = LoginAttemptService(store, clock, properties.lockoutThreshold, properties.lockoutDuration)
