@@ -202,8 +202,11 @@ services:
     entrypoint: ["/opt/keycloak/bin/configure-connect-realm.sh"]
     networks:
       - app
-    mem_limit: 128m
-    cpus: "0.20"
+    # Each kcadm call is a cold JVM start. At 0.20 CPU / 128m three calls took 264 s on prod
+    # (2026-11-24), longer than the master realm's 60 s admin token, so `kcadm update` got 401
+    # and the whole deploy stopped. It exits after a few seconds, so the larger cap costs nothing.
+    mem_limit: 384m
+    cpus: "1.00"
 
 
 
