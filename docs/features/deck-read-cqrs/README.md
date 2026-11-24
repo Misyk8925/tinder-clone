@@ -23,4 +23,4 @@ Linear is the workflow tracker and approval log. This directory contains the can
 
 ## Boundary that must not drift
 
-`services/deck` is not part of this feature. Its algorithm, synchronous Profiles/Swipes calls, Redis keys and internal ensure endpoint remain unchanged. Deck Read keeps the ensure client, reads only Deck ordering/timestamp from the existing Redis, and owns a separate Redis Cluster read model.
+`services/deck` is not part of this feature. Its algorithm, synchronous Profiles/Swipes calls, Redis keys and internal ensure endpoint remain unchanged. Deck Read keeps the ensure client, reads only Deck ordering/timestamp from the existing Redis, and owns the `dr:*` read model. Since 2026-11-24 that read model lives in logical database 1 of the shared Redis (Deck keeps db 0); the separate Redis Cluster and the dedicated `deck-read-redis` node were removed to cut the stack.

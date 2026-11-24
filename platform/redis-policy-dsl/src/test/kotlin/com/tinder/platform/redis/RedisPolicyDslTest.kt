@@ -3,6 +3,7 @@ package com.tinder.platform.redis
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertThrows
 import org.junit.jupiter.api.Assertions.assertTrue
+import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Test
 import java.nio.file.Files
 import java.nio.file.Path
@@ -69,7 +70,8 @@ class RedisPolicyDslTest {
                 "deck:profile:deleted",
                 "prefs:{minAge}:{maxAge}:{gender}"
             ),
-            TinderRedisPolicies.catalog.stores.single { it.name == "shared-redis" }.namespaces.map { it.pattern }.toSet()
+            TinderRedisPolicies.catalog.stores.single { it.name == "shared-redis" }.namespaces
+                .filter { it.owner == "deck" }.map { it.pattern }.toSet()
         )
     }
 
@@ -79,8 +81,8 @@ class RedisPolicyDslTest {
 
         assertTrue(json.contains("\"controlMode\" : \"DESIRED_STATE_READ_ONLY\""))
         assertTrue(json.contains("\"name\" : \"shared-redis\""))
-        assertTrue(json.contains("\"name\" : \"deck-read-redis\""))
-        assertTrue(json.contains("\"name\" : \"deck-read-cluster\""))
+        assertFalse(json.contains("\"name\" : \"deck-read-redis\""))
+        assertFalse(json.contains("\"name\" : \"deck-read-cluster\""))
         assertTrue(json.contains("\"operationalRisks\""))
         assertTrue(json.contains("\"runtimeSources\""))
     }
@@ -132,18 +134,18 @@ class RedisPolicyDslTest {
     }
 
     @Test
-    fun `project catalog represents the Deck-Read runtime store`() {
-        val store = TinderRedisPolicies.catalog.stores.single { it.name == "deck-read-redis" }
+    fun `project catalog keeps the Deck-Read projection in the shared Redis`() {
+        val store = TinderRedisPolicies.catalog.stores.single { it.name == "shared-redis" }
+        val patterns = store.namespaces.filter { it.owner == "deck-read" }.map { it.pattern }
 
+        assertEquals(1, TinderRedisPolicies.catalog.stores.size)
         assertEquals(RedisTopology.SINGLE_NODE, store.topology)
         assertEquals(EvictionPolicy.NO_EVICTION, store.memory.evictionPolicy)
-        assertEquals(536_870_912L, store.memory.maxMemoryBytes)
-        assertEquals("deck-read-redis-data:/data", store.persistence.dataVolume)
-        assertEquals("deck-read", store.clients.single().service)
-        assertTrue(store.namespaces.map { it.pattern }.contains("dr:viewer:{viewerProfileId}"))
-        assertTrue(store.namespaces.map { it.pattern }.contains("dr:read-model:auto-backfill-run"))
+        assertTrue(store.clients.any { it.service == "deck-read" })
+        assertTrue(patterns.contains("dr:viewer:{viewerProfileId}"))
+        assertTrue(patterns.contains("dr:read-model:auto-backfill-run"))
+        assertTrue(patterns.none { it.startsWith("deck:") })
         assertEquals("dr:reconciliation:lease", store.locks.single { it.name == "dr-reconciliation" }.pattern)
-        assertTrue(OperationalRisk.SINGLE_NODE_NO_FAILOVER in store.operationalRisks)
     }
 
     @Test
@@ -153,55 +155,14 @@ class RedisPolicyDslTest {
         val keys = Files.readString(
             repositoryRoot.resolve("services/deck-read/src/main/java/com/tinder/deckread/readmodel/ReadModelKeys.java")
         )
-        val store = TinderRedisPolicies.catalog.stores.single { it.name == "deck-read-redis" }
-        val node = composeService(compose, "deck-read-redis")
 
-        assertTrue(node.contains("--appendonly yes --appendfsync everysec"))
-        assertTrue(node.contains("--maxmemory 512mb --maxmemory-policy noeviction"))
-        assertTrue(node.contains("- ${store.persistence.dataVolume}"))
-        assertTrue(compose.contains("DECK_READ_REDIS_HOSTS: redis://deck-read-redis:6379"))
+        assertTrue(compose.contains("DECK_READ_REDIS_HOSTS: redis://redis:6379/1"))
         assertTrue(compose.contains("DECK_SOURCE_REDIS_HOST: redis"))
+        assertFalse(compose.contains("deck-read-redis"))
         assertTrue(keys.contains("\"dr:viewer:{\""))
         assertTrue(keys.contains("\"dr:profile:{\""))
         assertTrue(keys.contains("\"dr:read-model:ready\""))
         assertTrue(keys.contains("\"dr:read-model:auto-backfill-run\""))
-
-        store.runtimeSources.forEach { source ->
-            assertTrue(Files.exists(repositoryRoot.resolve(source)), "Missing runtime source: $source")
-        }
-    }
-
-    @Test
-    fun `project catalog represents the Deck-Read cluster store`() {
-        val store = TinderRedisPolicies.catalog.stores.single { it.name == "deck-read-cluster" }
-
-        assertEquals(RedisTopology.CLUSTER, store.topology)
-        assertEquals(EvictionPolicy.NO_EVICTION, store.memory.evictionPolicy)
-        assertEquals("deck-read", store.clients.single().service)
-        assertTrue(store.namespaces.map { it.pattern }.contains("dr:viewer:{viewerProfileId}"))
-        assertEquals("dr:reconciliation:lease", store.locks.single { it.name == "dr-reconciliation" }.pattern)
-    }
-
-    @Test
-    fun `IT Deck-Read cluster configuration matches the desired catalog`() {
-        val repositoryRoot = Path.of(System.getProperty("user.dir")).resolve("../..").normalize()
-        val compose = Files.readString(repositoryRoot.resolve("docker-compose.deck-read-cluster.yml"))
-        val keys = Files.readString(
-            repositoryRoot.resolve("services/deck-read/src/main/java/com/tinder/deckread/readmodel/ReadModelKeys.java")
-        )
-        val store = TinderRedisPolicies.catalog.stores.single { it.name == "deck-read-cluster" }
-        val node = composeService(compose, "deck-read-redis-1")
-
-        assertTrue(node.contains("--cluster-enabled yes"))
-        assertTrue(node.contains("--appendonly yes --appendfsync everysec"))
-        assertTrue(node.contains("--maxmemory-policy noeviction"))
-        assertTrue(keys.contains("\"dr:viewer:{\""))
-        assertTrue(keys.contains("\"dr:profile:{\""))
-        assertTrue(keys.contains("\"dr:read-model:ready\""))
-
-        store.runtimeSources.forEach { source ->
-            assertTrue(Files.exists(repositoryRoot.resolve(source)), "Missing runtime source: $source")
-        }
     }
 
     private fun composeService(compose: String, service: String): String {

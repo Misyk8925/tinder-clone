@@ -54,10 +54,6 @@ services:
       DECK_TRUSTSTORE_PASSWORD: changeit
 
   # Host inspect of Deck Read projections. Shared redis stays on 6379.
-  deck-read-redis:
-    ports:
-      - "127.0.0.1:6380:6379"
-
   deck-read-api:
     volumes:
       - ./docker/certs/deck-read-service.p12:/certs/deck-read-service.p12:ro

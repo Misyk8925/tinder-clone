@@ -156,7 +156,7 @@ docker compose -f docker-compose.yml -f docker-compose.local.yml up -d --build
 
 ### Running services individually (hybrid: infra in Docker, services on host)
 
-Prefer `./scripts/demo-up.sh` for a demo. Hybrid is for local debugging only. Production-shaped swipe write is **swipes-go**. `swipes-demo` is the Java rollback overlay (`docker-compose.swipes-java-rollback.yml`).
+Prefer `./scripts/demo-up.sh` for a demo. Hybrid is for local debugging only. Production-shaped swipe write is **swipes-go**. `services/swipes-demo` is the Java original, kept for reference; it is not wired into any Compose file.
 
 ```bash
 docker compose -f docker-compose.yml -f docker-compose.local.yml up -d postgres keycloak-postgres keycloak redis zookeeper kafka

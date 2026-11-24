@@ -1,6 +1,0 @@
-# Kept so existing scripts that pass -f docker-compose.swipes-go.yml still work.
-# Go swipes is now the default in docker-compose.yml.
-services:
-  swipes:
-    build:
-      context: ./services/swipes-go

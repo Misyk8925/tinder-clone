@@ -30,18 +30,7 @@ GOCACHE=/tmp/tinder-swipes-go-cache go test -run '^$' -bench . -benchmem ./inter
 
 Go swipes is the default in `docker-compose.yml`. Photos is the Python service at `services/photos`; location is `services/location-go`.
 
-The explicit Java rollback overlay is:
-
-```shell
-docker compose -f docker-compose.yml -f docker-compose.swipes-java-rollback.yml up -d swipes
-```
-
-Run the isolated internal-auth fast path only in the benchmark environment:
-
-```shell
-docker compose -f docker-compose.yml -f docker-compose.swipes-go.yml \
-  -f docker-compose.swipes-go-benchmark.yml up -d swipes
-```
-
-Keep `docker-compose.swipes-java-rollback.yml` for a Java rollback. Do not use
-the Go overlay except with the benchmark file for the isolated internal-auth path.
+A Java rollback means pointing the `swipes` build context in `docker-compose.yml` back at
+`./services/swipes-demo` (with `SPRING_PROFILES_ACTIVE: prod`). The isolated internal-auth fast path
+(`APP_ENV=benchmark`, `SWIPES_INTERNAL_BYPASS_PROFILE_CHECK=true`) is for benchmark environments only;
+set those variables there, never in the production stack.

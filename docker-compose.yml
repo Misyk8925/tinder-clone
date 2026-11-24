@@ -14,8 +14,9 @@ x-deck-read-environment: &deck-read-environment
   QUARKUS_OIDC_TOKEN_ISSUER: ${KEYCLOAK_TOKEN_ISSUER:-https://auth.misyk.tech/realms/spring}
   DECK_SOURCE_REDIS_HOST: redis
   DECK_SOURCE_REDIS_PORT: 6379
-  DECK_READ_REDIS_HOSTS: redis://deck-read-redis:6379
-  QUARKUS_REDIS_READ_MODEL_CLIENT_TYPE: standalone
+  # The dr:* read model lives in the shared Redis, in its own logical database (1), so it never
+  # mixes with Deck's keys in db 0. It is rebuildable: an empty db 1 is backfilled on start.
+  DECK_READ_REDIS_HOSTS: redis://redis:6379/1
   KAFKA_BOOTSTRAP_SERVERS: kafka:29092
   DECK_READ_PROFILE_GROUP_ID: ${DECK_READ_PROFILE_GROUP_ID:-deck-read-profile-projection-v1}
   DECK_READ_SWIPE_GROUP_ID: ${DECK_READ_SWIPE_GROUP_ID:-deck-read-swipe-projection-v1}
@@ -220,28 +221,6 @@ services:
       - app
     mem_limit: 4g
     cpus: "1.00"
-    healthcheck:
-      test: redis-cli ping
-      interval: 10s
-      timeout: 5s
-      start_period: 10s
-      retries: 5
-
-  # Deck Read owns this instance and only writes dr:* projection keys here.
-  # Shared redis remains the read-only Deck source (ordering / build timestamps).
-  deck-read-redis:
-    image: redis:8.2.1-alpine
-    <<: *prod-mid-defaults
-    ports: []
-    command: >-
-      redis-server --appendonly yes --appendfsync everysec
-      --maxmemory 512mb --maxmemory-policy noeviction
-    volumes:
-      - deck-read-redis-data:/data
-    networks:
-      - app
-    mem_limit: 768m
-    cpus: "0.50"
     healthcheck:
       test: redis-cli ping
       interval: 10s
@@ -468,8 +447,6 @@ services:
     depends_on:
       redis:
         condition: service_healthy
-      deck-read-redis:
-        condition: service_healthy
       deck:
         condition: service_started
       kafka:
@@ -515,8 +492,6 @@ services:
     ports: []
     depends_on:
       redis:
-        condition: service_healthy
-      deck-read-redis:
         condition: service_healthy
       deck:
         condition: service_started
@@ -936,6 +911,5 @@ networks:
 
 volumes:
   redis-data:
-  deck-read-redis-data:
   profiles-pgdata:
   kc-pgdata:

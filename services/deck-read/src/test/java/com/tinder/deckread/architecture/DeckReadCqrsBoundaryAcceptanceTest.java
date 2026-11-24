@@ -54,7 +54,7 @@ class DeckReadCqrsBoundaryAcceptanceTest {
 
     @Test
     @DisplayName("Scenario: Given two Redis responsibilities, when configuration is inspected, then source and read-model clients are distinct")
-    void sourceAndReadModelUseDistinctNamedRedisClientsAndReadModelIsClustered() throws IOException {
+    void sourceAndReadModelUseDistinctNamedRedisClients() throws IOException {
         // Given
         String config = Files.readString(SERVICE.resolve("src/main/resources/application.properties"));
 
@@ -62,7 +62,7 @@ class DeckReadCqrsBoundaryAcceptanceTest {
         assertThat(config)
                 .contains("quarkus.redis.deck-source.hosts")
                 .contains("quarkus.redis.read-model.hosts")
-                .contains("quarkus.redis.read-model.client-type=cluster")
+                .contains("quarkus.redis.read-model.client-type=standalone")
                 .contains("%prod.deck-read.auto-backfill-on-empty=${DECK_READ_AUTO_BACKFILL_ON_EMPTY:true}")
                 .contains("%test.deck-read.auto-backfill-on-empty=false")
                 .contains("quarkus.rest-client.profiles-backfill.url")
@@ -70,40 +70,22 @@ class DeckReadCqrsBoundaryAcceptanceTest {
     }
 
     @Test
-    @DisplayName("Scenario: Given the runtime Compose stack, when Deck Read Redis is configured, then the read model uses a dedicated standalone Redis")
-    void runtimeComposeUsesDedicatedStandaloneRedisForTheReadModel() throws IOException {
+    @DisplayName("Scenario: Given the runtime Compose stack, when Deck Read Redis is configured, then the read model uses its own database in the shared Redis")
+    void runtimeComposeKeepsTheReadModelInItsOwnDatabaseOfTheSharedRedis() throws IOException {
         // Given
         String compose = Files.readString(REPOSITORY.resolve("docker-compose.yml"));
         String local = Files.readString(REPOSITORY.resolve("docker-compose.local.yml"));
 
         // When / Then
         assertThat(compose)
-                .contains("deck-read-redis:")
-                .contains("DECK_READ_REDIS_HOSTS: redis://deck-read-redis:6379")
+                .contains("DECK_READ_REDIS_HOSTS: redis://redis:6379/1")
                 .contains("DECK_SOURCE_REDIS_HOST: redis")
-                .contains("QUARKUS_REDIS_READ_MODEL_CLIENT_TYPE: standalone")
                 .contains("DECK_READ_AUTO_BACKFILL_ON_EMPTY: \"true\"")
                 .contains("PROFILES_INTERNAL_URL: https://profiles:8011")
-                .doesNotContain("DECK_READ_REDIS_HOSTS: redis://redis:6379")
-                .doesNotContain("deck-read-redis-1")
+                .doesNotContain("deck-read-redis")
+                .doesNotContain("DECK_READ_REDIS_HOSTS: redis://redis:6379\n")
                 .doesNotContain("DECK_READ_REDIS_HOSTS: >-");
-        assertThat(local).contains("127.0.0.1:6380:6379");
-    }
-
-    @Test
-    @DisplayName("Scenario: Given Docker IP churn in the isolated cluster fixture, when nodes are configured, then they advertise stable hostnames and data ports")
-    void readModelClusterAdvertisesStableHostnamesAndDataPort() throws IOException {
-        // Given
-        String clusterCompose = Files.readString(REPOSITORY.resolve("docker-compose.deck-read-cluster.yml"));
-
-        // When / Then
-        assertThat(clusterCompose)
-                .contains("cluster-preferred-endpoint-type hostname")
-                .contains("cluster-announce-port 6379")
-                .contains("cluster-announce-bus-port 16379")
-                .contains("cluster-announce-hostname deck-read-redis-1")
-                .contains("cluster-announce-hostname deck-read-redis-2")
-                .contains("cluster-announce-hostname deck-read-redis-3");
+        assertThat(local).doesNotContain("deck-read-redis");
     }
 
     @Test
@@ -178,19 +160,6 @@ class DeckReadCqrsBoundaryAcceptanceTest {
         assertThat(sql)
                 .contains("DELETE FROM profile_cache AS stale")
                 .contains("CREATE UNIQUE INDEX IF NOT EXISTS profile_cache_user_id_unique");
-    }
-
-    @Test
-    @DisplayName("Scenario: Given a persisted cluster whose replicas advertise :0/noaddr, when init runs, then it refuses to treat cluster_state:ok as healthy")
-    void clusterInitRejectsDisconnectedPortZeroReplicas() throws IOException {
-        // Given
-        String init = Files.readString(REPOSITORY.resolve("docker/redis-cluster/init-cluster.sh"));
-
-        // When / Then
-        assertThat(init)
-                .contains("noaddr")
-                .contains(":0@0")
-                .doesNotContain("cluster_state:ok; then\n  exit 0");
     }
 
     @Test

@@ -17,9 +17,10 @@ For the staged rollout, start/scale the workers first. Keep the compatibility re
 then restart only the API role with `DECK_READ_MATERIALIZED_REQUIRED=true`. In required mode an unknown
 viewer receives `202` and an atomically coalesced background request; no synchronous build is performed.
 
-For a local all-in-one process after starting the focused development dependencies:
+For a local all-in-one process, start the shared Redis (the read model uses its database 1,
+`redis://localhost:6379/1`) and run:
 
 ```bash
-docker compose -f docker-compose.deck-read-dev.yml up -d
+docker compose -f docker-compose.yml -f docker-compose.local.yml up -d redis
 QUARKUS_PROFILE=all mvn -f services/deck-read/pom.xml quarkus:dev
 ```

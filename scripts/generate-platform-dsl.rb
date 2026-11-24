@@ -27,7 +27,6 @@ end
 def discovered_redis_stores(compose)
   services = compose.fetch("services")
   stores = {}
-  cluster_nodes = []
 
   services.each do |name, spec|
     image = spec["image"].to_s
@@ -35,21 +34,9 @@ def discovered_redis_stores(compose)
     next unless image.include?("redis")
     next unless command.include?("redis-server")
 
-    if name.start_with?("deck-read-redis-")
-      cluster_nodes << name
-      next
-    end
-
     stores[COMPOSE_REDIS_TO_CATALOG.fetch(name, name)] = {
       "composeServices" => [name],
       "topology" => command.include?("cluster-enabled") ? "CLUSTER" : "SINGLE_NODE"
-    }
-  end
-
-  unless cluster_nodes.empty?
-    stores["deck-read-cluster"] = {
-      "composeServices" => cluster_nodes.sort,
-      "topology" => "CLUSTER"
     }
   end
 
