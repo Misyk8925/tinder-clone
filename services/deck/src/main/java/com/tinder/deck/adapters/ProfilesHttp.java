@@ -24,26 +24,38 @@ public class ProfilesHttp {
     private final DeckResilience resilience;
 
     public Flux<SharedProfileDto> searchProfiles(UUID viewerId, SharedPreferencesDto preferences, int limit) {
+        return searchProfiles(viewerId, preferences, limit, true);
+    }
+
+    public Flux<SharedProfileDto> searchProfiles(
+            UUID viewerId,
+            SharedPreferencesDto preferences,
+            int limit,
+            boolean excludeViewer
+    ) {
         // Use default preferences if null
         if (preferences == null) {
             log.warn("Preferences is null for viewer {}, using defaults", viewerId);
             preferences = new SharedPreferencesDto(18, 50, "ANY", 100);
         }
 
-        log.debug("Calling profiles service /search with viewerId={}, gender={}, minAge={}, maxAge={}, maxRange={}, limit={}",
-                viewerId, preferences.gender(), preferences.minAge(), preferences.maxAge(), preferences.maxRange(), limit);
+        log.debug("Calling profiles service /search with viewerId={}, gender={}, minAge={}, maxAge={}, maxRange={}, limit={}, excludeViewer={}",
+                viewerId, preferences.gender(), preferences.minAge(), preferences.maxAge(), preferences.maxRange(), limit, excludeViewer);
 
         final SharedPreferencesDto finalPrefs = preferences;
         Flux<SharedProfileDto> call = profilesWebClient.get()
                 .uri(uri -> {
-                    java.net.URI built = uri.path("/search")
+                    var builder = uri.path("/search")
                             .queryParam("viewerId", viewerId)
                             .queryParam("gender", finalPrefs.gender())
                             .queryParam("minAge", finalPrefs.minAge())
                             .queryParam("maxAge", finalPrefs.maxAge())
                             .queryParam("maxRange", finalPrefs.maxRange())
-                            .queryParam("limit", limit)
-                            .build();
+                            .queryParam("limit", limit);
+                    if (!excludeViewer) {
+                        builder.queryParam("excludeViewer", false);
+                    }
+                    java.net.URI built = builder.build();
                     log.debug("Built URI: {}", built);
                     return built;
                 })

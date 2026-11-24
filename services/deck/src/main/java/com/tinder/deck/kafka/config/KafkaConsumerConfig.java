@@ -1,5 +1,6 @@
 package com.tinder.deck.kafka.config;
 
+import com.tinder.contracts.event.v1.ProfileCreatedEvent;
 import com.tinder.contracts.event.v1.ProfileDeletedEvent;
 import com.tinder.contracts.event.v1.ProfileUpdatedEvent;
 import com.tinder.deck.kafka.dto.SwipeSavedEvent;
@@ -62,6 +63,9 @@ public class KafkaConsumerConfig {
     @Value("${kafka.topics.profile-events}")
     private String profileUpdatedTopic;
 
+    @Value("${kafka.topics.create-events:profile.created}")
+    private String profileCreatedTopic = "profile.created";
+
     @Value("${kafka.topics.swipe-events}")
     private String swipeSavedTopic;
 
@@ -71,6 +75,11 @@ public class KafkaConsumerConfig {
     @Bean
     public NewTopic profileUpdatedDeadLetterTopic() {
         return deadLetterTopic(profileUpdatedTopic + ".dlt");
+    }
+
+    @Bean
+    public NewTopic profileCreatedDeadLetterTopic() {
+        return deadLetterTopic(profileCreatedTopic + ".dlt");
     }
 
     @Bean
@@ -178,6 +187,30 @@ public class KafkaConsumerConfig {
     }
 
     /**
+     * Consumer factory for ProfileCreatedEvent deserialization
+     */
+    @Bean
+    public ConsumerFactory<String, ProfileCreatedEvent> profileCreateEventConsumerFactory() {
+        Map<String, Object> props = new HashMap<>();
+        props.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers);
+        props.put(ConsumerConfig.GROUP_ID_CONFIG, groupId + "-create");
+        props.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class);
+        props.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, JsonDeserializer.class);
+        props.put(ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG, false);
+        props.put(ConsumerConfig.ISOLATION_LEVEL_CONFIG, "read_committed");
+        props.put(JsonDeserializer.TRUSTED_PACKAGES, "com.tinder.contracts.event.v1,com.tinder.deck.kafka.dto");
+        props.put(JsonDeserializer.VALUE_DEFAULT_TYPE, ProfileCreatedEvent.class.getName());
+        props.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest");
+
+        // Performance tuning
+        props.put(ConsumerConfig.MAX_POLL_RECORDS_CONFIG, 100);
+        props.put(ConsumerConfig.SESSION_TIMEOUT_MS_CONFIG, 30000);
+        props.put(ConsumerConfig.HEARTBEAT_INTERVAL_MS_CONFIG, 10000);
+
+        return new DefaultKafkaConsumerFactory<>(props);
+    }
+
+    /**
      * Listener container factory with manual acknowledgment
      */
     @Bean
@@ -186,6 +219,23 @@ public class KafkaConsumerConfig {
         ConcurrentKafkaListenerContainerFactory<String, ProfileUpdatedEvent> factory =
                 new ConcurrentKafkaListenerContainerFactory<>();
         factory.setConsumerFactory(profileEventConsumerFactory());
+        factory.setConcurrency(concurrency);
+        factory.getContainerProperties().setAckMode(ContainerProperties.AckMode.RECORD);
+
+        factory.setCommonErrorHandler(kafkaErrorHandler);
+
+        return factory;
+    }
+
+    /**
+     * Listener container factory for ProfileCreatedEvent with record acknowledgment
+     */
+    @Bean
+    public ConcurrentKafkaListenerContainerFactory<String, ProfileCreatedEvent> createKafkaListenerContainerFactory(
+            DefaultErrorHandler kafkaErrorHandler) {
+        ConcurrentKafkaListenerContainerFactory<String, ProfileCreatedEvent> factory =
+                new ConcurrentKafkaListenerContainerFactory<>();
+        factory.setConsumerFactory(profileCreateEventConsumerFactory());
         factory.setConcurrency(concurrency);
         factory.getContainerProperties().setAckMode(ContainerProperties.AckMode.RECORD);
 

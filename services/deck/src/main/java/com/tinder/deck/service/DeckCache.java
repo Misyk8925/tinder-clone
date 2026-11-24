@@ -445,6 +445,19 @@ public class DeckCache {
      * @return Mono<Long> number of decks actually affected
      */
     public Mono<Long> removeFromAllDecks(UUID profileId) {
+        return removeFromAllDecks(profileId, false);
+    }
+
+    /**
+     * Remove a profile from all cached decks that contain it, optionally clearing each
+     * affected viewer's build timestamp so the next ensure rebuilds their deck with
+     * updated/re-scored candidates instead of serving a purged snapshot.
+     *
+     * @param profileId                 The profile to purge from all decks
+     * @param invalidateBuildTimestamps When true, delete {@code deck:build:ts:{viewerId}} for affected viewers
+     * @return Mono<Long> number of decks actually affected
+     */
+    public Mono<Long> removeFromAllDecks(UUID profileId, boolean invalidateBuildTimestamps) {
         String containsKey = DeckRedisKeys.contains(profileId);
         return redis.opsForSet().members(containsKey)
                 .flatMap(viewerIdStr -> {
@@ -456,14 +469,21 @@ public class DeckCache {
                         return Mono.just(0L);
                     }
                     String dKey = DeckRedisKeys.deck(viewerId);
-                    return findMemberByProfileId(dKey, profileId)
+                    Mono<Long> purge = findMemberByProfileId(dKey, profileId)
                             .flatMap(member -> redis.opsForZSet().remove(dKey, member))
                             .defaultIfEmpty(0L)
                             .map(removed -> removed > 0 ? 1L : 0L);
+                    if (!invalidateBuildTimestamps) {
+                        return purge;
+                    }
+                    return purge.flatMap(affected -> affected > 0
+                            ? redis.delete(DeckRedisKeys.buildTimestamp(viewerId)).thenReturn(affected)
+                            : Mono.just(0L));
                 })
                 .reduce(0L, Long::sum)
                 .flatMap(count -> redis.delete(containsKey).thenReturn(count))
-                .doOnNext(count -> log.info("Removed profile {} from {} decks (via reverse index)", profileId, count));
+                .doOnNext(count -> log.info("Removed profile {} from {} decks (via reverse index, invalidateBuildTimestamps={})",
+                        profileId, count, invalidateBuildTimestamps));
     }
 
     /**
@@ -587,6 +607,29 @@ public class DeckCache {
                         log.debug("Preferences cache invalidated: {}", key);
                     } else {
                         log.debug("Preferences cache not found (already expired?): {}", key);
+                    }
+                });
+    }
+
+    /**
+     * Invalidate all cached preference buckets ({@code prefs:*}) via incremental SCAN.
+     * Called when a profile is created, deleted, or changes critical matching attributes
+     * (age/gender) so shared preference caches never serve stale candidate sets.
+     *
+     * @return Mono<Long> number of preferences cache keys deleted
+     */
+    public Mono<Long> invalidateAllPreferencesCaches() {
+        return redis.scan(ScanOptions.scanOptions().match("prefs:*").count(100).build())
+                .buffer(100)
+                .flatMap(keys -> keys.isEmpty()
+                        ? Mono.just(0L)
+                        : redis.delete(keys.toArray(String[]::new)))
+                .reduce(0L, Long::sum)
+                .doOnNext(count -> {
+                    if (count > 0) {
+                        log.info("Invalidated {} preferences cache entries", count);
+                    } else {
+                        log.debug("No preferences cache entries found to invalidate");
                     }
                 });
     }

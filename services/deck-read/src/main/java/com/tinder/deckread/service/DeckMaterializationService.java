@@ -113,7 +113,11 @@ public class DeckMaterializationService {
 
     private Uni<Void> build(DeckMaterializationRequest request, String lockToken) {
         UUID viewer = request.viewerProfileId();
-        return deckEnsure.ensure(viewer)
+        boolean forceRebuild = shouldForceRebuild(request.reason());
+        Uni<Boolean> ensured = forceRebuild
+                ? deckEnsure.ensure(viewer, true)
+                : deckEnsure.ensure(viewer);
+        return ensured
                 .call(() -> locks.renewBuildLock(viewer, lockToken))
                 .flatMap(ignored -> source.readStable(viewer, MaterializedDeckStore.TOTAL_WINDOW))
                 .call(() -> locks.renewBuildLock(viewer, lockToken))
@@ -180,5 +184,10 @@ public class DeckMaterializationService {
                     }
                 })
                 .replaceWithVoid();
+    }
+
+    private static boolean shouldForceRebuild(com.tinder.deckread.messaging.MaterializationReason reason) {
+        return reason == com.tinder.deckread.messaging.MaterializationReason.API_STALE
+                || reason == com.tinder.deckread.messaging.MaterializationReason.PROFILE_CHANGED;
     }
 }

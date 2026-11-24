@@ -203,4 +203,26 @@ class InternalProfileControllerTest extends AbstractPostgresIntegrationTest {
                         .contentType(MediaType.APPLICATION_JSON))
                 .andExpect(status().isBadRequest());
     }
+
+    @Test
+    @DisplayName("Should include viewer when excludeViewer=false and match uppercase ANY/ALL gender filters")
+    void testSearchSupportsExcludeViewerFalseAndUppercaseGenderWildcards() throws Exception {
+        UUID viewerId = testProfileIds.get(0);
+
+        MvcResult result = mockMvc.perform(get("/api/v1/profiles/internal/search")
+                        .with(org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user("deck-service").roles("INTERNAL_CLIENT"))
+                        .param("viewerId", viewerId.toString())
+                        .param("gender", "ANY")
+                        .param("minAge", "18")
+                        .param("maxAge", "50")
+                        .param("limit", "100")
+                        .param("excludeViewer", "false")
+                        .contentType(MediaType.APPLICATION_JSON))
+                .andExpect(status().isOk())
+                .andReturn();
+
+        String responseBody = result.getResponse().getContentAsString();
+        assertThat(responseBody).contains("TestUser0");
+        assertThat(responseBody).contains("TestUser1");
+    }
 }

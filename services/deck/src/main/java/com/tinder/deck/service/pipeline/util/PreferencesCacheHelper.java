@@ -24,6 +24,8 @@ public class PreferencesCacheHelper {
     private final DeckCache deckCache;
     private final ProfilesHttp profilesHttp;
 
+    private static final int BY_IDS_BATCH_SIZE = 100;
+
     /**
      * Fetch full profiles by cached IDs
      *
@@ -42,7 +44,11 @@ public class PreferencesCacheHelper {
 
         log.debug("Fetching {} profiles from cache IDs", cachedIds.size());
 
-        return profilesHttp.getProfilesByIds(cachedIds)
+        return Flux.fromIterable(cachedIds)
+                .buffer(BY_IDS_BATCH_SIZE)
+                .concatMap(profilesHttp::getProfilesByIds)
+                .collectList()
+                .flatMapMany(Flux::fromIterable)
                 .onErrorResume(e -> {
                     log.warn("Failed to fetch profiles by IDs, falling back to DB: {}", e.toString());
                     return fallbackCallback;

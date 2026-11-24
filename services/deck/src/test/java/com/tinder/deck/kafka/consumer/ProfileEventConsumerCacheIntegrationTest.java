@@ -1,6 +1,7 @@
 package com.tinder.deck.kafka.consumer;
 
 import com.tinder.contracts.event.v1.ChangeType;
+import com.tinder.contracts.event.v1.ProfileCreatedEvent;
 import com.tinder.contracts.event.v1.ProfileUpdatedEvent;
 import com.tinder.deck.service.DeckCache;
 import org.junit.jupiter.api.BeforeEach;
@@ -145,7 +146,7 @@ class ProfileEventConsumerCacheIntegrationTest {
 
         // Then: Preferences cache should be invalidated
         StepVerifier.create(deckCache.hasPreferencesCache(minAge, maxAge, gender))
-                .expectNext(true) // Only invalidate personal deck cache
+                .expectNext(false)
                 .verifyComplete();
     }
 
@@ -199,33 +200,24 @@ class ProfileEventConsumerCacheIntegrationTest {
     }
 
     @Test
-    @DisplayName("Should NOT invalidate preferences cache on CRITICAL_FIELDS change (TTL handles it)")
-    void shouldNotInvalidatePreferencesCacheOnCriticalFieldsChange() throws InterruptedException {
+    @DisplayName("Should invalidate preferences cache on profile creation")
+    void shouldInvalidatePreferencesCacheOnProfileCreation() {
         // Given: Preferences cache exists with candidates
         int minAge = 18;
         int maxAge = 25;
         String gender = "FEMALE";
-        UUID candidateId = UUID.randomUUID();
-        List<UUID> candidateIds = List.of(candidateId, UUID.randomUUID());
+        List<UUID> candidateIds = List.of(UUID.randomUUID(), UUID.randomUUID());
 
         deckCache.cachePreferencesResult(minAge, maxAge, gender, candidateIds).block();
 
-        // When: Candidate changes their age (CRITICAL_FIELDS change)
-        ProfileUpdatedEvent event = new ProfileUpdatedEvent(
-                UUID.randomUUID(), candidateId, ChangeType.CRITICAL_FIELDS,
-                Set.of("age"), Instant.now(), "minAge:18,maxAge:25,gender:FEMALE");
+        // When: A new profile is created
+        ProfileCreatedEvent event = new ProfileCreatedEvent(
+                UUID.randomUUID(), UUID.randomUUID(), "new-user-id", Instant.now());
 
-        consumer.consumeProfileUpdate(event, 0, 1L);
+        consumer.consumeProfileCreation(event, 0, 1L);
 
-        // Then: Preferences cache should STILL EXIST (not invalidated)
-        // Reason: We don't know which caches this candidate is in (could be in many!)
-        // TTL will handle expiration naturally (5 minutes)
+        // Then: Preferences cache should be invalidated so the new profile is discovered
         StepVerifier.create(deckCache.hasPreferencesCache(minAge, maxAge, gender))
-                .expectNext(true) // Still there!
-                .verifyComplete();
-
-        // Personal deck should be invalidated
-        StepVerifier.create(deckCache.exists(candidateId))
                 .expectNext(false)
                 .verifyComplete();
     }

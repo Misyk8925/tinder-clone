@@ -58,21 +58,29 @@ public class DeckSnapshotBuilder {
 
     /** Fire-and-observe: the Redis token lock deduplicates work across replicas. */
     public void requestBuild(UUID viewerProfileId) {
-        build(viewerProfileId).subscribe().with(
+        requestBuild(viewerProfileId, false);
+    }
+
+    public void requestBuild(UUID viewerProfileId, boolean force) {
+        build(viewerProfileId, force).subscribe().with(
                 ignored -> { },
                 failure -> LOG.warnf(failure, "Deck snapshot build failed for viewer %s", viewerProfileId));
     }
 
     Uni<Void> build(UUID viewerProfileId) {
+        return build(viewerProfileId, false);
+    }
+
+    Uni<Void> build(UUID viewerProfileId, boolean force) {
         String token = UUID.randomUUID().toString();
         return snapshots.acquireBuildLock(viewerProfileId, token)
                 .flatMap(acquired -> acquired
-                        ? buildWithLock(viewerProfileId, token)
+                        ? buildWithLock(viewerProfileId, token, force)
                                 .eventually(() -> snapshots.releaseBuildLock(viewerProfileId, token))
                         : Uni.createFrom().voidItem());
     }
 
-    private Uni<Void> buildWithLock(UUID viewerProfileId, String token) {
+    private Uni<Void> buildWithLock(UUID viewerProfileId, String token, boolean force) {
         Instant now = Instant.now();
         return snapshots.load(viewerProfileId)
                 .flatMap(existing -> {
@@ -81,7 +89,7 @@ public class DeckSnapshotBuilder {
                                     viewerProfileId, token, previousGeneration, now)
                             .flatMap(refreshMeta -> refreshMeta.isEmpty()
                                     ? Uni.createFrom().voidItem()
-                                    : deckEnsure.ensure(viewerProfileId)
+                                    : (force ? deckEnsure.ensure(viewerProfileId, true) : deckEnsure.ensure(viewerProfileId))
                                     .flatMap(ensured -> Boolean.TRUE.equals(ensured)
                                             ? sourceRedis.readStable(viewerProfileId, MAX_FRESH)
                                                     .flatMap(source -> installFresh(

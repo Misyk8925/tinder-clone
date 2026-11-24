@@ -66,7 +66,17 @@ public class DeckService {
     }
 
     public Mono<Boolean> ensureDeck(UUID viewerId) {
+        return ensureDeck(viewerId, false);
+    }
+
+    public Mono<Boolean> ensureDeck(UUID viewerId, boolean force) {
         Duration ttl = Duration.ofMinutes(ttlMinutes);
+
+        if (force) {
+            return deckCache.touchRecentViewer(viewerId)
+                    .then(deckCache.withLock(viewerId, Mono.defer(() -> ensureDeckUnderLock(viewerId, ttl, true))))
+                    .defaultIfEmpty(false);
+        }
 
         return deckCache.touchRecentViewer(viewerId)
                 .then(hasFreshDeck(viewerId, ttl))
@@ -75,24 +85,32 @@ public class DeckService {
                         return Mono.just(true);
                     }
 
-                    return deckCache.withLock(viewerId, ensureDeckUnderLock(viewerId, ttl))
+                    return deckCache.withLock(viewerId, Mono.defer(() -> ensureDeckUnderLock(viewerId, ttl, false)))
                             .defaultIfEmpty(false);
                 });
     }
 
-    private Mono<Boolean> ensureDeckUnderLock(UUID viewerId, Duration ttl) {
+    private Mono<Boolean> ensureDeckUnderLock(UUID viewerId, Duration ttl, boolean force) {
+        if (force) {
+            return rebuildAndConfirm(viewerId);
+        }
+
         return hasFreshDeck(viewerId, ttl)
                 .flatMap(isFresh -> {
                     if (isFresh) {
                         return Mono.just(true);
                     }
 
-                    return profilesHttp.getProfile(viewerId)
-                            .flatMap(viewer -> rebuildOneDeck(viewer)
-                                    .then(deckCache.getBuildInstant(viewerId))
-                                    .map(Optional::isPresent))
-                            .defaultIfEmpty(false);
+                    return rebuildAndConfirm(viewerId);
                 });
+    }
+
+    private Mono<Boolean> rebuildAndConfirm(UUID viewerId) {
+        return profilesHttp.getProfile(viewerId)
+                .flatMap(viewer -> rebuildOneDeck(viewer)
+                        .then(deckCache.getBuildInstant(viewerId))
+                        .map(Optional::isPresent))
+                .defaultIfEmpty(false);
     }
 
     private Mono<Boolean> hasFreshDeck(UUID viewerId, Duration ttl) {

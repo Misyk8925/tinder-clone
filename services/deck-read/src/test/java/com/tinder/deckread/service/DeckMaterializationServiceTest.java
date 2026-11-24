@@ -125,6 +125,101 @@ class DeckMaterializationServiceTest {
                 eq(DeckState.READY), eq("100"), any(Instant.class));
     }
 
+    @Test
+    @DisplayName("Scenario: Given an API_STALE refresh request, when the worker materializes, then it forces a deck rebuild")
+    void apiStaleMaterializationForcesDeckRebuild() {
+        UUID viewer = UUID.randomUUID();
+        UUID candidateId = UUID.randomUUID();
+        DeckCardDto candidate = card(candidateId);
+        DeckMaterializationRequestStore requests = mock(DeckMaterializationRequestStore.class);
+        DeckSnapshotStore locks = mock(DeckSnapshotStore.class);
+        MaterializedDeckStore materialized = mock(MaterializedDeckStore.class);
+        DeckEnsureClient deckEnsure = mock(DeckEnsureClient.class);
+        DeckRedisReader source = mock(DeckRedisReader.class);
+        ProfileProjectionStore profiles = mock(ProfileProjectionStore.class);
+        ViewerMutationStore mutations = mock(ViewerMutationStore.class);
+        ReadModelReadiness readiness = mock(ReadModelReadiness.class);
+        when(requests.requestedRevision(viewer)).thenReturn(Uni.createFrom().item(2L));
+        when(materialized.meta(viewer)).thenReturn(Uni.createFrom().item(Optional.empty()));
+        when(locks.acquireBuildLock(eq(viewer), anyString())).thenReturn(Uni.createFrom().item(true));
+        when(locks.renewBuildLock(eq(viewer), anyString())).thenReturn(Uni.createFrom().item(true));
+        when(locks.releaseBuildLock(eq(viewer), anyString())).thenReturn(Uni.createFrom().voidItem());
+        when(deckEnsure.ensure(viewer, true)).thenReturn(Uni.createFrom().item(true));
+        when(source.readStable(viewer, MaterializedDeckStore.TOTAL_WINDOW))
+                .thenReturn(Uni.createFrom().item(new SourceDeckSnapshot(List.of(candidateId), "200")));
+        when(profiles.cards(List.of(candidateId)))
+                .thenReturn(Uni.createFrom().item(Map.of(candidateId, candidate)));
+        when(mutations.swiped(viewer, List.of(candidateId))).thenReturn(Uni.createFrom().item(Set.of()));
+        when(mutations.matched(viewer, List.of(candidateId))).thenReturn(Uni.createFrom().item(Set.of()));
+        when(readiness.isRepeatReady()).thenReturn(Uni.createFrom().item(false));
+        when(materialized.install(
+                eq(viewer), eq(2L), eq(List.of(candidate)), eq(1),
+                eq(DeckState.READY), eq("200"), any(Instant.class)))
+                .thenReturn(Uni.createFrom().item(1L));
+
+        DeckMaterializationService service = service(requests, locks, materialized);
+        service.deckEnsure = deckEnsure;
+        service.source = source;
+        service.profiles = profiles;
+        service.mutations = mutations;
+        service.readiness = readiness;
+
+        DeckMaterializationRequest refreshRequest = new DeckMaterializationRequest(
+                UUID.randomUUID(), viewer, 2L, MaterializationReason.API_STALE, "", Instant.now());
+        service.materialize(refreshRequest).await().indefinitely();
+
+        verify(deckEnsure).ensure(viewer, true);
+        verify(materialized).install(
+                eq(viewer), eq(2L), eq(List.of(candidate)), eq(1),
+                eq(DeckState.READY), eq("200"), any(Instant.class));
+    }
+
+    @Test
+    @DisplayName("Scenario: Given a PROFILE_CHANGED fan-out request, when the worker materializes, then it forces a deck rebuild")
+    void profileChangedMaterializationForcesDeckRebuild() {
+        UUID viewer = UUID.randomUUID();
+        UUID candidateId = UUID.randomUUID();
+        DeckCardDto candidate = card(candidateId);
+        DeckMaterializationRequestStore requests = mock(DeckMaterializationRequestStore.class);
+        DeckSnapshotStore locks = mock(DeckSnapshotStore.class);
+        MaterializedDeckStore materialized = mock(MaterializedDeckStore.class);
+        DeckEnsureClient deckEnsure = mock(DeckEnsureClient.class);
+        DeckRedisReader source = mock(DeckRedisReader.class);
+        ProfileProjectionStore profiles = mock(ProfileProjectionStore.class);
+        ViewerMutationStore mutations = mock(ViewerMutationStore.class);
+        ReadModelReadiness readiness = mock(ReadModelReadiness.class);
+        when(requests.requestedRevision(viewer)).thenReturn(Uni.createFrom().item(4L));
+        when(materialized.meta(viewer)).thenReturn(Uni.createFrom().item(Optional.empty()));
+        when(locks.acquireBuildLock(eq(viewer), anyString())).thenReturn(Uni.createFrom().item(true));
+        when(locks.renewBuildLock(eq(viewer), anyString())).thenReturn(Uni.createFrom().item(true));
+        when(locks.releaseBuildLock(eq(viewer), anyString())).thenReturn(Uni.createFrom().voidItem());
+        when(deckEnsure.ensure(viewer, true)).thenReturn(Uni.createFrom().item(true));
+        when(source.readStable(viewer, MaterializedDeckStore.TOTAL_WINDOW))
+                .thenReturn(Uni.createFrom().item(new SourceDeckSnapshot(List.of(candidateId), "300")));
+        when(profiles.cards(List.of(candidateId)))
+                .thenReturn(Uni.createFrom().item(Map.of(candidateId, candidate)));
+        when(mutations.swiped(viewer, List.of(candidateId))).thenReturn(Uni.createFrom().item(Set.of()));
+        when(mutations.matched(viewer, List.of(candidateId))).thenReturn(Uni.createFrom().item(Set.of()));
+        when(readiness.isRepeatReady()).thenReturn(Uni.createFrom().item(false));
+        when(materialized.install(
+                eq(viewer), eq(4L), eq(List.of(candidate)), eq(1),
+                eq(DeckState.READY), eq("300"), any(Instant.class)))
+                .thenReturn(Uni.createFrom().item(1L));
+
+        DeckMaterializationService service = service(requests, locks, materialized);
+        service.deckEnsure = deckEnsure;
+        service.source = source;
+        service.profiles = profiles;
+        service.mutations = mutations;
+        service.readiness = readiness;
+
+        DeckMaterializationRequest profileChangedRequest = new DeckMaterializationRequest(
+                UUID.randomUUID(), viewer, 4L, MaterializationReason.PROFILE_CHANGED, "", Instant.now());
+        service.materialize(profileChangedRequest).await().indefinitely();
+
+        verify(deckEnsure).ensure(viewer, true);
+    }
+
     private DeckMaterializationService service(
             DeckMaterializationRequestStore requests,
             DeckSnapshotStore locks,

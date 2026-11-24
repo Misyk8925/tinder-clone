@@ -38,6 +38,7 @@ class CacheStageTest {
 
     // Test configuration constants
     private static final long TTL_MINUTES = 60;
+    private static final long EMPTY_TTL_SECONDS = 30;
     private static final long CUSTOM_TTL_MINUTES = 120;
 
     // Test data constants
@@ -61,6 +62,7 @@ class CacheStageTest {
     void setUp() {
         cacheStage = new CacheStage(deckCache);
         ReflectionTestUtils.setField(cacheStage, "ttlMinutes", TTL_MINUTES);
+        ReflectionTestUtils.setField(cacheStage, "emptyTtlSeconds", EMPTY_TTL_SECONDS);
     }
 
     @Test
@@ -114,11 +116,11 @@ class CacheStageTest {
         when(deckCache.writeDeck(eq(viewerId), anyList(), any(Duration.class)))
                 .thenReturn(Mono.empty());
 
-        // Then: empty is an authoritative built snapshot and receives a timestamp
+        // Then: empty is an authoritative built snapshot with a short TTL so new profiles appear quickly
         StepVerifier.create(result)
                 .verifyComplete();
 
-        verify(deckCache).writeDeck(eq(viewerId), eq(List.of()), eq(Duration.ofMinutes(TTL_MINUTES)));
+        verify(deckCache).writeDeck(eq(viewerId), eq(List.of()), eq(Duration.ofSeconds(EMPTY_TTL_SECONDS)));
     }
 
     @Test

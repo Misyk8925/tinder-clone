@@ -14,6 +14,9 @@ public interface InternalProfileQuery {
 
     List<InternalProfileView> getActiveUsers();
 
-    record SearchCriteria(Integer minAge, Integer maxAge, String gender, Integer maxRange) {
+    record SearchCriteria(Integer minAge, Integer maxAge, String gender, Integer maxRange, boolean excludeViewer) {
+        public SearchCriteria(Integer minAge, Integer maxAge, String gender, Integer maxRange) {
+            this(minAge, maxAge, gender, maxRange, true);
+        }
     }
 }

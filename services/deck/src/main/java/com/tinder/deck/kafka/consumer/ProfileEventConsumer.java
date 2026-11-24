@@ -1,5 +1,6 @@
 package com.tinder.deck.kafka.consumer;
 
+import com.tinder.contracts.event.v1.ProfileCreatedEvent;
 import com.tinder.contracts.event.v1.ProfileDeletedEvent;
 import com.tinder.contracts.event.v1.ProfileUpdatedEvent;
 import com.tinder.deck.adapters.ProfilesHttp;
@@ -41,6 +42,28 @@ public class ProfileEventConsumer {
     }
 
     @KafkaListener(
+            topics = "${kafka.topics.create-events:profile.created}",
+            groupId = "${spring.kafka.consumer.group-id}",
+            containerFactory = "createKafkaListenerContainerFactory"
+    )
+    public void consumeProfileCreation(
+            @Payload ProfileCreatedEvent event,
+            @Header(KafkaHeaders.RECEIVED_PARTITION) int partition,
+            @Header(KafkaHeaders.OFFSET) long offset
+    ) {
+        log.info("Received ProfileCreatedEvent: eventId={}, profileId={}, partition={}, offset={}",
+                event.eventId(), event.profileId(), partition, offset);
+
+        deckCache.invalidateAllPreferencesCaches()
+                .doOnNext(count -> log.info("Invalidated {} preferences cache entries after profile creation {}",
+                        count, event.profileId()))
+                .then()
+                .block();
+
+        log.debug("Successfully processed ProfileCreatedEvent: eventId={}", event.eventId());
+    }
+
+    @KafkaListener(
             topics = "${kafka.topics.delete-events}",
             groupId = "${spring.kafka.consumer.group-id}",
             containerFactory = "deleteKafkaListenerContainerFactory"
@@ -61,6 +84,7 @@ public class ProfileEventConsumer {
                 .then(deckCache.markProfileInvalidated(event.profileId())
                 .doOnNext(marked -> log.info("Marked deleted profile {} as globally invalidated={}",
                         event.profileId(), marked))
+                .then(deckCache.invalidateAllPreferencesCaches())
                 .then(deckCache.invalidate(event.profileId())
                         .doOnNext(count -> {
                             if (count > 0) {
@@ -115,10 +139,11 @@ public class ProfileEventConsumer {
         return deckCache.markProfileInvalidated(event.profileId())
                 .doOnNext(marked -> log.info("Marked profile {} as globally invalidated={}",
                         event.profileId(), marked))
-                // Eagerly remove the now-stale profile from every deck that contains it; the
-                // next rebuild re-adds it (re-scored) if it still matches. Keeps the read side
-                // a pure pass-through.
-                .then(deckCache.removeFromAllDecks(event.profileId())
+                .then(deckCache.invalidateAllPreferencesCaches())
+                // Eagerly remove the now-stale profile from every deck that contains it and
+                // drop those viewers' build timestamps so the next ensure rebuilds and re-scores
+                // the updated profile if it still matches.
+                .then(deckCache.removeFromAllDecks(event.profileId(), true)
                         .doOnNext(count -> log.info("Purged critically-changed profile {} from {} decks",
                                 event.profileId(), count)))
                 .then();
@@ -143,7 +168,7 @@ public class ProfileEventConsumer {
                         event.profileId(), marked))
                 .doOnError(error -> log.error("Failed to globally invalidate profile after location change", error));
 
-        Mono<Long> purgeFromAllDecks = deckCache.removeFromAllDecks(event.profileId())
+        Mono<Long> purgeFromAllDecks = deckCache.removeFromAllDecks(event.profileId(), true)
                 .doOnNext(count -> log.info("Purged location-changed profile {} from {} decks",
                         event.profileId(), count))
                 .doOnError(error -> log.error("Failed to purge profile from decks after location change", error));
