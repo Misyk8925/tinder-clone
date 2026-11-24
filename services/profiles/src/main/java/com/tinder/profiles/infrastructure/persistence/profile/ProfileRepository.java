@@ -66,7 +66,7 @@ public interface ProfileRepository extends JpaRepository<ProfileJpaEntity, UUID>
         AND p.profileId != :viewerId
         AND (:minAge IS NULL OR p.age >= :minAge)
         AND (:maxAge IS NULL OR p.age <= :maxAge)
-        AND (:gender IS NULL OR :gender = 'any' OR :gender = 'all'
+        AND (:gender IS NULL OR LOWER(:gender) = 'any' OR LOWER(:gender) = 'all'
              OR LOWER(p.gender) = LOWER(:gender))
         ORDER BY p.createdAt DESC
         """)
@@ -128,10 +128,10 @@ public interface ProfileRepository extends JpaRepository<ProfileJpaEntity, UUID>
         JOIN location l ON l.id = p.location_id
         JOIN preferences pref ON pref.id = p.preferences_id
         WHERE p.is_deleted = false
-          AND p.id <> :viewerId
+          AND (:excludeViewer = false OR p.id <> :viewerId)
           AND (:minAge IS NULL OR p.age >= :minAge)
           AND (:maxAge IS NULL OR p.age <= :maxAge)
-          AND (:gender IS NULL OR :gender = 'any' OR :gender = 'all'
+          AND (:gender IS NULL OR LOWER(:gender) = 'any' OR LOWER(:gender) = 'all'
                OR LOWER(p.gender) = LOWER(:gender))
         ORDER BY p.created_at DESC
         LIMIT :limit
@@ -141,8 +141,19 @@ public interface ProfileRepository extends JpaRepository<ProfileJpaEntity, UUID>
         @Param("minAge") Integer minAge,
         @Param("maxAge") Integer maxAge,
         @Param("gender") String gender,
-        @Param("limit") int limit
+        @Param("limit") int limit,
+        @Param("excludeViewer") boolean excludeViewer
     );
+
+    default List<Object[]> searchSharedProfileRowsByPreferences(
+        UUID viewerId,
+        Integer minAge,
+        Integer maxAge,
+        String gender,
+        int limit
+    ) {
+        return searchSharedProfileRowsByPreferences(viewerId, minAge, maxAge, gender, limit, true);
+    }
 
     /**
      * Batch-loads hobbies for several profiles as {@code (profile_id, hobby)} rows.

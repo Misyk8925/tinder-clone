@@ -39,6 +39,7 @@ class KafkaDeliveryConfigurationTest {
     @Test
     void deadLetterTopicsUseNormalizedNames() {
         assertThat(consumerConfig.profileUpdatedDeadLetterTopic().name()).isEqualTo("profile.updated.dlt");
+        assertThat(consumerConfig.profileCreatedDeadLetterTopic().name()).isEqualTo("profile.created.dlt");
         assertThat(consumerConfig.swipeSavedDeadLetterTopic().name()).isEqualTo("swipe-saved.dlt");
         assertThat(consumerConfig.profileDeletedDeadLetterTopic().name()).isEqualTo("profile.deleted.dlt");
     }

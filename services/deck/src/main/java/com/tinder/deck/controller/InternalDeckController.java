@@ -19,8 +19,14 @@ public class InternalDeckController {
     private final DeckService deckService;
 
     @PostMapping("/ensure")
-    public Mono<ResponseEntity<Boolean>> ensure(@RequestParam UUID viewerId) {
-        return deckService.ensureDeck(viewerId)
+    public Mono<ResponseEntity<Boolean>> ensure(
+            @RequestParam UUID viewerId,
+            @RequestParam(defaultValue = "false") boolean force
+    ) {
+        Mono<Boolean> ensured = force
+                ? deckService.ensureDeck(viewerId, true)
+                : deckService.ensureDeck(viewerId);
+        return ensured
                 .map(ResponseEntity::ok)
                 .onErrorResume(error -> Mono.just(ResponseEntity.internalServerError().body(false)));
     }

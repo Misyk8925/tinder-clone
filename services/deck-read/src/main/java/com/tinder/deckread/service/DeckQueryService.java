@@ -110,7 +110,7 @@ public class DeckQueryService {
                             ? refreshes.requestAsync(viewerProfileId, MaterializationReason.API_STALE)
                                     .invoke(() -> {
                                         if (!materializedRequired) {
-                                            builder.requestBuild(viewerProfileId);
+                                            builder.requestBuild(viewerProfileId, true);
                                         }
                                     })
                             : Uni.createFrom().voidItem();
@@ -123,14 +123,18 @@ public class DeckQueryService {
                             return Uni.createFrom().item(afterRefresh(hit, refresh));
                         }
                         recordPath("miss");
-                        requestMaterialization(viewerProfileId, MaterializationReason.API_MISS);
+                        if (!refresh) {
+                            requestMaterialization(viewerProfileId, MaterializationReason.API_MISS);
+                        }
                         if (materializedRequired) {
                             return Uni.createFrom().item(new DeckQueryResult.Building());
                         }
                         return snapshots.load(viewerProfileId)
                                 .flatMap(snapshot -> snapshot.isEmpty()
-                                        ? requestAndBuild(viewerProfileId)
-                                        : page(viewerProfileId, snapshot.get(), cursor, limit)
+                                        ? (refresh
+                                                ? Uni.createFrom().item(new DeckQueryResult.Building())
+                                                : requestAndBuild(viewerProfileId))
+                                        : page(viewerProfileId, snapshot.get(), cursor, limit, refresh)
                                                 .map(page -> afterRefresh(page, refresh)));
                     }));
                 })
@@ -233,10 +237,13 @@ public class DeckQueryService {
             UUID viewerProfileId,
             DeckSnapshot snapshot,
             String cursor,
-            int limit
+            int limit,
+            boolean refreshRequested
     ) {
         if (snapshot.meta().unavailable()) {
-            builder.requestBuild(viewerProfileId);
+            if (!refreshRequested) {
+                builder.requestBuild(viewerProfileId);
+            }
             return Uni.createFrom().item(new DeckQueryResult.Failure(
                     503, DECK_TEMPORARILY_UNAVAILABLE, "Deck temporarily unavailable",
                     "No fresh or safely repeatable cards are available."));
@@ -245,7 +252,7 @@ public class DeckQueryService {
         boolean stale = snapshot.meta().builtAt() != null
                 && snapshot.meta().builtAt().plus(Duration.ofMinutes(DeckSnapshotStore.SOFT_FRESHNESS_MINUTES))
                 .isBefore(Instant.now());
-        if (stale) {
+        if (stale && !refreshRequested) {
             builder.requestBuild(viewerProfileId);
         }
 

@@ -77,7 +77,7 @@ public class CandidateSearchStage extends BasicStage {
                 .flatMapMany(cachedIds ->
                         preferencesCacheHelper.fetchProfilesByIds(
                                 cachedIds,
-                                searchFromDatabaseAndCache(viewer.id(), prefs)
+                                Flux.defer(() -> searchFromDatabaseAndCache(viewer.id(), prefs))
                         )
                 )
                 // Defensive guard for shared preferences cache: never return the viewer as a candidate.
@@ -95,10 +95,13 @@ public class CandidateSearchStage extends BasicStage {
     }
 
     /**
-     * Search from database and cache the result
+     * Search from database without excluding the viewer so the shared preferences cache
+     * remains complete for every viewer sharing these criteria, then filter out the viewer
+     * from the emitted Flux.
      */
     private Flux<SharedProfileDto> searchFromDatabaseAndCache(UUID viewerId, SharedPreferencesDto prefs) {
-        return searchFromDatabase(viewerId, prefs)
+        return profilesHttp.searchProfiles(viewerId, prefs, searchLimit, false)
+                .doOnComplete(() -> log.debug("Candidate search (cache populate) completed for viewer {}", viewerId))
                 .collectList()
                 .flatMapMany(candidates -> {
                     if (!candidates.isEmpty()) {
@@ -107,7 +110,8 @@ public class CandidateSearchStage extends BasicStage {
                                 candidates.stream().map(SharedProfileDto::id).toList()
                         );
                     }
-                    return Flux.fromIterable(candidates);
+                    return Flux.fromIterable(candidates)
+                            .filter(candidate -> !candidate.id().equals(viewerId));
                 });
     }
 

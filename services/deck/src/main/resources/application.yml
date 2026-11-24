@@ -56,6 +56,7 @@ deck:
   request-timeout-ms: 4000
   retries: 1
   ttl-minutes: 60
+  empty-ttl-seconds: 30
   per-user-limit: 500
   search-limit: 2000
 
@@ -104,6 +105,7 @@ deck:
 kafka:
   topics:
     profile-events: profile.updated
+    create-events: profile.created
     swipe-events: swipe-saved
     delete-events: profile.deleted
     deck-built: deck.built.v1

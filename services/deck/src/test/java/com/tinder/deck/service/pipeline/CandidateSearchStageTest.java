@@ -21,6 +21,7 @@ import java.util.List;
 import java.util.UUID;
 
 import static org.mockito.ArgumentMatchers.*;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 /**
@@ -132,6 +133,53 @@ class CandidateSearchStageTest {
         // Then: should timeout and return empty (after retries)
         StepVerifier.create(result)
                 .expectNext();
+    }
+
+    @Test
+    void shouldPopulateSharedPreferencesCacheIncludingViewerAndExcludeViewerFromResult() {
+        // Given: preferences cache enabled and two matching profiles A and B
+        ReflectionTestUtils.setField(candidateSearchStage, "preferencesCacheEnabled", true);
+        SharedProfileDto accountA = createProfile(UUID.randomUUID(), "AccountA", VIEWER_AGE);
+        SharedProfileDto accountB = createProfile(UUID.randomUUID(), "AccountB", CANDIDATE_AGE_1);
+
+        when(deckCache.hasPreferencesCache(18, 50, "ANY")).thenReturn(reactor.core.publisher.Mono.just(false));
+        when(profilesHttp.searchProfiles(eq(accountA.id()), any(SharedPreferencesDto.class), eq(SEARCH_LIMIT), eq(false)))
+                .thenReturn(Flux.just(accountA, accountB));
+
+        // When: Account A misses cache and searches candidates
+        Flux<SharedProfileDto> result = candidateSearchStage.searchCandidates(accountA);
+
+        // Then: Account A receives only Account B, while shared cache stores both A and B
+        StepVerifier.create(result)
+                .expectNext(accountB)
+                .verifyComplete();
+
+        verify(preferencesCacheHelper).cacheInBackground(
+                eq(accountA.preferences()),
+                eq(List.of(accountA.id(), accountB.id()))
+        );
+    }
+
+    @Test
+    void shouldReturnOtherAccountOnSharedPreferencesCacheHitWhenBothAccountsAreCached() {
+        // Given: preferences cache enabled with both matching accounts A and B cached
+        ReflectionTestUtils.setField(candidateSearchStage, "preferencesCacheEnabled", true);
+        SharedProfileDto accountA = createProfile(UUID.randomUUID(), "AccountA", VIEWER_AGE);
+        SharedProfileDto accountB = createProfile(UUID.randomUUID(), "AccountB", CANDIDATE_AGE_1);
+
+        when(deckCache.hasPreferencesCache(18, 50, "ANY")).thenReturn(reactor.core.publisher.Mono.just(true));
+        when(deckCache.getCandidatesByPreferences(18, 50, "ANY"))
+                .thenReturn(Flux.just(accountA.id(), accountB.id()));
+        when(preferencesCacheHelper.fetchProfilesByIds(eq(List.of(accountA.id(), accountB.id())), any()))
+                .thenReturn(Flux.just(accountA, accountB));
+
+        // When: Account B hits the shared preferences cache
+        Flux<SharedProfileDto> result = candidateSearchStage.searchCandidates(accountB);
+
+        // Then: Account B sees Account A (self is filtered out, deck is not empty)
+        StepVerifier.create(result)
+                .expectNext(accountA)
+                .verifyComplete();
     }
 
     // ========== Helper Methods ==========

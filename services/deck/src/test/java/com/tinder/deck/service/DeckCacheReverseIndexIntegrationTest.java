@@ -179,6 +179,25 @@ class DeckCacheReverseIndexIntegrationTest {
     }
 
     @Test
+    @DisplayName("removeFromAllDecks with invalidateBuildTimestamps clears build timestamps for affected viewers only")
+    void removeFromAllDecksCanInvalidateAffectedBuildTimestamps() {
+        UUID viewerA = UUID.randomUUID();
+        UUID viewerB = UUID.randomUUID();
+        UUID target = UUID.randomUUID();
+        UUID other = UUID.randomUUID();
+
+        deckCache.writeDeck(viewerA, List.of(Map.entry(target, 10.0)), TTL).block();
+        deckCache.writeDeck(viewerB, List.of(Map.entry(other, 15.0)), TTL).block();
+
+        Long affected = deckCache.removeFromAllDecks(target, true).block();
+
+        assertThat(affected).isEqualTo(1L);
+        assertThat(deckCache.readDeck(viewerA, 0, 10).collectList().block()).isEmpty();
+        assertThat(deckCache.getBuildInstant(viewerA).block()).isEmpty();
+        assertThat(deckCache.getBuildInstant(viewerB).block()).isPresent();
+    }
+
+    @Test
     @DisplayName("removeFromAllDecks on a profile in no deck returns 0 and does not error")
     void removeFromAllDecksNoIndexIsSafe() {
         Long affected = deckCache.removeFromAllDecks(UUID.randomUUID()).block();

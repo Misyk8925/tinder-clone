@@ -37,8 +37,8 @@ public class JpaInternalProfileQueryAdapter implements InternalProfileQuery {
 
     @Override
     public List<InternalProfileView> search(UUID viewerId, SearchCriteria criteria, int limit) {
-        log.debug("searchByViewerPrefs: viewer {} searching with prefs: minAge={}, maxAge={}, gender={}, limit={}",
-                viewerId, criteria.minAge(), criteria.maxAge(), criteria.gender(), limit);
+        log.debug("searchByViewerPrefs: viewer {} searching with prefs: minAge={}, maxAge={}, gender={}, excludeViewer={}, limit={}",
+                viewerId, criteria.minAge(), criteria.maxAge(), criteria.gender(), criteria.excludeViewer(), limit);
 
         if (!repo.existsById(viewerId)) {
             log.error("Viewer not found: {}", viewerId);
@@ -50,7 +50,8 @@ public class JpaInternalProfileQueryAdapter implements InternalProfileQuery {
                 criteria.minAge(),
                 criteria.maxAge(),
                 criteria.gender(),
-                limit
+                limit,
+                criteria.excludeViewer()
         );
 
         log.debug("searchByViewerPrefs: viewer {} found {} matching profiles", viewerId, matchingProfiles.size());

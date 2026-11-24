@@ -369,6 +369,30 @@ class DeckServiceTest {
         verify(deckCache, never()).writeDeck(any(), anyList(), any(Duration.class));
     }
 
+    @Test
+    @DisplayName("Should force rebuild even when existing deck timestamp is still fresh")
+    void testEnsureDeckForceRebuildsFreshDeck() {
+        SharedProfileDto candidate = createProfile(UUID.randomUUID(), "Alice", 28, null);
+
+        when(deckCache.withLock(eq(viewerId), any())).thenAnswer(invocation -> invocation.getArgument(1));
+        when(profilesHttp.getProfile(viewerId)).thenReturn(Mono.just(viewerProfile));
+        when(profilesHttp.searchProfiles(eq(viewerId), eq(preferences), eq(2000)))
+                .thenReturn(Flux.just(candidate));
+        when(swipesHttp.betweenBatch(eq(viewerId), anyList()))
+                .thenReturn(Mono.just(Collections.emptyMap()));
+        when(scoringService.score(eq(viewerProfile), eq(candidate))).thenReturn(42.0);
+        when(deckCache.writeDeck(eq(viewerId), anyList(), any(Duration.class))).thenReturn(Mono.empty());
+        when(deckCache.getBuildInstant(viewerId)).thenReturn(Mono.just(Optional.of(Instant.now())));
+
+        StepVerifier.create(deckService.ensureDeck(viewerId, true))
+                .expectNext(true)
+                .verifyComplete();
+
+        verify(deckCache).withLock(eq(viewerId), any());
+        verify(profilesHttp).getProfile(viewerId);
+        verify(deckCache).writeDeck(eq(viewerId), anyList(), any(Duration.class));
+    }
+
     // Helper method to create profile
     private SharedProfileDto createProfile(UUID id, String name, int age, SharedPreferencesDto prefs) {
         SharedLocationDto location = new SharedLocationDto(

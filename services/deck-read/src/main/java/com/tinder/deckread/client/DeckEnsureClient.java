@@ -22,5 +22,9 @@ public interface DeckEnsureClient {
 
     @POST
     @Path("/ensure")
-    Uni<Boolean> ensure(@QueryParam("viewerId") UUID viewerId);
+    Uni<Boolean> ensure(@QueryParam("viewerId") UUID viewerId, @QueryParam("force") boolean force);
+
+    default Uni<Boolean> ensure(UUID viewerId) {
+        return ensure(viewerId, false);
+    }
 }

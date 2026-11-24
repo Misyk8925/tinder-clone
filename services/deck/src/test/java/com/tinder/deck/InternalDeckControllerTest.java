@@ -45,6 +45,25 @@ class InternalDeckControllerTest {
     }
 
     @Test
+    @DisplayName("POST /api/v1/internal/deck/ensure?force=true should force rebuild")
+    void shouldForceEnsureDeck() {
+        UUID viewerId = UUID.randomUUID();
+        when(deckService.ensureDeck(viewerId, true)).thenReturn(Mono.just(true));
+
+        webTestClient.post()
+                .uri(uriBuilder -> uriBuilder
+                        .path("/api/v1/internal/deck/ensure")
+                        .queryParam("viewerId", viewerId)
+                        .queryParam("force", true)
+                        .build())
+                .accept(MediaType.APPLICATION_JSON)
+                .exchange()
+                .expectStatus().isOk()
+                .expectBody(Boolean.class)
+                .isEqualTo(true);
+    }
+
+    @Test
     @DisplayName("POST /api/v1/internal/deck/ensure should return 500 false on error")
     void shouldReturnErrorWhenEnsureFails() {
         UUID viewerId = UUID.randomUUID();

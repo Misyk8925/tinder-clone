@@ -52,7 +52,8 @@ public class InternalProfileController {
             @RequestParam(required = false) Integer minAge,
             @RequestParam(required = false) Integer maxAge,
             @RequestParam(required = false) Integer maxRange,
-            @RequestParam(defaultValue = "100") Integer limit) {
+            @RequestParam(defaultValue = "100") Integer limit,
+            @RequestParam(defaultValue = "true") boolean excludeViewer) {
 
         // Validate limit
         if (limit < 1 || limit > 2000) {
@@ -61,7 +62,7 @@ public class InternalProfileController {
         }
 
         InternalProfileQuery.SearchCriteria criteria =
-                new InternalProfileQuery.SearchCriteria(minAge, maxAge, gender, maxRange);
+                new InternalProfileQuery.SearchCriteria(minAge, maxAge, gender, maxRange, excludeViewer);
         List<SharedProfileDto> results = profileQuery.search(viewerId, criteria, limit).stream()
                 .map(apiMapper::toSharedProfileDto)
                 .toList();

@@ -23,6 +23,9 @@ public class CacheStage {
     @Value("${deck.ttl-minutes:60}")
     private long ttlMinutes;
 
+    @Value("${deck.empty-ttl-seconds:30}")
+    private long emptyTtlSeconds = 30;
+
     public Mono<Void> cacheDeck(UUID viewerId, Flux<ScoringStage.ScoredCandidate> scoredCandidates) {
         log.debug("Caching deck for viewer {}", viewerId);
 
@@ -30,10 +33,15 @@ public class CacheStage {
                 .map(sc -> Map.entry(sc.candidateId(), sc.score()))
                 .collectList()
                 .flatMap(deck -> {
+                    Duration ttl;
                     if (deck.isEmpty()) {
-                        log.info("Caching authoritative empty deck for viewer {}", viewerId);
+                        ttl = Duration.ofSeconds(Math.max(1L, emptyTtlSeconds));
+                        log.info("Caching authoritative empty deck for viewer {} with short TTL {}s",
+                                viewerId, ttl.toSeconds());
+                    } else {
+                        ttl = Duration.ofMinutes(ttlMinutes);
                     }
-                    return deckCache.writeDeck(viewerId, deck, Duration.ofMinutes(ttlMinutes));
+                    return deckCache.writeDeck(viewerId, deck, ttl);
                 })
                 .doOnSuccess(v -> log.info("Successfully cached all candidates for viewer {}",
                         viewerId))

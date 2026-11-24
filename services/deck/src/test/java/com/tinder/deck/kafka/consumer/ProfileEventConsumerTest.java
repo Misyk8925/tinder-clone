@@ -1,6 +1,8 @@
 package com.tinder.deck.kafka.consumer;
 
 import com.tinder.contracts.event.v1.ChangeType;
+import com.tinder.contracts.event.v1.ProfileCreatedEvent;
+import com.tinder.contracts.event.v1.ProfileDeletedEvent;
 import com.tinder.contracts.event.v1.ProfileUpdatedEvent;
 import com.tinder.deck.adapters.ProfilesHttp;
 import com.tinder.deck.service.DeckCache;
@@ -58,7 +60,7 @@ class ProfileEventConsumerTest {
     }
 
     @Test
-    @DisplayName("CRITICAL_FIELDS change marks profile invalidated globally")
+    @DisplayName("CRITICAL_FIELDS change invalidates preferences cache, purges affected decks, and clears their build timestamps")
     void criticalFieldsChangeMarksInvalidated() {
         UUID profileId = UUID.randomUUID();
         ProfileUpdatedEvent event = new ProfileUpdatedEvent(
@@ -66,17 +68,19 @@ class ProfileEventConsumerTest {
                 Set.of("age", "gender"), Instant.now(), null);
 
         when(deckCache.markProfileInvalidated(profileId)).thenReturn(Mono.just(true));
-        when(deckCache.removeFromAllDecks(profileId)).thenReturn(Mono.just(0L));
+        when(deckCache.invalidateAllPreferencesCaches()).thenReturn(Mono.just(2L));
+        when(deckCache.removeFromAllDecks(profileId, true)).thenReturn(Mono.just(0L));
 
         consumer.consumeProfileUpdate(event, 0, 2L);
 
         verify(deckCache).markProfileInvalidated(profileId);
-        verify(deckCache).removeFromAllDecks(profileId);
+        verify(deckCache).invalidateAllPreferencesCaches();
+        verify(deckCache).removeFromAllDecks(profileId, true);
         verify(deckCache, never()).invalidate(any(UUID.class));
     }
 
     @Test
-    @DisplayName("LOCATION_CHANGE invalidates personal deck and marks profile invalidated globally")
+    @DisplayName("LOCATION_CHANGE invalidates personal deck, marks profile invalidated, and clears affected decks' build timestamps")
     void locationChangeInvalidatesAndMarksInvalidated() {
         UUID profileId = UUID.randomUUID();
         ProfileUpdatedEvent event = new ProfileUpdatedEvent(
@@ -85,7 +89,7 @@ class ProfileEventConsumerTest {
 
         when(deckCache.invalidate(profileId)).thenReturn(Mono.just(1L));
         when(deckCache.markProfileInvalidated(profileId)).thenReturn(Mono.just(true));
-        when(deckCache.removeFromAllDecks(profileId)).thenReturn(Mono.just(0L));
+        when(deckCache.removeFromAllDecks(profileId, true)).thenReturn(Mono.just(0L));
         // getProfile returns empty -> proactive rebuild is skipped (deckService not invoked).
         when(profilesHttp.getProfile(profileId)).thenReturn(Mono.empty());
 
@@ -93,6 +97,42 @@ class ProfileEventConsumerTest {
 
         verify(deckCache).invalidate(profileId);
         verify(deckCache).markProfileInvalidated(profileId);
+        verify(deckCache).removeFromAllDecks(profileId, true);
+    }
+
+    @Test
+    @DisplayName("Profile creation invalidates shared preferences caches")
+    void profileCreationInvalidatesPreferencesCaches() {
+        UUID profileId = UUID.randomUUID();
+        ProfileCreatedEvent event = new ProfileCreatedEvent(
+                UUID.randomUUID(), profileId, "user-123", Instant.now());
+
+        when(deckCache.invalidateAllPreferencesCaches()).thenReturn(Mono.just(1L));
+
+        consumer.consumeProfileCreation(event, 0, 5L);
+
+        verify(deckCache).invalidateAllPreferencesCaches();
+    }
+
+    @Test
+    @DisplayName("Profile deletion purges profile and invalidates shared preferences caches")
+    void profileDeletionInvalidatesPreferencesCaches() {
+        UUID profileId = UUID.randomUUID();
+        ProfileDeletedEvent event = new ProfileDeletedEvent(
+                UUID.randomUUID(), profileId, Instant.now());
+
+        when(deckCache.markProfileDeleted(profileId)).thenReturn(Mono.just(true));
+        when(deckCache.markProfileInvalidated(profileId)).thenReturn(Mono.just(true));
+        when(deckCache.invalidateAllPreferencesCaches()).thenReturn(Mono.just(1L));
+        when(deckCache.invalidate(profileId)).thenReturn(Mono.just(1L));
+        when(deckCache.removeFromAllDecks(profileId)).thenReturn(Mono.just(1L));
+
+        consumer.consumeProfileDeletion(event, 0, 6L);
+
+        verify(deckCache).markProfileDeleted(profileId);
+        verify(deckCache).markProfileInvalidated(profileId);
+        verify(deckCache).invalidateAllPreferencesCaches();
+        verify(deckCache).invalidate(profileId);
         verify(deckCache).removeFromAllDecks(profileId);
     }
 
