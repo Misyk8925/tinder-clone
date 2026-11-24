@@ -429,7 +429,11 @@ services:
       DECK_TRUSTSTORE_PASSWORD: ${MTLS_TRUSTSTORE_PASSWORD:?MTLS_TRUSTSTORE_PASSWORD is required}
       SPRING_DATA_REDIS_TIMEOUT: ${DECK_REDIS_TIMEOUT:-2s}
       SPRING_DATA_REDIS_CONNECT_TIMEOUT: ${DECK_REDIS_CONNECT_TIMEOUT:-2s}
-      JAVA_TOOL_OPTIONS: "-XX:+UseContainerSupport -XX:+UseG1GC -XX:InitialRAMPercentage=40.0 -XX:MaxRAMPercentage=75.0 -Dfile.encoding=UTF-8 -Dsun.net.inetaddr.ttl=60 -Djava.io.tmpdir=/tmp"
+      # Heap is capped at 40% of the limit (~205 MiB). Measured on prod
+      # 2026-11-24: heap used peaked at ~98 MiB, but RSS outside the heap
+      # (metaspace ~81 MiB, code cache, thread stacks) was ~234 MiB. With 75%
+      # of 384m the heap could grow to 288 MiB and the JVM was OOM-killed.
+      JAVA_TOOL_OPTIONS: "-XX:+UseContainerSupport -XX:+UseG1GC -XX:InitialRAMPercentage=20.0 -XX:MaxRAMPercentage=40.0 -Dfile.encoding=UTF-8 -Dsun.net.inetaddr.ttl=60 -Djava.io.tmpdir=/tmp"
     volumes:
       - type: bind
         source: /etc/dokploy/certs/tinderclone/deck-service.p12
@@ -445,7 +449,7 @@ services:
           create_host_path: false
     networks:
       - app
-    mem_limit: 384m
+    mem_limit: 512m
     cpus: "0.60"
     healthcheck:
       test: ["CMD-SHELL", "(wget -q --server-response -O- http://localhost:8030/actuator/health 2>&1 || true) | grep -Eq 'HTTP/1.1 (200|401)' || exit 1"]

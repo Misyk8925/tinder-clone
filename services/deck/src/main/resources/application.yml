@@ -26,7 +26,13 @@ spring:
       properties:
         spring.json.trusted.packages: "com.tinder.deck.kafka.dto"
     listener:
-      concurrency: 20  # Number of consumer threads
+      # Consumers per @KafkaListener (4 listeners). Each consumer is a poll
+      # thread plus a coordinator heartbeat thread, and consumers beyond the
+      # partition count (10, or 1 for profile.updated) sit idle. 20 meant 80
+      # consumers / 160 threads, which used most of deck's 0.6 CPU while idle
+      # and pushed it into memcg OOM kills. Override with
+      # SPRING_KAFKA_LISTENER_CONCURRENCY when traffic needs more.
+      concurrency: 2
       ack-mode: manual  # Manual commit for better control
 
 profiles:
