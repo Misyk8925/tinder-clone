@@ -84,7 +84,7 @@
     {
       "id": 17,
       "prompt": "Use universal-workflow. Add an internal Kafka event for profile snapshot updates. No HTTP API, no websocket, no table change. Do not skip unused contract types by omitting them.",
-      "expected_output": "Routes to a delivery mode, drafts or indexes the event contract, and shows a phase ledger where P2.1 HTTP, P2.3 Websocket, and P2.4 Data are explicit N/A rows with change-specific reasons. It does not treat unused boundaries as absent sections or claim contracts are done without that table."
+      "expected_output": "Routes to a delivery mode, drafts or indexes the event contract, and, in the combined phase-2+3 gate packet, shows a ledger where P2.1 HTTP, P2.3 Websocket, P2.4 Data, and the unused P2.5–P2.11 boundaries are explicit N/A rows with change-specific reasons. It does not treat unused boundaries as absent sections or claim contracts are done without that table."
     },
     {
       "id": 18,
@@ -94,7 +94,7 @@
     {
       "id": 19,
       "prompt": "Add one local validation rule to reject profile bios longer than 500 characters. No API shape or migration changes. Use universal-workflow.",
-      "expected_output": "Routes to compressed-small-change and at routing shows Mode-omit rows for phase-1 concept ceremony, phase-2/3 feature folders, and unused release steps. The compact record still has C.1–C.6; any unused compact field is N/A with a reason, not left off."
+      "expected_output": "Routes to compressed-small-change and at routing states in one line that phase-1 concept ceremony, phase-2/3 feature folders, and unused release steps are Mode-omit, without printing a full table. The compact record still has C.1–C.6; any unused compact field is N/A with a reason, not left off."
     },
     {
       "id": 20,
@@ -104,7 +104,17 @@
     {
       "id": 21,
       "prompt": "Phase 2 contracts for the bio-max-length feature are drafted. Hold a review session and wait for me to approve the OpenAPI before writing tests.",
-      "expected_output": "Runs a phase-2 exit review (ledger including unused boundaries as N/A) but does not treat it as a hard gate. Continues to phase 3 in the same turn unless an owner decision appeared. Owner approval stays the combined phase-2+3 package, not a separate contract-only stop."
+      "expected_output": "Runs the phase-2 exit review silently, without printing a separate phase-2 ledger, and does not treat it as a hard gate; unused boundaries appear as N/A in the merged P2+P3 ledger at the combined gate. Continues to phase 3 in the same turn unless an owner decision appeared. Owner approval stays the combined phase-2+3 package, not a separate contract-only stop."
+    },
+    {
+      "id": 22,
+      "prompt": "Use universal-workflow as a full feature. Add a 500-character bio limit with a new error code, an Angular counter, and a migration for existing long bios. Draft the phase-1 concept.",
+      "expected_output": "Writes the concept in simple technical English with only three parts: a 2–4 sentence summary, an in-scope table (ID | Part | Done when) with FR rows and NFR rows that carry numbers, and an out-of-scope table (Item | Why). No problem essay, prose contracts, architecture section, diagram, or open-questions section in the document. Rejected alternatives (at least one, with the row it failed) and open questions appear in the gate request or tracker, one line each. Done ledger rows are collapsed into ranges; non-Done rows are shown in full. Stops for approval."
+    },
+    {
+      "id": 23,
+      "prompt": "Phases 2+3 for the profile-snapshot event are approved. Plan the slices and send the AFK ones to cloud agents. The cloud has no Kafka, Redis, or Testcontainers.",
+      "expected_output": "Classifies slices by HITL/AFK. A slice that can only be proven with Kafka, Redis, or Testcontainers is HITL for the cloud, even if simple. Dispatches only AFK slices whose dependencies are merged, one task/branch/PR each, with the ticket and approved artifact links as the brief. States that cloud runs do not merge, approve gates, or start the next slice."
     }
   ]
 }

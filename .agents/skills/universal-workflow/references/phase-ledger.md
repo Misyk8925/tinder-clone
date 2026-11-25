@@ -20,11 +20,12 @@ Read this after `references/mode-router.md`. Keep the ledger in the user-visible
 
 Show the ledger, with non-`Done` rows first:
 
-1. **After routing** — which phases and sub-steps this mode omits (`Mode-omit`) and which it will run.
-2. **Whenever a row leaves `Done`** — the moment you mark `N/A`, `Blocked`, or `Deferred`, tell the user in that turn. Do not wait for the phase exit.
-3. **At every phase or slice exit**, and at every hard gate. The phase-exit review in `references/phase-exit-review.md` uses this same table; do not keep a second copy.
+1. **After routing** — one line naming the mode and the `Mode-omit` phases; no table.
+2. **Whenever a row leaves `Done`** — one line in that turn, e.g. `P2.5 → N/A: no UI surface`. No table.
+3. **At a phase or slice exit without a gate** — only non-`Done` rows, or `all Done`.
+4. **At a hard gate** — the full table, once. The phase-exit review and gate packet reference it; never print it twice in one reply.
 
-If every row is `Done`, still show the compact table so the user can audit it. Do not replace the table with "skipped the optional parts" or "N/A where needed".
+Show non-`Done` rows in full. Collapse consecutive `Done` rows into one row with an ID range and their evidence in one line, e.g. `P1.1–P1.7 | Done | tracker FEAT-12, index docs/features/x/README.md`. Expand a collapsed range when the user asks or at a hard gate where the approver needs it. Do not replace the table with "skipped the optional parts" or "N/A where needed".
 
 ## Format
 
@@ -33,12 +34,12 @@ If every row is `Done`, still show the compact table so the user can audit it. D
 
 | Sub-step | Status | Evidence or reason |
 |---|---|---|
-| P1.3 Decision tree | Done | facts from `DeckQueryService`; 2 Proposed, 0 Open |
+| P1.1–P1.7 | Done | tracker FEAT-12; tree: facts from `DeckQueryService`, 2 Proposed, 0 Open |
 | P2.1 HTTP contracts | N/A | no HTTP surface in this change |
 | P4.6 Fresh-context review | Blocked | no independent reviewer; self-review after context break |
 ```
 
-One row per named sub-step below for the *active* phase. At routing, also list `Mode-omit` rows for phases the selected mode does not run. Templates show two or three sample rows so the shape is easy to check; copy IDs from this file, not from the template. Do not add extra ceremony rows; do not drop listed ones.
+Every named sub-step below for the *active* phase appears, alone or inside a collapsed `Done` range. At routing, also list `Mode-omit` rows for phases the selected mode does not run. Templates show two or three sample rows so the shape is easy to check; copy IDs from this file, not from the template. Do not add extra ceremony rows; do not drop listed ones.
 
 ## Closed lists
 
@@ -63,11 +64,10 @@ These lists are the sub-parts. Inventing a shorter list to save space is a skip.
 | P1.5 | Category check: user, trigger/success, boundaries, numbers, integration, failure, stakeholders — each inferred, asked, or `N/A` |
 | P1.6 | Wayfinder split, or `N/A` because one decision context is enough |
 | P1.7 | Shared-understanding confirmation before the draft |
-| P1.8 | Concept: problem, prose contracts, FRs, NFRs with numbers, out of scope |
-| P1.9 | Suggested solution as cheapest baseline plus at least one rejected alternative |
-| P1.10 | Diagram, or `N/A` because a single-service single-flow design does not need one |
-| P1.11 | Self-check against the project and checkable claims |
-| P1.12 | Phase-1 gate item created; stopped for explicit approval |
+| P1.8 | Concept in simple technical English: 2–4 sentence summary, in-scope table (FR rows; NFR rows with numbers), out-of-scope table |
+| P1.9 | Approach is the cheapest baseline; at least one rejected alternative in the gate request |
+| P1.10 | Self-check against the project and checkable claims |
+| P1.11 | Phase-1 gate item created; stopped for explicit approval |
 
 ### `full-feature-delivery` — phase 2
 
@@ -79,10 +79,18 @@ Keep every boundary row even when unused.
 | P2.2 | Events canonical spec + readable view |
 | P2.3 | Websocket canonical spec + readable view |
 | P2.4 | Data: real migration + catalog/docs for changed columns/tables |
-| P2.5 | Cross-cutting: authz, versioning/compatibility, rate limits, logging/PII |
-| P2.6 | Error and edge cases on every affected boundary |
-| P2.7 | Unresolved contract uncertainty recorded as owned risks |
-| P2.8 | Continued to phase 3 without requesting a separate phase-2 approval |
+| P2.5 | UI screen/route: guards, inputs, every view state, actions |
+| P2.6 | Shared component API: inputs, outputs, rendered states |
+| P2.7 | Client state: shape, writers, lifetime, clearing |
+| P2.8 | Config/feature flags: default, owner, off-behaviour, removal |
+| P2.9 | Scheduled/background jobs: trigger, idempotency, failure handling |
+| P2.10 | Model/ML I/O: schema, pinned model, fallback |
+| P2.11 | Shared code contracts: changed types, consumers, rebuild order |
+| P2.12 | Consumer list for every changed boundary, breaking changes with migration path |
+| P2.13 | Cross-cutting: authz, versioning/compatibility, rate limits, logging/PII |
+| P2.14 | Error and edge cases on every affected boundary |
+| P2.15 | Unresolved contract uncertainty recorded as owned risks |
+| P2.16 | Continued to phase 3 without requesting a separate phase-2 approval |
 
 ### `full-feature-delivery` — phase 3
 
@@ -102,7 +110,7 @@ Shorter modes use the same IDs in the compact issue. `Mode-omit` only what `refe
 
 | ID | Sub-step |
 |---|---|
-| P4.1 | Slice plan: observable result, dependencies, HITL/AFK, files, migrations, biggest risk |
+| P4.1 | Slice plan: observable result, dependencies, HITL/AFK (AFK only if its evidence runs in the target environment), files, migrations, biggest risk |
 | P4.2 | Primary evidence/red where the mode requires it |
 | P4.3 | Implementation against approved contracts/behaviour |
 | P4.4 | Each test level: unit, component, integration, contract, system/e2e, specialist — `Done` or `N/A` with the changed-risk reason |

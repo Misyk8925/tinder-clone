@@ -25,10 +25,10 @@ Show the phase-1 ledger from `references/phase-ledger.md` before asking for appr
    For a small, obvious feature most of these should already be inferable — say so per category on the ledger (`inferred: …`). The checklist exists so a category cannot disappear; do not skip a category by not mentioning it, and do not turn every feature into an interrogation.
 5. **Split discovery only when needed.** If several independent unknown branches cannot be resolved coherently in the current decision context, create Wayfinder-style research, prototype, or decision issues. Each issue answers one named question, records dependencies, produces one reviewable artifact, and stops without implementing production code. A prototype is disposable evidence for a decision, not an early implementation. Merge the resulting facts and owner decisions back into one concept; the split never bypasses the phase-1 approval gate.
 6. **Confirm shared understanding.** Summarize the problem, observable behaviour, boundaries, approved choices with their sources, proposed recommendations, rejected alternatives, and unresolved questions. Ask the owner to correct this summary before turning it into the concept draft. Do not relabel proposed recommendations as accepted choices. This confirmation is not the approval gate.
-7. **Draft the concept** in the language(s) selected by the project profile. Use the concept templates for section structure when useful. If several language versions are requested, keep their structure and requirement numbering aligned.
+7. **Draft the concept** in the language(s) selected by the project profile, using `assets/templates/concept.*.md`. The document has only a 2–4 sentence summary, an in-scope table, and an out-of-scope table — see *Concept format* below. If several language versions are requested, keep their rows and IDs aligned.
 8. **Self-check loop.** Before this draft goes anywhere near the user, verify it against reality — see below. This is not a second gate; it is quality control on the one gate that exists.
 9. **Create the phase-1 gate item** ("Gate: approve concept") in the selected tracker and assign the approver when supported.
-10. **Stop.** Ask for approval.
+10. **Stop.** Ask for approval. Once given, record it in the gate item and a tracker update. Do not start phase 2 in the same turn.
 
 ## Self-check loop
 
@@ -43,10 +43,10 @@ The gate has one shot per round-trip with the user — a draft that contradicts 
 **Check against the project.** Read what already exists before asking the user to approve something that quietly conflicts with it:
 
 - Other tracker items and feature indexes for this codebase — does this FR, NFR, or architecture choice contradict a decision already made there?
-- The actual stack — package manifests, `docker-compose`, existing services — does "suggested solution" fit it, or does it quietly introduce a new database, framework, or messaging system? Introducing something new is fine; introducing it *silently* is not — call it out as a decision, not an assumption.
+- The actual stack — package manifests, `docker-compose`, existing services — does the approach fit it, or does it quietly introduce a new database, framework, or messaging system? Introducing something new is fine; introducing it *silently* is not — call it out as a decision, not an assumption.
 - `docs/contracts/conventions.md`, if the project has reached phase 2 before on another feature — align terminology and format expectations now rather than discovering the mismatch in phase 2.
 
-**Check checkable claims — light research, not a research project.** Pull out only the specific, consequential claims a wrong guess would be expensive for: a feasibility assumption in "Suggested solution", a number in an NFR, a limit or behavior of an external system, a market/competitor claim if the concept is business-facing. One to three targeted searches or a quick look at the relevant docs — enough to confirm or correct, not an open-ended investigation. Skip anything Claude already knows cold and that isn't time-sensitive; the point is catching what could be wrong or stale, not re-deriving common knowledge.
+**Check checkable claims — light research, not a research project.** Pull out only the specific, consequential claims a wrong guess would be expensive for: a feasibility assumption in the approach, a number in an NFR, a limit or behavior of an external system, a market/competitor claim if the concept is business-facing. One to three targeted searches or a quick look at the relevant docs — enough to confirm or correct, not an open-ended investigation. Skip anything Claude already knows cold and that isn't time-sensitive; the point is catching what could be wrong or stale, not re-deriving common knowledge.
 
 **Cap it at two passes.** Unlike phase 4, there is no test suite that turns green — "is this concept good enough" doesn't have an objective stop signal, so an uncapped loop just turns into stalling. After two passes, whatever is still unresolved needs a home — see below.
 
@@ -55,7 +55,7 @@ The gate has one shot per round-trip with the user — a draft that contradicts 
 **Log it briefly** — a comment on the phase-1 gate item or concept document, one or two lines, not a full audit trail:
 
 ```
-Pre-gate checks: suggested solution cross-checked against the `tenant-billing`
+Pre-gate checks: approach cross-checked against the `tenant-billing`
 project (no conflict) and against docker-compose.yml (Postgres already in use,
 no new dependency). NFR-2's 99.5% target checked against the current uptime of
 the service it depends on — revised from 99.9% after that check.
@@ -63,7 +63,7 @@ the service it depends on — revised from 99.9% after that check.
 
 ## Language and readability
 
-Write every requested language version to be read fast, not to sound impressive.
+**The concept is written in simple technical English.** Another language version is added only when the project profile or user asks for it, and it follows the same rules. Write to be read fast, not to sound impressive.
 
 - Short sentences. One idea each.
 - Common words: "use" not "utilise", "start" not "commence", "about" not "approximately".
@@ -74,50 +74,49 @@ Write every requested language version to be read fast, not to sound impressive.
 Bad: "Subsequent to the reception of an inbound inquiry, the system shall undertake the generation of a preliminary quotation."
 Good: "When a new inquiry arrives, the system creates a draft quote."
 
-## Requirements
+## Concept format
 
-**FR** — what the system does. Each one is a sentence with a subject and a verb, and you can imagine a test for it.
-
-```
-FR-1  The system accepts an inquiry by email, web form, or WhatsApp.
-FR-2  The system extracts customer name, address, and job description from the inquiry.
-FR-3  The user can edit any extracted field before the quote is sent.
-```
-
-**NFR** — how well. Each one has a number and a way to measure it.
+The concept is short. Three parts, nothing else:
 
 ```
-NFR-1  p95 latency for quote generation < 5 s (measured at the API edge).
-NFR-2  Availability 99.5% monthly, excluding announced maintenance.
-NFR-3  Customer data stored in the EU; deleted 24 months after last activity.
-NFR-4  No PII in logs.
+<2–4 sentences: the problem and the chosen approach>
+
+## In scope
+| ID | Part | Done when |
+| FR-1  | Reject a bio longer than 500 characters | 501 chars → BIO_TOO_LONG |
+| NFR-1 | Validation stays fast                   | p95 < 50 ms at 50 rps    |
+
+## Out of scope
+| Item | Why |
+| Content moderation | Separate feature |
 ```
 
-Categories worth checking every time: performance, scale, availability, security, privacy/GDPR, observability, cost, maintainability.
+- **FR rows** — what the system does; one row, one testable behaviour.
+- **NFR rows** — how well; "Done when" always has a number. Check performance, scale, availability, security, privacy, observability, cost — add a row only when one applies.
+- **Out of scope** — the cheapest table to write and the most expensive to omit.
 
-## Suggested solution
+Do not add problem essays, prose contracts, architecture sections, or diagrams to the document.
 
-Cover: components and their responsibilities, data flow (a numbered walk-through of the main path), storage and schema sketch, external dependencies, failure behaviour, and **rejected alternatives**.
+## Approach and rejected alternatives
 
-**Start from the cheapest thing that satisfies every FR and NFR exactly as validated, not the most impressive one.** Requirements are fixed by now — this step is about how cheaply they can be met, in engineering time and in operating cost, not about showcasing architecture. "Cheapest" still has to clear every NFR (security, availability, whatever's in the list) — this is not license to drop one quietly to save money; it's license to stop paying for anything a validated requirement doesn't ask for. Every increment of cost or complexity past that baseline needs to point at a specific FR/NFR number. "Best practice," "more scalable," and "we'll probably need this later" are not numbers — if the honest answer is "no requirement forces this," cut it, or turn it into an explicit, named decision the user can see and question.
+Not a document section. The summary names the approach in one sentence. **It is the cheapest thing that satisfies every in-scope row**, in engineering time and operating cost; anything pricier must point to a specific row ID, not "best practice" or "we may need it later".
 
-The rejected alternatives section is where that pricing shows up, not an afterthought box to check. It is the one that protects you six months later when someone asks "why didn't we just use X?" — because the answer is already written down.
+Put rejected alternatives in the gate request, one line each, with the row it failed or the cost that ruled it out:
 
 ```
-Chosen: single service + Postgres outbox + worker.
-Rejected: Kafka between the two — the load (~50 msg/min) does not justify running a broker.
-Rejected: serverless functions — cold starts break NFR-1.
+Rejected: Kafka between the two — ~50 msg/min does not justify a broker.
+Rejected: serverless — cold starts break NFR-1.
 ```
-
-**Draw it when there's enough to draw.** If the components and data flow can't be held in your head after one read of the numbered walkthrough — more than a couple of services, more than one external system, a non-trivial flow — sketch an architecture diagram alongside the prose, not instead of it (Mermaid in the doc if the renderer supports it, otherwise a plain image). For a single-service, single-flow feature, the prose is enough; a diagram would just restate it in boxes. When the choice between two designs genuinely isn't obvious, a quick side-by-side sketch of both candidates before picking is worth more than the diagram itself — it's the difference between "rejected alternatives" being a real comparison and being a one-line justification written after the fact.
 
 ## Exit criteria
 
-- Every language version required by the project profile exists and matches the others structurally.
-- Every FR is testable; every NFR has a number.
-- The suggested solution is the cheapest one that satisfies every FR/NFR — anything pricier than the obvious baseline traces to a specific FR/NFR number, not to "best practice."
-- At least one rejected alternative is documented, with the number that made it too expensive or the number it failed to meet.
-- The suggested solution has been checked against the existing project (stack, conventions, prior tracker decisions) — no silent conflicts.
+- The concept is in simple technical English: short sentences, common words, active voice, domain terms unchanged.
+- Any extra language version required by the project profile exists and has the same rows and IDs.
+- The concept is only a 2–4 sentence summary, an in-scope table, and an out-of-scope table.
+- Every FR row is testable; every NFR row has a number.
+- The approach is the cheapest one that satisfies every row — anything pricier traces to a specific row ID.
+- At least one rejected alternative is in the gate request, with the row it failed or the cost that ruled it out.
+- The approach has been checked against the existing project (stack, conventions, prior tracker decisions) — no silent conflicts.
 - Checkable claims (feasibility, numbers, external limits) were checked, or explicitly raised as risks.
 - Open questions are recorded in the selected tracker, not silently answered.
 - The decision tree was shown before any "key decisions," concept draft, or chosen architecture; every node distinguishes `Fact`, `Proposed`, `Open`, and `Approved`.

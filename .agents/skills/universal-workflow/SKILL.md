@@ -29,14 +29,14 @@ Resolve the project profile from repository instructions and established convent
 4. **Treat Linear as an adapter, not a prerequisite.** Use it only when the project already uses it and the integration is available. Otherwise use the existing tracker or the repo fallback from `references/project-profile.md`.
 5. **Failure moves backwards through the phases, never sideways.** A red test, failed deploy, or incident returns to the phase that could have prevented it, and the fix adds executable regression evidence at the closest applicable level.
 6. **Risks are logged where they're found, not carried in your head.** Any phase can raise or close one in the selected tracker. Before phase 5 ships, every risk is Mitigated, Accepted with an owner, or Closed; Open risk does not ship.
-7. **Use the project's documentation language.** If none is established, use concise English. Add translations only when the project profile or user requests them; language is an adapter, not a universal gate.
+7. **Write in simple technical English.** B1 grammar and everyday words; domain terms (webhook, JWT, idempotency) stay as they are. This is always the language of the concept. Other documents follow the project's established documentation language, else this same English. Add other language versions only when the project profile or user asks for them.
 8. **Use one bug lifecycle:** a lead becomes `confirmed` when reproducible evidence shows actual behaviour violating established expected behaviour, `diagnosed` when the root-cause mechanism is understood, and `fixed` only when a faithful regression test fails on the broken code and passes on the fix. "Sometimes happens" remains a lead — see `references/targeted-defect-review.md`.
-9. **Once requirements are validated, design starts from the cheapest thing that still satisfies every FR and NFR — not the most impressive, scalable, or familiar one.** Cheapest in engineering time and operating cost both, never cheapest by quietly dropping a requirement. Every increment of cost or complexity past that baseline has to trace to a specific FR/NFR number; "best practice" and "we might need it later" don't count. This is what rejected alternatives are for.
-10. **Agents establish facts efficiently; people own consequential choices.** Follow `references/efficient-project-search.md` to inspect the code, contracts, consumers, tracker, and external evidence before asking. Ask the user only about real product, scope, architecture, UX, cost, or risk choices, and record the decision instead of letting an implementation agent guess it later.
-11. **Expose decisions before declaring them.** In full feature delivery, before presenting "key decisions," a concept draft, or a chosen architecture, show the compact dependency tree and its current frontier. Mark agent-established facts with evidence, recommendations as `Proposed`, and owner choices as `Approved` only after an explicit answer or a cited durable prior decision. Run at least one frontier round whenever a consequential choice remains unresolved. If none remains, say so and cite the sources instead of asking ceremonial questions.
-12. **Keep agent work bounded by observable slices and durable artifacts.** A slice should normally fit in one fresh implementation context for code, tests, and its evidence report, followed by a separate fresh-context review. When a session or agent changes, hand off the ticket, approved artifacts, code, test evidence, and unresolved questions — not a transcript or an unverified summary. Re-slice work that cannot be reviewed as one coherent result.
-13. **Never silently skip a phase sub-step.** Conditional work still gets a ledger row. Read `references/phase-ledger.md` and show the table at routing, whenever a row is not `Done`, and at every phase/slice exit and gate. `N/A` needs a change-specific reason; `Blocked` is not passed; `Deferred` needs an owner agreement. Omitting the row is the same class of failure as skipping a hard gate.
-14. **Review the phase before leaving it, without adding extra gates.** After each run phase, follow `references/phase-exit-review.md`. Fold the review into the existing phase-1 and combined 2+3 gate requests. After phase 2, continue to phase 3 unless an owner decision appeared. Phase 4 already reviews each slice; the phase-exit session is the combined-diff review. Shorter modes get one exit review, not five.
+9. **Design starts from the cheapest thing that satisfies every FR and NFR** — in engineering time and operating cost, never by dropping a requirement. Anything pricier must trace to a specific FR/NFR ID; "best practice" and "we might need it later" don't count. Rejected alternatives show this.
+10. **Agents establish facts; people own consequential choices.** Inspect code, contracts, consumers, and tracker first (`references/efficient-project-search.md`). Ask only about real product, scope, architecture, UX, cost, or risk choices, and record the answer.
+11. **Expose decisions before declaring them.** In full feature delivery, show the decision tree (`Fact` / `Proposed` / `Open` / `Approved`) before any concept draft or chosen architecture. `Approved` needs an explicit owner answer or a cited prior decision. Run at least one frontier round while a consequential choice is open; if none is, say so and cite sources.
+12. **Work in observable slices with durable hand-offs.** A slice fits one fresh implementation context and gets a separate fresh-context review. Hand off through the ticket, artifacts, code, and test evidence — not a transcript.
+13. **Never silently skip a sub-step.** Every sub-step has a ledger row (`references/phase-ledger.md`). `N/A` needs a change-specific reason; `Blocked` is not passed; `Deferred` needs an owner agreement. A missing row is as bad as a skipped gate.
+14. **Review each phase before leaving it, without extra gates** (`references/phase-exit-review.md`). Fold the review into the existing gate requests. Shorter modes get one exit review.
 
 ## Where things live
 
@@ -45,7 +45,7 @@ Resolve the project profile from repository instructions and established convent
 | Workflow state | Tracker representation |
 |---|---|
 | Phase and approvals | Phase milestones/status plus one gate item per hard gate |
-| Concept brief | Project document(s) in the language(s) selected by the project profile |
+| Concept | Project document in simple technical English; extra language versions only on request |
 | Risk register | Issues labeled `risk`, filtered in a saved Project view |
 | Open questions | Issues labeled `question`, or unresolved comments |
 | Decisions log | Tracker updates or decision records |
@@ -95,55 +95,20 @@ This table applies to `full-feature-delivery`:
 | # | Phase | Reference | Gate | Exit review |
 |---|-------|-----------|------|-------------|
 | 1 | Concept | `references/phase-1-concept.md` | **Manual approve** | Folded into that gate |
-| 2 | API & event contracts | `references/phase-2-contracts.md` | Continue to phase 3 | Yes, no extra stop |
+| 2 | Interface contracts (any stack) | `references/phase-2-contracts.md` | Continue to phase 3 | Yes, no extra stop |
 | 3 | Executable behavioural contracts | `references/phase-3-behaviour.md` | **Manual approve phases 2 + 3** | Folded into that gate |
 | 4 | Implementation loop | `references/phase-4-implementation.md` | Loop until green | Per slice + combined diff |
 | 5 | Release | `references/phase-5-release.md` | Ship | Ship-evidence check |
 
 Templates in `assets/templates/` are short filled samples for `bio-max-length`. Copy the shape, replace the sample. Ledger tables show two or three rows only; the closed ID list stays in `references/phase-ledger.md`. Tracker and project conventions come from `references/project-profile.md`.
 
-### Phase 1 — Concept (gate)
+Phase essentials (details live in the reference files):
 
-Create the full-feature tracking container selected by the project profile. Write the concept brief in the selected project language(s), covering:
-
-- **Problem** — who has it, when, what it costs them today. Concrete, not "users want a better experience".
-- **Contracts and behaviour in plain text** — what goes in, what comes out, what the system promises, what it refuses to do. No JSON yet — prose that a non-engineer could check.
-- **Functional requirements** — numbered FR-1, FR-2…, each testable.
-- **Non-functional requirements** — numbered NFR-1…, each with a number attached (latency, throughput, availability, data retention, security, cost). "Fast" is not an NFR; "p95 < 300 ms at 50 rps" is.
-- **Out of scope** — the cheapest section to write and the most expensive to omit.
-- **Suggested solution** — the cheapest design that satisfies every FR/NFR exactly as validated, not the most impressive one: components, data flow, storage, external systems. Anything pricier than the obvious baseline needs to trace to a specific FR/NFR number, not "best practice" — and *at least one rejected alternative with the number it failed to meet*. A design with no rejected alternative was not a decision. Draw a diagram alongside the prose only once there's enough to draw — a single-service, single-flow design doesn't need one.
-
-Start discovery from project facts, then show the remaining uncertainty as a small tree of dependent decisions with `Fact`, `Proposed`, `Open`, and `Approved` status. Before drafting a suggested solution or listing "key decisions," ask only the frontier questions that have enough evidence to answer now; after each bounded round, update the visible tree and confirm the shared understanding. A recommendation is never an approved decision without an explicit owner answer or a cited durable prior decision. For a large idea with several independent unknown branches, use a Wayfinder-style split: create focused research, prototype, or decision issues that each answer one named question, then merge their evidence back into one concept. These issues do not bypass the phase-1 gate. Interview against the category checklist (user, trigger/success, boundaries, numbers, integration, failure, stakeholders), say what was inferred, and run the short self-check loop in `references/phase-1-concept.md` before asking for approval.
-
-Then stop and ask for approval. Once given, record the approval in the selected gate item and tracker update. Do not start phase 2 in the same turn.
-
-### Phase 2 — API & event contracts
-
-Update contracts in their canonical project locations and link them from the feature index. Follow the project's spec and readable-documentation convention. If none exists, default to a machine-readable spec plus a generated or maintained readable view. A real migration remains canonical for schema changes; never copy it into the feature folder. Include error and edge cases, and record unresolved uncertainty in the selected tracker. Do not request approval yet; continue to phase 3.
-
-### Phase 3 — Behavioural contracts
-
-Create executable acceptance criteria for every FR and phase-2 error path. Follow an established project convention. When none exists, write Gherkin-like Given/When/Then tests in the native test framework; do not introduce Cucumber solely for this workflow. After phase 3, run one combined check across requirements, contracts, errors, and acceptance tests. Then show phases 2 and 3 as one package and request one explicit approval before implementation.
-
-### Phase 4 — Implementation loop
-
-For full features, Phase 3 supplies the outside-in acceptance check for each slice. Bug fixes use regression evidence; compressed mechanical changes may use other deterministic evidence. Choose additional test levels from changed risks; no fixed pyramid applies.
-
-```
-plan → primary evidence/red where applicable → code + applicable tests → green/proven → review → refactor
-   ↑                                                                                                  │
-   └──────────────────────────── if anything fails, back to plan ──────────────────────────────────────┘
-```
-
-Run this per slice, not per feature — a slice is the smallest observable behaviour that makes at least one acceptance check pass and can normally be implemented, tested, and reported from one fresh implementation context. Record its dependencies and classify it `HITL` when a human choice or manual product check remains; use `AFK` only for low-risk, fully specified, deterministically verified work, never as permission to auto-merge. Select unit, component, integration, contract, system/e2e, and non-functional checks only where the changed risks need them. Review each slice from a separate fresh context against both the approved specification and the project's engineering standards. Hand off between sessions through the ticket, repo artifacts, code, test evidence, and unresolved questions. Full rules are in `references/phase-4-implementation.md`.
-
-Log failed iterations in `04-implementation/log.md` for full features, or in the compact issue/plan for shorter modes. Record risk-selected test evidence as it appears. Review each slice for specification and engineering fit; that review includes targeted defect discovery using `references/targeted-defect-review.md`. Full feature delivery also gets one final review across the combined diff. Exit according to the mode-specific criteria in `references/phase-4-implementation.md`.
-
-### Phase 5 — Release
-
-Build → security scan → deploy → smoke tests → monitoring → docs. Each applicable step gates the next. **Before shipping: the selected tracker's Open-risk view is empty and no blocker-severity bug remains in scope.** Complete release metrics only after their observation window; until then use “not yet observed,” not “passed.”
-
-**If a step fails, the loop goes backwards, and where to depends on what failed** — a build failure returns to phase 4, a violated NFR returns to phase 1. Roll back first, diagnose second. Every production failure adds an executable regression test using the project's grouping convention; without one, use a clearly named Gherkin-like native test linked to the incident. Failure paths are in `references/phase-5-release.md`.
+- **Phase 1** — the concept is a 2–4 sentence summary, an in-scope table, and an out-of-scope table, in simple technical English. Show the decision tree before choosing an approach. Stop for approval.
+- **Phase 2** — contracts for every boundary the feature crosses (API, data, UI, state, config, jobs, model I/O, shared code) in canonical project locations, each with its consumer list, linked from the feature index. No approval stop; continue to phase 3.
+- **Phase 3** — executable acceptance tests for every FR and error path (project convention, else Gherkin-like native tests). Request one approval for phases 2 + 3.
+- **Phase 4** — per-slice loop: plan → red → code → green → fresh-context review → refactor; failures go back to plan. User-visible journeys are proven with recorded browser runs via the `e2e-recording` skill (`.agents/skills/e2e-recording/SKILL.md`), linked from the PR. AFK slices whose evidence runs in the cloud may be dispatched as one cloud task and PR each; HITL slices and gates stay with the owner.
+- **Phase 5** — build → security scan → deploy → smoke → monitoring → docs. No Open risk and no blocker bug ships. Roll back first, diagnose second.
 
 ## Working with the user
 

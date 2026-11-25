@@ -2,7 +2,7 @@
 
 Goal: make the acceptance criteria executable. After this phase, "is the feature done?" is answered by a test run, not by an opinion.
 
-Show the phase-3 ledger from `references/phase-ledger.md` with the combined approval request. A missing FR, error-path check, or combined-check row is a protocol failure, not an implied skip.
+Show the merged P2+P3 ledger (one table) with the combined approval request. A missing FR, error-path check, or combined-check row is a protocol failure, not an implied skip.
 
 ## Choose the project's acceptance format
 
@@ -89,7 +89,7 @@ Run one verification pass after phase 3, before asking for approval. This is the
 
 **Resolve findings at their source.** Fix malformed tests and contract/readable-view drift directly. Return to phase 1 for a requirement/design gap. Revise phase 2 for a contract gap. Record unresolved external or operational uncertainty in the selected tracker.
 
-Then show the user one compact package: material contract decisions and compatibility impact, the FR/error-to-acceptance traceability list, validation commands/results, open risks, the phase-2 plus phase-3 ledgers, and the combined phase-exit review. Ask for one explicit approval covering phases 2 and 3. Do not send a separate “review session” message after that package. Do not begin phase 4 before approval.
+Then show the user one compact package: material contract decisions and compatibility impact (one line each), traceability gaps only (link the full FR/error-to-acceptance list), one line of validation results, open risks, one merged P2+P3 ledger table, and the exit-review verdict. Ask for one explicit approval covering phases 2 and 3. Do not send a separate “review session” message after that package. Do not begin phase 4 before approval.
 
 ## Exit criteria
 

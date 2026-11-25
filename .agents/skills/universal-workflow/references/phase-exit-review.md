@@ -39,9 +39,8 @@ Shorter modes: one session covering B.* or C.* plus applicable P4/P5. Do not inv
 ## Phase-exit review — phase <n>
 
 Verdict: pass | send back to phase <n> | blocked
-Ledger: non-Done rows first (or “all Done”)
 Finding: none, or one line each
 Next: <gate request | continue to phase n+1 | stop for owner>
 ```
 
-A pass with a missing ledger row is invalid. A fail that continues anyway is a skipped review.
+The ledger is the table shown in the same reply or linked; do not repeat it here. A pass with a missing ledger row is invalid. A fail that continues anyway is a skipped review.

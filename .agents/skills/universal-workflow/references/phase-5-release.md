@@ -35,7 +35,7 @@ Anything accepted instead of fixed becomes an owned risk in the selected tracker
 
 - Migrations first, and they must be backward-compatible with the currently running version — expand/contract, never a destructive change in the same release as the code that needs it.
 - Progressive rollout where the platform allows it (blue/green, canary). Otherwise: deploy at a time when you can watch it.
-- Rollback is decided *before* deploying, not during the incident: how, and what the trigger is.
+- Rollback is decided *before* deploying, not during the incident: how, and what the trigger is. When a step fails, roll back first, diagnose second.
 - Feature flag for anything user-visible and risky.
 
 ## 4. Smoke tests
@@ -44,7 +44,7 @@ Run against production (or the freshly deployed environment) immediately:
 
 - Health/readiness endpoints.
 - The smoke-tagged or smoke-grouped executable acceptance checks from phase 3 — you already wrote them.
-- One real end-to-end path with a test tenant.
+- One real end-to-end path with a test tenant, recorded with `e2e-record --pr <n>` (see the [`e2e-recording`](../../e2e-recording/SKILL.md) skill) against the deployed environment, so the PR comment carries the post-deploy video next to the pre-merge runs.
 
 Failing smoke tests trigger the rollback you planned in step 3. Automatically, if the pipeline can.
 
@@ -80,7 +80,7 @@ The QA metrics snapshot is complete for the release: pre-release evidence is lin
 
 **No open blocker-severity bug in this delivery scope.** Bugs found through targeted review gate the release like risks do — see `references/targeted-defect-review.md`.
 
-Show the completed P5 ledger with the release handoff. A step that was not run is `N/A`, `Blocked`, `Deferred`, or `Mode-omit` on that table. That handoff is the phase-5 exit review; do not add a second “please approve the release process” stop unless a deploy decision still needs the owner.
+Show the completed release checklist as the handoff, with only the non-`Done` P5 ledger rows beneath it. A step that was not run is `N/A`, `Blocked`, `Deferred`, or `Mode-omit` on that table. That handoff is the phase-5 exit review; do not add a second “please approve the release process” stop unless a deploy decision still needs the owner.
 
 ---
 

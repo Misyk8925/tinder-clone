@@ -32,4 +32,4 @@ Do not use exceptions for contract compatibility, migration safety, secret scann
 
 ## Evidence
 
-For every gate report the command or CI job, baseline revision, changed scope, outcome, and report link. A tool that could not run is `Blocked`, not `Passed`; decide whether to unblock it, reduce the release scope, or log an owned risk.
+Report each gate as one line: `gate · outcome · link`. Add command, baseline revision, and changed scope only for `Failed` or `Blocked` gates. A tool that could not run is `Blocked`, not `Passed`; decide whether to unblock it, reduce the release scope, or log an owned risk.

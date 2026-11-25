@@ -35,6 +35,17 @@ Keep it short. A plan longer than the diff it describes is procrastination.
 - **HITL (human in the loop)** is the default when the slice changes user-visible behaviour, contracts, migrations, security, privacy, domain policy, architecture, dependencies, operational risk, or needs manual UI/product judgment. Name the decision or manual check and stop at that point for the owner.
 - **AFK** is allowed only when behaviour is fully specified, no consequential choice remains, the change is low-risk and reversible, and deterministic checks can establish success. Discovering a new choice immediately reclassifies the slice to HITL.
 - AFK means the implementation loop may run without synchronous user input. It never means auto-merge, skipped review, weaker evidence, or permission to expand scope.
+- **AFK needs evidence the run can produce.** If the slice can only be proven by checks whose runtime is missing in the target environment (Kafka, Redis, Testcontainers, PostgreSQL, Dev Services, a browser), it is HITL for that environment, however simple the code. A green run that skipped those checks is not proof.
+
+### Cloud dispatch
+
+An AFK slice is the unit of cloud or background agent work:
+
+- Dispatch only after the phase-2/3 gate is approved (full features), and only slices whose blocking dependencies are already merged.
+- One slice = one task, one branch, one PR. The task brief is the ticket plus links to the approved artifacts — not a transcript.
+- The PR body follows `assets/templates/pr.md`: what changed in 1–3 lines, ticket link, one check-count line, open risks only. Ledgers, reviews, and logs are linked, never pasted.
+- The cloud run ends with the PR and its evidence report. It never merges, approves a gate, or starts the next slice.
+- If the run discovers a new choice or a missing runtime, it stops, records the slice as HITL with the reason, and leaves the branch for the owner.
 
 If a slice only fits one context by omitting review or verification, it does not fit. Split it along another observable behaviour boundary.
 
@@ -119,6 +130,8 @@ Only with tests green. Remove duplication, name things properly, split what grew
 
 When the changed risk requires a running system, run the selected smoke/acceptance journey against the appropriate ephemeral or integration environment, plus the applicable NFR checks. Do not start heavyweight infrastructure solely to tick an E2E box; report an unavailable required environment as Blocked.
 
+**Recorded browser evidence.** A slice that changes a user-visible journey (sign-in, profile, photos, matching, anything a person clicks through) is proven with a recorded browser run, following the [`e2e-recording`](../../e2e-recording/SKILL.md) skill: run `e2e-record` from the branch's checkout on the VPS, never Playwright directly and never only into `e2e/out/`. Every run is archived for 90 days, and the PR gets one comment linking each run's report, a short edited video (blank start cut, waits fast-forwarded) and the raw recording. In the slice evidence, link that PR comment or the run's report; do not paste logs. A run before the PR exists is archived under its commit: attach it once the PR is open with `e2e-record --attach <pr>`. A red run is a red step: read `results.json` and the trace, then go back to plan. If the target environment does not run the changed code yet (not deployed), the run proves nothing about this slice: record it as Blocked with that reason instead of counting a failure.
+
 ## 7. Repeat or exit
 
 **Any red step sends you back to plan.** Not back to code — back to plan, because a failure often means the slice was wrong, not just the line. Record it in `04-implementation/log.md`:
@@ -137,7 +150,7 @@ That log is the most valuable file in the folder when someone asks "why is it bu
 For every mode:
 
 - Every test level selected from changed risks is green; unavailable required checks are Blocked, never counted as passed.
-- Every slice records an observable result, dependencies, and HITL/AFK mode; any decision discovered during AFK work was escalated before implementation continued.
+- Every slice records an observable result, dependencies, and HITL/AFK mode; any decision discovered during AFK work was escalated before implementation continued; every AFK slice's evidence was produced in the environment that ran it.
 - The plan or compact issue records changed risks, applicable test levels, and evidence without demanding unrelated levels.
 - Each slice received fresh-context review on specification fit and engineering fit, or the lack of an independent reviewer is stated explicitly.
 - Any session/agent handoff contains durable artifact links, exact test evidence, remaining work, and unresolved questions; the receiver reverified the starting state.
