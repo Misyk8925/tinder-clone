@@ -26,7 +26,7 @@ test('profile photo upload, persistence across reload, and deletion', async ({ p
         await test.step('create a profile for account A', async () => {
           await think(page, 'decide');
           await createProfile.click();
-          await expect(page.getByRole('heading', { name: /^create profile$/i })).toBeVisible();
+          await expect(page.getByRole('heading', { name: /^basics$/i })).toBeVisible();
           await think(page, 'glance');
 
           await typeLikeHuman(page.getByLabel(/^name/i), 'Alex E2E');
