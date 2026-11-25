@@ -28,6 +28,14 @@ class Settings(BaseSettings):
     # Shared secret that profiles/match present in X-Internal-Auth. Empty means the
     # service refuses every data request rather than serving them unauthenticated.
     photos_internal_auth_secret: str = ""
+    # Explicit storage backend: "local", "s3", or "memory". Empty falls back to
+    # "s3" when AWS_S3_BUCKET is set, otherwise "memory".
+    photos_storage_backend: str = ""
+    photos_local_root: str = "/var/lib/photos"
+    photos_public_base_url: str = ""
+    # Optional dedicated HMAC secret for local signed /media/{key} URLs; falls back
+    # to PHOTOS_INTERNAL_AUTH_SECRET when unset.
+    photos_signing_secret: str = ""
     aws_s3_bucket: str = ""
     aws_region: str = "eu-north-1"
     aws_access_key_id: str = "placeholder-access-key"
@@ -44,6 +52,22 @@ class Settings(BaseSettings):
     @property
     def internal_auth_secret(self) -> str:
         return self.photos_internal_auth_secret.strip()
+
+    @property
+    def storage_backend(self) -> str:
+        return self.photos_storage_backend.strip().lower()
+
+    @property
+    def local_root_path(self) -> Path:
+        return Path(self.photos_local_root.strip() or "/var/lib/photos")
+
+    @property
+    def public_base_url(self) -> str:
+        return self.photos_public_base_url.strip().rstrip("/")
+
+    @property
+    def signing_secret(self) -> str:
+        return self.photos_signing_secret.strip() or self.internal_auth_secret
 
     @property
     def allowed_types(self) -> list[str]:

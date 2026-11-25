@@ -55,6 +55,32 @@ def storage_id_of(key_or_url: str) -> str:
     )
 
 
+def validate_key(key: str) -> str:
+    """Validate that a media object key matches `{namespace}/{ownerId}/{storageId}/{variant}.jpg`."""
+    if not key or key.startswith("/") or "\\" in key or "\x00" in key:
+        raise PhotoValidationError(f"Invalid media key: {key}")
+    parts = key.split("/")
+    if any(part in ("", ".", "..") for part in parts):
+        raise PhotoValidationError(f"Invalid media key: {key}")
+    if len(parts) == 4 and parts[0] == "photos":
+        owner_raw, storage_id, filename = parts[1], parts[2], parts[3]
+    elif len(parts) == 5 and parts[0] == "chat" and parts[1] == "photos":
+        owner_raw, storage_id, filename = parts[2], parts[3], parts[4]
+    else:
+        raise PhotoValidationError(
+            f"Invalid media key format: {key}. Expected {{namespace}}/{{ownerId}}/{{storageId}}/{{variant}}.jpg"
+        )
+    try:
+        UUID(owner_raw)
+    except ValueError as exc:
+        raise PhotoValidationError(f"Invalid owner id in media key: {owner_raw}") from exc
+    if not storage_id or not filename.endswith(EXTENSION):
+        raise PhotoValidationError(f"Invalid media key format: {key}")
+    variant = filename[: -len(EXTENSION)]
+    require_known_variant(variant)
+    return key
+
+
 def _path_of(url: str) -> str:
     parsed = urlparse(url)
     if not parsed.scheme or not parsed.netloc:

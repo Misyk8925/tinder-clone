@@ -31,6 +31,9 @@ public final class PhotoObjectRef {
         if (query >= 0) {
             path = path.substring(0, query);
         }
+        if (path.startsWith("media/")) {
+            path = path.substring("media/".length());
+        }
         String[] parts = path.split("/");
         if (parts.length < 4 || !NAMESPACE.equals(parts[0])) {
             return Optional.empty();

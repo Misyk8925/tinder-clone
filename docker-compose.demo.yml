@@ -6,7 +6,8 @@
 services:
   photos:
     environment:
-      # Empty bucket selects in-process MemoryStorage (services/photos/app/main.py).
+      # Explicitly select in-process MemoryStorage for ephemeral local demo.
+      PHOTOS_STORAGE_BACKEND: "memory"
       AWS_S3_BUCKET: ""
       AWS_S3_ENDPOINT: ""
       CDN_ENABLED: "false"

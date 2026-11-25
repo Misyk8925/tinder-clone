@@ -80,6 +80,8 @@ public class SecurityConfig {
                         .pathMatchers("/api/v1/deck", "/api/v2/deck").permitAll()
                         // WebSocket upgrade — JWT auth handled inside the match service via STOMP channel interceptor
                         .pathMatchers("/ws", "/ws/**").permitAll()
+                        // Signed local media downloads — authorized per-request by HMAC-SHA256 query signature
+                        .pathMatchers(org.springframework.http.HttpMethod.GET, "/media/**").permitAll()
                         .pathMatchers("/actuator/health", "/actuator/health/**").permitAll()
                         // Deck maintenance endpoints act on any viewer's deck: operators only.
                         // The rate-limit filter alone cannot carry this — authorization belongs here.

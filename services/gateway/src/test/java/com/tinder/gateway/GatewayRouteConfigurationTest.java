@@ -31,6 +31,19 @@ class GatewayRouteConfigurationTest {
         assertThat(routes().toString()).doesNotContain("/api/v1/profiles/deck");
     }
 
+    @Test
+    void routesSignedLocalMediaGetsToPhotosService() {
+        Map<String, Object> mediaRoute = routes().stream()
+                .filter(route -> "photos-media".equals(route.get("id")))
+                .findFirst()
+                .orElseThrow();
+
+        assertThat(mediaRoute.get("uri"))
+                .isEqualTo("${PHOTOS_SERVICE_URL:http://localhost:8070}");
+        assertThat(asStringList(mediaRoute.get("predicates")))
+                .containsExactly("Path=/media/**", "Method=GET");
+    }
+
     @SuppressWarnings("unchecked")
     private List<Map<String, Object>> routes() {
         InputStream applicationYaml = getClass().getClassLoader().getResourceAsStream("application.yml");

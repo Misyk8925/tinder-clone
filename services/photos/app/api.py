@@ -1,6 +1,6 @@
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, File, Form, Request, UploadFile
+from fastapi import APIRouter, Depends, File, Form, Request, Response, UploadFile
 from pydantic import BaseModel, Field
 
 from app.auth import require_internal_auth
@@ -9,6 +9,10 @@ from app.service import PhotoService
 
 # Every route below reads or mutates user media, so the whole router is authenticated.
 router = APIRouter(dependencies=[Depends(require_internal_auth)])
+
+# Signed media delivery router — authorized per-request by HMAC-SHA256 query signature,
+# not X-Internal-Auth, so browsers can fetch images directly via Gateway.
+media_router = APIRouter()
 
 # Health probes must stay reachable without credentials.
 health_router = APIRouter()
@@ -120,6 +124,21 @@ def cleanup_orphaned(
         request.namespace,
     )
     return CleanupResponse(deleted=deleted)
+
+
+@media_router.get("/media/{key:path}")
+def get_signed_media(
+    key: str,
+    exp: int | None = None,
+    sig: str | None = None,
+    service: PhotoService = Depends(get_photo_service),
+) -> Response:
+    data, remaining_ttl = service.read_signed_media(key, exp, sig)
+    return Response(
+        content=data,
+        media_type="image/jpeg",
+        headers={"Cache-Control": f"private, max-age={remaining_ttl}"},
+    )
 
 
 @health_router.get("/health")

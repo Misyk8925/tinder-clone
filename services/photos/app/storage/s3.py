@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
-from typing import Protocol
 from urllib.parse import quote
 
 import boto3
@@ -9,39 +8,13 @@ from botocore.config import Config
 from botocore.exceptions import BotoCoreError, ClientError
 
 from app.config import Settings
-from app.exceptions import PhotoStorageError
+from app.exceptions import PhotoNotFoundError, PhotoStorageError
+from app.storage.base import MediaStorage
 
 
-class ObjectStorage(Protocol):
-    def put(self, key: str, data: bytes, content_type: str) -> None: ...
-    def delete(self, key: str) -> None: ...
-    def list_keys(self, prefix: str) -> list[str]: ...
-    def public_url(self, key: str) -> str: ...
-    def presigned_download_url(self, key: str) -> str: ...
+class S3Storage(MediaStorage):
+    """AWS S3 (+ optional CloudFront) media storage backend."""
 
-
-class MemoryStorage:
-    def __init__(self, public_base: str = "https://cdn.test") -> None:
-        self._objects: dict[str, bytes] = {}
-        self._public_base = public_base.rstrip("/")
-
-    def put(self, key: str, data: bytes, content_type: str) -> None:
-        self._objects[key] = data
-
-    def delete(self, key: str) -> None:
-        self._objects.pop(key, None)
-
-    def list_keys(self, prefix: str) -> list[str]:
-        return [key for key in self._objects if key.startswith(prefix)]
-
-    def public_url(self, key: str) -> str:
-        return f"{self._public_base}/{key}"
-
-    def presigned_download_url(self, key: str) -> str:
-        return f"{self._public_base}/{key}?X-Amz-Expires=300"
-
-
-class S3Storage:
     def __init__(self, settings: Settings) -> None:
         if not settings.aws_s3_bucket.strip():
             raise PhotoStorageError("Missing config: AWS_S3_BUCKET must be set for photo uploads")
@@ -73,6 +46,19 @@ class S3Storage:
             )
         except (BotoCoreError, ClientError) as exc:
             raise PhotoStorageError(f"Failed to store object {key}") from exc
+
+    def get(self, key: str) -> bytes:
+        try:
+            response = self._client.get_object(Bucket=self._bucket, Key=key)
+            return response["Body"].read()
+        except ClientError as exc:
+            code = exc.response.get("Error", {}).get("Code", "")
+            status = exc.response.get("ResponseMetadata", {}).get("HTTPStatusCode")
+            if status == 404 or code in {"404", "NoSuchKey", "NotFound"}:
+                raise PhotoNotFoundError(f"Photo not found: {key}") from exc
+            raise PhotoStorageError(f"Failed to read object {key}") from exc
+        except BotoCoreError as exc:
+            raise PhotoStorageError(f"Failed to read object {key}") from exc
 
     def delete(self, key: str) -> None:
         try:
