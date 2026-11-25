@@ -815,7 +815,10 @@ services:
       SUBSCRIPTIONS_GRPC_KEYSTORE_PASSWORD: ${MTLS_KEYSTORE_PASSWORD:?MTLS_KEYSTORE_PASSWORD is required}
       SUBSCRIPTIONS_GRPC_TRUSTSTORE_PATH: file:/certs/truststore.jks
       SUBSCRIPTIONS_GRPC_TRUSTSTORE_PASSWORD: ${MTLS_TRUSTSTORE_PASSWORD:?MTLS_TRUSTSTORE_PASSWORD is required}
-      JAVA_TOOL_OPTIONS: "-XX:+UseContainerSupport -XX:+UseG1GC -XX:InitialRAMPercentage=40.0 -XX:MaxRAMPercentage=75.0 -Dfile.encoding=UTF-8 -Dsun.net.inetaddr.ttl=60 -Djava.io.tmpdir=/tmp -Dio.grpc.netty.shaded.io.netty.handler.ssl.noOpenSsl=true"
+      # Heap is capped at 50% of the limit (256 MiB). On prod 2026-11-25 the JVM
+      # was OOM-killed twice during startup at ~390 MiB RSS under the old 384m
+      # limit with a 75% heap cap, and a running instance sat at 350 MiB RSS.
+      JAVA_TOOL_OPTIONS: "-XX:+UseContainerSupport -XX:+UseG1GC -XX:InitialRAMPercentage=25.0 -XX:MaxRAMPercentage=50.0 -Dfile.encoding=UTF-8 -Dsun.net.inetaddr.ttl=60 -Djava.io.tmpdir=/tmp -Dio.grpc.netty.shaded.io.netty.handler.ssl.noOpenSsl=true"
     volumes:
       - type: bind
         source: /etc/dokploy/certs/tinderclone/subscriptions-service.p12
@@ -831,7 +834,7 @@ services:
           create_host_path: false
     networks:
       - app
-    mem_limit: 384m
+    mem_limit: 512m
     cpus: "0.60"
     healthcheck:
       test: ["CMD-SHELL", "(wget -q --server-response -O- http://localhost:8095/actuator/health 2>&1 || true) | grep -Eq 'HTTP/1.1 (200|401)' || exit 1"]
