@@ -322,10 +322,6 @@ services:
         condition: service_healthy
     environment:
       SPRING_PROFILES_ACTIVE: prod
-      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID:-unused-local-storage}
-      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY:-unused-local-storage}
-      AWS_S3_BUCKET: ${AWS_S3_BUCKET:-}
-      AWS_REGION: ${AWS_REGION:-eu-north-1}
       CLOUDFRONT_DOMAIN: ${CLOUDFRONT_DOMAIN:-}
       CDN_ENABLED: ${CDN_ENABLED:-false}
       KEYCLOAK_REALM: ${KEYCLOAK_REALM:-spring}

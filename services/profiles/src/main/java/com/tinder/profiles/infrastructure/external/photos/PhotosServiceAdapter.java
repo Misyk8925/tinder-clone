@@ -2,6 +2,7 @@ package com.tinder.profiles.infrastructure.external.photos;
 
 import com.tinder.profiles.application.photos.exception.PhotoStorageException;
 import com.tinder.profiles.application.photos.exception.PhotoValidationException;
+import com.tinder.profiles.application.photos.model.PhotoVariantRef;
 import com.tinder.profiles.application.photos.model.StoredPhotoMedia;
 import com.tinder.profiles.application.photos.port.out.PhotoMediaPort;
 import lombok.extern.slf4j.Slf4j;
@@ -18,7 +19,9 @@ import reactor.core.publisher.Mono;
 
 import java.time.Duration;
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 @Component
@@ -26,6 +29,9 @@ import java.util.UUID;
 public class PhotosServiceAdapter implements PhotoMediaPort {
 
     private static final Duration TIMEOUT = Duration.ofSeconds(30);
+    // Signing sits on profile reads (GET /me, deck snapshots), which fall back to the
+    // stored URL on failure; waiting the upload-sized 30 s there would stall the page.
+    private static final Duration SIGNING_TIMEOUT = Duration.ofSeconds(3);
     private static final String NAMESPACE = "photos";
 
     private final WebClient photosWebClient;
@@ -103,6 +109,39 @@ public class PhotosServiceAdapter implements PhotoMediaPort {
     }
 
     @Override
+    public Map<PhotoVariantRef, String> presignedDownloadUrls(Collection<PhotoVariantRef> refs) {
+        if (refs == null || refs.isEmpty()) {
+            return Map.of();
+        }
+        List<DownloadUrlItem> items = refs.stream()
+                .distinct()
+                .map(ref -> new DownloadUrlItem(ref.ownerId(), ref.storageId(), ref.variant(), NAMESPACE))
+                .toList();
+
+        DownloadUrlsResponse response = photosWebClient.post()
+                .uri("/api/v1/photos/download-urls")
+                .contentType(MediaType.APPLICATION_JSON)
+                .bodyValue(new DownloadUrlsRequest(items))
+                .retrieve()
+                .onStatus(HttpStatusCode::isError, this::toPhotoException)
+                .bodyToMono(DownloadUrlsResponse.class)
+                .timeout(SIGNING_TIMEOUT)
+                .onErrorMap(this::mapUnexpected)
+                .block();
+
+        if (response == null || response.items() == null) {
+            return Map.of();
+        }
+        Map<PhotoVariantRef, String> urls = new HashMap<>(response.items().size());
+        for (DownloadUrlResult item : response.items()) {
+            if (item.url() != null) {
+                urls.put(new PhotoVariantRef(item.ownerId(), item.storageId(), item.size()), item.url());
+            }
+        }
+        return urls;
+    }
+
+    @Override
     public int cleanupOrphans(UUID ownerId, Collection<String> cataloguedStorageIds) {
         CleanupResponse response = photosWebClient.post()
                 .uri("/api/v1/photos/cleanup-orphaned")
@@ -166,6 +205,18 @@ public class PhotosServiceAdapter implements PhotoMediaPort {
     }
 
     record DownloadUrlResponse(String url) {
+    }
+
+    record DownloadUrlItem(UUID ownerId, String storageId, String size, String namespace) {
+    }
+
+    record DownloadUrlsRequest(List<DownloadUrlItem> items) {
+    }
+
+    record DownloadUrlResult(UUID ownerId, String storageId, String size, String url) {
+    }
+
+    record DownloadUrlsResponse(List<DownloadUrlResult> items) {
     }
 
     record CleanupRequest(UUID ownerId, List<String> cataloguedStorageIds, String namespace) {

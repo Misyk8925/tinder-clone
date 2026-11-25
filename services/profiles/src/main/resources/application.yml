@@ -143,9 +143,6 @@ management:
         include: health,info,prometheus,metrics
 
 app:
-  s3:
-    bucket: ${AWS_S3_BUCKET:}
-    presign-exp-seconds: 300
   cloudfront:
     domain: ${CLOUDFRONT_DOMAIN:d123example.cloudfront.net}
     enabled: ${CDN_ENABLED:false}
@@ -166,15 +163,6 @@ profile:
 premium:
   expiration:
     check-interval-ms: 3600000
-
-cloud:
-  aws:
-    region: ${AWS_REGION:${AWS_DEFAULT_REGION:eu-north-1}}
-    credentials:
-      access-key: ${AWS_ACCESS_KEY_ID:placeholder-access-key}
-      secret-key: ${AWS_SECRET_ACCESS_KEY:placeholder-secret-key}
-    s3:
-      endpoint: ${AWS_S3_ENDPOINT:}
 
 keycloak:
   # Direct Keycloak URL — used by KeycloakPremiumRoleAdapter and UserService for Admin REST API calls

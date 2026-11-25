@@ -6,16 +6,12 @@ import com.tinder.profiles.infrastructure.cache.ResilientCacheManager;
 import com.tinder.profiles.infrastructure.persistence.photos.Photo;
 import com.tinder.profiles.infrastructure.photos.PhotoDownloadUrlSigner;
 import com.tinder.profiles.infrastructure.photos.PhotoSignerFixtures;
-import org.junit.jupiter.api.AfterEach;
+import com.tinder.profiles.infrastructure.photos.PhotoSignerFixtures.RecordingPhotoMedia;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
-import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
-import software.amazon.awssdk.regions.Region;
-import software.amazon.awssdk.services.s3.presigner.S3Presigner;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -38,27 +34,16 @@ class JpaProfileQueryAdapterPhotoUrlTest {
     @Mock
     private ProfileIdentityCacheService profileIdentityCacheService;
 
-    private S3Presigner presigner;
-
-    @AfterEach
-    void closePresigner() {
-        if (presigner != null) {
-            presigner.close();
-        }
-    }
+    private final RecordingPhotoMedia photosService = new RecordingPhotoMedia();
 
     @Test
-    @DisplayName("Given a catalogued photo stored as a public S3 URL, when the owner profile is read, then url is a presigned GET")
-    void getMyProfilePresignsPhotoUrl() {
-        presigner = S3Presigner.builder()
-                .region(Region.EU_NORTH_1)
-                .credentialsProvider(StaticCredentialsProvider.create(
-                        AwsBasicCredentials.create("test-access", "test-secret")))
-                .build();
+    @DisplayName("Given a catalogued photo stored as an S3 URL, when the owner reads their profile, then url comes from the photos service, not S3")
+    void getMyProfileSignsPhotoUrlThroughPhotosService() {
+        // Given
         Photo photo = new Photo();
         photo.setPhotoID(UUID.randomUUID());
         photo.setS3Key("photos/%s/%s/original.jpg".formatted(PROFILE_ID, STORAGE_ID));
-        photo.setUrl("https://test-bucket.s3.eu-north-1.amazonaws.com/photos/%s/%s/original.jpg"
+        photo.setUrl("https://lunari-photos-pending.s3.eu-north-1.amazonaws.com/photos/%s/%s/original.jpg"
                 .formatted(PROFILE_ID, STORAGE_ID));
         photo.setPrimary(true);
         photo.setPosition(0);
@@ -83,12 +68,16 @@ class JpaProfileQueryAdapterPhotoUrlTest {
                 profileRepository,
                 resilientCacheManager,
                 profileIdentityCacheService,
-                new PhotoDownloadUrlSigner(presigner, PhotoSignerFixtures.testPhotos()));
+                new PhotoDownloadUrlSigner(photosService));
 
+        // When
         ProfileView view = adapter.getMyProfile("user-1");
 
+        // Then
         then(view.photos()).hasSize(1);
-        then(view.photos().get(0).url()).contains("X-Amz-Signature");
-        then(view.photos().get(0).url()).isNotEqualTo(photo.getUrl());
+        then(view.photos().get(0).url())
+                .isEqualTo(PhotoSignerFixtures.signedUrl(PROFILE_ID, STORAGE_ID, "original"))
+                .doesNotContain("amazonaws.com");
+        then(photosService.batches).hasSize(1);
     }
 }
