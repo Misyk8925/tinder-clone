@@ -1,5 +1,6 @@
 package com.tinder.profiles.config.moderation;
 
+import com.tinder.profiles.config.http.InternalServiceHttpClient;
 import com.tinder.profiles.config.props.ModerationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -12,7 +13,7 @@ public class ModerationClientConfig {
 
     @Bean("moderationWebClient")
     WebClient moderationWebClient(ModerationProperties properties) {
-        HttpClient httpClient = HttpClient.create()
+        HttpClient httpClient = InternalServiceHttpClient.create()
                 .responseTimeout(properties.service().timeout());
         return WebClient.builder()
                 .baseUrl(properties.service().url())
