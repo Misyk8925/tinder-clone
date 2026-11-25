@@ -210,6 +210,14 @@ spring:
                 - Path=/api/v1/webhook/**
               # No rate-limit filter — Stripe webhook must not be blocked by JWT rate-limiting
 
+              ############################## PHOTOS SIGNED LOCAL MEDIA ROUTE
+
+            - id: photos-media
+              uri: ${PHOTOS_SERVICE_URL:http://localhost:8070}
+              predicates:
+                - Path=/media/**
+                - Method=GET
+
 
 custom:
   admin:

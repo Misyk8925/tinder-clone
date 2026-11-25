@@ -2,15 +2,21 @@ from hashlib import sha256
 from uuid import UUID, uuid4
 
 from app import keys, variants
-from app.exceptions import PhotoValidationError
+from app.exceptions import PhotoStorageError, PhotoValidationError
 from app.policy import PhotoPolicy
-from app.storage import ObjectStorage
+from app.storage import MediaStorage, MediaUrlSigner
 
 
 class PhotoService:
-    def __init__(self, policy: PhotoPolicy, storage: ObjectStorage) -> None:
+    def __init__(
+        self,
+        policy: PhotoPolicy,
+        storage: MediaStorage,
+        signer: MediaUrlSigner | None = None,
+    ) -> None:
         self._policy = policy
         self._storage = storage
+        self._signer = signer
 
     def upload(
         self,
@@ -107,3 +113,16 @@ class PhotoService:
             return len(deleted)
         except Exception:
             return len(deleted)
+
+    def read_signed_media(
+        self,
+        key: str,
+        exp: int | None,
+        sig: str | None,
+    ) -> tuple[bytes, int]:
+        normalized = keys.validate_key(key)
+        if self._signer is None:
+            raise PhotoStorageError("Photos service is not configured for signed media delivery")
+        remaining_ttl = self._signer.verify(normalized, exp, sig)
+        data = self._storage.get(normalized)
+        return data, remaining_ttl

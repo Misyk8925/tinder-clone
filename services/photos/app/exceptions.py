@@ -11,6 +11,16 @@ class PhotoValidationError(PhotoError):
         super().__init__(message, "INVALID_IMAGE", 400)
 
 
+class PhotoSignatureError(PhotoError):
+    def __init__(self, message: str) -> None:
+        super().__init__(message, "INVALID_SIGNATURE", 403)
+
+
+class PhotoNotFoundError(PhotoError):
+    def __init__(self, message: str) -> None:
+        super().__init__(message, "PHOTO_NOT_FOUND", 404)
+
+
 class PhotoStorageError(PhotoError):
     def __init__(self, message: str) -> None:
         super().__init__(message, "PHOTO_STORAGE_ERROR", 503)

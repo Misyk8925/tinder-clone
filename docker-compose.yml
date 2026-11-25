@@ -322,12 +322,12 @@ services:
         condition: service_healthy
     environment:
       SPRING_PROFILES_ACTIVE: prod
-      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID:?AWS_ACCESS_KEY_ID is required}
-      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY:?AWS_SECRET_ACCESS_KEY is required}
-      AWS_S3_BUCKET: ${AWS_S3_BUCKET:?AWS_S3_BUCKET is required}
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID:-unused-local-storage}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY:-unused-local-storage}
+      AWS_S3_BUCKET: ${AWS_S3_BUCKET:-}
       AWS_REGION: ${AWS_REGION:-eu-north-1}
-      CLOUDFRONT_DOMAIN: ${CLOUDFRONT_DOMAIN:?CLOUDFRONT_DOMAIN is required}
-      CDN_ENABLED: ${CDN_ENABLED:-true}
+      CLOUDFRONT_DOMAIN: ${CLOUDFRONT_DOMAIN:-}
+      CDN_ENABLED: ${CDN_ENABLED:-false}
       KEYCLOAK_REALM: ${KEYCLOAK_REALM:-spring}
       KEYCLOAK_CLIENT_ID: ${KEYCLOAK_CLIENT_ID:?KEYCLOAK_CLIENT_ID is required}
       KEYCLOAK_CLIENT_SECRET: ${KEYCLOAK_CLIENT_SECRET:?KEYCLOAK_CLIENT_SECRET is required}
@@ -607,15 +607,22 @@ services:
     ports: []
     environment:
       PORT: "8070"
-      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID:?AWS_ACCESS_KEY_ID is required}
-      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY:?AWS_SECRET_ACCESS_KEY is required}
-      AWS_S3_BUCKET: ${AWS_S3_BUCKET:?AWS_S3_BUCKET is required}
+      # Storage backend: "local" (VPS volume), "s3" (AWS S3/CloudFront), or "memory".
+      PHOTOS_STORAGE_BACKEND: ${PHOTOS_STORAGE_BACKEND:-local}
+      PHOTOS_LOCAL_ROOT: ${PHOTOS_LOCAL_ROOT:-/var/lib/photos}
+      PHOTOS_PUBLIC_BASE_URL: ${PHOTOS_PUBLIC_BASE_URL:-}
+      PHOTOS_SIGNING_SECRET: ${PHOTOS_SIGNING_SECRET:-}
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID:-}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY:-}
+      AWS_S3_BUCKET: ${AWS_S3_BUCKET:-}
       AWS_REGION: ${AWS_REGION:-eu-north-1}
       AWS_S3_ENDPOINT: ${AWS_S3_ENDPOINT:-}
-      CLOUDFRONT_DOMAIN: ${CLOUDFRONT_DOMAIN:?CLOUDFRONT_DOMAIN is required}
-      CDN_ENABLED: ${CDN_ENABLED:-true}
+      CLOUDFRONT_DOMAIN: ${CLOUDFRONT_DOMAIN:-}
+      CDN_ENABLED: ${CDN_ENABLED:-false}
       # Media endpoints refuse callers without this shared secret.
       PHOTOS_INTERNAL_AUTH_SECRET: ${PHOTOS_INTERNAL_AUTH_SECRET:?PHOTOS_INTERNAL_AUTH_SECRET is required}
+    volumes:
+      - photos-data:/var/lib/photos
     networks:
       - app
     mem_limit: 256m
@@ -657,6 +664,7 @@ services:
       MATCH_SERVICE_URL: http://match:8080
       MATCH_WS_URL: ws://match:8080
       SUBSCRIPTIONS_SERVICE_URL: http://subscriptions:8095
+      PHOTOS_SERVICE_URL: http://photos:8070
       JAVA_TOOL_OPTIONS: "-XX:+UseContainerSupport -XX:+UseG1GC -XX:InitialRAMPercentage=40.0 -XX:MaxRAMPercentage=75.0 -Dfile.encoding=UTF-8 -Dsun.net.inetaddr.ttl=60 -Djava.io.tmpdir=/tmp"
     networks:
       - app
@@ -686,12 +694,12 @@ services:
         condition: service_healthy
     environment:
       SPRING_PROFILES_ACTIVE: prod
-      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID:?AWS_ACCESS_KEY_ID is required}
-      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY:?AWS_SECRET_ACCESS_KEY is required}
-      AWS_S3_BUCKET: ${AWS_S3_BUCKET:?AWS_S3_BUCKET is required}
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID:-unused-local-storage}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY:-unused-local-storage}
+      AWS_S3_BUCKET: ${AWS_S3_BUCKET:-}
       AWS_REGION: ${AWS_REGION:-eu-north-1}
-      CLOUDFRONT_DOMAIN: ${CLOUDFRONT_DOMAIN:?CLOUDFRONT_DOMAIN is required}
-      CDN_ENABLED: ${CDN_ENABLED:-true}
+      CLOUDFRONT_DOMAIN: ${CLOUDFRONT_DOMAIN:-}
+      CDN_ENABLED: ${CDN_ENABLED:-false}
       PHOTOS_SERVICE_URL: http://photos:8070
       PHOTOS_INTERNAL_AUTH_SECRET: ${PHOTOS_INTERNAL_AUTH_SECRET:?PHOTOS_INTERNAL_AUTH_SECRET is required}
       # Match resolves the caller's own profile id from the profiles service; conversation
@@ -916,3 +924,4 @@ volumes:
   redis-data:
   profiles-pgdata:
   kc-pgdata:
+  photos-data:

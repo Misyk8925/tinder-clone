@@ -26,6 +26,10 @@ class PhotoObjectRefTest {
         assertThat(PhotoObjectRef.parse(PROFILE_ID,
                 "photos/%s/%s/small.jpg".formatted(PROFILE_ID, STORAGE_ID)))
                 .hasValue(new PhotoObjectRef.Ref(PROFILE_ID, STORAGE_ID, "small"));
+        assertThat(PhotoObjectRef.parse(PROFILE_ID,
+                "https://api.lunari.test/media/photos/%s/%s/medium.jpg?exp=1700000000&sig=abc123"
+                        .formatted(PROFILE_ID, STORAGE_ID)))
+                .hasValue(new PhotoObjectRef.Ref(PROFILE_ID, STORAGE_ID, "medium"));
     }
 
     @Test

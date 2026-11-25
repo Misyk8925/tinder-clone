@@ -1,0 +1,15 @@
+{
+  "name": "tinder-e2e",
+  "private": true,
+  "version": "0.0.0",
+  "description": "Recorded, human-paced browser tests run by agents on the VPS (see README.md).",
+  "scripts": {
+    "test": "playwright test",
+    "report": "playwright show-report"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.65.1",
+    "@types/node": "^22.10.0",
+    "typescript": "~5.9.2"
+  }
+}

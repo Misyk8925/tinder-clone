@@ -15,6 +15,8 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY app ./app
 
+RUN mkdir -p /var/lib/photos && chown app:app /var/lib/photos
+
 USER app
 EXPOSE 8070
 ENV PORT=8070

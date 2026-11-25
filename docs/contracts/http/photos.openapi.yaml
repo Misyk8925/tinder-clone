@@ -3,18 +3,21 @@ info:
   title: Photos Service API
   version: 1.0.0
   description: >-
-    Internal media service used by Profiles, Match and Deck-Read. It validates an
-    upload, renders four JPEG variants, stores them in S3, and issues public or
-    presigned URLs. It does not own photo catalogues or publish domain events.
+    Media service used by Profiles, Match, Deck-Read, and Gateway. It validates an
+    upload, renders four JPEG variants, persists them via a pluggable storage backend
+    (`local` VPS filesystem, `s3` AWS S3/CloudFront, or `memory`), and issues public
+    or signed download URLs. It does not own photo catalogues or publish domain events.
 
 
-    Authentication is service-to-service: every path except the health probes
-    requires the shared secret in `X-Internal-Auth`, and an unconfigured secret
-    rejects all media requests rather than serving them openly. This authenticates
-    the *caller*, not the owner — `owner_id` stays caller-chosen, so anything
-    holding the secret can act as any owner. Callers must therefore establish which
-    user they are acting for before calling in; Profiles, Match and Deck-Read do so
-    from the end user's bearer token.
+    Service-to-service endpoints (`/api/v1/photos/**`) require the shared secret in
+    `X-Internal-Auth`, and an unconfigured secret rejects all requests rather than
+    serving them openly. Callers (Profiles, Match, Deck-Read) authenticate the end
+    user before calling in.
+
+
+    Signed local media delivery (`GET /media/{key}`) is routed through Gateway with
+    no JWT or `X-Internal-Auth`; access is authorized by an HMAC-SHA256 expiring
+    signature (`exp` + `sig`) matching S3 presigned URL semantics.
 servers:
   - url: /
 tags:
@@ -163,6 +166,49 @@ paths:
                   deleted: { type: integer, minimum: 0 }
         '400':
           $ref: '#/components/responses/InvalidImage'
+  /media/{key}:
+    get:
+      tags: [Photos]
+      operationId: getSignedMedia
+      x-requirements: [FR-4, FR-5, NFR-1, NFR-2]
+      summary: Fetch a locally stored photo variant using an HMAC-signed expiring URL
+      security: []   # authorized by HMAC-SHA256 query signature (exp + sig)
+      parameters:
+        - name: key
+          in: path
+          required: true
+          description: Object key in format `{namespace}/{ownerId}/{storageId}/{variant}.jpg`.
+          schema: { type: string }
+        - name: exp
+          in: query
+          required: true
+          description: Unix epoch expiration timestamp in seconds.
+          schema: { type: integer }
+        - name: sig
+          in: query
+          required: true
+          description: Hex-encoded HMAC-SHA256 signature over `{key}\n{exp}`.
+          schema: { type: string }
+      responses:
+        '200':
+          description: JPEG variant bytes.
+          headers:
+            Cache-Control:
+              schema: { type: string }
+              description: "`private, max-age=<remaining_seconds>`"
+          content:
+            image/jpeg:
+              schema:
+                type: string
+                format: binary
+        '400':
+          $ref: '#/components/responses/InvalidImage'
+        '403':
+          $ref: '#/components/responses/InvalidSignature'
+        '404':
+          $ref: '#/components/responses/PhotoNotFound'
+        '503':
+          $ref: '#/components/responses/StorageError'
 components:
   securitySchemes:
     InternalAuth:
@@ -194,13 +240,25 @@ components:
     Unauthenticated:
       description: Missing or incorrect X-Internal-Auth secret.
     InvalidImage:
-      description: The upload or key arguments violate photo policy.
+      description: The upload or key arguments violate photo policy or path rules.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorBody'
+    InvalidSignature:
+      description: Missing, malformed, mismatched, or expired HMAC media signature.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorBody'
+    PhotoNotFound:
+      description: The requested media object does not exist in local storage.
       content:
         application/json:
           schema:
             $ref: '#/components/schemas/ErrorBody'
     StorageError:
-      description: Object storage failed on a write the caller depends on.
+      description: Object storage failed on a read/write the caller depends on.
       content:
         application/json:
           schema:
@@ -244,5 +302,5 @@ components:
       properties:
         code:
           type: string
-          enum: [INVALID_IMAGE, PHOTO_STORAGE_ERROR]
+          enum: [INVALID_IMAGE, INVALID_SIGNATURE, PHOTO_NOT_FOUND, PHOTO_STORAGE_ERROR]
         message: { type: string }
