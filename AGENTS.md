@@ -17,3 +17,11 @@
 - The Angular client is `clients/tinder-client`; use `npm ci` for dependency installation and `npm run build` for a production build check.
 - Some tests use Testcontainers, Kafka, Redis, PostgreSQL, or Quarkus Dev Services. Do not report those as passed when their required runtime was unavailable.
 - Before changing a cross-service DTO or endpoint, inspect its actual consumers and preserve shared contracts unless the task explicitly changes the boundary.
+
+## Recorded browser tests (VPS)
+
+- End-to-end checks in a real browser go through the `e2e-recording` skill
+  (`.agents/skills/e2e-recording/SKILL.md`; `.claude/skills/e2e-recording` links to it). Read it before
+  running or writing e2e tests.
+- On the VPS run tests only with `e2e-record`, never Playwright directly and never only into `e2e/out/`:
+  every run must be archived so the pull request gets its report and video links.
