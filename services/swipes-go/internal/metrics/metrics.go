@@ -6,14 +6,17 @@ import (
 )
 
 type Metrics struct {
-	Accepted        atomic.Uint64
-	Rejected        atomic.Uint64
-	QueueFull       atomic.Uint64
-	Published       atomic.Uint64
-	PublishFailed   atomic.Uint64
-	AuthFailed      atomic.Uint64
-	OwnershipDenied atomic.Uint64
-	ConsumerFailed  atomic.Uint64
+	Accepted          atomic.Uint64
+	Rejected          atomic.Uint64
+	QueueFull         atomic.Uint64
+	Published         atomic.Uint64
+	PublishFailed     atomic.Uint64
+	AuthFailed        atomic.Uint64
+	OwnershipDenied   atomic.Uint64
+	ConsumerFailed    atomic.Uint64
+	Revoked           atomic.Uint64
+	RevokedIdempotent atomic.Uint64
+	RewindRejected    atomic.Uint64
 }
 
 func (m *Metrics) AppendPrometheus(dst []byte, queueDepth, queueCapacity int) []byte {
@@ -25,6 +28,9 @@ func (m *Metrics) AppendPrometheus(dst []byte, queueDepth, queueCapacity int) []
 	dst = appendCounter(dst, "swipes_auth_failed_total", m.AuthFailed.Load())
 	dst = appendCounter(dst, "swipes_ownership_denied_total", m.OwnershipDenied.Load())
 	dst = appendCounter(dst, "swipes_consumer_failed_total", m.ConsumerFailed.Load())
+	dst = appendCounter(dst, "swipes_revoked_total", m.Revoked.Load())
+	dst = appendCounter(dst, "swipes_revoked_idempotent_total", m.RevokedIdempotent.Load())
+	dst = appendCounter(dst, "swipes_rewind_rejected_total", m.RewindRejected.Load())
 	dst = appendGauge(dst, "swipes_queue_depth", queueDepth)
 	return appendGauge(dst, "swipes_queue_capacity", queueCapacity)
 }

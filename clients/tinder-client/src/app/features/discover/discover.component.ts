@@ -9,7 +9,7 @@ import { SwipeService } from '../../core/services/swipe.service';
 import { MatchService } from '../../core/services/match.service';
 import { SwipeCardComponent } from '../../shared/components/swipe-card/swipe-card.component';
 import { ReportService } from '../../core/services/report.service';
-import { Profile } from '../../core/models/profile.model';
+import { Profile, RewindErrorCode, RewindResponse } from '../../core/models/profile.model';
 
 @Component({
   selector: 'app-discover',
@@ -46,9 +46,16 @@ import { Profile } from '../../core/models/profile.model';
             <span class="state-icon"><lucide-icon name="user-round-search" [size]="36" strokeWidth="1.6" /></span>
             <h2>You’re all caught up</h2>
             <p>New people appear as the community grows. Check again in a little while.</p>
-            <button type="button" class="primary-button" (click)="refresh()">
-              <lucide-icon name="refresh-cw" [size]="18" strokeWidth="2" /> Refresh
-            </button>
+            <div class="empty-actions">
+              @if (canRewind() || rewinding()) {
+                <button type="button" class="secondary-button rewind-inline" (click)="rewindLastSwipe()" [disabled]="!canRewind()" aria-label="Rewind">
+                  <lucide-icon name="rotate-ccw" [size]="18" strokeWidth="2" /> Rewind
+                </button>
+              }
+              <button type="button" class="primary-button" (click)="refresh()">
+                <lucide-icon name="refresh-cw" [size]="18" strokeWidth="2" /> Refresh
+              </button>
+            </div>
           </div>
         } @else {
           <div class="cards-stack" [class.departing]="!!leavingId()">
@@ -67,6 +74,15 @@ import { Profile } from '../../core/models/profile.model';
           </div>
 
           <div class="action-buttons" aria-label="Profile actions">
+            <button
+              type="button"
+              class="action-button rewind"
+              (click)="rewindLastSwipe()"
+              [disabled]="!canRewind()"
+              aria-label="Rewind"
+            >
+              <lucide-icon name="rotate-ccw" [size]="22" strokeWidth="1.9" />
+            </button>
             <button type="button" class="action-button pass" (click)="swipeLeft()" aria-label="Pass">
               <lucide-icon name="x" [size]="30" strokeWidth="1.8" />
             </button>
@@ -259,9 +275,31 @@ import { Profile } from '../../core/models/profile.model';
       transition: transform 160ms ease, box-shadow 160ms ease, background 160ms ease;
     }
 
-    .action-button:hover { transform: translateY(-2px); box-shadow: var(--shadow-card); }
-    .action-button:active { transform: scale(0.94); }
+    .action-button:hover:not(:disabled) { transform: translateY(-2px); box-shadow: var(--shadow-card); }
+    .action-button:active:not(:disabled) { transform: scale(0.94); }
+    .action-button:disabled { opacity: 0.42; cursor: not-allowed; box-shadow: none; }
     .action-button:focus-visible { outline: 2px solid var(--brand); outline-offset: 3px; }
+
+    .action-button.rewind {
+      width: clamp(50px, 13vw, 56px);
+      height: clamp(50px, 13vw, 56px);
+      color: var(--text-primary);
+    }
+
+    .empty-actions {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .secondary-button.rewind-inline {
+      width: auto;
+      border: 1px solid var(--card-border);
+      color: var(--text-primary);
+      background: var(--card-surface);
+    }
 
     .action-button.standout {
       width: clamp(78px, 19.5vw, 84px);
@@ -449,6 +487,16 @@ export class DiscoverComponent implements OnInit, OnDestroy {
   retrying = signal(false);
   showPremiumModal = signal(false);
   toast = signal<string | null>(null);
+  rewinding = signal(false);
+  private lastSwipe = signal<{
+    profile: DeckCard;
+    decision: boolean;
+    swipedAtMs: number;
+    matched: boolean;
+    rewound: boolean;
+  } | null>(null);
+  private rewindExpiryTimer: ReturnType<typeof setTimeout> | null = null;
+  private static readonly REWIND_WINDOW_MS = 5 * 60 * 1000;
   private toastTimer: ReturnType<typeof setTimeout> | null = null;
   private matchWatchTimers: ReturnType<typeof setTimeout>[] = [];
   private nextSuperLike = false;
@@ -498,6 +546,7 @@ export class DiscoverComponent implements OnInit, OnDestroy {
   ngOnDestroy(): void {
     if (this.pollTimer) clearTimeout(this.pollTimer);
     if (this.toastTimer) clearTimeout(this.toastTimer);
+    if (this.rewindExpiryTimer) clearTimeout(this.rewindExpiryTimer);
     this.clearMatchWatch();
   }
 
@@ -544,6 +593,7 @@ export class DiscoverComponent implements OnInit, OnDestroy {
     }).subscribe({
       next: () => {
         this.finishDeparture(profile);
+        this.recordLastSwipe(profile, direction === 'right');
         if (direction === 'right') {
           this.watchForMatch(profile);
         }
@@ -574,6 +624,35 @@ export class DiscoverComponent implements OnInit, OnDestroy {
   swipeRight(): void {
     if (this.leavingId()) return;
     this.topCard()?.triggerSwipe('right');
+  }
+
+  canRewind(): boolean {
+    const last = this.lastSwipe();
+    if (!last || last.rewound || last.matched || this.rewinding() || this.leavingId()) {
+      return false;
+    }
+    return Date.now() - last.swipedAtMs <= DiscoverComponent.REWIND_WINDOW_MS;
+  }
+
+  rewindLastSwipe(): void {
+    if (!this.canRewind()) return;
+    const last = this.lastSwipe();
+    this.clearMatchWatch();
+    this.rewinding.set(true);
+    this.swipeService.rewind().subscribe({
+      next: (resp: RewindResponse) => {
+        this.rewinding.set(false);
+        this.clearRewindExpiryTimer();
+        if (last) {
+          this.lastSwipe.set({ ...last, rewound: true });
+        }
+        this.restoreRewoundCard(resp.profile2Id, last?.profile ?? null);
+      },
+      error: (error: HttpErrorResponse) => {
+        this.rewinding.set(false);
+        this.handleRewindError(error);
+      }
+    });
   }
 
   private topCard(): SwipeCardComponent | undefined {
@@ -659,6 +738,11 @@ export class DiscoverComponent implements OnInit, OnDestroy {
         if (hit) {
           this.clearMatchWatch();
           this.matchedProfile.set(profile);
+          const last = this.lastSwipe();
+          if (last && last.profile.profileId === profile.profileId) {
+            this.lastSwipe.set({ ...last, matched: true });
+            this.clearRewindExpiryTimer();
+          }
         }
       },
       error: () => undefined
@@ -770,6 +854,74 @@ export class DiscoverComponent implements OnInit, OnDestroy {
       this.leavingId.set(null);
     }
     this.cardFor(profile.profileId)?.resetSwipe();
+  }
+
+  private recordLastSwipe(profile: DeckCard, decision: boolean): void {
+    this.clearRewindExpiryTimer();
+    const swipedAtMs = Date.now();
+    this.lastSwipe.set({ profile, decision, swipedAtMs, matched: false, rewound: false });
+    this.rewindExpiryTimer = setTimeout(() => {
+      const current = this.lastSwipe();
+      if (current && current.swipedAtMs === swipedAtMs) {
+        this.lastSwipe.set(null);
+      }
+    }, DiscoverComponent.REWIND_WINDOW_MS + 50);
+  }
+
+  private clearRewindExpiryTimer(): void {
+    if (this.rewindExpiryTimer) {
+      clearTimeout(this.rewindExpiryTimer);
+      this.rewindExpiryTimer = null;
+    }
+  }
+
+  private restoreRewoundCard(profile2Id: string, fallbackCard: DeckCard | null): void {
+    const existing = this.profiles();
+    const candidate = (fallbackCard && fallbackCard.profileId === profile2Id ? fallbackCard : null)
+      ?? existing.find(card => card.profileId === profile2Id)
+      ?? null;
+    if (!candidate) {
+      this.loadDeck(false);
+      return;
+    }
+    const remaining = existing.slice(this.currentIndex()).filter(card => card.profileId !== profile2Id);
+    this.profiles.set([candidate, ...remaining]);
+    this.currentIndex.set(0);
+    this.leavingId.set(null);
+  }
+
+  private handleRewindError(error: HttpErrorResponse): void {
+    const code = (error.error?.code ?? '') as RewindErrorCode | '';
+    if (code === 'REWIND_WINDOW_EXPIRED') {
+      this.clearRewindExpiryTimer();
+      this.lastSwipe.set(null);
+      this.showToast('You can only rewind your last swipe within 5 minutes.');
+      return;
+    }
+    if (code === 'SWIPE_ALREADY_MATCHED') {
+      this.clearRewindExpiryTimer();
+      const last = this.lastSwipe();
+      this.lastSwipe.set(last ? { ...last, matched: true } : null);
+      this.showToast('This swipe already resulted in a match and cannot be rewound.');
+      return;
+    }
+    if (code === 'NOT_LATEST_SWIPE' || code === 'NO_SWIPE_TO_REWIND' || error.status === 404) {
+      this.clearRewindExpiryTimer();
+      this.lastSwipe.set(null);
+      this.showToast('No recent swipe is available to rewind.');
+      return;
+    }
+    if (code === 'UNAUTHENTICATED' || code === 'PROFILE_OWNERSHIP_DENIED' || error.status === 401 || error.status === 403) {
+      this.clearRewindExpiryTimer();
+      this.lastSwipe.set(null);
+      this.showToast('Please sign in again to rewind your swipe.');
+      return;
+    }
+    if (code === 'RATE_LIMITED' || error.status === 429) {
+      this.showToast('Too many rewind requests. Please wait a moment and try again.');
+      return;
+    }
+    this.showToast('Rewind is temporarily unavailable. Please try again.');
   }
 
   private uniqueByProfileId(cards: DeckCard[]): DeckCard[] {

@@ -113,6 +113,7 @@ kafka:
     profile-events: profile.updated
     create-events: profile.created
     swipe-events: swipe-saved
+    swipe-revoked: swipe-revoked
     delete-events: profile.deleted
     deck-built: deck.built.v1
 

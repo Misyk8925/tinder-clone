@@ -2,6 +2,7 @@ package kafka
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"log"
@@ -17,16 +18,17 @@ import (
 )
 
 type Producer struct {
-	writer  messageWriter
-	queue   chan pendingSwipe
-	metrics *metrics.Metrics
-	log     *log.Logger
-	wg      sync.WaitGroup
-	sendMu  sync.RWMutex
-	closed  chan struct{}
-	once    sync.Once
-	closing atomic.Bool
-	batch   int
+	writer        messageWriter
+	revokedWriter messageWriter
+	queue         chan pendingSwipe
+	metrics       *metrics.Metrics
+	log           *log.Logger
+	wg            sync.WaitGroup
+	sendMu        sync.RWMutex
+	closed        chan struct{}
+	once          sync.Once
+	closing       atomic.Bool
+	batch         int
 }
 
 type messageWriter interface {
@@ -63,8 +65,19 @@ func NewProducer(ctx context.Context, cfg config.Config, serviceMetrics *metrics
 			serviceMetrics.Published.Add(uint64(len(messages)))
 		},
 	}
+	revokedTopic := cfg.SwipeRevokedTopic
+	if revokedTopic == "" {
+		revokedTopic = "swipe-revoked"
+	}
+	revokedWriter := &kafkago.Writer{
+		Addr: kafkago.TCP(cfg.KafkaBrokers...), Topic: revokedTopic, Balancer: &kafkago.Hash{},
+		BatchSize: 1, BatchTimeout: time.Millisecond,
+		RequiredAcks: kafkago.RequireAll, MaxAttempts: 5, AllowAutoTopicCreation: false,
+		WriteTimeout: 5 * time.Second, ReadTimeout: 5 * time.Second,
+	}
 	producer := &Producer{
-		writer: writer, queue: make(chan pendingSwipe, cfg.ProducerQueueCapacity), metrics: serviceMetrics,
+		writer: writer, revokedWriter: revokedWriter,
+		queue: make(chan pendingSwipe, cfg.ProducerQueueCapacity), metrics: serviceMetrics,
 		log: logger, closed: make(chan struct{}), batch: cfg.ProducerBatchSize,
 	}
 	for i := 0; i < cfg.ProducerConcurrency; i++ {
@@ -103,6 +116,31 @@ func (producer *Producer) Send(ctx context.Context, command model.SwipeCommand) 
 	}
 }
 
+func (producer *Producer) PublishRevoked(ctx context.Context, event model.SwipeRevokedEvent) error {
+	if producer.revokedWriter == nil {
+		return errors.New("swipe revoked producer is not configured")
+	}
+	payload, err := json.Marshal(event)
+	if err != nil {
+		return fmt.Errorf("marshal swipe revoked event: %w", err)
+	}
+	msg := kafkago.Message{
+		Key:   []byte(event.Profile1ID),
+		Value: payload,
+		Time:  time.UnixMilli(event.RevokedAt),
+	}
+	if err := producer.revokedWriter.WriteMessages(ctx, msg); err != nil {
+		if producer.metrics != nil {
+			producer.metrics.PublishFailed.Add(1)
+		}
+		return err
+	}
+	if producer.metrics != nil {
+		producer.metrics.Published.Add(1)
+	}
+	return nil
+}
+
 func (producer *Producer) QueueStats() (int, int) { return len(producer.queue), cap(producer.queue) }
 
 func (producer *Producer) Close() error {
@@ -113,7 +151,12 @@ func (producer *Producer) Close() error {
 		producer.sendMu.Unlock()
 		producer.wg.Wait()
 	})
-	return producer.writer.Close()
+	err1 := producer.writer.Close()
+	var err2 error
+	if producer.revokedWriter != nil {
+		err2 = producer.revokedWriter.Close()
+	}
+	return errors.Join(err1, err2)
 }
 
 func (producer *Producer) worker() {

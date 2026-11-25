@@ -80,6 +80,7 @@ app:
     topic:
       swipe-created: swipe-created
       swipe-saved: swipe-saved
+      swipe-revoked: swipe-revoked
       profile-created: profile.created
       profile-deleted: profile.deleted
       match-created: match.created

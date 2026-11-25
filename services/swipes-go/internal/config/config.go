@@ -16,6 +16,11 @@ type Config struct {
 	InternalBypassProfile   bool
 	KafkaBrokers            []string
 	SwipeTopic              string
+	SwipeRevokedTopic       string
+	MatchCreatedTopic       string
+	MatchConsumerGroup      string
+	MatchConsumerEnabled    bool
+	RewindWindow            time.Duration
 	ProfileCreatedTopic     string
 	ProfileDeletedTopic     string
 	ProfileConsumerGroup    string
@@ -43,6 +48,11 @@ func Load() (Config, error) {
 		InternalBypassProfile:   boolEnv(false, "SWIPES_INTERNAL_BYPASS_PROFILE_CHECK"),
 		KafkaBrokers:            splitCSV(firstEnv("KAFKA_BROKERS", "SPRING_KAFKA_BOOTSTRAP_SERVERS")),
 		SwipeTopic:              stringEnv("swipe-created", "SWIPES_KAFKA_TOPIC", "KAFKA_TOPIC_SWIPE_CREATED"),
+		SwipeRevokedTopic:       stringEnv("swipe-revoked", "SWIPES_REVOKED_TOPIC", "KAFKA_TOPIC_SWIPE_REVOKED"),
+		MatchCreatedTopic:       stringEnv("match.created", "SWIPES_MATCH_CREATED_TOPIC", "KAFKA_TOPIC_MATCH_CREATED"),
+		MatchConsumerGroup:      stringEnv("swipes-match-projection-go", "SWIPES_MATCH_CONSUMER_GROUP"),
+		MatchConsumerEnabled:    boolEnv(true, "SWIPES_MATCH_CONSUMER_ENABLED"),
+		RewindWindow:            durationEnv(5*time.Minute, "SWIPES_REWIND_WINDOW"),
 		ProfileCreatedTopic:     stringEnv("profile.created", "KAFKA_TOPICS_PROFILE_CREATED", "KAFKA_TOPIC_PROFILE_CREATED"),
 		ProfileDeletedTopic:     stringEnv("profile.deleted", "KAFKA_TOPICS_PROFILE_DELETED", "KAFKA_TOPIC_PROFILE_DELETED"),
 		ProfileConsumerGroup:    stringEnv("swipes-profile-cache", "SWIPES_PROFILE_CONSUMER_GROUP"),
@@ -79,6 +89,9 @@ func (cfg Config) Validate() error {
 	}
 	if cfg.ProducerBufferTimeout <= 0 {
 		return fmt.Errorf("producer buffer timeout must be positive")
+	}
+	if cfg.RewindWindow < 0 {
+		return fmt.Errorf("rewind window must not be negative")
 	}
 	if cfg.ConsumerMaxRetries < 0 || cfg.ConsumerRetryBackoff < 0 {
 		return fmt.Errorf("consumer retries and retry backoff must not be negative")

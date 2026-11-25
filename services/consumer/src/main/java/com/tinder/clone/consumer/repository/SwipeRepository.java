@@ -73,4 +73,35 @@ public interface SwipeRepository extends JpaRepository<SwipeRecord, SwipeRecordI
          AND profile2_id = :p2
        """, nativeQuery = true)
     Boolean isMutualMatch(@Param("p1") UUID p1, @Param("p2") UUID p2);
+
+    @Modifying
+    @Query(value = """
+        UPDATE swipe_records
+        SET decision1 = CASE WHEN CAST(:swiperIsFirst AS boolean) THEN NULL ELSE decision1 END,
+            decision2 = CASE WHEN NOT CAST(:swiperIsFirst AS boolean) THEN NULL ELSE decision2 END,
+            version = version + 1
+        WHERE profile1_id = :p1
+          AND profile2_id = :p2
+          AND NOT (decision1 IS TRUE AND decision2 IS TRUE)
+        """, nativeQuery = true)
+    int resetSwiperDecision(
+            @Param("p1") UUID p1,
+            @Param("p2") UUID p2,
+            @Param("swiperIsFirst") boolean swiperIsFirst
+    );
+
+    @Query(value = """
+        SELECT CASE
+                 WHEN CAST(:swiperIsFirst AS boolean) THEN (decision2 IS TRUE)
+                 ELSE (decision1 IS TRUE)
+               END
+        FROM swipe_records
+        WHERE profile1_id = :p1
+          AND profile2_id = :p2
+        """, nativeQuery = true)
+    Boolean hasOtherSideLiked(
+            @Param("p1") UUID p1,
+            @Param("p2") UUID p2,
+            @Param("swiperIsFirst") boolean swiperIsFirst
+    );
 }

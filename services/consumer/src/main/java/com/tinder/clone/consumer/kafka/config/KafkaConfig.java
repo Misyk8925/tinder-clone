@@ -3,6 +3,7 @@ package com.tinder.clone.consumer.kafka.config;
 import com.tinder.clone.consumer.kafka.event.ProfileCreateEvent;
 import com.tinder.clone.consumer.kafka.event.ProfileDeleteEvent;
 import com.tinder.clone.consumer.kafka.event.SwipeCreatedEvent;
+import com.tinder.clone.consumer.kafka.event.SwipeRevokedEvent;
 import org.apache.kafka.clients.admin.NewTopic;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.common.TopicPartition;
@@ -44,6 +45,9 @@ public class KafkaConfig {
 
     @Value("${app.kafka.topic.swipe-saved}")
     private String swipeSavedTopic;
+
+    @Value("${app.kafka.topic.swipe-revoked:swipe-revoked}")
+    private String swipeRevokedTopic;
 
     @Value("${spring.kafka.bootstrap-servers}")
     private String bootstrapServers;
@@ -111,6 +115,21 @@ public class KafkaConfig {
     }
 
     @Bean
+    public NewTopic swipeRevokedTopic() {
+        return TopicBuilder.name(swipeRevokedTopic)
+                .partitions(10)
+                .replicas(1)
+                .config("retention.ms", "604800000")
+                .config("cleanup.policy", "delete")
+                .build();
+    }
+
+    @Bean
+    public NewTopic swipeRevokedDeadLetterTopic() {
+        return deadLetterTopic(swipeRevokedTopic + ".dlt");
+    }
+
+    @Bean
     public NewTopic swipeCreatedDeadLetterTopic() {
         return deadLetterTopic(swipeCreatedTopic + ".dlt");
     }
@@ -159,6 +178,12 @@ public class KafkaConfig {
     }
 
     @Bean
+    public ConsumerFactory<String, SwipeRevokedEvent> swipeRevokedEventConsumerFactory() {
+        Map<String, Object> props = baseConsumerProps(groupId + "-revoked", SwipeRevokedEvent.class);
+        return new DefaultKafkaConsumerFactory<>(props);
+    }
+
+    @Bean
     public ConcurrentKafkaListenerContainerFactory<String, SwipeCreatedEvent> kafkaListenerContainerFactory(
             DefaultErrorHandler kafkaErrorHandler) {
         ConcurrentKafkaListenerContainerFactory<String, SwipeCreatedEvent> factory =
@@ -188,6 +213,18 @@ public class KafkaConfig {
         ConcurrentKafkaListenerContainerFactory<String, ProfileDeleteEvent> factory =
                 new ConcurrentKafkaListenerContainerFactory<>();
         factory.setConsumerFactory(profileDeleteEventConsumerFactory());
+        factory.setConcurrency(concurrency);
+        factory.getContainerProperties().setAckMode(ContainerProperties.AckMode.MANUAL_IMMEDIATE);
+        factory.setCommonErrorHandler(kafkaErrorHandler);
+        return factory;
+    }
+
+    @Bean
+    public ConcurrentKafkaListenerContainerFactory<String, SwipeRevokedEvent> swipeRevokedKafkaListenerContainerFactory(
+            DefaultErrorHandler kafkaErrorHandler) {
+        ConcurrentKafkaListenerContainerFactory<String, SwipeRevokedEvent> factory =
+                new ConcurrentKafkaListenerContainerFactory<>();
+        factory.setConsumerFactory(swipeRevokedEventConsumerFactory());
         factory.setConcurrency(concurrency);
         factory.getContainerProperties().setAckMode(ContainerProperties.AckMode.MANUAL_IMMEDIATE);
         factory.setCommonErrorHandler(kafkaErrorHandler);

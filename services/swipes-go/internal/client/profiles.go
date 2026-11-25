@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"tinder-clone/services/swipes-go/internal/model"
 )
 
 type Profiles struct {
@@ -52,7 +53,7 @@ func (client *Profiles) Mine(ctx context.Context, bearer string) (uuid.UUID, str
 		return uuid.Nil, "", err
 	}
 	if response.ProfileID == uuid.Nil {
-		return uuid.Nil, "", fmt.Errorf("profiles /me returned no profile ID")
+		return uuid.Nil, "", fmt.Errorf("profiles /me returned no profile ID: %w", model.ErrProfileNotFound)
 	}
 	return response.ProfileID, response.UserID, nil
 }
@@ -70,6 +71,10 @@ func (client *Profiles) getJSON(ctx context.Context, endpoint, bearer string, ds
 		return err
 	}
 	defer resp.Body.Close()
+	if resp.StatusCode == http.StatusNotFound || resp.StatusCode == http.StatusForbidden {
+		_, _ = io.Copy(io.Discard, io.LimitReader(resp.Body, 4096))
+		return fmt.Errorf("profiles returned status %d: %w", resp.StatusCode, model.ErrProfileNotFound)
+	}
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		_, _ = io.Copy(io.Discard, io.LimitReader(resp.Body, 4096))
 		return fmt.Errorf("profiles returned status %d", resp.StatusCode)

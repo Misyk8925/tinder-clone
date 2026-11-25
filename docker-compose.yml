@@ -20,6 +20,7 @@ x-deck-read-environment: &deck-read-environment
   KAFKA_BOOTSTRAP_SERVERS: kafka:29092
   DECK_READ_PROFILE_GROUP_ID: ${DECK_READ_PROFILE_GROUP_ID:-deck-read-profile-projection-v1}
   DECK_READ_SWIPE_GROUP_ID: ${DECK_READ_SWIPE_GROUP_ID:-deck-read-swipe-projection-v1}
+  DECK_READ_SWIPE_REVOKED_GROUP_ID: ${DECK_READ_SWIPE_REVOKED_GROUP_ID:-deck-read-swipe-revoked-v1}
   DECK_READ_MATCH_GROUP_ID: ${DECK_READ_MATCH_GROUP_ID:-deck-read-match-projection-v1}
   DECK_READ_DECK_BUILT_GROUP_ID: ${DECK_READ_DECK_BUILT_GROUP_ID:-deck-read-deck-built-v1}
   DECK_READ_MATERIALIZATION_GROUP_ID: ${DECK_READ_MATERIALIZATION_GROUP_ID:-deck-read-materialization-v1}
@@ -119,7 +120,7 @@ services:
     networks:
       - app
 
-  # Idempotent identity lookup index required by swipes-go for JWT-sub ownership checks.
+  # Idempotent identity lookup index and rewind history/revocation/match tables for swipes-go.
   swipes-migrations:
     image: postgis/postgis:17-3.4
     restart: "no"
@@ -138,7 +139,30 @@ services:
     volumes:
       - ./migrations/migration:/migrations:ro
       - ./docker/postgres/run-sql-migration.sh:/run-sql-migration.sh:ro
-    entrypoint: ["/bin/sh", "/run-sql-migration.sh", "/migrations/V2_swipes_identity_index.sql"]
+    entrypoint: ["/bin/sh", "/run-sql-migration.sh", "/migrations/V2_swipes_identity_index.sql", "/migrations/V3_swipes_rewind.sql"]
+    networks:
+      - app
+
+  # Idempotent append-only swipe_revocations table for consumer_db.
+  consumer-migrations:
+    image: postgis/postgis:17-3.4
+    restart: "no"
+    init: true
+    security_opt:
+      - no-new-privileges:true
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      PGHOST: postgres
+      PGPORT: 5432
+      PGDATABASE: consumer_db
+      PGUSER: ${POSTGRES_USER:-postgres}
+      PGPASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
+    volumes:
+      - ./migrations/migration:/migrations:ro
+      - ./docker/postgres/run-sql-migration.sh:/run-sql-migration.sh:ro
+    entrypoint: ["/bin/sh", "/run-sql-migration.sh", "/migrations/V2_consumer_swipe_revocations.sql"]
     networks:
       - app
 
@@ -294,6 +318,12 @@ services:
         --topic moderation.policies.v1 --partitions 3 --replication-factor 1
         && kafka-topics --bootstrap-server kafka:29092 --create --if-not-exists
         --topic moderation.commands.dlq.v1 --partitions 3 --replication-factor 1
+        && kafka-topics --bootstrap-server kafka:29092 --create --if-not-exists
+        --topic swipe-revoked --partitions 10 --replication-factor 1
+        && kafka-topics --bootstrap-server kafka:29092 --create --if-not-exists
+        --topic swipe-revoked.dlt --partitions 10 --replication-factor 1
+        && kafka-topics --bootstrap-server kafka:29092 --create --if-not-exists
+        --topic match.created.dlt --partitions 3 --replication-factor 1
     networks: [app]
 
   profiles:
@@ -738,8 +768,12 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+      consumer-migrations:
+        condition: service_completed_successfully
       kafka:
         condition: service_healthy
+      deck-read-topics:
+        condition: service_completed_successfully
       redis:
         condition: service_healthy
     environment:
@@ -863,6 +897,8 @@ services:
         condition: service_completed_successfully
       kafka:
         condition: service_healthy
+      deck-read-topics:
+        condition: service_completed_successfully
       redis:
         condition: service_healthy
       keycloak:

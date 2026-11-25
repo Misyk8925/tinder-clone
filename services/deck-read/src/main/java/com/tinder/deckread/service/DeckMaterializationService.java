@@ -122,21 +122,42 @@ public class DeckMaterializationService {
                 .flatMap(ignored -> source.readStable(viewer, MaterializedDeckStore.TOTAL_WINDOW))
                 .call(() -> locks.renewBuildLock(viewer, lockToken))
                 .flatMap(snapshot -> {
-                    List<UUID> ordered = snapshot.orderedProfileIds();
-                    return Uni.combine().all().unis(
-                                    profiles.cards(ordered),
-                                    mutations.swiped(viewer, ordered),
-                                    mutations.matched(viewer, ordered))
-                            .asTuple()
-                            .flatMap(tuple -> install(
-                                    request,
-                                    snapshot.buildTimestamp(),
-                                    ordered,
-                                    tuple.getItem1(),
-                                    tuple.getItem2(),
-                                    tuple.getItem3(),
-                                    lockToken));
+                    Uni<java.util.Optional<UUID>> rewoundUni = mutations.rewound(viewer);
+                    if (rewoundUni == null) {
+                        rewoundUni = Uni.createFrom().item(java.util.Optional.empty());
+                    }
+                    return rewoundUni.flatMap(rewound -> {
+                        List<UUID> ordered = prioritizeRewound(snapshot.orderedProfileIds(), rewound);
+                        return Uni.combine().all().unis(
+                                        profiles.cards(ordered),
+                                        mutations.swiped(viewer, ordered),
+                                        mutations.matched(viewer, ordered))
+                                .asTuple()
+                                .flatMap(tuple -> install(
+                                        request,
+                                        snapshot.buildTimestamp(),
+                                        ordered,
+                                        tuple.getItem1(),
+                                        tuple.getItem2(),
+                                        tuple.getItem3(),
+                                        lockToken));
+                    });
                 });
+    }
+
+    private static List<UUID> prioritizeRewound(List<UUID> ordered, java.util.Optional<UUID> rewound) {
+        if (rewound == null || rewound.isEmpty()) {
+            return ordered;
+        }
+        UUID rewoundId = rewound.get();
+        List<UUID> prioritized = new ArrayList<>(ordered.size() + 1);
+        prioritized.add(rewoundId);
+        for (UUID id : ordered) {
+            if (!rewoundId.equals(id)) {
+                prioritized.add(id);
+            }
+        }
+        return prioritized;
     }
 
     private Uni<Void> install(

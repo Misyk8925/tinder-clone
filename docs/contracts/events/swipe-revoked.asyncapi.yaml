@@ -1,0 +1,162 @@
+asyncapi: 2.6.0
+info:
+  title: Swipe Rewind compensating events
+  version: 1.0.0
+  description: >-
+    Append-only compensating event contract for Swipe Rewind. Existing `swipe-created`,
+    `swipe-saved`, and `match.created` schemas remain unchanged.
+defaultContentType: application/json
+servers:
+  kafka:
+    url: kafka:29092
+    protocol: kafka
+    description: Logical broker address; deployment overrides the host.
+channels:
+  swipe-revoked:
+    description: >-
+      Compensating event emitted by `swipes-go` when a user rewinds their latest swipe
+      within the 5-minute window and before a match. Original swipe events are never deleted.
+    x-requirements: [FR-1, FR-2, FR-4, FR-6, FR-7, FR-8, FR-9, NFR-2, NFR-3, NFR-5, NFR-6]
+    x-producer: swipes-go
+    x-consumers: [consumer, deck, deck-read]
+    x-retention: At least 7 days (matches swipe-saved retention for replay safety).
+    x-dlt: swipe-revoked.dlt
+    publish:
+      operationId: publishSwipeRevoked
+      message:
+        $ref: '#/components/messages/SwipeRevoked'
+    bindings:
+      kafka:
+        topic: swipe-revoked
+        partitions: 10
+        replicas: 1
+        bindingVersion: 0.4.0
+  match.created:
+    description: >-
+      Existing match event published by `consumer`; wire schema is unchanged.
+      Newly subscribed by `swipes-go` (`swipes-match-projection-go`) to populate
+      local `swipe_matches` for 409 `SWIPE_ALREADY_MATCHED` checks.
+    x-requirements: [FR-4, NFR-6]
+    x-producer: consumer
+    x-consumers: [match, deck-read, swipes-go]
+    x-dlt: match.created.dlt
+    subscribe:
+      operationId: consumeMatchCreatedForRewind
+      message:
+        $ref: '#/components/messages/MatchCreated'
+    bindings:
+      kafka:
+        topic: match.created
+        bindingVersion: 0.4.0
+components:
+  messages:
+    SwipeRevoked:
+      name: SwipeRevokedEventV1
+      title: Compensating swipe revocation
+      summary: Reverses read-model side effects of a single prior swipe without deleting swipe history.
+      contentType: application/json
+      correlationId:
+        location: $message.payload#/eventId
+      payload:
+        $ref: '#/components/schemas/SwipeRevokedEventV1'
+      bindings:
+        kafka:
+          key:
+            type: string
+            format: uuid
+            description: profile1Id (swiper profile UUID); preserves per-viewer partition ordering.
+          bindingVersion: 0.4.0
+      x-delivery: at-least-once
+      x-idempotency: >-
+        consumer deduplicates by eventId in `swipe_revocations` (PK event_id), checks
+        `isMutualMatch` defensively, and ignores stale revocations older than a newer swipe;
+        deck overwrites/adds profile2Id at maxScore+1 idempotently;
+        deck-read removes swipes/repeat-candidates only when not matched and no newer swipe exists,
+        then sets `dr:viewer:{id}:rewound` idempotently.
+    MatchCreated:
+      name: MatchCreated
+      title: Existing match created event (unchanged)
+      contentType: application/json
+      correlationId:
+        location: $message.payload#/eventId
+      payload:
+        $ref: '#/components/schemas/MatchCreatedEvent'
+      bindings:
+        kafka:
+          key:
+            type: string
+            description: Existing producer key (profile1Id).
+          bindingVersion: 0.4.0
+      x-delivery: at-least-once
+      x-idempotency: >-
+        swipes-go normalizes (min, max) UUID pair and inserts into `swipe_matches` with
+        ON CONFLICT DO NOTHING.
+  schemas:
+    SwipeRevokedEventV1:
+      type: object
+      additionalProperties: false
+      required:
+        - eventId
+        - revokedSwipeEventId
+        - profile1Id
+        - profile2Id
+        - originalDecision
+        - swipedAt
+        - revokedAt
+      properties:
+        eventId:
+          type: string
+          format: uuid
+          description: Unique revocation event ID (matches HTTP `revocationEventId`).
+        revokedSwipeEventId:
+          type: string
+          format: uuid
+          description: Original `SwipeCreatedEvent.eventId` being compensated.
+        profile1Id:
+          type: string
+          format: uuid
+          description: Swiper profile UUID (also the Kafka record key).
+        profile2Id:
+          type: string
+          format: uuid
+          description: Target profile UUID returned to position 0.
+        originalDecision:
+          type: boolean
+          description: Original swipe decision (true = like, false = pass).
+        swipedAt:
+          type: integer
+          format: int64
+          minimum: 1
+          description: Epoch milliseconds of the original swipe.
+        revokedAt:
+          type: integer
+          format: int64
+          minimum: 1
+          description: Epoch milliseconds when revocation was recorded.
+      example:
+        eventId: 1f92a35c-7c21-4e7b-9d2c-6a018723cb11
+        revokedSwipeEventId: 8c64d80e-4d5b-4df3-8b1e-1d8a3f9520b4
+        profile1Id: 2a10c9ef-1c12-49d0-944b-10aa87bc2e01
+        profile2Id: 3d2f99ab-0c4a-4e2f-92bd-f69b11a51c08
+        originalDecision: false
+        swipedAt: 1795643650000
+        revokedAt: 1795643712410
+    MatchCreatedEvent:
+      type: object
+      required:
+        - eventId
+        - profile1Id
+        - profile2Id
+        - createdAt
+      properties:
+        eventId:
+          type: string
+        profile1Id:
+          type: string
+          format: uuid
+        profile2Id:
+          type: string
+          format: uuid
+        createdAt:
+          type: string
+          format: date-time

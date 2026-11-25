@@ -3,6 +3,7 @@ package com.tinder.deck.kafka.config;
 import com.tinder.contracts.event.v1.ProfileCreatedEvent;
 import com.tinder.contracts.event.v1.ProfileDeletedEvent;
 import com.tinder.contracts.event.v1.ProfileUpdatedEvent;
+import com.tinder.contracts.event.v1.SwipeRevokedEventV1;
 import com.tinder.deck.kafka.dto.SwipeSavedEvent;
 import java.time.Duration;
 import org.apache.kafka.clients.admin.NewTopic;
@@ -69,6 +70,9 @@ public class KafkaConsumerConfig {
     @Value("${kafka.topics.swipe-events}")
     private String swipeSavedTopic;
 
+    @Value("${kafka.topics.swipe-revoked:swipe-revoked}")
+    private String swipeRevokedTopic = "swipe-revoked";
+
     @Value("${kafka.topics.delete-events}")
     private String profileDeletedTopic;
 
@@ -85,6 +89,11 @@ public class KafkaConsumerConfig {
     @Bean
     public NewTopic swipeSavedDeadLetterTopic() {
         return deadLetterTopic(swipeSavedTopic + ".dlt");
+    }
+
+    @Bean
+    public NewTopic swipeRevokedDeadLetterTopic() {
+        return deadLetterTopic(swipeRevokedTopic + ".dlt");
     }
 
     @Bean
@@ -159,6 +168,28 @@ public class KafkaConsumerConfig {
         props.put(ConsumerConfig.SESSION_TIMEOUT_MS_CONFIG, 30000);
         props.put(ConsumerConfig.HEARTBEAT_INTERVAL_MS_CONFIG, 10000);
 
+        return new DefaultKafkaConsumerFactory<>(props);
+    }
+
+    /**
+     * Consumer factory for SwipeRevokedEventV1 deserialization
+     */
+    @Bean
+    public ConsumerFactory<String, SwipeRevokedEventV1> swipeRevokedEventConsumerFactory() {
+        Map<String, Object> props = new HashMap<>();
+        props.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers);
+        props.put(ConsumerConfig.GROUP_ID_CONFIG, groupId + "-revoked");
+        props.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class);
+        props.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, JsonDeserializer.class);
+        props.put(ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG, false);
+        props.put(ConsumerConfig.ISOLATION_LEVEL_CONFIG, "read_committed");
+        props.put(JsonDeserializer.TRUSTED_PACKAGES, "com.tinder.contracts.event.v1,com.tinder.deck.kafka.dto");
+        props.put(JsonDeserializer.VALUE_DEFAULT_TYPE, SwipeRevokedEventV1.class.getName());
+        props.put(JsonDeserializer.USE_TYPE_INFO_HEADERS, false);
+        props.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest");
+        props.put(ConsumerConfig.MAX_POLL_RECORDS_CONFIG, 100);
+        props.put(ConsumerConfig.SESSION_TIMEOUT_MS_CONFIG, 30000);
+        props.put(ConsumerConfig.HEARTBEAT_INTERVAL_MS_CONFIG, 10000);
         return new DefaultKafkaConsumerFactory<>(props);
     }
 
@@ -258,6 +289,18 @@ public class KafkaConsumerConfig {
 
         factory.setCommonErrorHandler(kafkaErrorHandler);
 
+        return factory;
+    }
+
+    @Bean
+    public ConcurrentKafkaListenerContainerFactory<String, SwipeRevokedEventV1> swipeRevokedKafkaListenerContainerFactory(
+            DefaultErrorHandler kafkaErrorHandler) {
+        ConcurrentKafkaListenerContainerFactory<String, SwipeRevokedEventV1> factory =
+                new ConcurrentKafkaListenerContainerFactory<>();
+        factory.setConsumerFactory(swipeRevokedEventConsumerFactory());
+        factory.setConcurrency(concurrency);
+        factory.getContainerProperties().setAckMode(ContainerProperties.AckMode.RECORD);
+        factory.setCommonErrorHandler(kafkaErrorHandler);
         return factory;
     }
 

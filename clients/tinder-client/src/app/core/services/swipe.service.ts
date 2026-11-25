@@ -2,7 +2,7 @@ import { Injectable, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import { environment } from '../../../environments/environment';
-import { SwipeRequest } from '../models/profile.model';
+import { RewindRequest, RewindResponse, SwipeRequest } from '../models/profile.model';
 
 @Injectable({ providedIn: 'root' })
 export class SwipeService {
@@ -12,5 +12,9 @@ export class SwipeService {
   swipe(data: SwipeRequest): Observable<void> {
     const url = data.isSuper ? `${this.base}/super` : this.base;
     return this.http.post<void>(url, data);
+  }
+
+  rewind(request: RewindRequest = {}): Observable<RewindResponse> {
+    return this.http.post<RewindResponse>(`${this.base}/rewind`, request);
   }
 }
