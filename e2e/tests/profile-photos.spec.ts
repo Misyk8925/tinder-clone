@@ -1,29 +1,52 @@
 import path from 'node:path';
 import { test, expect } from '../support/fixtures';
 import { requireAccounts } from '../support/accounts';
-import { login, logout } from '../support/auth';
-import { think } from '../support/human';
+import { deleteAccountInApp, login, logout } from '../support/auth';
+import { think, typeLikeHuman } from '../support/human';
 
 const TEST_PHOTO = path.resolve(__dirname, '../fixtures/test-photo.png');
 
 test('profile photo upload, persistence across reload, and deletion', async ({ page }) => {
   const { A } = requireAccounts('A');
   let uploadedSlot: number | null = null;
+  let createdProfile = false;
 
   await test.step('A signs in', () => login(page, A));
 
   try {
-    await test.step('open profile and photo manager', async () => {
+    await test.step('ensure account A has a profile and open photo manager', async () => {
       await page.goto('/profile');
       await think(page, 'read');
 
       const editPhotos = page.getByRole('button', { name: /edit profile photos/i });
       const createProfile = page.getByRole('button', { name: /^create profile$/i });
       await expect(editPhotos.or(createProfile).first()).toBeVisible();
+
       if (!(await editPhotos.isVisible())) {
-        throw new Error(
-          'Account A has no profile yet. Create a profile for E2E_USER_A before running photo upload tests.'
-        );
+        await test.step('create a profile for account A', async () => {
+          await think(page, 'decide');
+          await createProfile.click();
+          await expect(page.getByRole('heading', { name: /^create profile$/i })).toBeVisible();
+          await think(page, 'glance');
+
+          await typeLikeHuman(page.getByLabel(/^name/i), 'Alex E2E');
+          await typeLikeHuman(page.getByLabel(/^age/i), '27');
+          await page.getByLabel(/^gender/i).selectOption('other');
+          await typeLikeHuman(page.getByLabel(/^city/i), 'Berlin');
+          await typeLikeHuman(page.getByLabel(/^bio/i), 'Automated e2e photo verification profile.');
+          await think(page, 'decide');
+
+          const submitBtn = page.getByRole('button', { name: /^create profile$/i });
+          await expect(submitBtn).toBeEnabled();
+          await submitBtn.click();
+          await expect(page).toHaveURL(/\/(profile|discover)/);
+          createdProfile = true;
+          await think(page, 'read');
+
+          await page.goto('/profile');
+          await expect(editPhotos).toBeVisible();
+          await think(page, 'glance');
+        });
       }
 
       await think(page, 'decide');
@@ -104,7 +127,6 @@ test('profile photo upload, persistence across reload, and deletion', async ({ p
     });
   } finally {
     if (uploadedSlot !== null) {
-      // Best-effort cleanup if an assertion failed after upload
       try {
         const removeBtn = page.getByRole('button', { name: `Remove photo ${uploadedSlot}` });
         if (await removeBtn.isVisible()) {
@@ -118,5 +140,11 @@ test('profile photo upload, persistence across reload, and deletion', async ({ p
     }
   }
 
-  await test.step('A signs out', () => logout(page));
+  if (createdProfile) {
+    await test.step('delete the temporary profile created for the test', async () => {
+      await deleteAccountInApp(page);
+    });
+  } else {
+    await test.step('A signs out', () => logout(page));
+  }
 });
