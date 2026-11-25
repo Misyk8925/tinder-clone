@@ -89,7 +89,11 @@ outbox:
     enabled: true
     batch-size: 50
     max-batches-per-run: 5
-    poll-interval-ms: 100
+    # Each of the two outbox jobs queries consumer_db once per interval. 100 ms
+    # meant ~20 tx/s returning 0 rows on an idle prod (measured 2026-11-25).
+    # 1 s bounds the extra publish delay to 1 s. Override with
+    # OUTBOX_PUBLISHER_POLL_INTERVAL_MS.
+    poll-interval-ms: 1000
     initial-backoff-ms: 1000
     max-backoff-ms: 60000
     backoff-multiplier: 2.0
