@@ -100,9 +100,7 @@ public class JpaInternalProfileQueryAdapter implements InternalProfileQuery {
     public List<InternalProfileView> getActiveUsers() {
         log.debug("Fetching all active users");
 
-        List<SharedProfileDto> results = repo.findAllByIsDeletedFalse().stream()
-                .map(sharedMapper::toSharedProfileDto)
-                .toList();
+        List<SharedProfileDto> results = sharedMapper.toSharedProfileDtos(repo.findAllByIsDeletedFalse());
 
         log.info("Found {} active users", results.size());
         return toViews(results);

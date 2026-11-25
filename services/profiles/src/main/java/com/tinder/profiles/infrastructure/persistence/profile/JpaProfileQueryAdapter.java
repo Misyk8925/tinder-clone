@@ -6,12 +6,15 @@ import com.tinder.profiles.application.profile.query.ProfileView;
 import com.tinder.profiles.application.profile.exception.ProfileNotFoundException;
 import com.tinder.profiles.infrastructure.cache.ProfileIdentityCacheService;
 import com.tinder.profiles.infrastructure.cache.ResilientCacheManager;
+import com.tinder.profiles.infrastructure.persistence.photos.Photo;
 import com.tinder.profiles.infrastructure.photos.PhotoDownloadUrlSigner;
+import com.tinder.profiles.infrastructure.photos.PhotoDownloadUrlSigner.PhotoLocator;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.cache.Cache;
 import org.springframework.stereotype.Component;
 
+import java.util.Map;
 import java.util.UUID;
 
 /**
@@ -86,19 +89,21 @@ public class JpaProfileQueryAdapter implements ProfileQuery {
                         profile.getPreferences().getMaxAge(),
                         profile.getPreferences().getGender(),
                         profile.getPreferences().getMaxRange());
-        java.util.List<ProfileView.PhotoView> photos = profile.getPhotos() == null
-                ? java.util.List.of()
-                : profile.getPhotos().stream()
-                        .map(photo -> new ProfileView.PhotoView(
-                                photo.getPhotoID(),
-                                photo.getS3Key(),
-                                photo.isPrimary(),
-                                photo.getPosition(),
-                                photoUrls.forClient(profile.getProfileId(), photo.getS3Key(), photo.getUrl()),
-                                photo.getContentType(),
-                                photo.getSize(),
-                                photo.getCreatedAt()))
-                        .toList();
+        java.util.List<Photo> stored = profile.getPhotos() == null ? java.util.List.of() : profile.getPhotos();
+        Map<PhotoLocator, String> urls = photoUrls.forClient(stored.stream()
+                .map(photo -> locatorOf(profile, photo))
+                .toList());
+        java.util.List<ProfileView.PhotoView> photos = stored.stream()
+                .map(photo -> new ProfileView.PhotoView(
+                        photo.getPhotoID(),
+                        photo.getS3Key(),
+                        photo.isPrimary(),
+                        photo.getPosition(),
+                        urls.get(locatorOf(profile, photo)),
+                        photo.getContentType(),
+                        photo.getSize(),
+                        photo.getCreatedAt()))
+                .toList();
         java.util.List<String> hobbies = profile.getHobbies() == null
                 ? java.util.List.of()
                 : profile.getHobbies().stream().map(Enum::name).toList();
@@ -115,5 +120,9 @@ public class JpaProfileQueryAdapter implements ProfileQuery {
                 preferences,
                 photos,
                 hobbies);
+    }
+
+    private static PhotoLocator locatorOf(ProfileJpaEntity profile, Photo photo) {
+        return new PhotoLocator(profile.getProfileId(), photo.getS3Key(), photo.getUrl());
     }
 }

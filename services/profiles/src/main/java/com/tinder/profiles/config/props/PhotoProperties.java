@@ -10,23 +10,16 @@ import java.util.List;
  * Photo storage, CDN and upload-policy settings ({@code app.*}).
  *
  * <p>{@link Policy} carries the upload rules the application layer enforces; the
- * rest describes where bytes are written and how they are served.
+ * rest describes how they are served. Storage and URL signing belong to the
+ * photos service.
  */
 @ConfigurationProperties(prefix = "app")
 public record PhotoProperties(
-
-        @DefaultValue S3 s3,
 
         @DefaultValue Cloudfront cloudfront,
 
         @DefaultValue Policy photos
 ) {
-
-    public record S3(
-            @DefaultValue("") String bucket,
-            @DefaultValue("300") int presignExpSeconds
-    ) {
-    }
 
     public record Cloudfront(
             @DefaultValue("") String domain,

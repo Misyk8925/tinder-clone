@@ -29,8 +29,6 @@ class ConfigurationPropertiesBindingTest {
         runner.run(context -> {
             then(context).hasNotFailed();
 
-            then(context.getBean(AwsProperties.class).region()).isNotBlank();
-
             InternalServerProperties internal = context.getBean(InternalServerProperties.class);
             then(internal.port()).isEqualTo(8011);
             then(internal.ssl().enabled()).isTrue();
@@ -70,7 +68,6 @@ class ConfigurationPropertiesBindingTest {
             then(caches.sharedProfile().maxSize()).isEqualTo(250_000);
 
             PhotoProperties photos = context.getBean(PhotoProperties.class);
-            then(photos.s3().presignExpSeconds()).isEqualTo(300);
             then(photos.photos().maxPerProfile()).isEqualTo(5);
             then(photos.photos().maxSize().toBytes()).isEqualTo(5L * 1024 * 1024);
             then(photos.photos().allowedContentTypes())
@@ -84,7 +81,6 @@ class ConfigurationPropertiesBindingTest {
 
     @Configuration
     @EnableConfigurationProperties({
-            AwsProperties.class,
             InternalServerProperties.class,
             KafkaTopicProperties.class,
             KeycloakProperties.class,

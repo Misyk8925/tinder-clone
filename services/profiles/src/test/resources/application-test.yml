@@ -98,11 +98,6 @@ internal:
       trust-store-password: changeit
       trust-store-type: JKS
 
-app:
-  s3:
-    bucket: "test-bucket"
-    presign-exp-seconds: 300
-
 photos:
   service:
     url: http://localhost:8070
@@ -114,10 +109,6 @@ moderation:
     timeout: 2s
     username: ""
     password: ""
-
-cloud:
-  aws:
-    region: eu-north-1
 
 
 
