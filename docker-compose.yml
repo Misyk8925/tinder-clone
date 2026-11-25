@@ -606,7 +606,10 @@ services:
       # Storage backend: "local" (VPS volume), "s3" (AWS S3/CloudFront), or "memory".
       PHOTOS_STORAGE_BACKEND: ${PHOTOS_STORAGE_BACKEND:-local}
       PHOTOS_LOCAL_ROOT: ${PHOTOS_LOCAL_ROOT:-/var/lib/photos}
-      PHOTOS_PUBLIC_BASE_URL: ${PHOTOS_PUBLIC_BASE_URL:-}
+      # Origin of the signed /media/** URLs handed to browsers. It must be the gateway's
+      # public host: the frontend host does not route /media/**, and an empty value
+      # yields relative URLs that resolve against the frontend and 404.
+      PHOTOS_PUBLIC_BASE_URL: ${PHOTOS_PUBLIC_BASE_URL:-https://lunari-api.misyk.tech}
       PHOTOS_SIGNING_SECRET: ${PHOTOS_SIGNING_SECRET:-}
       AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID:-}
       AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY:-}
