@@ -36,10 +36,15 @@ test('profile photo upload, persistence across reload, and deletion', async ({ p
           await typeLikeHuman(page.getByLabel(/^bio/i), 'Automated e2e photo verification profile.');
           await think(page, 'decide');
 
+          const createResponse = page.waitForResponse(
+            res => res.url().includes('/api/v1/profiles') && res.request().method() === 'POST'
+          );
           const submitBtn = page.getByRole('button', { name: /^create profile$/i });
           await expect(submitBtn).toBeEnabled();
           await submitBtn.click();
-          await expect(page).toHaveURL(/\/(profile|discover)/);
+          const createRes = await createResponse;
+          expect(createRes.ok(), `POST /api/v1/profiles failed with ${createRes.status()}`).toBe(true);
+          await expect(page).toHaveURL(/\/(profile$|discover)/);
           createdProfile = true;
           await think(page, 'read');
 
