@@ -1,5 +1,6 @@
 package com.tinder.profiles.config.photos;
 
+import com.tinder.profiles.config.http.InternalServiceHttpClient;
 import com.tinder.profiles.config.props.PhotosServiceProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -17,7 +18,7 @@ public class PhotosClientConfig {
 
     @Bean("photosWebClient")
     WebClient photosWebClient(PhotosServiceProperties properties) {
-        HttpClient httpClient = HttpClient.create()
+        HttpClient httpClient = InternalServiceHttpClient.create()
                 .responseTimeout(Duration.ofSeconds(30));
         ExchangeStrategies strategies = ExchangeStrategies.builder()
                 .codecs(codecs -> codecs.defaultCodecs().maxInMemorySize(MAX_IN_MEMORY_BYTES))
