@@ -3,6 +3,7 @@ package com.tinder.deckread.messaging;
 import com.tinder.contracts.event.v1.DeckBuiltEventV1;
 import com.tinder.contracts.event.v1.ProfileDeckCardProjectionEvent;
 import com.tinder.contracts.event.v1.ProfileProjectionOperation;
+import com.tinder.contracts.event.v1.SwipeRevokedEventV1;
 import com.tinder.deckread.readmodel.HotViewerIndex;
 import com.tinder.deckread.readmodel.ProfileProjectionStore;
 import com.tinder.deckread.readmodel.ViewerMutationStore;
@@ -71,6 +72,13 @@ public class DeckReadEventMaterializers {
         return withBoundedRetry(() -> viewerMutations.applySwipe(event))
                 .flatMap(ignored -> requester.request(
                         java.util.UUID.fromString(event.profile1Id()), MaterializationReason.SWIPE_SAVED));
+    }
+
+    @Incoming("swipe-revoked")
+    public Uni<Void> onSwipeRevoked(SwipeRevokedEventV1 event) {
+        return withBoundedRetry(() -> viewerMutations.applySwipeRevoked(event))
+                .flatMap(ignored -> requester.request(
+                        java.util.UUID.fromString(event.profile1Id()), MaterializationReason.SWIPE_REVOKED));
     }
 
     @Incoming("match-created")

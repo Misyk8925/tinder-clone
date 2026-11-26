@@ -1,10 +1,13 @@
 #!/bin/sh
-# Wait until Postgres accepts connections to the target database, then apply one SQL file.
+# Wait until Postgres accepts connections to the target database, then apply one or more SQL files in order.
 # Used by Compose one-shot migration services. Exit 2 from bare psql usually means
 # "could not connect" (role missing or init still running); this retries instead.
 set -eu
 
-file="${1:?usage: run-sql-migration.sh /path/to/file.sql}"
+if [ "$#" -lt 1 ]; then
+  echo "usage: run-sql-migration.sh /path/to/file.sql [...]" >&2
+  exit 1
+fi
 
 tries=0
 max_tries=60
@@ -17,4 +20,6 @@ until psql --dbname="${PGDATABASE:?PGDATABASE is required}" -c 'SELECT 1' >/dev/
   sleep 2
 done
 
-exec psql -v ON_ERROR_STOP=1 --file="$file"
+for file in "$@"; do
+  psql -v ON_ERROR_STOP=1 --file="$file"
+done

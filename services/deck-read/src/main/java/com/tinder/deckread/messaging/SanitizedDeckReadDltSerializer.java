@@ -4,6 +4,7 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.tinder.contracts.event.v1.ProfileDeckCardProjectionEvent;
 import com.tinder.contracts.event.v1.DeckBuiltEventV1;
+import com.tinder.contracts.event.v1.SwipeRevokedEventV1;
 import org.apache.kafka.common.serialization.Serializer;
 
 import java.util.LinkedHashMap;
@@ -31,6 +32,12 @@ public final class SanitizedDeckReadDltSerializer implements Serializer<Object> 
         } else if (value instanceof SwipeSavedEvent event) {
             sanitized.put("payloadType", "swipe.saved");
             sanitized.put("eventId", event.eventId());
+            sanitized.put("viewerProfileId", event.profile1Id());
+            sanitized.put("candidateProfileId", event.profile2Id());
+        } else if (value instanceof SwipeRevokedEventV1 event) {
+            sanitized.put("payloadType", "swipe.revoked");
+            sanitized.put("eventId", event.eventId());
+            sanitized.put("revokedSwipeEventId", event.revokedSwipeEventId());
             sanitized.put("viewerProfileId", event.profile1Id());
             sanitized.put("candidateProfileId", event.profile2Id());
         } else if (value instanceof MatchCreatedEvent event) {

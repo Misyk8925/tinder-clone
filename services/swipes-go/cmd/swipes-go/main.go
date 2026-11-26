@@ -42,14 +42,19 @@ func main() {
 		logger.Fatalf("profile repository failed: %v", err)
 	}
 	defer profileRepo.Close()
+	rewindStore, err := repository.NewRewindStore(startupCtx, profileRepo.DB())
+	if err != nil {
+		logger.Fatalf("rewind store failed: %v", err)
+	}
 	serviceMetrics := &metrics.Metrics{}
 	producer, err := swipekafka.NewProducer(startupCtx, cfg, serviceMetrics, logger)
 	if err != nil {
 		logger.Fatalf("swipe producer failed: %v", err)
 	}
-	consumers := swipekafka.StartConsumers(rootCtx, cfg, profileRepo, serviceMetrics, logger)
+	consumers := swipekafka.StartConsumersWithMatch(rootCtx, cfg, profileRepo, rewindStore, serviceMetrics, logger)
 	authenticator := security.NewAuthenticator(cfg.InternalAuthSecret, jwtValidator)
-	swipeService := service.New(producer, profileRepo, serviceMetrics, cfg.InternalBypassProfile)
+	swipeService := service.New(producer, profileRepo, serviceMetrics, cfg.InternalBypassProfile).
+		WithRewind(rewindStore, producer, cfg.RewindWindow, time.Now)
 	httpRouter := router.New(swipeService, authenticator, serviceMetrics, producer, logger)
 	server := &fasthttp.Server{
 		Handler: httpRouter.Handler, Name: "swipes-go", ReadTimeout: 5 * time.Second,

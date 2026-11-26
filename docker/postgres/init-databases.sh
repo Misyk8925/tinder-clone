@@ -68,6 +68,8 @@ EOSQL
 # consumer_db
 psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "consumer_db" \
     -f /docker-entrypoint-initdb.d/migration/V1_consumer.sql
+psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "consumer_db" \
+    -f /docker-entrypoint-initdb.d/migration/V2_consumer_swipe_revocations.sql
 psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "consumer_db" <<-EOSQL
     REVOKE ALL ON DATABASE consumer_db FROM PUBLIC;
     GRANT CONNECT ON DATABASE consumer_db TO consumer_app;
@@ -96,8 +98,13 @@ psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "swipes_db" \
     -f /docker-entrypoint-initdb.d/migration/V1_swipes.sql
 psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "swipes_db" \
     -f /docker-entrypoint-initdb.d/migration/V2_swipes_identity_index.sql
+psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "swipes_db" \
+    -f /docker-entrypoint-initdb.d/migration/V3_swipes_rewind.sql
 psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "swipes_db" <<-EOSQL
     ALTER TABLE profile_cache OWNER TO swipes_app;
+    ALTER TABLE swipe_history OWNER TO swipes_app;
+    ALTER TABLE swipe_revocations OWNER TO swipes_app;
+    ALTER TABLE swipe_matches OWNER TO swipes_app;
     REVOKE ALL ON DATABASE swipes_db FROM PUBLIC;
     GRANT CONNECT ON DATABASE swipes_db TO swipes_app;
     GRANT USAGE, CREATE ON SCHEMA public TO swipes_app;

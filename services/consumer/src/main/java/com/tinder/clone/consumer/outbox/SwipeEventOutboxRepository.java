@@ -30,4 +30,11 @@ public interface SwipeEventOutboxRepository extends JpaRepository<SwipeEventOutb
             @Param("now") Instant now,
             @Param("batchSize") int batchSize
     );
+
+    boolean existsBySwiperIdAndSwipedIdAndEventIdNotAndCreatedAtAfter(
+            UUID swiperId,
+            UUID swipedId,
+            UUID eventId,
+            Instant createdAt
+    );
 }

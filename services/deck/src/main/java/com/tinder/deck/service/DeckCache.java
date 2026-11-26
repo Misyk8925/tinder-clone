@@ -432,6 +432,42 @@ public class DeckCache {
     }
 
     /**
+     * Restores a rewound profile to position 0 (highest score) of the viewer's cached deck as fresh,
+     * unless the profile is marked deleted. Safe and idempotent on duplicate Kafka deliveries.
+     */
+    public Mono<Boolean> restoreToTop(UUID viewerId, UUID profileId) {
+        return restoreToTop(viewerId, profileId, Duration.ofMinutes(60));
+    }
+
+    public Mono<Boolean> restoreToTop(UUID viewerId, UUID profileId, Duration ttl) {
+        String deckKey = DeckRedisKeys.deck(viewerId);
+        String containsKey = DeckRedisKeys.contains(profileId);
+        return redis.opsForSet()
+                .isMember(DeckRedisKeys.DELETED_PROFILES, profileId.toString())
+                .defaultIfEmpty(false)
+                .flatMap(isDeleted -> {
+                    if (Boolean.TRUE.equals(isDeleted)) {
+                        log.debug("Skipping rewind restore for deleted profile {} in viewer {}'s deck", profileId, viewerId);
+                        return Mono.just(false);
+                    }
+                    return findMemberByProfileId(deckKey, profileId)
+                            .flatMap(existing -> redis.opsForZSet().remove(deckKey, existing))
+                            .defaultIfEmpty(0L)
+                            .then(redis.opsForZSet()
+                                    .reverseRangeWithScores(deckKey, org.springframework.data.domain.Range.closed(0L, 0L))
+                                    .next()
+                                    .map(top -> top.getScore() != null ? top.getScore() + 1.0 : 1_000_000_000.0)
+                                    .defaultIfEmpty(1_000_000_000.0))
+                            .flatMap(topScore -> redis.opsForZSet()
+                                    .add(deckKey, serializeEntry(DeckEntry.fresh(profileId)), topScore)
+                                    .then(redis.expire(deckKey, ttl))
+                                    .then(redis.opsForSet().add(containsKey, viewerId.toString()))
+                                    .then(redis.expire(containsKey, ttl))
+                                    .thenReturn(true));
+                });
+    }
+
+    /**
      * Remove a profile from all cached decks that contain it.
      * Used when a profile is deleted or its critical fields change and it must disappear from
      * every viewer's deck before the next rebuild.

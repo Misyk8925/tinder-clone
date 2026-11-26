@@ -19,6 +19,10 @@ type ProfileEventHandler interface {
 	DeleteProfile(context.Context, model.ProfileDeleteEvent) error
 }
 
+type MatchEventHandler interface {
+	SaveMatch(context.Context, model.MatchCreatedEvent) error
+}
+
 type Consumers struct {
 	cancel           context.CancelFunc
 	readers          []*kafkago.Reader
@@ -27,9 +31,22 @@ type Consumers struct {
 }
 
 func StartConsumers(parent context.Context, cfg config.Config, handler ProfileEventHandler, serviceMetrics *metrics.Metrics, logger *log.Logger) *Consumers {
+	return StartConsumersWithMatch(parent, cfg, handler, nil, serviceMetrics, logger)
+}
+
+func StartConsumersWithMatch(
+	parent context.Context,
+	cfg config.Config,
+	handler ProfileEventHandler,
+	matchHandler MatchEventHandler,
+	serviceMetrics *metrics.Metrics,
+	logger *log.Logger,
+) *Consumers {
 	ctx, cancel := context.WithCancel(parent)
 	consumers := &Consumers{cancel: cancel}
-	if !cfg.ProfileConsumersEnabled {
+	startProfiles := cfg.ProfileConsumersEnabled && handler != nil
+	startMatches := cfg.MatchConsumerEnabled && matchHandler != nil
+	if !startProfiles && !startMatches {
 		return consumers
 	}
 	consumers.deadLetterWriter = &kafkago.Writer{
@@ -41,25 +58,43 @@ func StartConsumers(parent context.Context, cfg config.Config, handler ProfileEv
 		WriteTimeout:           10 * time.Second,
 		ReadTimeout:            10 * time.Second,
 	}
-	consumers.start(ctx, cfg, cfg.ProfileCreatedTopic, func(ctx context.Context, value []byte) error {
-		var event model.ProfileCreateEvent
-		if err := json.Unmarshal(value, &event); err != nil {
-			return err
+	if startProfiles {
+		consumers.start(ctx, cfg, cfg.ProfileCreatedTopic, cfg.ProfileConsumerGroup+"-"+cfg.ProfileCreatedTopic, func(ctx context.Context, value []byte) error {
+			var event model.ProfileCreateEvent
+			if err := json.Unmarshal(value, &event); err != nil {
+				return err
+			}
+			return handler.SaveProfile(ctx, event)
+		}, serviceMetrics, logger)
+		consumers.start(ctx, cfg, cfg.ProfileDeletedTopic, cfg.ProfileConsumerGroup+"-"+cfg.ProfileDeletedTopic, func(ctx context.Context, value []byte) error {
+			var event model.ProfileDeleteEvent
+			if err := json.Unmarshal(value, &event); err != nil {
+				return err
+			}
+			return handler.DeleteProfile(ctx, event)
+		}, serviceMetrics, logger)
+	}
+	if startMatches {
+		group := cfg.MatchConsumerGroup
+		if group == "" {
+			group = "swipes-match-projection-go"
 		}
-		return handler.SaveProfile(ctx, event)
-	}, serviceMetrics, logger)
-	consumers.start(ctx, cfg, cfg.ProfileDeletedTopic, func(ctx context.Context, value []byte) error {
-		var event model.ProfileDeleteEvent
-		if err := json.Unmarshal(value, &event); err != nil {
-			return err
+		topic := cfg.MatchCreatedTopic
+		if topic == "" {
+			topic = "match.created"
 		}
-		return handler.DeleteProfile(ctx, event)
-	}, serviceMetrics, logger)
+		consumers.start(ctx, cfg, topic, group, func(ctx context.Context, value []byte) error {
+			var event model.MatchCreatedEvent
+			if err := json.Unmarshal(value, &event); err != nil {
+				return err
+			}
+			return matchHandler.SaveMatch(ctx, event)
+		}, serviceMetrics, logger)
+	}
 	return consumers
 }
 
-func (consumers *Consumers) start(ctx context.Context, cfg config.Config, topic string, handle func(context.Context, []byte) error, serviceMetrics *metrics.Metrics, logger *log.Logger) {
-	consumerGroup := cfg.ProfileConsumerGroup + "-" + topic
+func (consumers *Consumers) start(ctx context.Context, cfg config.Config, topic, consumerGroup string, handle func(context.Context, []byte) error, serviceMetrics *metrics.Metrics, logger *log.Logger) {
 	reader := kafkago.NewReader(kafkago.ReaderConfig{
 		Brokers: cfg.KafkaBrokers, Topic: topic, GroupID: consumerGroup,
 		StartOffset: kafkago.FirstOffset, MinBytes: 1, MaxBytes: 10e6,

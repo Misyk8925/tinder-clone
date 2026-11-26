@@ -125,6 +125,23 @@ spring:
               filters:
                 - PremiumOrAdminFilter
 
+            - id: swipes-rewind
+              uri: ${SWIPES_SERVICE_URL:http://localhost:8040}
+              predicates:
+                - Path=/api/v1/swipes/rewind
+                - Method=POST
+              filters:
+                - name: RoleBasedRateLimitFilter
+                  args:
+                    adminCapacity:  1000000000
+                    adminPeriodInSeconds: 3600
+                    premiumCapacity: 500
+                    premiumPeriodInSeconds: 3600
+                    basicCapacity: 100
+                    basicPeriodInSeconds: 3600
+                    anonCapacity: 0
+                    anonPeriodInSeconds: 3600
+
             - id: swipes
               uri: ${SWIPES_SERVICE_URL:http://localhost:8040}
               predicates:

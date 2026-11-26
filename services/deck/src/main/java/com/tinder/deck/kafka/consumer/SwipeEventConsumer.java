@@ -1,5 +1,6 @@
 package com.tinder.deck.kafka.consumer;
 
+import com.tinder.contracts.event.v1.SwipeRevokedEventV1;
 import com.tinder.deck.kafka.dto.SwipeSavedEvent;
 import com.tinder.deck.service.DeckCache;
 import lombok.RequiredArgsConstructor;
@@ -64,5 +65,23 @@ public class SwipeEventConsumer {
         } else {
             log.debug("Profile {} was not in {}'s deck (already removed or deck not built yet)", swipedId, swiperId);
         }
+    }
+
+    @KafkaListener(
+            topics = "${kafka.topics.swipe-revoked:swipe-revoked}",
+            groupId = "${spring.kafka.consumer.group-id}-revoked",
+            containerFactory = "swipeRevokedKafkaListenerContainerFactory"
+    )
+    public void consumeRevoked(
+            @Payload SwipeRevokedEventV1 event,
+            @Header(KafkaHeaders.RECEIVED_PARTITION) int partition,
+            @Header(KafkaHeaders.OFFSET) long offset
+    ) {
+        log.info("Received SwipeRevokedEventV1: eventId={}, profile1Id={}, profile2Id={}, partition={}, offset={}",
+                event.eventId(), event.profile1Id(), event.profile2Id(), partition, offset);
+        UUID viewerId = UUID.fromString(event.profile1Id());
+        UUID targetId = UUID.fromString(event.profile2Id());
+        Boolean restored = deckCache.restoreToTop(viewerId, targetId).block();
+        log.info("Processed SwipeRevokedEventV1 eventId={} restored={}", event.eventId(), restored);
     }
 }

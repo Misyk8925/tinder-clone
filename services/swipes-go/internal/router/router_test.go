@@ -24,6 +24,10 @@ func (service *fakeService) Send(_ context.Context, _ model.SwipeDTO, principal 
 	return service.err
 }
 
+func (service *fakeService) Rewind(_ context.Context, _ model.RewindRequest, _ security.Principal) (model.RewindResponse, error) {
+	return model.RewindResponse{}, service.err
+}
+
 type fakeQueue struct{}
 
 func (fakeQueue) QueueStats() (int, int) { return 2, 10 }

@@ -56,6 +56,10 @@ func NewProfiles(ctx context.Context, redisAddr, databaseURL, profilesBaseURL st
 	return &Profiles{redis: redisClient, db: pool, remote: client.NewProfiles(profilesBaseURL), log: logger}, nil
 }
 
+func (repo *Profiles) DB() *pgxpool.Pool {
+	return repo.db
+}
+
 func (repo *Profiles) Close() {
 	_ = repo.redis.Close()
 	repo.db.Close()
@@ -118,7 +122,7 @@ func (repo *Profiles) ProfileIDForUser(ctx context.Context, userID, bearer strin
 		return uuid.Nil, err
 	}
 	if remoteUserID != "" && remoteUserID != userID {
-		return uuid.Nil, fmt.Errorf("profiles /me subject mismatch")
+		return uuid.Nil, fmt.Errorf("profiles /me subject mismatch: %w", model.ErrProfileNotFound)
 	}
 	if err := repo.save(ctx, id, userID, time.Now()); err != nil {
 		return uuid.Nil, err

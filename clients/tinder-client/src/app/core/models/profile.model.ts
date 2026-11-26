@@ -62,3 +62,32 @@ export interface SwipeRequest {
   decision: boolean;
   isSuper?: boolean;
 }
+
+export interface RewindRequest {
+  swipeEventId?: string;
+}
+
+export interface RewindResponse {
+  revokedSwipeEventId: string;
+  revocationEventId: string;
+  profile2Id: string;
+  decision: boolean;
+  revokedAt: string;
+  alreadyRevoked: boolean;
+}
+
+export type RewindErrorCode =
+  | 'INVALID_PAYLOAD'
+  | 'UNAUTHENTICATED'
+  | 'PROFILE_OWNERSHIP_DENIED'
+  | 'NO_SWIPE_TO_REWIND'
+  | 'REWIND_WINDOW_EXPIRED'
+  | 'SWIPE_ALREADY_MATCHED'
+  | 'NOT_LATEST_SWIPE'
+  | 'RATE_LIMITED'
+  | 'SERVICE_UNAVAILABLE';
+
+export interface RewindErrorResponse {
+  code: RewindErrorCode;
+  message: string;
+}

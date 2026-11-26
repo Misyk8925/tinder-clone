@@ -1,6 +1,7 @@
 package com.tinder.clone.consumer.kafka;
 
 import com.tinder.clone.consumer.kafka.event.SwipeCreatedEvent;
+import com.tinder.clone.consumer.kafka.event.SwipeRevokedEvent;
 import com.tinder.clone.consumer.service.SwipeService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -43,6 +44,28 @@ public class SwipesConsumer {
             log.info("Acknowledged SwipeCreatedEvent: {}", event.getEventId());
         } catch (Exception e) {
             log.error("Error processing SwipeCreatedEvent: {}", event, e);
+            throw e;
+        }
+    }
+
+    @KafkaListener(
+            topics = "${app.kafka.topic.swipe-revoked:swipe-revoked}",
+            groupId = "${spring.kafka.consumer.group-id}-revoked",
+            containerFactory = "swipeRevokedKafkaListenerContainerFactory"
+    )
+    public void handleSwipeRevokedEvent(
+            @Payload SwipeRevokedEvent event,
+            @Header(KafkaHeaders.RECEIVED_PARTITION) int partition,
+            @Header(KafkaHeaders.OFFSET) long offset,
+            Acknowledgment acknowledgment
+    ) {
+        log.info("Received SwipeRevokedEvent partition={} offset={} eventId={} revokedSwipeEventId={}",
+                partition, offset, event.getEventId(), event.getRevokedSwipeEventId());
+        try {
+            consumerService.revoke(event);
+            acknowledgment.acknowledge();
+        } catch (Exception e) {
+            log.error("Error processing SwipeRevokedEvent eventId={}", event.getEventId(), e);
             throw e;
         }
     }

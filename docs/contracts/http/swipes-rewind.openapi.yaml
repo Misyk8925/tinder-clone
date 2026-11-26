@@ -1,0 +1,235 @@
+openapi: 3.1.0
+info:
+  title: Swipes Rewind API
+  version: 1.0.0
+  description: >-
+    Additive HTTP contract for undoing a user's single most recent swipe within
+    a 5-minute window. Routed through Gateway (`POST /api/v1/swipes/rewind`) with
+    JWT authentication and `RoleBasedRateLimitFilter`, then handled by `swipes-go`.
+    Existing `POST /api/v1/swipes` and `POST /api/v1/swipes/super` contracts are unchanged.
+servers:
+  - url: /
+tags:
+  - name: Swipes
+security:
+  - BearerAuth: []
+paths:
+  /api/v1/swipes/rewind:
+    post:
+      tags: [Swipes]
+      operationId: rewindLastSwipe
+      x-requirements: [FR-1, FR-2, FR-3, FR-4, FR-5, FR-6, NFR-1, NFR-3, NFR-4, NFR-5, NFR-6]
+      summary: Undo the authenticated user's most recent swipe within 5 minutes
+      description: >-
+        Resolves the caller's `profile1Id` strictly from the verified JWT `sub` claim.
+        Checks the user's latest swipe in `swipes_db` (`swipe_history`), verifies it is
+        within 5 minutes, verifies the pair is not in `swipe_matches`, and records an
+        append-only revocation in `swipe_revocations` before publishing `SwipeRevoked`
+        to Kafka (`swipe-revoked`). Calling this endpoint again when the latest swipe
+        is already revoked returns `200 OK` with `alreadyRevoked: true` without
+        publishing a duplicate event or rewinding an earlier swipe.
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RewindRequest'
+            examples:
+              emptyBody:
+                summary: Rewind latest swipe without explicit swipeEventId
+                value: {}
+              explicitSwipeEventId:
+                summary: Rewind latest swipe with optimistic swipeEventId guard
+                value:
+                  swipeEventId: 8c64d80e-4d5b-4df3-8b1e-1d8a3f9520b4
+      responses:
+        '200':
+          description: Latest swipe revoked (or already revoked idempotently).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RewindResponse'
+              examples:
+                revoked:
+                  summary: First rewind succeeds
+                  value:
+                    revokedSwipeEventId: 8c64d80e-4d5b-4df3-8b1e-1d8a3f9520b4
+                    revocationEventId: 1f92a35c-7c21-4e7b-9d2c-6a018723cb11
+                    profile2Id: 3d2f99ab-0c4a-4e2f-92bd-f69b11a51c08
+                    decision: false
+                    revokedAt: '2026-11-25T21:55:12.410Z'
+                    alreadyRevoked: false
+                alreadyRevoked:
+                  summary: Idempotent retry on the same revoked latest swipe
+                  value:
+                    revokedSwipeEventId: 8c64d80e-4d5b-4df3-8b1e-1d8a3f9520b4
+                    revocationEventId: 1f92a35c-7c21-4e7b-9d2c-6a018723cb11
+                    profile2Id: 3d2f99ab-0c4a-4e2f-92bd-f69b11a51c08
+                    decision: false
+                    revokedAt: '2026-11-25T21:55:12.410Z'
+                    alreadyRevoked: true
+        '400':
+          $ref: '#/components/responses/InvalidPayload'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ProfileOwnershipDenied'
+        '404':
+          $ref: '#/components/responses/NoSwipeToRewind'
+        '409':
+          $ref: '#/components/responses/RewindConflict'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  schemas:
+    RewindRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        swipeEventId:
+          type: string
+          format: uuid
+          description: Optional guard matching the latest swipe's eventId.
+    RewindResponse:
+      type: object
+      required:
+        - revokedSwipeEventId
+        - revocationEventId
+        - profile2Id
+        - decision
+        - revokedAt
+        - alreadyRevoked
+      properties:
+        revokedSwipeEventId:
+          type: string
+          format: uuid
+          description: Event ID of the original swipe that was revoked.
+        revocationEventId:
+          type: string
+          format: uuid
+          description: Event ID of the compensating SwipeRevoked event.
+        profile2Id:
+          type: string
+          format: uuid
+          description: Target profile returned to position 0 of the viewer's deck.
+        decision:
+          type: boolean
+          description: Original swipe decision (true = like, false = pass).
+        revokedAt:
+          type: string
+          format: date-time
+          description: UTC timestamp when the revocation was recorded.
+        alreadyRevoked:
+          type: boolean
+          description: True when this response was served idempotently for an already-revoked latest swipe.
+    RewindErrorResponse:
+      type: object
+      required:
+        - code
+        - message
+      properties:
+        code:
+          type: string
+          enum:
+            - INVALID_PAYLOAD
+            - UNAUTHENTICATED
+            - PROFILE_OWNERSHIP_DENIED
+            - NO_SWIPE_TO_REWIND
+            - REWIND_WINDOW_EXPIRED
+            - SWIPE_ALREADY_MATCHED
+            - NOT_LATEST_SWIPE
+            - RATE_LIMITED
+            - SERVICE_UNAVAILABLE
+        message:
+          type: string
+          description: Safe, non-PII diagnostic message.
+  responses:
+    InvalidPayload:
+      description: Malformed JSON or invalid UUID in optional `swipeEventId`.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/RewindErrorResponse'
+          example:
+            code: INVALID_PAYLOAD
+            message: Invalid UUID in field swipeEventId
+    Unauthenticated:
+      description: Missing, expired, or invalid JWT bearer token.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/RewindErrorResponse'
+          example:
+            code: UNAUTHENTICATED
+            message: Invalid JWT principal
+    ProfileOwnershipDenied:
+      description: Authenticated subject does not own a resolvable profile.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/RewindErrorResponse'
+          example:
+            code: PROFILE_OWNERSHIP_DENIED
+            message: Authenticated user does not have an active profile
+    NoSwipeToRewind:
+      description: User has no recorded swipes to rewind.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/RewindErrorResponse'
+          example:
+            code: NO_SWIPE_TO_REWIND
+            message: No swipe found to rewind
+    RewindConflict:
+      description: Rewind rejected due to expired 5-minute window, existing match, or non-latest swipeEventId.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/RewindErrorResponse'
+          examples:
+            windowExpired:
+              summary: More than 5 minutes have passed since the latest swipe
+              value:
+                code: REWIND_WINDOW_EXPIRED
+                message: Last swipe can only be rewound within 5 minutes
+            alreadyMatched:
+              summary: Latest swipe already produced a mutual match
+              value:
+                code: SWIPE_ALREADY_MATCHED
+                message: Cannot rewind a swipe that already resulted in a match
+            notLatestSwipe:
+              summary: Provided swipeEventId does not match the user's latest swipe
+              value:
+                code: NOT_LATEST_SWIPE
+                message: Provided swipeEventId is not the latest swipe
+    RateLimited:
+      description: Gateway rate limit exceeded for the caller's role.
+      headers:
+        Retry-After:
+          description: Seconds to wait before retrying.
+          schema:
+            type: integer
+            minimum: 1
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/RewindErrorResponse'
+          example:
+            code: RATE_LIMITED
+            message: Rate limit exceeded
+    ServiceUnavailable:
+      description: Database, identity lookup, or Kafka producer is unavailable.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/RewindErrorResponse'
+          example:
+            code: SERVICE_UNAVAILABLE
+            message: Rewind service is temporarily unavailable

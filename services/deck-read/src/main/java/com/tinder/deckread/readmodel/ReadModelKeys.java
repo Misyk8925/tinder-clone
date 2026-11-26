@@ -64,6 +64,10 @@ public final class ReadModelKeys {
         return viewer(viewerProfileId) + ":suppressed";
     }
 
+    public static String rewound(UUID viewerProfileId) {
+        return viewer(viewerProfileId) + ":rewound";
+    }
+
     public static String buildLock(UUID viewerProfileId) {
         return viewer(viewerProfileId) + ":build-lock";
     }
